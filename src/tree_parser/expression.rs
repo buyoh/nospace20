@@ -2,6 +2,7 @@ use std::iter;
 
 use crate::token_parser::Token;
 
+#[derive(Clone)] // TODO: REMOVE
 pub enum Operator2 {
     Plus,
     Minus,
@@ -10,6 +11,7 @@ pub enum Operator2 {
     Assign,
 }
 
+#[derive(Clone)] // TODO: REMOVE
 pub enum Expression {
     Operation2(Operator2, Box<Expression>, Box<Expression>),
     Function(String, Vec<Box<Expression>>),
@@ -19,57 +21,74 @@ pub enum Expression {
 
 fn parse_to_expression_tree_function(
     iter: &mut iter::Peekable<std::slice::Iter<Token>>,
+    name: &String,
 ) -> Box<Expression> {
-    if let Some(Token::Identifier(name)) = iter.next() {
-        if let Some(Token::ParenthesisL) = iter.next() {
-            // TODO: unary only
-            let e = parse_to_expression_tree_root(iter);
-            if let Some(Token::ParenthesisR) = iter.next() {
-                return Box::new(Expression::Function(name.clone(), vec![e]));
+    if let Some(Token::ParenthesisL) = iter.next() {
+    } else {
+        panic!("syntax error: symbol");
+    }
+    let mut args = Vec::<Box<Expression>>::new();
+    enum State {
+        L,
+        Eval,
+        Comma,
+    }
+    let mut state = State::L;
+    loop {
+        match iter.peek() {
+            Some(Token::ParenthesisR) => {
+                if let State::Comma = state {
+                    panic!("syntax error: unexpected comma");
+                }
+                iter.next();
+                return Box::new(Expression::Function(name.clone(), args));
+            }
+            Some(Token::Comma) => {
+                if let State::Eval = state {
+                    state = State::Comma;
+                } else {
+                    panic!("syntax error: unexpected comma");
+                }
+                iter.next();
+            }
+            _ => {
+                if let State::Eval = state {
+                    panic!("syntax error: missing comma");
+                }
+                let e = parse_to_expression_tree_root(iter);
+                args.push(e);
+                state = State::Eval;
             }
         }
     }
-    panic!("syntax error: symbol");
 }
 
 fn parse_to_expression_tree_factor(
     iter: &mut iter::Peekable<std::slice::Iter<Token>>,
 ) -> Box<Expression> {
-    if let Some(token) = iter.peek() {
-        match token {
-            Token::Number(val) => {
-                iter.next();
-                return Box::new(Expression::Factor(*val));
-            }
-            Token::Identifier(id) => match id.as_str() {
-                "one" => {
-                    iter.next();
-                    return Box::new(Expression::Factor(1));
-                }
-                "two" => {
-                    iter.next();
-                    return Box::new(Expression::Factor(2));
-                }
-                "pow2" => return parse_to_expression_tree_function(iter),
-                _ => {
-                    // TODO: confirm whether the identifier is declared
-                    // panic!("syntax error: unknown identifier")
-                    iter.next();
-                    return Box::new(Expression::Variable(id.clone()));
-                }
-            },
-            Token::ParenthesisL => {
-                iter.next();
-                let e = parse_to_expression_tree_root(iter);
-                if let Some(Token::ParenthesisR) = iter.next() {
-                    return e;
-                }
-                panic!("syntax error: expected ')'");
-            }
-            _ => panic!("syntax error: symbol"),
+    match iter.peek() {
+        Some(Token::Number(val)) => {
+            iter.next();
+            return Box::new(Expression::Factor(*val));
         }
+        Some(Token::Identifier(id)) => {
+            // TODO: confirm whether the identifier is reserved e.g. func
+            iter.next();
+            if let Some(Token::ParenthesisL) = iter.peek() {
+                return parse_to_expression_tree_function(iter, id);
+            }
+            return Box::new(Expression::Variable(id.clone()));
+        }
+        Some(Token::ParenthesisL) => {
+            iter.next();
+            let e = parse_to_expression_tree_root(iter);
+            if let Some(Token::ParenthesisR) = iter.next() {
+                return e;
+            }
+            panic!("syntax error: expected ')'");
+        }
+        _ => panic!("syntax error: terminal"),
     }
-    panic!("syntax error: terminal");
 }
 
 fn parse_to_expression_tree_mul(

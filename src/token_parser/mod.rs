@@ -12,6 +12,7 @@ pub enum Token {
     BraceR,       // }
     Semicolon,    // ;
     Colon,        // ;
+    Comma,        //,
 }
 
 fn parse_number(iter: &mut iter::Peekable<str::Chars>) -> Token {
@@ -70,12 +71,32 @@ pub fn parse_to_tokens(text: &String) -> Vec<Token> {
                     tokens.push(Token::ParenthesisR);
                     iter.next();
                 }
+                '[' => {
+                    tokens.push(Token::BracketL);
+                    iter.next();
+                }
+                ']' => {
+                    tokens.push(Token::BracketR);
+                    iter.next();
+                }
+                '{' => {
+                    tokens.push(Token::BraceL);
+                    iter.next();
+                }
+                '}' => {
+                    tokens.push(Token::BraceR);
+                    iter.next();
+                }
                 ';' => {
                     tokens.push(Token::Semicolon);
                     iter.next();
                 }
                 ':' => {
                     tokens.push(Token::Colon);
+                    iter.next();
+                }
+                ',' => {
+                    tokens.push(Token::Comma);
                     iter.next();
                 }
                 _ => panic!("invalid char: {}", c),
