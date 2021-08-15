@@ -1,17 +1,18 @@
 use syntactic_analyzer::Scope;
-use token_parser::Token;
+use token_parser::PrettyToken;
 use tree_parser::Statement;
 
+mod base;
 mod interpreter;
 mod syntactic_analyzer;
 mod token_parser;
 mod tree_parser;
 
-pub fn parse_to_tokens(text: &String) -> Vec<Token> {
+pub fn parse_to_tokens(text: &String) -> Vec<PrettyToken> {
     token_parser::parse_to_tokens(text)
 }
 
-pub fn parse_to_tree(tokens: &Vec<Token>) -> Vec<Statement> {
+pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Vec<Statement> {
     tree_parser::parse_to_tree(tokens)
 }
 

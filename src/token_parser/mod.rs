@@ -15,9 +15,21 @@ pub enum Token {
     Comma,        //,
 }
 
-fn parse_number(iter: &mut iter::Peekable<str::Chars>) -> Token {
+pub struct TokenInfo {
+    pub code_pointer: usize,
+}
+
+pub type PrettyToken = (Token, TokenInfo);
+
+impl TokenInfo {
+    fn new(code_pointer: usize) -> Self {
+        TokenInfo { code_pointer }
+    }
+}
+
+fn parse_number(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> Token {
     let mut value = 0 as i64;
-    while let Some(c) = iter.peek() {
+    while let Some((_, c)) = iter.peek() {
         if !c.is_ascii_digit() {
             // TODO: minus
             // TODO: 0x
@@ -30,15 +42,17 @@ fn parse_number(iter: &mut iter::Peekable<str::Chars>) -> Token {
     Token::Number(value)
 }
 
-fn parse_identifier(iter: &mut iter::Peekable<str::Chars>) -> Token {
-    if let Some('A'..='Z') | Some('a'..='z') | Some('_') = iter.peek() {
+fn parse_identifier(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> Token {
+    if let Some((_, 'A'..='Z')) | Some((_, 'a'..='z')) | Some((_, '_')) = iter.peek() {
     } else {
         panic!("internal error");
     }
     let mut id = String::new();
     loop {
-        if let Some('A'..='Z') | Some('a'..='z') | Some('_') | Some('0'..='9') = iter.peek() {
-            id.push(iter.next().unwrap());
+        if let Some((_, 'A'..='Z')) | Some((_, 'a'..='z')) | Some((_, '_')) | Some((_, '0'..='9')) =
+            iter.peek()
+        {
+            id.push(iter.next().unwrap().1);
         } else {
             id.shrink_to_fit();
             return Token::Identifier(id);
@@ -46,61 +60,35 @@ fn parse_identifier(iter: &mut iter::Peekable<str::Chars>) -> Token {
     }
 }
 
-pub fn parse_to_tokens(text: &String) -> Vec<Token> {
-    let mut tokens = Vec::<Token>::new();
-    let mut iter = text.chars().peekable();
-    while let Some(c) = iter.peek() {
+pub fn parse_to_tokens(text: &String) -> Vec<PrettyToken> {
+    let mut tokens = Vec::<PrettyToken>::new();
+    let mut iter = text.chars().enumerate().peekable();
+    while let Some((idx, c)) = iter.peek() {
+        let info = TokenInfo::new(*idx);
         if c.is_ascii_digit() {
-            tokens.push(parse_number(&mut iter));
+            tokens.push((parse_number(&mut iter), info));
         } else if c.is_whitespace() {
             iter.next();
         } else {
-            match *c {
-                '+' | '-' | '*' | '/' | '=' => {
-                    tokens.push(Token::Symbol(*c));
-                    iter.next();
-                }
+            let t = match *c {
+                '+' | '-' | '*' | '/' | '=' => Token::Symbol(*c),
                 'A'..='Z' | 'a'..='z' | '_' => {
-                    tokens.push(parse_identifier(&mut iter));
+                    tokens.push((parse_identifier(&mut iter), info));
+                    continue;
                 }
-                '(' => {
-                    tokens.push(Token::ParenthesisL);
-                    iter.next();
-                }
-                ')' => {
-                    tokens.push(Token::ParenthesisR);
-                    iter.next();
-                }
-                '[' => {
-                    tokens.push(Token::BracketL);
-                    iter.next();
-                }
-                ']' => {
-                    tokens.push(Token::BracketR);
-                    iter.next();
-                }
-                '{' => {
-                    tokens.push(Token::BraceL);
-                    iter.next();
-                }
-                '}' => {
-                    tokens.push(Token::BraceR);
-                    iter.next();
-                }
-                ';' => {
-                    tokens.push(Token::Semicolon);
-                    iter.next();
-                }
-                ':' => {
-                    tokens.push(Token::Colon);
-                    iter.next();
-                }
-                ',' => {
-                    tokens.push(Token::Comma);
-                    iter.next();
-                }
+                '(' => Token::ParenthesisL,
+                ')' => Token::ParenthesisR,
+                '[' => Token::BracketL,
+                ']' => Token::BracketR,
+                '{' => Token::BraceL,
+                '}' => Token::BraceR,
+                ';' => Token::Semicolon,
+                ':' => Token::Colon,
+                ',' => Token::Comma,
                 _ => panic!("invalid char: {}", c),
-            }
+            };
+            tokens.push((t, info));
+            iter.next();
         }
     }
     tokens

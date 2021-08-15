@@ -76,6 +76,7 @@ impl Environment<'_> {
                     panic!("syntax error: unknown variable name")
                 }
             }
+            Expression::Invalid(_) => todo!(),
         }
     }
 
