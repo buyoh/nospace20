@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate assert_matches;
+
 use syntactic_analyzer::Scope;
 use token_parser::PrettyToken;
 use tree_parser::Statement;

@@ -1,5 +1,6 @@
 use std::{iter, str};
 
+#[derive(Debug)]
 pub enum Token {
     Number(i64),
     Identifier(String),
@@ -60,20 +61,21 @@ fn parse_identifier(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> T
     }
 }
 
-pub fn parse_to_tokens(text: &String) -> Vec<PrettyToken> {
+fn parse_to_tokens_internal(
+    iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>,
+) -> Vec<PrettyToken> {
     let mut tokens = Vec::<PrettyToken>::new();
-    let mut iter = text.chars().enumerate().peekable();
     while let Some((idx, c)) = iter.peek() {
         let info = TokenInfo::new(*idx);
         if c.is_ascii_digit() {
-            tokens.push((parse_number(&mut iter), info));
+            tokens.push((parse_number(iter), info));
         } else if c.is_whitespace() {
             iter.next();
         } else {
             let t = match *c {
                 '+' | '-' | '*' | '/' | '=' => Token::Symbol(*c),
                 'A'..='Z' | 'a'..='z' | '_' => {
-                    tokens.push((parse_identifier(&mut iter), info));
+                    tokens.push((parse_identifier(iter), info));
                     continue;
                 }
                 '(' => Token::ParenthesisL,
@@ -93,3 +95,10 @@ pub fn parse_to_tokens(text: &String) -> Vec<PrettyToken> {
     }
     tokens
 }
+
+pub fn parse_to_tokens(text: &String) -> Vec<PrettyToken> {
+    parse_to_tokens_internal(&mut text.chars().enumerate().peekable())
+}
+
+#[cfg(test)]
+mod test;
