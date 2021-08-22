@@ -98,6 +98,7 @@ impl Environment<'_> {
                 let x = self.interpret_expression(&expr);
                 println!("ans = {}", x);
             }
+            Statement::Invalid(_) => (),
         }
     }
 

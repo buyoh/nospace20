@@ -1,8 +1,63 @@
 use std::iter;
 
-use crate::token_parser::{PrettyToken, Token};
+use crate::{
+    base::CodeParseError,
+    code_parse_error,
+    token_parser::{PrettyToken, Token, TokenInfo},
+};
 
 use super::expression::*;
+
+//
+
+// 期待するトークンなら Ok を返すマクロ
+// そうでなければ、Expression::Invalid に渡すべき CodeParseError のインデックスを返す。
+// NOTE: iter.next() or iter.peek()?
+// peek は値を消費しない為に loop に陥る可能性がある。この判定は難しいので、next を推奨する。
+macro_rules! match_expect_token {
+    ($self: expr, $v: expr, $pat: pat) => {
+        // #[warn(unused_must_use)]
+        match $v {
+            Some(($pat, _)) => Ok(()),
+            Some((_, token_info)) => {
+                Err($self.add_parse_error(token_info, "unexpected token".to_owned()))
+            }
+            None => Err($self.add_end_error("unexpected end of input".to_owned())),
+        }
+    };
+    ($self: expr, $v: expr, $pat: pat if $cond:expr) => {
+        // #[warn(unused_must_use)]
+        match $v {
+            Some(($pat, _)) if $cond => Ok(()),
+            Some((_, token_info)) => {
+                Err($self.add_parse_error(token_info, "unexpected token".to_owned()))
+            }
+            None => Err($self.add_end_error("unexpected end of input".to_owned())),
+        }
+    };
+    ($self: expr, $v: expr, $pat: pat => $res: expr) => {
+        match $v {
+            Some(($pat, _)) => Ok($res),
+            Some((_, token_info)) => {
+                Err($self.add_parse_error(token_info, "unexpected token".to_owned()))
+            }
+            None => Err($self.add_end_error("unexpected end of input".to_owned())),
+        }
+    };
+}
+
+// TODO: unused_must_use is experimental... remove this
+macro_rules! match_expect_token_unused {
+    ($self: expr, $v: expr, $pat: pat) => {
+        let _ = match_expect_token!($self, $v, $pat);
+    };
+
+    ($self: expr, $v: expr, $pat: pat if $cond:expr) => {
+        let _ = match_expect_token!($self, $v, $pat if $cond);
+    }
+}
+
+//
 
 #[derive(Clone)] // TODO: REMOVE
 pub enum Statement {
@@ -10,147 +65,176 @@ pub enum Statement {
     FunctionDeclaration(String, Vec<String>, Vec<Statement>),
     Return(Box<Expression>),
     Expression(Box<Expression>),
+    Invalid(usize), // See, Expression::Invalid
 }
 
-fn parse_to_statements_block(
-    iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> Vec<Statement> {
-    if let Some((Token::BraceL, _)) = iter.next() {
-    } else {
-        panic!("syntax error: expected left brace");
+//
+
+struct StatementBuilder<'b: 'a, 'a> {
+    iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
+    code_parse_error: Vec<CodeParseError>,
+}
+
+impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
+    fn parse(
+        iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
+    ) -> (Vec<Statement>, Vec<CodeParseError>) {
+        let mut b = Self {
+            iter,
+            code_parse_error: vec![],
+        };
+        let e = b.parse_to_statements();
+        (e, b.code_parse_error)
     }
-    let ss = parse_to_statements(iter);
-    if let Some((Token::BraceR, _)) = iter.next() {
+
+    fn add_parse_error(&mut self, token_info: &TokenInfo, msg: String) -> usize {
+        let i = self.code_parse_error.len();
+        self.code_parse_error
+            .push(code_parse_error!(token_info.code_pointer, msg.to_string()));
+        i
+    }
+    fn add_end_error(&mut self, msg: String) -> usize {
+        let i = self.code_parse_error.len();
+        self.code_parse_error
+            .push(code_parse_error!(0, msg.to_string()));
+        i
+    }
+
+    fn parse_to_statements_block(&mut self) -> Vec<Statement> {
+        match_expect_token_unused!(self, self.iter.next(), Token::BraceL);
+        let ss = self.parse_to_statements();
+        match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
         return ss;
-    } else {
-        panic!("syntax error: expected right brace");
     }
-}
 
-fn parse_to_statements_let(iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>) -> Statement {
-    iter.next(); // let
-    if let Some((Token::Colon, _)) = iter.next() {
-    } else {
-        panic!("syntax error: expected ':'");
-    }
-    let id = if let Some((Token::Identifier(id), _)) = iter.next() {
-        id
-    } else {
-        panic!("syntax error: expected ':'");
-    };
-    if let Some((Token::Semicolon, _)) = iter.next() {
+    fn parse_to_statements_let(&mut self) -> Statement {
+        if let Err(_) =
+            match_expect_token!(self, self.iter.next(), Token::Identifier(id) if id == "let")
+        {
+            panic!("internal error");
+        }
+        match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+        let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+            Ok(x) => x,
+            Err(e) => {
+                return Statement::Invalid(e);
+            }
+        };
+        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         return Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0)));
-    } else {
-        panic!("syntax error: expected ';'");
     }
-}
 
-fn parse_to_statements_func(iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>) -> Statement {
-    iter.next(); // func
-    if let Some((Token::Colon, _)) = iter.next() {
-    } else {
-        panic!("syntax error: expected ':'");
-    }
-    let id = if let Some((Token::Identifier(id), _)) = iter.next() {
-        id
-    } else {
-        panic!("syntax error: expected identifier");
-    };
-    if let Some((Token::ParenthesisL, _)) = iter.next() {
-    } else {
-        panic!("syntax error: expected '('");
-    }
-    let mut args = Vec::<String>::new();
-    enum State {
-        L,
-        Var,
-        Comma,
-    }
-    let mut state = State::L;
-    loop {
-        match iter.next() {
-            Some((Token::Identifier(name), _)) => {
-                if let State::Var = state {
-                    panic!("syntax error: expected ','");
-                }
-                args.push(name.clone());
-                state = State::Var;
+    fn parse_to_statements_func(&mut self) -> Statement {
+        if let Err(_) =
+            match_expect_token!(self, self.iter.next(), Token::Identifier(id) if id == "func")
+        {
+            panic!("internal error");
+        }
+        match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+        let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+            Ok(x) => x,
+            Err(e) => {
+                return Statement::Invalid(e);
             }
-            Some((Token::Comma, _)) => {
-                if let State::Var = state {
-                    state = State::Comma;
-                } else {
-                    panic!("syntax error: unexpected ','");
+        };
+        match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisL);
+        let mut args = Vec::<String>::new();
+        enum State {
+            L,
+            Var,
+            Comma,
+        }
+        let mut state = State::L;
+        loop {
+            match self.iter.next() {
+                Some((Token::Identifier(name), token_info)) => {
+                    if let State::Var = state {
+                        // note: 引数のparseに失敗するなら続行するべきではないと思う
+                        self.add_parse_error(token_info, "expected ','".to_owned());
+                    }
+                    args.push(name.clone());
+                    state = State::Var;
                 }
-            }
-            Some((Token::ParenthesisR, _)) => {
-                if let State::Comma = state {
-                    panic!("syntax error: unexpected ','");
-                } else {
+                Some((Token::Comma, token_info)) => {
+                    if let State::Var = state {
+                        state = State::Comma;
+                    } else {
+                        self.add_parse_error(token_info, "unexpected ','".to_owned());
+                    }
+                }
+                Some((Token::ParenthesisR, token_info)) => {
+                    if let State::Comma = state {
+                        self.add_parse_error(token_info, "unexpected ','".to_owned());
+                    } else {
+                        break;
+                    }
+                }
+                Some((_, token_info)) => {
+                    self.add_parse_error(token_info, "unexpected token".to_owned());
+                    break;
+                }
+                None => {
+                    self.add_end_error("unexpected end of input".to_owned());
                     break;
                 }
             }
-            _ => {
-                panic!("syntax error");
-            }
         }
+        if let Err(e) = match_expect_token!(self, self.iter.peek(), Token::BraceL) {
+            self.iter.next(); // NOTE: nextが安全だが不親切とは思う
+            return Statement::Invalid(e);
+        }
+        return Statement::FunctionDeclaration(id.clone(), args, self.parse_to_statements_block());
     }
-    if let Some((Token::BraceL, _)) = iter.peek() {
-        return Statement::FunctionDeclaration(id.clone(), args, parse_to_statements_block(iter));
-    } else {
-        panic!("syntax error: expected left brace");
-    }
-}
 
-fn parse_to_statements_return(
-    iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> Statement {
-    iter.next(); // return
-    if let Some((Token::Colon, _)) = iter.next() {
-    } else {
-        panic!("syntax error: expected ':'");
-    }
-    let expr = parse_to_expression_tree_root(iter);
-    if let Some((Token::Semicolon, _)) = iter.next() {
+    fn parse_to_statements_return(&mut self) -> Statement {
+        if let Err(_) =
+            match_expect_token!(self, self.iter.next(), Token::Identifier(id) if id == "return")
+        {
+            panic!("internal error");
+        }
+        match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+        let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+        self.code_parse_error.append(&mut errs);
+        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         return Statement::Return(expr);
-    } else {
-        panic!("syntax error: expected ';'");
+    }
+
+    fn parse_to_statements(&mut self) -> Vec<Statement> {
+        let mut statements = Vec::<Statement>::new();
+        while let Some(token) = self.iter.peek() {
+            match token {
+                (Token::Identifier(identifier), _) => {
+                    if identifier == "let" {
+                        statements.push(self.parse_to_statements_let());
+                        continue;
+                    }
+                    if identifier == "func" {
+                        statements.push(self.parse_to_statements_func());
+                        continue;
+                    }
+                    if identifier == "return" {
+                        statements.push(self.parse_to_statements_return());
+                        continue;
+                    }
+                }
+                (Token::BraceR, _) => {
+                    // TODO: consider only BraceR
+                    break;
+                }
+                _ => {}
+            }
+            let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+            self.code_parse_error.append(&mut errs);
+            statements.push(Statement::Expression(expr));
+            match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+        }
+        return statements;
+        // panic!("syntax error: terminal");
     }
 }
 
 pub(super) fn parse_to_statements(
     iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> Vec<Statement> {
-    let mut statements = Vec::<Statement>::new();
-    while let Some(token) = iter.peek() {
-        match token {
-            (Token::Identifier(identifier), _) => {
-                if identifier == "let" {
-                    statements.push(parse_to_statements_let(iter));
-                    continue;
-                }
-                if identifier == "func" {
-                    statements.push(parse_to_statements_func(iter));
-                    continue;
-                }
-                if identifier == "return" {
-                    statements.push(parse_to_statements_return(iter));
-                    continue;
-                }
-            }
-            (Token::BraceR, _) => {
-                // TODO: consider only BraceR
-                break;
-            }
-            _ => {}
-        }
-        let expr = parse_to_expression_tree_root(iter);
-        if let Some((Token::Semicolon, _)) = iter.next() {
-            statements.push(Statement::Expression(expr));
-        } else {
-            panic!("syntax error: expected ';'");
-        }
-    }
-    return statements;
-    // panic!("syntax error: terminal");
+) -> (Vec<Statement>, Vec<CodeParseError>) {
+    StatementBuilder::parse(iter)
 }

@@ -1,3 +1,4 @@
+use crate::base::CodeParseError;
 use crate::token_parser::PrettyToken;
 
 pub(crate) use self::expression::Expression;
@@ -8,7 +9,12 @@ pub(crate) use self::statement::Statement;
 mod expression;
 mod statement;
 
-pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Vec<Statement> {
+pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<Statement>, Vec<CodeParseError>> {
     let mut iter = tokens.iter().peekable();
-    parse_to_statements(&mut iter)
+    let (st, err) = parse_to_statements(&mut iter);
+    if err.is_empty() {
+        Ok(st)
+    } else {
+        Err(err)
+    }
 }

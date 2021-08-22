@@ -110,6 +110,7 @@ fn syntactic_analyze_internal(statements: &Vec<Statement>, is_root: bool) -> Sco
                     panic!("syntactic error: invalid expression in root")
                 }
             }
+            Statement::Invalid(_) => (),
         }
     }
     scope

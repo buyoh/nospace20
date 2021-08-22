@@ -2,10 +2,31 @@ use std::iter;
 
 use crate::code_parse_error;
 
+use crate::token_parser::TokenInfo;
 use crate::{
     base::CodeParseError,
     token_parser::{PrettyToken, Token},
 };
+
+//
+
+// 期待するトークンなら Ok を返すマクロ
+// そうでなければ、Expression::Invalid に渡すべき CodeParseError のインデックスを返す。
+// NOTE: iter.next() or iter.peek()?
+// peek は値を消費しない為に loop に陥る可能性がある。この判定は難しいので、next を推奨する。
+macro_rules! match_expect_token {
+    ($self: expr, $v: expr, $pat: pat) => {
+        match $v {
+            Some(($pat, _)) => Ok(()),
+            Some((_, token_info)) => {
+                Err($self.add_parse_error(token_info, "unexpected token".to_owned()))
+            }
+            None => Err($self.add_end_error("unexpected end of input".to_owned())),
+        }
+    };
+}
+
+//
 
 #[derive(Clone)] // TODO: REMOVE
 pub enum Operator2 {
@@ -22,102 +43,177 @@ pub enum Expression {
     Function(String, Vec<Box<Expression>>),
     Factor(i64),
     Variable(String),
-    Invalid(CodeParseError),
+    Invalid(usize), // NOTE: CodeParseError に関連する情報を入れる。今は CodeParseError の
+                    // インデックスを利用。 本来は ExpressionBuilder 単位ではなく、全体で独立した
+                    // インデックスを利用するべき。
+                    // 構文木のノードからエラー情報を参照したい目的は特に無いので、使われていない。
 }
 
-fn parse_to_expression_tree_function(
-    iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-    name: &String,
-) -> Box<Expression> {
-    if let Some((Token::ParenthesisL, _)) = iter.next() {
-    } else {
-        panic!("syntax error: symbol");
-    }
-    let mut args = Vec::<Box<Expression>>::new();
-    enum State {
-        L,
-        Eval,
-        Comma,
-    }
-    let mut state = State::L;
-    loop {
-        match iter.peek() {
-            Some((Token::ParenthesisR, _)) => {
-                if let State::Comma = state {
-                    panic!("syntax error: unexpected comma");
-                }
-                iter.next();
-                return Box::new(Expression::Function(name.clone(), args));
-            }
-            Some((Token::Comma, _)) => {
-                if let State::Eval = state {
-                    state = State::Comma;
-                } else {
-                    panic!("syntax error: unexpected comma");
-                }
-                iter.next();
-            }
-            _ => {
-                if let State::Eval = state {
-                    panic!("syntax error: missing comma");
-                }
-                let e = parse_to_expression_tree_root(iter);
-                args.push(e);
-                state = State::Eval;
-            }
-        }
-    }
+//
+
+struct ExpressionBuilder<'b: 'a, 'a> {
+    iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
+    code_parse_error: Vec<CodeParseError>,
 }
 
-fn parse_to_expression_tree_factor(
-    iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> Box<Expression> {
-    match iter.peek() {
-        Some((Token::Number(val), _)) => {
-            iter.next();
-            return Box::new(Expression::Factor(*val));
+impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
+    fn parse(
+        iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
+    ) -> (Box<Expression>, Vec<CodeParseError>) {
+        let mut b = Self {
+            iter,
+            code_parse_error: vec![],
+        };
+        let e = b.parse_to_expression_tree_root();
+        (e, b.code_parse_error)
+    }
+
+    fn add_parse_error(&mut self, token_info: &TokenInfo, msg: String) -> usize {
+        let i = self.code_parse_error.len();
+        self.code_parse_error
+            .push(code_parse_error!(token_info.code_pointer, msg.to_string()));
+        i
+    }
+    fn add_end_error(&mut self, msg: String) -> usize {
+        let i = self.code_parse_error.len();
+        self.code_parse_error
+            .push(code_parse_error!(0, msg.to_string()));
+        i
+    }
+
+    fn parse_to_expression_tree_function(&mut self, name: &String) -> Box<Expression> {
+        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::ParenthesisL) {
+            return Box::new(Expression::Invalid(e));
         }
-        Some((Token::Identifier(id), _)) => {
-            // TODO: confirm whether the identifier is reserved e.g. func
-            iter.next();
-            if let Some((Token::ParenthesisL, _)) = iter.peek() {
-                return parse_to_expression_tree_function(iter, id);
+
+        let mut args = Vec::<Box<Expression>>::new();
+        enum State {
+            L,
+            Eval,
+            Comma,
+        }
+        let mut state = State::L;
+        loop {
+            match self.iter.peek() {
+                Some((Token::ParenthesisR, token_info)) => {
+                    if let State::Comma = state {
+                        // weak syntax error and proceed parsing
+                        self.add_parse_error(token_info, "unexpected comma".to_owned());
+                    }
+                    self.iter.next();
+                    return Box::new(Expression::Function(name.clone(), args));
+                }
+                Some((Token::Comma, token_info)) => {
+                    if let State::Eval = state {
+                        state = State::Comma;
+                    } else {
+                        // weak syntax error and proceed parsing
+                        self.add_parse_error(token_info, "unexpected comma".to_owned());
+                    }
+                    self.iter.next();
+                }
+                Some((_, token_info)) => {
+                    if let State::Eval = state {
+                        // weak syntax error and proceed parsing
+                        self.add_parse_error(token_info, "missing comma".to_owned());
+                    }
+                    let e = self.parse_to_expression_tree_root();
+                    args.push(e);
+                    state = State::Eval;
+                }
+                None => {
+                    return Box::new(Expression::Invalid(
+                        self.add_end_error("unexpected end of input".to_owned()),
+                    ))
+                }
             }
-            return Box::new(Expression::Variable(id.clone()));
         }
-        Some((Token::ParenthesisL, _)) => {
-            iter.next();
-            let e = parse_to_expression_tree_root(iter);
-            if let Some((Token::ParenthesisR, _)) = iter.next() {
+    }
+
+    fn parse_to_expression_tree_factor(&mut self) -> Box<Expression> {
+        match self.iter.peek() {
+            Some((Token::Number(val), _)) => {
+                self.iter.next();
+                return Box::new(Expression::Factor(*val));
+            }
+            Some((Token::Identifier(id), _)) => {
+                // TODO: confirm whether the identifier is reserved e.g. func
+                self.iter.next();
+                if let Some((Token::ParenthesisL, _)) = self.iter.peek() {
+                    return self.parse_to_expression_tree_function(id);
+                }
+                return Box::new(Expression::Variable(id.clone()));
+            }
+            Some((Token::ParenthesisL, _)) => {
+                self.iter.next();
+                let e = self.parse_to_expression_tree_root();
+
+                if let Err(_) = match_expect_token!(self, self.iter.next(), Token::ParenthesisR) {
+                    // weak syntax error and proceed parsing
+                }
                 return e;
             }
-            panic!("syntax error: expected ')'");
-        }
-        Some((_, token_info)) => {
-            return Box::new(Expression::Invalid(code_parse_error!(
-                token_info.code_pointer,
-                "syntax error: symbol".to_string()
-            )));
-        }
-        _ => {
-            return Box::new(Expression::Invalid(code_parse_error!(
-                0,
-                "syntax error: unexpected terminator".to_string()
-            )));
+            Some((_, token_info)) => {
+                return Box::new(Expression::Invalid(
+                    self.add_parse_error(token_info, "unexpected token".to_owned()),
+                ));
+            }
+            _ => {
+                return Box::new(Expression::Invalid(
+                    self.add_end_error("unexpected end of input".to_owned()),
+                ));
+            }
         }
     }
-}
 
-fn parse_to_expression_tree_mul(
-    iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> Box<Expression> {
-    let mut left = parse_to_expression_tree_factor(iter);
-    loop {
-        let op = if let Some(token) = iter.peek() {
+    fn parse_to_expression_tree_mul(&mut self) -> Box<Expression> {
+        let mut left = self.parse_to_expression_tree_factor();
+        loop {
+            let op = if let Some(token) = self.iter.peek() {
+                match token {
+                    (Token::Symbol(chr), _) => match *chr {
+                        '*' => Operator2::Multiply,
+                        '/' => Operator2::Divide,
+                        _ => return left,
+                    },
+                    _ => return left,
+                }
+            } else {
+                return left;
+            };
+            self.iter.next();
+            let right = self.parse_to_expression_tree_factor();
+            left = Box::new(Expression::Operation2(op, left, right))
+        }
+    }
+
+    fn parse_to_expression_tree_plus(&mut self) -> Box<Expression> {
+        let mut left = self.parse_to_expression_tree_mul();
+        loop {
+            let op = if let Some(token) = self.iter.peek() {
+                match token {
+                    (Token::Symbol(chr), _) => match *chr {
+                        '+' => Operator2::Plus,
+                        '-' => Operator2::Minus,
+                        _ => return left,
+                    },
+                    _ => return left,
+                }
+            } else {
+                return left;
+            };
+            self.iter.next();
+            let right = self.parse_to_expression_tree_mul();
+            left = Box::new(Expression::Operation2(op, left, right));
+        }
+    }
+
+    fn parse_to_expression_tree_assign(&mut self) -> Box<Expression> {
+        let left = self.parse_to_expression_tree_plus();
+        let op = if let Some(token) = self.iter.peek() {
             match token {
                 (Token::Symbol(chr), _) => match *chr {
-                    '*' => Operator2::Multiply,
-                    '/' => Operator2::Divide,
+                    '=' => Operator2::Assign,
                     _ => return left,
                 },
                 _ => return left,
@@ -125,58 +221,19 @@ fn parse_to_expression_tree_mul(
         } else {
             return left;
         };
-        iter.next();
-        let right = parse_to_expression_tree_factor(iter);
-        left = Box::new(Expression::Operation2(op, left, right))
+        self.iter.next();
+        let right = self.parse_to_expression_tree_assign();
+        Box::new(Expression::Operation2(op, left, right))
     }
-}
 
-fn parse_to_expression_tree_plus(
-    iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> Box<Expression> {
-    let mut left = parse_to_expression_tree_mul(iter);
-    loop {
-        let op = if let Some(token) = iter.peek() {
-            match token {
-                (Token::Symbol(chr), _) => match *chr {
-                    '+' => Operator2::Plus,
-                    '-' => Operator2::Minus,
-                    _ => return left,
-                },
-                _ => return left,
-            }
-        } else {
-            return left;
-        };
-        iter.next();
-        let right = parse_to_expression_tree_mul(iter);
-        left = Box::new(Expression::Operation2(op, left, right));
+    fn parse_to_expression_tree_root(&mut self) -> Box<Expression> {
+        // TODO: check the expression that it has Invalid
+        self.parse_to_expression_tree_assign()
     }
-}
-
-fn parse_to_expression_tree_assign(
-    iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> Box<Expression> {
-    let left = parse_to_expression_tree_plus(iter);
-    let op = if let Some(token) = iter.peek() {
-        match token {
-            (Token::Symbol(chr), _) => match *chr {
-                '=' => Operator2::Assign,
-                _ => return left,
-            },
-            _ => return left,
-        }
-    } else {
-        return left;
-    };
-    iter.next();
-    let right = parse_to_expression_tree_assign(iter);
-    Box::new(Expression::Operation2(op, left, right))
 }
 
 pub(super) fn parse_to_expression_tree_root(
     iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> Box<Expression> {
-    // TODO: check the expression that it has Invalid
-    parse_to_expression_tree_assign(iter)
+) -> (Box<Expression>, Vec<CodeParseError>) {
+    ExpressionBuilder::parse(iter)
 }
