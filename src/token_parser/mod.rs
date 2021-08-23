@@ -1,6 +1,6 @@
 use std::{iter, str};
 
-use crate::{base::CodeParseError, code_parse_error};
+use crate::{base::CodeParseErrorInternal, code_parse_error};
 
 #[derive(Debug)]
 pub enum Token {
@@ -66,9 +66,9 @@ fn parse_identifier(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> T
 
 fn parse_to_tokens_internal(
     iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>,
-) -> (Vec<PrettyToken>, Vec<CodeParseError>) {
+) -> (Vec<PrettyToken>, Vec<CodeParseErrorInternal>) {
     let mut tokens = Vec::<PrettyToken>::new();
-    let mut parse_errors = Vec::<CodeParseError>::new();
+    let mut parse_errors = Vec::<CodeParseErrorInternal>::new();
     while let Some((idx, c)) = iter.peek() {
         let info = TokenInfo::new(*idx);
         if c.is_ascii_digit() {
@@ -105,7 +105,7 @@ fn parse_to_tokens_internal(
     (tokens, parse_errors)
 }
 
-pub fn parse_to_tokens(text: &str) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
+pub fn parse_to_tokens(text: &str) -> Result<Vec<PrettyToken>, Vec<CodeParseErrorInternal>> {
     let (tk, err) = parse_to_tokens_internal(&mut text.chars().enumerate().peekable());
     if err.is_empty() {
         Ok(tk)

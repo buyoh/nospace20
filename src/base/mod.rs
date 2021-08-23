@@ -1,5 +1,5 @@
 #[derive(Clone, Debug)] // TODO: REMOVE Clone
-pub struct CodeParseError {
+pub struct CodeParseErrorInternal {
     // TODO: rename to CodeParseErrorInternal
     pub code_pointer: usize,
     pub message: String, // TODO: consider Cow<'static, str>
@@ -7,7 +7,7 @@ pub struct CodeParseError {
     pub internal_file: &'static str,
 }
 
-pub struct CodeParseErrorTiny {
+pub struct CodeParseError {
     pub code_pointer: usize,
     pub message: String, // TODO: consider Cow<'static, str>
 }
@@ -15,7 +15,7 @@ pub struct CodeParseErrorTiny {
 #[macro_export]
 macro_rules! code_parse_error {
     ($ptr: expr, $msg: expr) => {
-        CodeParseError {
+        CodeParseErrorInternal {
             code_pointer: $ptr,
             message: $msg,
             internal_line: line!(),
@@ -24,9 +24,9 @@ macro_rules! code_parse_error {
     };
 }
 
-impl CodeParseError {
-    pub fn shrink(&self) -> CodeParseErrorTiny {
-        CodeParseErrorTiny {
+impl CodeParseErrorInternal {
+    pub fn shrink(&self) -> CodeParseError {
+        CodeParseError {
             code_pointer: self.code_pointer,
             message: self.message.clone(),
         }

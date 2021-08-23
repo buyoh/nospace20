@@ -1,12 +1,12 @@
 use std::{io::Read, iter::repeat, process};
 
 use nospace20::{
-    interpret_main_func, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseErrorTiny,
+    interpret_main_func, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError,
     TextCode,
 };
 use unicode_width::UnicodeWidthStr;
 
-fn handle_parse_error<T>(res: Result<T, Vec<CodeParseErrorTiny>>, text: &TextCode) -> T {
+fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -> T {
     let errors = match res {
         Ok(x) => return x,
         Err(e) => e,
