@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::tree_parser::{Expression, Statement};
+use crate::tree_parser::{Expression, Operator2, Statement};
 
 struct IdentifierInfo {
     // name: String,
@@ -17,10 +17,40 @@ pub struct Variable {
     pub identifier: String, // TODO: use IdentifierInfo
 }
 
-#[derive(Clone)] // TODO: REMOVE
+// #[derive(Clone)] // TODO: REMOVE
+pub enum ExecExpression {
+    Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
+    While(Box<ExecExpression>, Vec<ExecStatement>),
+    Function(String, Vec<Box<ExecExpression>>),
+    Factor(i64),
+    Variable(String),
+}
+
+// #[derive(Clone)] // TODO: REMOVE
 pub enum ExecStatement {
-    Return(Box<Expression>),
-    Expression(Box<Expression>),
+    Return(Box<ExecExpression>),
+    Expression(Box<ExecExpression>),
+}
+
+fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
+    match expr.as_ref() {
+        Expression::Operation2(op, l, r) => Box::new(ExecExpression::Operation2(
+            op.to_owned(),
+            convert_to_exec_expression(&l),
+            convert_to_exec_expression(&r),
+        )),
+        Expression::While(expr, stat) => Box::new(ExecExpression::While(
+            convert_to_exec_expression(expr),
+            syntactic_analyze_internal(stat, ScopeType::Block).1,
+        )),
+        Expression::Function(f, a) => Box::new(ExecExpression::Function(
+            f.to_owned(),
+            a.iter().map(|e| convert_to_exec_expression(e)).collect(),
+        )),
+        Expression::Factor(v) => Box::new(ExecExpression::Factor(v.to_owned())),
+        Expression::Variable(v) => Box::new(ExecExpression::Variable(v.to_owned())),
+        Expression::Invalid(_) => todo!(),
+    }
 }
 
 pub struct Function {
@@ -52,6 +82,12 @@ impl Scope {
             None
         }
     }
+}
+
+enum ScopeType {
+    Root,
+    Function,
+    Block,
 }
 
 struct ScopeBuilder {
@@ -99,14 +135,17 @@ impl ScopeBuilder {
 
 fn syntactic_analyze_internal(
     statements: &Vec<Statement>,
-    is_root: bool,
+    scope_type: ScopeType,
 ) -> (ScopeBuilder, Vec<ExecStatement>) {
     let mut scope = ScopeBuilder::new();
     let mut exec_statements = Vec::<ExecStatement>::new();
     for stat in statements {
         match stat {
             Statement::VariableDeclaration(name, init) => {
-                if is_root {
+                if let ScopeType::Block = scope_type {
+                    panic!("todo: block scoped variable is not implemented")
+                }
+                if let ScopeType::Root = scope_type {
                     panic!("todo: global variable is not implemented")
                 }
                 scope.add_variable(
@@ -115,10 +154,13 @@ fn syntactic_analyze_internal(
                         identifier: name.clone(),
                     },
                 );
-                exec_statements.push(ExecStatement::Expression(init.clone()));
+                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(init)));
             }
             Statement::FunctionDeclaration(name, args, block) => {
-                let (mut s, es) = syntactic_analyze_internal(block, false);
+                if let ScopeType::Block = scope_type {
+                    panic!("syntactic error: invalid return in block")
+                }
+                let (mut s, es) = syntactic_analyze_internal(block, ScopeType::Function);
                 // add variable definition to scope
                 for a in args {
                     s.add_variable(
@@ -137,16 +179,16 @@ fn syntactic_analyze_internal(
                 scope.add_function(name.clone(), func);
             }
             Statement::Return(e) => {
-                if is_root {
+                if let ScopeType::Root = scope_type {
                     panic!("syntactic error: invalid return in root")
                 }
-                exec_statements.push(ExecStatement::Return(e.clone()));
+                exec_statements.push(ExecStatement::Return(convert_to_exec_expression(e)));
             }
             Statement::Expression(e) => {
-                if is_root {
+                if let ScopeType::Root = scope_type {
                     panic!("syntactic error: invalid expression in root")
                 }
-                exec_statements.push(ExecStatement::Expression(e.clone()));
+                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(e)));
             }
             Statement::Invalid(_) => (),
         }
@@ -155,6 +197,6 @@ fn syntactic_analyze_internal(
 }
 
 pub fn syntactic_analyze(root: &Vec<Statement>) -> Scope {
-    syntactic_analyze_internal(root, true).0.build()
+    syntactic_analyze_internal(root, ScopeType::Root).0.build()
     // TODO: validate identifiers
 }

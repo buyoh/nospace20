@@ -24,12 +24,12 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
         println!("error: {}", error.message);
         println!("line:{} column:{}", line_no, column);
         println!("{}", line_str);
-        println!(
-            "{}^",
-            repeat(' ')
-                .take(UnicodeWidthStr::width(&line_str[..column]))
-                .collect::<String>()
-        );
+        // println!(
+        //     "{}^",
+        //     repeat(' ')
+        //         .take(UnicodeWidthStr::width(&line_str[..column]))
+        //         .collect::<String>()
+        // );
     }
 
     process::exit(1);

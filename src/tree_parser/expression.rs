@@ -3,10 +3,13 @@ use std::iter;
 use crate::code_parse_error;
 
 use crate::token_parser::TokenInfo;
+use crate::tree_parser::statement::parse_to_statements;
 use crate::{
     base::CodeParseErrorInternal,
     token_parser::{PrettyToken, Token},
 };
+
+use super::Statement;
 
 //
 
@@ -18,11 +21,19 @@ macro_rules! match_expect_token {
     ($self: expr, $v: expr, $pat: pat) => {
         match $v {
             Some(($pat, _)) => Ok(()),
-            Some((_, token_info)) => {
-                Err($self.add_parse_error(token_info, "unexpected token".to_owned()))
-            }
+            Some((_, token_info)) => Err($self.add_parse_error(
+                token_info,
+                format!("unexpected token: expected {}", stringify!($pat)),
+            )),
             None => Err($self.add_end_error("unexpected end of input".to_owned())),
         }
+    };
+}
+
+// TODO: unused_must_use is experimental... remove this
+macro_rules! match_expect_token_unused {
+    ($self: expr, $v: expr, $pat: pat) => {
+        let _ = match_expect_token!($self, $v, $pat);
     };
 }
 
@@ -40,6 +51,7 @@ pub enum Operator2 {
 #[derive(Clone)] // TODO: REMOVE
 pub enum Expression {
     Operation2(Operator2, Box<Expression>, Box<Expression>),
+    While(Box<Expression>, Vec<Statement>),
     Function(String, Vec<Box<Expression>>),
     Factor(i64),
     Variable(String),
@@ -212,10 +224,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         let left = self.parse_to_expression_tree_plus();
         let op = if let Some(token) = self.iter.peek() {
             match token {
-                (Token::Symbol(chr), _) => match *chr {
-                    '=' => Operator2::Assign,
-                    _ => return left,
-                },
+                (Token::Symbol(chr), _) if *chr == '=' => Operator2::Assign,
                 _ => return left,
             }
         } else {
@@ -226,9 +235,33 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         Box::new(Expression::Operation2(op, left, right))
     }
 
+    fn parse_to_expression_tree_while(&mut self) -> Box<Expression> {
+        if let Some((Token::Identifier(id), _)) = self.iter.peek() {
+            if id.as_str() != "while" {
+                return self.parse_to_expression_tree_assign();
+            }
+        } else {
+            return self.parse_to_expression_tree_assign();
+        };
+        self.iter.next();
+        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
+            return Box::new(Expression::Invalid(e));
+        }
+        let expr = self.parse_to_expression_tree_root();
+        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::BraceL) {
+            return Box::new(Expression::Invalid(e));
+        }
+        let (stat, mut stat_err) = parse_to_statements(self.iter);
+        if !stat_err.is_empty() {
+            self.code_parse_error.append(&mut stat_err);
+        }
+        match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
+        Box::new(Expression::While(expr, stat))
+    }
+
     fn parse_to_expression_tree_root(&mut self) -> Box<Expression> {
         // TODO: check the expression that it has Invalid
-        self.parse_to_expression_tree_assign()
+        self.parse_to_expression_tree_while()
     }
 }
 

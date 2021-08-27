@@ -19,9 +19,10 @@ macro_rules! match_expect_token {
         // #[warn(unused_must_use)]
         match $v {
             Some(($pat, _)) => Ok(()),
-            Some((_, token_info)) => {
-                Err($self.add_parse_error(token_info, "unexpected token".to_owned()))
-            }
+            Some((_, token_info)) => Err($self.add_parse_error(
+                token_info,
+                format!("unexpected token: expected {}", stringify!($pat)),
+            )),
             None => Err($self.add_end_error("unexpected end of input".to_owned())),
         }
     };
@@ -29,18 +30,20 @@ macro_rules! match_expect_token {
         // #[warn(unused_must_use)]
         match $v {
             Some(($pat, _)) if $cond => Ok(()),
-            Some((_, token_info)) => {
-                Err($self.add_parse_error(token_info, "unexpected token".to_owned()))
-            }
+            Some((_, token_info)) => Err($self.add_parse_error(
+                token_info,
+                format!("unexpected token: expected {}", stringify!($pat)),
+            )),
             None => Err($self.add_end_error("unexpected end of input".to_owned())),
         }
     };
     ($self: expr, $v: expr, $pat: pat => $res: expr) => {
         match $v {
             Some(($pat, _)) => Ok($res),
-            Some((_, token_info)) => {
-                Err($self.add_parse_error(token_info, "unexpected token".to_owned()))
-            }
+            Some((_, token_info)) => Err($self.add_parse_error(
+                token_info,
+                format!("unexpected token: expected {}", stringify!($pat)),
+            )),
             None => Err($self.add_end_error("unexpected end of input".to_owned())),
         }
     };

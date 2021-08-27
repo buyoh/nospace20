@@ -9,6 +9,8 @@ pub(crate) use self::statement::Statement;
 mod expression;
 mod statement;
 
+// convert token sequence to tree structure.
+
 pub fn parse_to_tree(
     tokens: &Vec<PrettyToken>,
 ) -> Result<Vec<Statement>, Vec<CodeParseErrorInternal>> {
