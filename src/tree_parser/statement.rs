@@ -66,6 +66,8 @@ macro_rules! match_expect_token_unused {
 pub enum Statement {
     VariableDeclaration(String, Box<Expression>),
     FunctionDeclaration(String, Vec<String>, Vec<Statement>),
+    Continue,
+    Break,
     Return(Box<Expression>),
     Expression(Box<Expression>),
     Invalid(usize), // See, Expression::Invalid
@@ -206,20 +208,33 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let mut statements = Vec::<Statement>::new();
         while let Some(token) = self.iter.peek() {
             match token {
-                (Token::Identifier(identifier), _) => {
-                    if identifier == "let" {
+                (Token::Identifier(identifier), _) => match identifier.as_str() {
+                    "let" => {
                         statements.push(self.parse_to_statements_let());
                         continue;
                     }
-                    if identifier == "func" {
+                    "func" => {
                         statements.push(self.parse_to_statements_func());
                         continue;
                     }
-                    if identifier == "return" {
+                    "return" => {
                         statements.push(self.parse_to_statements_return());
                         continue;
                     }
-                }
+                    "break" => {
+                        self.iter.next();
+                        statements.push(Statement::Break);
+                        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+                        continue;
+                    }
+                    "continue" => {
+                        self.iter.next();
+                        statements.push(Statement::Continue);
+                        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+                        continue;
+                    }
+                    _ => {}
+                },
                 (Token::BraceR, _) => {
                     // TODO: consider only BraceR
                     break;

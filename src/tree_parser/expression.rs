@@ -51,6 +51,7 @@ pub enum Operator2 {
 #[derive(Clone)] // TODO: REMOVE
 pub enum Expression {
     Operation2(Operator2, Box<Expression>, Box<Expression>),
+    If(Box<Expression>, Vec<Statement>, Vec<Statement>),
     While(Box<Expression>, Vec<Statement>),
     Function(String, Vec<Box<Expression>>),
     Factor(i64),
@@ -244,10 +245,11 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             return self.parse_to_expression_tree_assign();
         };
         self.iter.next();
+
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
             return Box::new(Expression::Invalid(e));
         }
-        let expr = self.parse_to_expression_tree_root();
+        let cond = self.parse_to_expression_tree_root();
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::BraceL) {
             return Box::new(Expression::Invalid(e));
         }
@@ -256,12 +258,67 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             self.code_parse_error.append(&mut stat_err);
         }
         match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
-        Box::new(Expression::While(expr, stat))
+        Box::new(Expression::While(cond, stat))
+    }
+
+    fn parse_to_expression_tree_if(&mut self) -> Box<Expression> {
+        if let Some((Token::Identifier(id), _)) = self.iter.peek() {
+            // TODO: 予約語をenumで定義すればより簡潔になる
+            if id.as_str() != "if" {
+                return self.parse_to_expression_tree_while();
+            }
+        } else {
+            return self.parse_to_expression_tree_while();
+        };
+        self.iter.next();
+
+        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
+            return Box::new(Expression::Invalid(e));
+        }
+        let cond = self.parse_to_expression_tree_root();
+        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::BraceL) {
+            // NOTE: statements ではなく expression が来ても許容、でいいかもね？
+            return Box::new(Expression::Invalid(e));
+        }
+
+        let (stats_true, mut stats_err) = parse_to_statements(self.iter);
+        if !stats_err.is_empty() {
+            self.code_parse_error.append(&mut stats_err);
+        }
+
+        match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
+
+        let stats_false = match self.iter.peek() {
+            Some((Token::Identifier(id), _)) if id.as_str() == "else" => {
+                self.iter.next();
+                match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+
+                match self.iter.peek() {
+                    Some((Token::Identifier(id), _)) if id.as_str() == "if" => {
+                        // else: if: cond {}
+                        // TODO: elsif を実装したほうが便利？
+                        // TODO: allow single expression ???
+                        vec![Statement::Expression(self.parse_to_expression_tree_if())]
+                    }
+                    _ => {
+                        let (stats, mut stats_err) = parse_to_statements(self.iter);
+                        if !stats_err.is_empty() {
+                            self.code_parse_error.append(&mut stats_err);
+                        }
+                        stats
+                    }
+                }
+            }
+            _ => {
+                vec![]
+            }
+        };
+        Box::new(Expression::If(cond, stats_true, stats_false))
     }
 
     fn parse_to_expression_tree_root(&mut self) -> Box<Expression> {
         // TODO: check the expression that it has Invalid
-        self.parse_to_expression_tree_while()
+        self.parse_to_expression_tree_if()
     }
 }
 

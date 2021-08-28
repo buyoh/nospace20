@@ -20,6 +20,7 @@ pub struct Variable {
 // #[derive(Clone)] // TODO: REMOVE
 pub enum ExecExpression {
     Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
+    If(Box<ExecExpression>, Vec<ExecStatement>, Vec<ExecStatement>),
     While(Box<ExecExpression>, Vec<ExecStatement>),
     Function(String, Vec<Box<ExecExpression>>),
     Factor(i64),
@@ -29,6 +30,8 @@ pub enum ExecExpression {
 // #[derive(Clone)] // TODO: REMOVE
 pub enum ExecStatement {
     Return(Box<ExecExpression>),
+    Break,
+    Continue,
     Expression(Box<ExecExpression>),
 }
 
@@ -38,6 +41,11 @@ fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
             op.to_owned(),
             convert_to_exec_expression(&l),
             convert_to_exec_expression(&r),
+        )),
+        Expression::If(cond, stat1, stat2) => Box::new(ExecExpression::If(
+            convert_to_exec_expression(cond),
+            syntactic_analyze_internal(stat1, ScopeType::Block).1,
+            syntactic_analyze_internal(stat2, ScopeType::Block).1,
         )),
         Expression::While(expr, stat) => Box::new(ExecExpression::While(
             convert_to_exec_expression(expr),
@@ -189,6 +197,18 @@ fn syntactic_analyze_internal(
                     panic!("syntactic error: invalid expression in root")
                 }
                 exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(e)));
+            }
+            Statement::Continue => {
+                if let ScopeType::Root = scope_type {
+                    panic!("syntactic error: invalid return in root")
+                }
+                exec_statements.push(ExecStatement::Continue);
+            }
+            Statement::Break => {
+                if let ScopeType::Root = scope_type {
+                    panic!("syntactic error: invalid return in root")
+                }
+                exec_statements.push(ExecStatement::Break);
             }
             Statement::Invalid(_) => (),
         }

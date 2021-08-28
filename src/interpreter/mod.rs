@@ -5,9 +5,27 @@ use crate::{
     tree_parser::Operator2,
 };
 
+// Block(Vec<Statement>) の評価結果
 enum Flow {
     Proceed,
     Return(i64),
+    Continue,
+    Break,
+}
+
+// Expression の評価結果
+enum ExpressionFlow {
+    Value(i64),
+    Jump(Flow),
+}
+
+macro_rules! try_expr {
+    ($e: expr) => {
+        match $e {
+            ExpressionFlow::Value(x) => x,
+            ExpressionFlow::Jump(f) => return ExpressionFlow::Jump(f),
+        }
+    };
 }
 
 struct Environment<'a> {
@@ -17,14 +35,10 @@ struct Environment<'a> {
 }
 
 impl Environment<'_> {
-    fn new_func<'a>(
-        root_scope: &'a Scope,
-        func: &'a Function,
-        args: &mut dyn std::iter::Iterator<Item = i64>, // TODO: mut?
-    ) -> Environment<'a> {
+    fn new_func<'a>(root_scope: &'a Scope, func: &'a Function, args: &Vec<i64>) -> Environment<'a> {
         let mut variables = BTreeMap::<String, i64>::new();
         for id_eval in func.args.iter().zip(args) {
-            variables.insert(id_eval.0.clone(), id_eval.1);
+            variables.insert(id_eval.0.clone(), *id_eval.1);
         }
         for v in func.scope.variables.iter() {
             if !variables.contains_key(&v.identifier) {
@@ -38,74 +52,134 @@ impl Environment<'_> {
         }
     }
 
-    fn interpret_call_function(&mut self, id: &String, args: &Vec<Box<ExecExpression>>) -> i64 {
+    fn interpret_call_function(
+        &mut self,
+        id: &String,
+        args: &Vec<Box<ExecExpression>>,
+    ) -> ExpressionFlow {
+        let mut arg_values = Vec::new();
+        arg_values.reserve(args.len());
+        for a in args {
+            // note: We can't use `map` because some args may say `return`/`break`;
+            arg_values.push(try_expr!(self.interpret_expression(a)));
+        }
         let func = self.root_scope.get_function(&id.to_string()).unwrap();
-        let mut e = Environment::new_func(
-            self.root_scope,
-            &func,
-            &mut args.iter().map(|e| self.interpret_expression(e)),
-        );
-        e.interpret_statements(&func.code)
+
+        let mut env = Environment::new_func(self.root_scope, &func, &arg_values);
+        match env.interpret_statements(&func.code) {
+            Flow::Proceed => ExpressionFlow::Value(0),
+            Flow::Continue => panic!("internal error: unexpected continue"),
+            Flow::Break => panic!("internal error: unexpected break"),
+            other => ExpressionFlow::Jump(other),
+        }
     }
 
-    fn interpret_while(&mut self, cond: &Box<ExecExpression>, code: &Vec<ExecStatement>) -> i64 {
+    fn interpret_while(
+        &mut self,
+        cond: &Box<ExecExpression>,
+        code: &Vec<ExecStatement>,
+    ) -> ExpressionFlow {
         loop {
-            let cond = self.interpret_expression(cond);
+            let cond = match self.interpret_expression(cond) {
+                ExpressionFlow::Value(e) => e,
+                ExpressionFlow::Jump(Flow::Return(x)) => {
+                    return ExpressionFlow::Jump(Flow::Return(x))
+                }
+                // TODO: exclude on comile-time.
+                ExpressionFlow::Jump(Flow::Continue) => panic!(
+                    "internal error: unexpected continue: Don't call continue in `while` condition"
+                ),
+                ExpressionFlow::Jump(Flow::Break) => panic!(
+                    "internal error: unexpected break: Don't call break in `while` condition"
+                ),
+                ExpressionFlow::Jump(Flow::Proceed) => {
+                    panic!("internal error: unexpected Flow::Proceed")
+                }
+            };
             if cond == 0 {
                 break;
             }
-            self.interpret_statements(code);
+            match self.interpret_statements(code) {
+                Flow::Proceed => (),
+                Flow::Return(v) => return ExpressionFlow::Value(v),
+                Flow::Continue => continue,
+                Flow::Break => break,
+            }
         }
-        0
+        ExpressionFlow::Value(0) // TODO: spec
     }
 
-    fn interpret_expression(&mut self, expr: &Box<ExecExpression>) -> i64 {
+    fn interpret_if(
+        &mut self,
+        cond: &Box<ExecExpression>,
+        stats_true: &Vec<ExecStatement>,
+        stats_false: &Vec<ExecStatement>,
+    ) -> ExpressionFlow {
+        let cond = try_expr!(self.interpret_expression(cond));
+        match self.interpret_statements(if cond == 0 { stats_true } else { stats_false }) {
+            Flow::Proceed => ExpressionFlow::Value(0),
+            other => ExpressionFlow::Jump(other),
+        }
+    }
+
+    fn interpret_operation2(
+        &mut self,
+        op: &Operator2,
+        expr1: &Box<ExecExpression>,
+        expr2: &Box<ExecExpression>,
+    ) -> ExpressionFlow {
+        if let Operator2::Assign = op {
+            if let ExecExpression::Variable(name) = expr1.as_ref() {
+                if self.variables.contains_key(name) {
+                    // todo: more nice impl
+                    // todo: should be checked not in runtime.
+                    let v = try_expr!(self.interpret_expression(expr2));
+                    self.variables.insert(name.clone(), v);
+                    return ExpressionFlow::Value(v);
+                } else {
+                    panic!("syntax error: unknown variable name `{}`", name)
+                }
+            } else {
+                panic!("runtime error: left value is not variable");
+            }
+        }
+        let v1 = try_expr!(self.interpret_expression(expr1));
+        let v2 = try_expr!(self.interpret_expression(expr2));
+        let res = match op {
+            Operator2::Plus => v1 + v2,
+            Operator2::Minus => v1 - v2,
+            Operator2::Multiply => v1 * v2,
+            Operator2::Divide => v1 / v2,
+            Operator2::Assign => unreachable!(),
+        };
+        ExpressionFlow::Value(res)
+    }
+
+    // if while を式にした以上、式の中に文が含まれる可能性がある…
+    fn interpret_expression(&mut self, expr: &Box<ExecExpression>) -> ExpressionFlow {
         match expr.as_ref() {
-            ExecExpression::Operation2(op, left, right) => match op {
-                Operator2::Plus => {
-                    self.interpret_expression(left) + self.interpret_expression(right)
-                }
-                Operator2::Minus => {
-                    self.interpret_expression(left) - self.interpret_expression(right)
-                }
-                Operator2::Multiply => {
-                    self.interpret_expression(left) * self.interpret_expression(right)
-                }
-                Operator2::Divide => {
-                    self.interpret_expression(left) / self.interpret_expression(right)
-                }
-                Operator2::Assign => {
-                    if let ExecExpression::Variable(name) = left.as_ref() {
-                        if self.variables.contains_key(name) {
-                            // todo: more nice impl
-                            // todo: should be checked not in runtime.
-                            let v = self.interpret_expression(right);
-                            self.variables.insert(name.clone(), v);
-                            v
-                        } else {
-                            panic!("syntax error: unknown variable name `{}`", name)
-                        }
-                    } else {
-                        panic!("runtime error: left value is not variable");
-                    }
-                }
-            },
+            ExecExpression::Operation2(op, expr1, expr2) => {
+                self.interpret_operation2(op, expr1, expr2)
+            }
             ExecExpression::Function(id, args) => {
                 if id == "__clog" {
-                    let a = self.interpret_expression(args.first().unwrap());
+                    let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                     println!("__clog: {}", a);
-                    a
+                    ExpressionFlow::Value(a)
                 } else {
                     self.interpret_call_function(id, args)
                 }
             }
-            ExecExpression::Factor(v) => *v,
+            ExecExpression::Factor(v) => ExpressionFlow::Value(*v),
             ExecExpression::Variable(name) => {
                 if let Some(val) = self.variables.get(name) {
-                    *val
+                    ExpressionFlow::Value(*val)
                 } else {
                     panic!("syntax error: unknown variable name")
                 }
+            }
+            ExecExpression::If(cond, stats_true, stats_false) => {
+                self.interpret_if(cond, stats_true, stats_false)
             }
             ExecExpression::While(cond, code) => self.interpret_while(cond, code),
         }
@@ -113,31 +187,37 @@ impl Environment<'_> {
 
     fn interpret_statement(&mut self, statement: &ExecStatement) -> Flow {
         match statement {
-            ExecStatement::Expression(expr) => {
-                self.interpret_expression(expr);
-                Flow::Proceed
-            }
-            ExecStatement::Return(expr) => {
-                let x = self.interpret_expression(expr);
-                Flow::Return(x)
-            }
+            ExecStatement::Expression(expr) => match self.interpret_expression(expr) {
+                ExpressionFlow::Value(_) => Flow::Proceed,
+                ExpressionFlow::Jump(j) => j,
+            },
+            ExecStatement::Return(expr) => match self.interpret_expression(expr) {
+                ExpressionFlow::Value(res) => Flow::Return(res),
+                ExpressionFlow::Jump(j) => j,
+            },
+            ExecStatement::Break => Flow::Break,
+            ExecStatement::Continue => Flow::Continue,
         }
     }
 
-    pub fn interpret_statements(&mut self, statements: &Vec<ExecStatement>) -> i64 {
+    pub fn interpret_statements(&mut self, statements: &Vec<ExecStatement>) -> Flow {
         for statement in statements {
             match self.interpret_statement(statement) {
                 Flow::Proceed => (),
-                Flow::Return(x) => return x,
+                other => return other,
             }
         }
-        0
+        Flow::Proceed
     }
 }
 
 pub fn interpret_main_func(scope: &Scope) {
     let func = scope.get_function(&"main".to_string()).unwrap();
-    let mut e = Environment::new_func(scope, &func, &mut Vec::<i64>::new().into_iter());
+    let mut e = Environment::new_func(scope, &func, &Vec::<i64>::new());
     let res = e.interpret_statements(&func.code);
-    println!("main returns: {}", res);
+    if let Flow::Return(x) = res {
+        println!("main returns: {}", x);
+    } else {
+        println!("main exited");
+    }
 }
