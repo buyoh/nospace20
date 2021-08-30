@@ -75,7 +75,7 @@ pub struct Scope {
 }
 
 impl Scope {
-    pub fn get_function(&self, id: &String) -> Option<&Function> {
+    pub fn get_function(&self, id: &str) -> Option<&Function> {
         if let Some(Identifier::Function(info)) = self.identifier_map.get(id) {
             Some(&self.functions[info.idx])
         } else {
@@ -83,7 +83,7 @@ impl Scope {
         }
     }
 
-    pub fn get_variable(&self, id: &String) -> Option<&Variable> {
+    pub fn get_variable(&self, id: &str) -> Option<&Variable> {
         if let Some(Identifier::Variable(info)) = self.identifier_map.get(id) {
             Some(&self.variables[info.idx])
         } else {

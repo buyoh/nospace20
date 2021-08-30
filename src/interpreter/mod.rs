@@ -28,14 +28,32 @@ macro_rules! try_expr {
     };
 }
 
-struct Environment<'a> {
+pub struct Environment {
+    pub traced: BTreeMap<i64, i64>,
+}
+
+impl Environment {
+    pub fn new() -> Self {
+        Environment {
+            traced: BTreeMap::new(),
+        }
+    }
+}
+
+struct LocalEnvironment<'a, 'aenv> {
+    env: &'aenv mut Environment,
     root_scope: &'a Scope,
     current_scope: &'a Scope,
     variables: BTreeMap<String, i64>,
 }
 
-impl Environment<'_> {
-    fn new_func<'a>(root_scope: &'a Scope, func: &'a Function, args: &Vec<i64>) -> Environment<'a> {
+impl LocalEnvironment<'_, '_> {
+    fn new_func<'a, 'aenv>(
+        env: &'aenv mut Environment,
+        root_scope: &'a Scope,
+        func: &'a Function,
+        args: &Vec<i64>,
+    ) -> LocalEnvironment<'a, 'aenv> {
         let mut variables = BTreeMap::<String, i64>::new();
         for id_eval in func.args.iter().zip(args) {
             variables.insert(id_eval.0.clone(), *id_eval.1);
@@ -45,7 +63,8 @@ impl Environment<'_> {
                 variables.insert(v.identifier.clone(), 0);
             }
         }
-        Environment {
+        LocalEnvironment {
+            env,
             root_scope,
             current_scope: &func.scope,
             variables,
@@ -57,15 +76,50 @@ impl Environment<'_> {
         id: &String,
         args: &Vec<Box<ExecExpression>>,
     ) -> ExpressionFlow {
+        match id.as_str() {
+            "__clog" => {
+                let a = try_expr!(self.interpret_expression(args.first().unwrap()));
+                println!("__clog: {}", a);
+                ExpressionFlow::Value(a)
+            }
+            "__assert_not" => {
+                // TODO: 未だ比較演算子を実装していないので not
+                let a = try_expr!(self.interpret_expression(args.first().unwrap()));
+                if a != 0 {
+                    // TODO: 気の利いたログを出せない
+                    panic!("assertion failed: {} != 0", a);
+                }
+                ExpressionFlow::Value(a)
+            }
+            "__trace" => {
+                // TODO: 未だ比較演算子を実装していないので not
+                let key = try_expr!(self.interpret_expression(args.first().unwrap()));
+                let traced = &mut self.env.traced;
+                if let Some(v) = traced.get_mut(&key) {
+                    *v += 1;
+                } else {
+                    traced.insert(key, 1);
+                }
+                ExpressionFlow::Value(0)
+            }
+            _ => self.interpret_call_user_function(id, args),
+        }
+    }
+
+    fn interpret_call_user_function(
+        &mut self,
+        id: &String,
+        args: &Vec<Box<ExecExpression>>,
+    ) -> ExpressionFlow {
         let mut arg_values = Vec::new();
         arg_values.reserve(args.len());
         for a in args {
             // note: We can't use `map` because some args may say `return`/`break`;
             arg_values.push(try_expr!(self.interpret_expression(a)));
         }
-        let func = self.root_scope.get_function(&id.to_string()).unwrap();
+        let func = self.root_scope.get_function(id.as_str()).unwrap();
 
-        let mut env = Environment::new_func(self.root_scope, &func, &arg_values);
+        let mut env = LocalEnvironment::new_func(self.env, self.root_scope, &func, &arg_values);
         match env.interpret_statements(&func.code) {
             Flow::Proceed => ExpressionFlow::Value(0),
             Flow::Continue => panic!("internal error: unexpected continue"),
@@ -161,15 +215,7 @@ impl Environment<'_> {
             ExecExpression::Operation2(op, expr1, expr2) => {
                 self.interpret_operation2(op, expr1, expr2)
             }
-            ExecExpression::Function(id, args) => {
-                if id == "__clog" {
-                    let a = try_expr!(self.interpret_expression(args.first().unwrap()));
-                    println!("__clog: {}", a);
-                    ExpressionFlow::Value(a)
-                } else {
-                    self.interpret_call_function(id, args)
-                }
-            }
+            ExecExpression::Function(id, args) => self.interpret_call_function(id, args),
             ExecExpression::Factor(v) => ExpressionFlow::Value(*v),
             ExecExpression::Variable(name) => {
                 if let Some(val) = self.variables.get(name) {
@@ -211,13 +257,13 @@ impl Environment<'_> {
     }
 }
 
-pub fn interpret_main_func(scope: &Scope) {
-    let func = scope.get_function(&"main".to_string()).unwrap();
-    let mut e = Environment::new_func(scope, &func, &Vec::<i64>::new());
+pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> Option<i64> {
+    let func = scope.get_function(func_name).unwrap();
+    let mut e = LocalEnvironment::new_func(env, scope, &func, &Vec::<i64>::new());
     let res = e.interpret_statements(&func.code);
     if let Flow::Return(x) = res {
-        println!("main returns: {}", x);
+        Some(x)
     } else {
-        println!("main exited");
+        None
     }
 }

@@ -2,7 +2,10 @@
 #[macro_use]
 extern crate assert_matches;
 
+use std::collections::BTreeMap;
+
 pub use base::CodeParseError;
+use interpreter::Environment;
 pub use logger::TextCode;
 use syntactic_analyzer::Scope;
 use token_parser::PrettyToken;
@@ -33,6 +36,13 @@ pub fn syntactic_analyze(root: &Vec<Statement>) -> Scope {
     syntactic_analyzer::syntactic_analyze(root)
 }
 
-pub fn interpret_main_func(scope: &Scope) {
-    interpreter::interpret_main_func(scope)
+pub fn interpret_func(scope: &Scope, func_name: &str) -> Option<i64> {
+    let mut env = Environment::new();
+    interpreter::interpret_func(&mut env, scope, func_name)
+}
+
+pub fn interpret_func_testing(scope: &Scope, func_name: &str) -> BTreeMap<i64, i64> {
+    let mut env = Environment::new();
+    interpreter::interpret_func(&mut env, scope, func_name);
+    env.traced
 }

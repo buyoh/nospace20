@@ -18,7 +18,7 @@ macro_rules! code_parse_error {
         CodeParseErrorInternal {
             code_pointer: $ptr,
             message: $msg,
-            internal_line: line!(),
+            internal_line: line!(),  // TODO: add_parse_error 内で使うとline!は意味を成さなくなる
             internal_file: file!(),
         }
     };

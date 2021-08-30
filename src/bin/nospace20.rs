@@ -1,10 +1,9 @@
 use std::{io::Read, iter::repeat, process};
 
 use nospace20::{
-    interpret_main_func, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError,
-    TextCode,
+    interpret_func, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError, TextCode,
 };
-use unicode_width::UnicodeWidthStr;
+// use unicode_width::UnicodeWidthStr;
 
 fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -> T {
     let errors = match res {
@@ -42,5 +41,10 @@ fn main() {
     let t = handle_parse_error(parse_to_tokens(&code_raw), &text);
     let s = handle_parse_error(parse_to_tree(&t), &text);
     let a = syntactic_analyze(&s);
-    interpret_main_func(&a);
+    let result = interpret_func(&a, "main");
+    if let Some(val) = result {
+        println!("main returns: {}", val);
+    } else {
+        println!("main exited");
+    }
 }
