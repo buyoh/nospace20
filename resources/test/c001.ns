@@ -1,0 +1,13 @@
+func: main() {
+  __trace(0);
+  let:x;
+  __assert_not(x);
+  x=x+3;
+  __assert_not(x-3);
+  let:y;
+  y=x*x;
+  __assert_not(x-3);
+  __assert_not(y-9);
+  x=(y+6)/x;
+  __assert_not(x-5);
+}
