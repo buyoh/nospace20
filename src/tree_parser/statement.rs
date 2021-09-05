@@ -3,7 +3,7 @@ use std::iter;
 use crate::{
     base::CodeParseErrorInternal,
     code_parse_error,
-    token_parser::{PrettyToken, Token, TokenInfo},
+    token_parser::{Keyword, PrettyToken, Token, TokenInfo},
 };
 
 use super::expression::*;
@@ -113,9 +113,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     }
 
     fn parse_to_statements_let(&mut self) -> Statement {
-        if let Err(_) =
-            match_expect_token!(self, self.iter.next(), Token::Identifier(id) if id == "let")
-        {
+        if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Let)) {
             panic!("internal error");
         }
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
@@ -130,9 +128,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     }
 
     fn parse_to_statements_func(&mut self) -> Statement {
-        if let Err(_) =
-            match_expect_token!(self, self.iter.next(), Token::Identifier(id) if id == "func")
-        {
+        if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Func)) {
             panic!("internal error");
         }
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
@@ -192,8 +188,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     }
 
     fn parse_to_statements_return(&mut self) -> Statement {
-        if let Err(_) =
-            match_expect_token!(self, self.iter.next(), Token::Identifier(id) if id == "return")
+        if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Return))
         {
             panic!("internal error");
         }
@@ -208,33 +203,30 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let mut statements = Vec::<Statement>::new();
         while let Some(token) = self.iter.peek() {
             match token {
-                (Token::Identifier(identifier), _) => match identifier.as_str() {
-                    "let" => {
-                        statements.push(self.parse_to_statements_let());
-                        continue;
-                    }
-                    "func" => {
-                        statements.push(self.parse_to_statements_func());
-                        continue;
-                    }
-                    "return" => {
-                        statements.push(self.parse_to_statements_return());
-                        continue;
-                    }
-                    "break" => {
-                        self.iter.next();
-                        statements.push(Statement::Break);
-                        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
-                        continue;
-                    }
-                    "continue" => {
-                        self.iter.next();
-                        statements.push(Statement::Continue);
-                        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
-                        continue;
-                    }
-                    _ => {}
-                },
+                (Token::Keyword(Keyword::Let), _) => {
+                    statements.push(self.parse_to_statements_let());
+                    continue;
+                }
+                (Token::Keyword(Keyword::Func), _) => {
+                    statements.push(self.parse_to_statements_func());
+                    continue;
+                }
+                (Token::Keyword(Keyword::Return), _) => {
+                    statements.push(self.parse_to_statements_return());
+                    continue;
+                }
+                (Token::Keyword(Keyword::Break), _) => {
+                    self.iter.next();
+                    statements.push(Statement::Break);
+                    match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+                    continue;
+                }
+                (Token::Keyword(Keyword::Continue), _) => {
+                    self.iter.next();
+                    statements.push(Statement::Continue);
+                    match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+                    continue;
+                }
                 (Token::BraceR, _) => {
                     // TODO: consider only BraceR
                     break;

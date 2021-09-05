@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     base::CodeParseErrorInternal,
-    token_parser::{parse_to_tokens_internal, Token},
+    token_parser::{parse_to_tokens_internal, Keyword, Token},
 };
 
 use super::PrettyToken;
@@ -97,7 +97,7 @@ test_ok_parse!(test_ok_p_1, "2+3", it => {
 });
 
 test_ok_parse!(test_ok_p_2, "let:a;", it => {
-    assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "let");
+    assert_matches!(it.next(), Some(Token::Keyword(Keyword::Let)));
     assert_matches!(it.next(), Some(Token::Colon));
     assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "a");
     assert_matches!(it.next(), Some(Token::Semicolon));

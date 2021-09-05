@@ -3,9 +3,22 @@ use std::{iter, str};
 use crate::{base::CodeParseErrorInternal, code_parse_error};
 
 #[derive(Debug)]
+pub enum Keyword {
+    Let,
+    Func,
+    If,
+    Else,
+    While,
+    Return,
+    Break,
+    Continue,
+}
+
+#[derive(Debug)]
 pub enum Token {
     Number(i64),
     Identifier(String),
+    Keyword(Keyword),
     Symbol(char),
     ParenthesisL, // (
     ParenthesisR, // )
@@ -46,6 +59,20 @@ fn parse_number(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> Token
     Token::Number(value)
 }
 
+fn determine_keyword_or_identifier(id: String) -> Token {
+    match id.as_str() {
+        "let" => Token::Keyword(Keyword::Let),
+        "func" => Token::Keyword(Keyword::Func),
+        "if" => Token::Keyword(Keyword::If),
+        "else" => Token::Keyword(Keyword::Else),
+        "while" => Token::Keyword(Keyword::While),
+        "return" => Token::Keyword(Keyword::Return),
+        "break" => Token::Keyword(Keyword::Break),
+        "continue" => Token::Keyword(Keyword::Continue),
+        _ => Token::Identifier(id),
+    }
+}
+
 fn parse_identifier(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> Token {
     if let Some((_, 'A'..='Z')) | Some((_, 'a'..='z')) | Some((_, '_')) = iter.peek() {
     } else {
@@ -59,7 +86,8 @@ fn parse_identifier(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> T
             id.push(iter.next().unwrap().1);
         } else {
             id.shrink_to_fit();
-            return Token::Identifier(id);
+            // return Token::Identifier(id);
+            return determine_keyword_or_identifier(id);
         }
     }
 }

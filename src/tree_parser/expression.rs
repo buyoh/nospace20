@@ -2,7 +2,7 @@ use std::iter;
 
 use crate::code_parse_error;
 
-use crate::token_parser::TokenInfo;
+use crate::token_parser::{Keyword, TokenInfo};
 use crate::tree_parser::statement::parse_to_statements;
 use crate::{
     base::CodeParseErrorInternal,
@@ -237,13 +237,10 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     }
 
     fn parse_to_expression_tree_while(&mut self) -> Box<Expression> {
-        if let Some((Token::Identifier(id), _)) = self.iter.peek() {
-            if id.as_str() != "while" {
-                return self.parse_to_expression_tree_assign();
-            }
-        } else {
-            return self.parse_to_expression_tree_assign();
-        };
+        match self.iter.peek() {
+            Some((Token::Keyword(Keyword::While), _)) => (),
+            _ => return self.parse_to_expression_tree_assign(),
+        }
         self.iter.next();
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
@@ -262,13 +259,9 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     }
 
     fn parse_to_expression_tree_if(&mut self) -> Box<Expression> {
-        if let Some((Token::Identifier(id), _)) = self.iter.peek() {
-            // TODO: 予約語をenumで定義すればより簡潔になる
-            if id.as_str() != "if" {
-                return self.parse_to_expression_tree_while();
-            }
-        } else {
-            return self.parse_to_expression_tree_while();
+        match self.iter.peek() {
+            Some((Token::Keyword(Keyword::If), _)) => (),
+            _ => return self.parse_to_expression_tree_while(),
         };
         self.iter.next();
 
@@ -289,12 +282,12 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
 
         let stats_false = match self.iter.peek() {
-            Some((Token::Identifier(id), _)) if id.as_str() == "else" => {
+            Some((Token::Keyword(Keyword::Else), _)) => {
                 self.iter.next();
                 match_expect_token_unused!(self, self.iter.next(), Token::Colon);
 
                 match self.iter.peek() {
-                    Some((Token::Identifier(id), _)) if id.as_str() == "if" => {
+                    Some((Token::Keyword(Keyword::If), _)) => {
                         // else: if: cond {}
                         // TODO: elsif を実装したほうが便利？
                         // TODO: allow single expression ???
