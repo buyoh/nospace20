@@ -8,7 +8,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
+      - name: Setup
+        run: |
+          git config --global user.email "mai@ukibune.net"
+          git config --global user.name "mai-w"
       - name: Build
         run: cargo build --verbose
+      - name: Run fmt
+        run: cargo fmt --verbose
       - name: Run tests
         run: cargo test --verbose
+      - name: commit
+        run: |
+          git add .
+          git commit -m 'refactor by Github Actions' ||:
+      - uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
