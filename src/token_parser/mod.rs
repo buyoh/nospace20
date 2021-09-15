@@ -44,7 +44,7 @@ impl TokenInfo {
     }
 }
 
-fn parse_number(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> Token {
+fn parse_number(iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>) -> Token {
     let mut value = 0 as i64;
     while let Some((_, c)) = iter.peek() {
         if !c.is_ascii_digit() {
@@ -73,7 +73,9 @@ fn determine_keyword_or_identifier(id: String) -> Token {
     }
 }
 
-fn parse_identifier(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> Token {
+fn parse_identifier(
+    iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>,
+) -> Token {
     if let Some((_, 'A'..='Z')) | Some((_, 'a'..='z')) | Some((_, '_')) = iter.peek() {
     } else {
         panic!("internal error");
@@ -93,11 +95,20 @@ fn parse_identifier(iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>) -> T
 }
 
 fn parse_to_tokens_internal(
-    iter: &mut iter::Peekable<iter::Enumerate<str::Chars>>,
+    iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>,
 ) -> (Vec<PrettyToken>, Vec<CodeParseErrorInternal>) {
     let mut tokens = Vec::<PrettyToken>::new();
     let mut parse_errors = Vec::<CodeParseErrorInternal>::new();
     while let Some((idx, c)) = iter.peek() {
+        if *c == '#' {
+            iter.next();
+            while let Some((_, c2)) = iter.next() {
+                if c2 == '#' {
+                    break;
+                }
+            }
+            continue;
+        }
         let info = TokenInfo::new(*idx);
         if c.is_ascii_digit() {
             tokens.push((parse_number(iter), info));

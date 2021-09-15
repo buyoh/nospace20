@@ -3,6 +3,7 @@ func: main() {
   let:x;
   __assert_not(x);
   x=x+3;
+  # x=x+1; #
   __assert_not(x-3);
   let:y;
   y=x*x;
