@@ -2,6 +2,7 @@ use crate::base::CodeParseErrorInternal;
 use crate::token_parser::PrettyToken;
 
 pub(crate) use self::expression::Expression;
+pub(crate) use self::expression::Operator1;
 pub(crate) use self::expression::Operator2;
 use self::statement::parse_to_statements;
 pub(crate) use self::statement::Statement;

@@ -11,4 +11,9 @@ func: main() {
   __assert_not(y-9);
   x=(y+6)/x;
   __assert_not(x-5);
+  let:z;
+  z=-7;
+  __assert_not(z+7);
+  __assert_not(-z-7);
+
 }

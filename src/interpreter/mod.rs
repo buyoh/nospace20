@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     syntactic_analyzer::{ExecExpression, ExecStatement, Function, Scope},
-    tree_parser::Operator2,
+    tree_parser::{Operator1, Operator2},
 };
 
 // Block(Vec<Statement>) の評価結果
@@ -176,6 +176,18 @@ impl LocalEnvironment<'_, '_> {
         }
     }
 
+    fn interpret_operation1(
+        &mut self,
+        op: &Operator1,
+        expr1: &Box<ExecExpression>,
+    ) -> ExpressionFlow {
+        let v1 = try_expr!(self.interpret_expression(expr1));
+        let res = match op {
+            Operator1::Negative => -v1,
+        };
+        ExpressionFlow::Value(res)
+    }
+
     fn interpret_operation2(
         &mut self,
         op: &Operator2,
@@ -212,6 +224,7 @@ impl LocalEnvironment<'_, '_> {
     // if while を式にした以上、式の中に文が含まれる可能性がある…
     fn interpret_expression(&mut self, expr: &Box<ExecExpression>) -> ExpressionFlow {
         match expr.as_ref() {
+            ExecExpression::Operation1(op, expr1) => self.interpret_operation1(op, expr1),
             ExecExpression::Operation2(op, expr1, expr2) => {
                 self.interpret_operation2(op, expr1, expr2)
             }

@@ -49,7 +49,13 @@ pub enum Operator2 {
 }
 
 #[derive(Clone)] // TODO: REMOVE
+pub enum Operator1 {
+    Negative,
+}
+
+#[derive(Clone)] // TODO: REMOVE
 pub enum Expression {
+    Operation1(Operator1, Box<Expression>),
     Operation2(Operator2, Box<Expression>, Box<Expression>),
     If(Box<Expression>, Vec<Statement>, Vec<Statement>),
     While(Box<Expression>, Vec<Statement>),
@@ -179,8 +185,33 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         }
     }
 
-    fn parse_to_expression_tree_mul(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_unary(&mut self) -> Box<Expression> {
+        let mut op_stack = vec![];
+        loop {
+            // `----` のような単行演算子が連続するものも許容する
+            // よって `++x` のようなインクリメントは実装不可になる
+            if let Some(token) = self.iter.peek() {
+                match token {
+                    (Token::Symbol(chr), _) => match *chr {
+                        '-' => op_stack.push(Operator1::Negative),
+                        _ => break,
+                    },
+                    _ => break,
+                }
+            } else {
+                break;
+            };
+            self.iter.next();
+        }
         let mut left = self.parse_to_expression_tree_factor();
+        while let Some(op) = op_stack.pop() {
+            left = Box::new(Expression::Operation1(op, left))
+        }
+        left
+    }
+
+    fn parse_to_expression_tree_mul(&mut self) -> Box<Expression> {
+        let mut left = self.parse_to_expression_tree_unary();
         loop {
             let op = if let Some(token) = self.iter.peek() {
                 match token {
@@ -195,7 +226,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 return left;
             };
             self.iter.next();
-            let right = self.parse_to_expression_tree_factor();
+            let right = self.parse_to_expression_tree_unary();
             left = Box::new(Expression::Operation2(op, left, right))
         }
     }

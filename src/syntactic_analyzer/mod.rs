@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::tree_parser::{Expression, Operator2, Statement};
+use crate::tree_parser::{Expression, Operator1, Operator2, Statement};
 
 struct IdentifierInfo {
     // name: String,
@@ -19,6 +19,7 @@ pub struct Variable {
 
 // #[derive(Clone)] // TODO: REMOVE
 pub enum ExecExpression {
+    Operation1(Operator1, Box<ExecExpression>),
     Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
     If(Box<ExecExpression>, Vec<ExecStatement>, Vec<ExecStatement>),
     While(Box<ExecExpression>, Vec<ExecStatement>),
@@ -37,6 +38,10 @@ pub enum ExecStatement {
 
 fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
     match expr.as_ref() {
+        Expression::Operation1(op, x) => Box::new(ExecExpression::Operation1(
+            op.to_owned(),
+            convert_to_exec_expression(&x),
+        )),
         Expression::Operation2(op, l, r) => Box::new(ExecExpression::Operation2(
             op.to_owned(),
             convert_to_exec_expression(&l),
