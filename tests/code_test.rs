@@ -49,3 +49,4 @@ macro_rules! test_ok_coding {
 test_ok_coding!(test_ok_coding_c000, "c000");
 test_ok_coding!(test_ok_coding_c001, "c001");
 test_ok_coding!(test_ok_coding_c002, "c002");
+test_ok_coding!(test_ok_coding_c003, "c003");

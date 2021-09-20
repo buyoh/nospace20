@@ -47,6 +47,14 @@ struct LocalEnvironment<'a, 'aenv> {
     variables: BTreeMap<String, i64>,
 }
 
+fn bool_to_int(x: bool) -> i64 {
+    if x {
+        1
+    } else {
+        0
+    }
+}
+
 impl LocalEnvironment<'_, '_> {
     fn new_func<'a, 'aenv>(
         env: &'aenv mut Environment,
@@ -82,8 +90,15 @@ impl LocalEnvironment<'_, '_> {
                 println!("__clog: {}", a);
                 ExpressionFlow::Value(a)
             }
+            "__assert" => {
+                let a = try_expr!(self.interpret_expression(args.first().unwrap()));
+                if a == 0 {
+                    // TODO: 気の利いたログを出せない
+                    panic!("assertion failed: {} == 0", a);
+                }
+                ExpressionFlow::Value(a)
+            }
             "__assert_not" => {
-                // TODO: 未だ比較演算子を実装していないので not
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                 if a != 0 {
                     // TODO: 気の利いたログを出せない
@@ -217,6 +232,12 @@ impl LocalEnvironment<'_, '_> {
             Operator2::Multiply => v1 * v2,
             Operator2::Divide => v1 / v2,
             Operator2::Assign => unreachable!(),
+            Operator2::Equal => bool_to_int(v1 == v2),
+            Operator2::NotEqual => bool_to_int(v1 != v2),
+            Operator2::Less => bool_to_int(v1 < v2),
+            Operator2::LessEqual => bool_to_int(v1 <= v2),
+            Operator2::Greater => bool_to_int(v1 > v2),
+            Operator2::GreaterEqual => bool_to_int(v1 >= v2),
         };
         ExpressionFlow::Value(res)
     }

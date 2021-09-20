@@ -91,7 +91,7 @@ test_ok_parse_identifier!(test_ok_pi_4, "_998244353");
 
 test_ok_parse!(test_ok_p_1, "2+3", it => {
     assert_matches!(it.next(), Some(Token::Number(n)) if *n == 2);
-    assert_matches!(it.next(), Some(Token::Symbol(s)) if *s == '+');
+    assert_matches!(it.next(), Some(Token::Plus));
     assert_matches!(it.next(), Some(Token::Number(n)) if *n == 3);
     assert_matches!(it.next(), None);
 });

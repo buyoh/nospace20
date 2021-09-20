@@ -19,7 +19,18 @@ pub enum Token {
     Number(i64),
     Identifier(String),
     Keyword(Keyword),
-    Symbol(char),
+    Plus,
+    Minus,
+    Asterisk,
+    Slash,
+    Exclamation,
+    SingleEqual,
+    DoubleEqual,
+    NotEqual,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
     ParenthesisL, // (
     ParenthesisR, // )
     BracketL,     // [
@@ -45,10 +56,10 @@ impl TokenInfo {
 }
 
 fn parse_number(iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>) -> Token {
+    // token レベルでは負の数を扱うことはできない
     let mut value = 0 as i64;
     while let Some((_, c)) = iter.peek() {
         if !c.is_ascii_digit() {
-            // TODO: minus
             // TODO: 0x
             break;
         }
@@ -117,11 +128,54 @@ fn parse_to_tokens_internal(
             // c.is_ascii()
         } else {
             let t = match *c {
-                '+' | '-' | '*' | '/' | '=' => Token::Symbol(*c),
                 'A'..='Z' | 'a'..='z' | '_' => {
                     tokens.push((parse_identifier(iter), info));
                     continue;
                 }
+                '=' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::DoubleEqual,
+                        _ => {
+                            tokens.push((Token::SingleEqual, info));
+                            continue;
+                        }
+                    }
+                }
+                '<' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::LessEqual,
+                        _ => {
+                            tokens.push((Token::Less, info));
+                            continue;
+                        }
+                    }
+                }
+                '>' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::GreaterEqual,
+                        _ => {
+                            tokens.push((Token::Greater, info));
+                            continue;
+                        }
+                    }
+                }
+                '!' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::NotEqual,
+                        _ => {
+                            tokens.push((Token::Exclamation, info));
+                            continue;
+                        }
+                    }
+                }
+                '+' => Token::Plus,
+                '-' => Token::Minus,
+                '*' => Token::Asterisk,
+                '/' => Token::Slash,
                 '(' => Token::ParenthesisL,
                 ')' => Token::ParenthesisR,
                 '[' => Token::BracketL,

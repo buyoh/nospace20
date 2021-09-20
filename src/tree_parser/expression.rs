@@ -46,6 +46,12 @@ pub enum Operator2 {
     Multiply,
     Divide,
     Assign,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 
 #[derive(Clone)] // TODO: REMOVE
@@ -192,10 +198,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             // よって `++x` のようなインクリメントは実装不可になる
             if let Some(token) = self.iter.peek() {
                 match token {
-                    (Token::Symbol(chr), _) => match *chr {
-                        '-' => op_stack.push(Operator1::Negative),
-                        _ => break,
-                    },
+                    (Token::Minus, _) => op_stack.push(Operator1::Negative),
                     _ => break,
                 }
             } else {
@@ -215,11 +218,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         loop {
             let op = if let Some(token) = self.iter.peek() {
                 match token {
-                    (Token::Symbol(chr), _) => match *chr {
-                        '*' => Operator2::Multiply,
-                        '/' => Operator2::Divide,
-                        _ => return left,
-                    },
+                    (Token::Asterisk, _) => Operator2::Multiply,
+                    (Token::Slash, _) => Operator2::Divide,
                     _ => return left,
                 }
             } else {
@@ -236,11 +236,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         loop {
             let op = if let Some(token) = self.iter.peek() {
                 match token {
-                    (Token::Symbol(chr), _) => match *chr {
-                        '+' => Operator2::Plus,
-                        '-' => Operator2::Minus,
-                        _ => return left,
-                    },
+                    (Token::Plus, _) => Operator2::Plus,
+                    (Token::Minus, _) => Operator2::Minus,
                     _ => return left,
                 }
             } else {
@@ -252,11 +249,33 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         }
     }
 
+    fn parse_to_expression_tree_compare(&mut self) -> Box<Expression> {
+        let mut left = self.parse_to_expression_tree_plus();
+        loop {
+            let op = if let Some(token) = self.iter.peek() {
+                match token {
+                    (Token::DoubleEqual, _) => Operator2::Equal,
+                    (Token::NotEqual, _) => Operator2::NotEqual,
+                    (Token::Less, _) => Operator2::Less,
+                    (Token::LessEqual, _) => Operator2::LessEqual,
+                    (Token::Greater, _) => Operator2::Greater,
+                    (Token::GreaterEqual, _) => Operator2::GreaterEqual,
+                    _ => return left,
+                }
+            } else {
+                return left;
+            };
+            self.iter.next();
+            let right = self.parse_to_expression_tree_plus();
+            left = Box::new(Expression::Operation2(op, left, right));
+        }
+    }
+
     fn parse_to_expression_tree_assign(&mut self) -> Box<Expression> {
-        let left = self.parse_to_expression_tree_plus();
+        let left = self.parse_to_expression_tree_compare();
         let op = if let Some(token) = self.iter.peek() {
             match token {
-                (Token::Symbol(chr), _) if *chr == '=' => Operator2::Assign,
+                (Token::SingleEqual, _) => Operator2::Assign,
                 _ => return left,
             }
         } else {
