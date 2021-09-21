@@ -102,7 +102,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     fn add_end_error(&mut self, msg: String) -> usize {
         let i = self.code_parse_error.len();
         self.code_parse_error
-            .push(code_parse_error!(0, msg.to_string()));
+            .push(code_parse_error!(msg.to_string()));
         i
     }
 
