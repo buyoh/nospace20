@@ -16,7 +16,7 @@ impl<'a> TextCode<'a> {
             .iter()
             .map(|li| {
                 let t = sum;
-                sum += li.len();
+                sum += li.chars().count() + 1;
                 t
             })
             .collect();

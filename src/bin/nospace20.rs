@@ -3,7 +3,7 @@ use std::{io::Read, iter::repeat, process};
 use nospace20::{
     interpret_func, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError, TextCode,
 };
-// use unicode_width::UnicodeWidthStr;
+use unicode_width::UnicodeWidthStr;
 
 fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -> T {
     let errors = match res {
@@ -11,24 +11,22 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
         Err(e) => e,
     };
 
-    for (no, error) in errors.iter().enumerate() {
-        if no >= 3 {
-            break;
-        }
-        let code_pointer = error.code_pointer;
-        let (line_no, column) = text.char_index_to_line(code_pointer);
-        let line_str = text.line(line_no);
-        // TODO: no work for non-ascii character.
-        // TODO: cover end of input
+    for error in errors.iter().take(3) {
         println!("error: {}", error.message);
-        println!("line:{} column:{}", line_no, column);
-        println!("{}", line_str);
-        // println!(
-        //     "{}^",
-        //     repeat(' ')
-        //         .take(UnicodeWidthStr::width(&line_str[..column]))
-        //         .collect::<String>()
-        // );
+        if let Some(code_pointer) = error.code_pointer {
+            let (line_no, column) = text.char_index_to_line(code_pointer);
+            let line_str = text.line(line_no);
+            println!("line:{} column:{}", line_no, column);
+            println!("{}", line_str);
+            println!(
+                "{}^",
+                repeat(' ')
+                    .take(UnicodeWidthStr::width(
+                        line_str.chars().take(column).collect::<String>().as_str()
+                    ))
+                    .collect::<String>()
+            );
+        }
     }
 
     process::exit(1);
