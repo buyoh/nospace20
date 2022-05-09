@@ -1,3 +1,8 @@
+//! # Token Parser
+//!
+//! このモジュールは、文字列をトークンと呼ばれる単位に分割し、トークン列を返します。
+//! コメント文やスペース等の意味を成さない文字列は、このモジュールによって取り除かれます。
+
 use std::{iter, str};
 
 use crate::{base::CodeParseErrorInternal, code_parse_error};

@@ -1,227 +1,168 @@
-use std::collections::BTreeMap;
+//! # Syntactic Analyzer
+//!
+//! このモジュールは、主に定義や宣言の整理をします。
+//! このモジュールに処理されると、識別子は全て解決され、定義された変数はいつ確保・解放されるべきか明確になります。
+//!
 
-use crate::tree_parser::{Expression, Operator1, Operator2, Statement};
+use crate::{
+    syntactic_analyzer::pending_exectree::PendingExecExpression,
+    tree_parser::{Expression, Statement},
+};
 
-struct IdentifierInfo {
-    // name: String,
-    idx: usize, // TODO: more safety
-}
+pub use self::exectree::{ExecExpression, ExecStatement};
+pub use self::scope::{Entity, Function, Identifier, Scope};
+use self::{
+    pending_exectree::PendingExecStatement,
+    pending_scope::{
+        PendingBlock, PendingFunction, PendingScope, PendingScopeBuilder, PendingVariable,
+    },
+    scope::ScopeType,
+};
 
-enum Identifier {
-    Function(IdentifierInfo),
-    Variable(IdentifierInfo),
-}
+mod exectree;
+mod pending_exectree;
+mod pending_scope;
+mod scope;
 
-pub struct Variable {
-    // NOTE: ここに初期化情報は置かない
-    pub identifier: String, // TODO: use IdentifierInfo
-}
-
-// #[derive(Clone)] // TODO: REMOVE
-pub enum ExecExpression {
-    Operation1(Operator1, Box<ExecExpression>),
-    Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
-    If(Box<ExecExpression>, Vec<ExecStatement>, Vec<ExecStatement>),
-    While(Box<ExecExpression>, Vec<ExecStatement>),
-    Function(String, Vec<Box<ExecExpression>>),
-    Factor(i64),
-    Variable(String),
-}
-
-// #[derive(Clone)] // TODO: REMOVE
-pub enum ExecStatement {
-    Return(Box<ExecExpression>),
-    Break,
-    Continue,
-    Expression(Box<ExecExpression>),
-}
-
-fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
-    match expr.as_ref() {
-        Expression::Operation1(op, x) => Box::new(ExecExpression::Operation1(
-            op.to_owned(),
-            convert_to_exec_expression(&x),
-        )),
-        Expression::Operation2(op, l, r) => Box::new(ExecExpression::Operation2(
-            op.to_owned(),
-            convert_to_exec_expression(&l),
-            convert_to_exec_expression(&r),
-        )),
-        Expression::If(cond, stat1, stat2) => Box::new(ExecExpression::If(
-            convert_to_exec_expression(cond),
-            syntactic_analyze_internal(stat1, ScopeType::Block).1,
-            syntactic_analyze_internal(stat2, ScopeType::Block).1,
-        )),
-        Expression::While(expr, stat) => Box::new(ExecExpression::While(
-            convert_to_exec_expression(expr),
-            syntactic_analyze_internal(stat, ScopeType::Block).1,
-        )),
-        Expression::Function(f, a) => Box::new(ExecExpression::Function(
-            f.to_owned(),
-            a.iter().map(|e| convert_to_exec_expression(e)).collect(),
-        )),
-        Expression::Factor(v) => Box::new(ExecExpression::Factor(v.to_owned())),
-        Expression::Variable(v) => Box::new(ExecExpression::Variable(v.to_owned())),
-        Expression::Invalid(_) => todo!(),
+fn build_scope_builder(p: (PendingScopeBuilder, Vec<PendingExecStatement>)) -> PendingBlock {
+    PendingBlock {
+        scope: p.0.build(),
+        code: p.1,
     }
 }
 
-pub struct Function {
-    pub args: Vec<String>, // TODO: change string to identifier_ptr
-    pub scope: Scope,
-    pub code: Vec<ExecStatement>,
-    // pub identifier: String,
+struct SyntacticAnalyzer {
+    scope_identifier_next: usize,
 }
 
-pub struct Scope {
-    identifier_map: BTreeMap<String, Identifier>,
-    pub variables: Vec<Variable>,
-    functions: Vec<Function>,
-}
+impl SyntacticAnalyzer {
+    fn parse(root: &Vec<Statement>) -> PendingScope {
+        let mut sa = SyntacticAnalyzer {
+            scope_identifier_next: 0,
+        };
+        sa.syntactic_analyze_internal(root, ScopeType::Global)
+            .0
+            .build()
+    }
 
-impl Scope {
-    pub fn get_function(&self, id: &str) -> Option<&Function> {
-        if let Some(Identifier::Function(info)) = self.identifier_map.get(id) {
-            Some(&self.functions[info.idx])
-        } else {
-            None
+    fn next_scope_identifier(&mut self) -> usize {
+        let id = self.scope_identifier_next;
+        self.scope_identifier_next += 1;
+        id
+    }
+
+    fn convert_to_exec_expression(&mut self, expr: &Box<Expression>) -> Box<PendingExecExpression> {
+        match expr.as_ref() {
+            Expression::Operation1(op, x) => Box::new(PendingExecExpression::Operation1(
+                op.to_owned(),
+                self.convert_to_exec_expression(&x),
+            )),
+            Expression::Operation2(op, l, r) => Box::new(PendingExecExpression::Operation2(
+                op.to_owned(),
+                self.convert_to_exec_expression(&l),
+                self.convert_to_exec_expression(&r),
+            )),
+            Expression::If(cond, stat1, stat2) => Box::new(PendingExecExpression::If(
+                self.convert_to_exec_expression(cond),
+                build_scope_builder(self.syntactic_analyze_internal(stat1, ScopeType::Block)),
+                build_scope_builder(self.syntactic_analyze_internal(stat2, ScopeType::Block)),
+            )),
+            Expression::While(expr, stat) => Box::new(PendingExecExpression::While(
+                self.convert_to_exec_expression(expr),
+                build_scope_builder(self.syntactic_analyze_internal(stat, ScopeType::Block)),
+            )),
+            Expression::Function(f, a) => Box::new(PendingExecExpression::Function(
+                f.to_owned(),
+                a.iter()
+                    .map(|e| self.convert_to_exec_expression(e))
+                    .collect(),
+            )),
+            Expression::Factor(v) => Box::new(PendingExecExpression::Factor(v.to_owned())),
+            Expression::Variable(v) => Box::new(PendingExecExpression::Variable(v.to_owned())),
+            Expression::Invalid(_) => todo!(),
         }
     }
 
-    pub fn get_variable(&self, id: &str) -> Option<&Variable> {
-        if let Some(Identifier::Variable(info)) = self.identifier_map.get(id) {
-            Some(&self.variables[info.idx])
-        } else {
-            None
+    fn syntactic_analyze_internal(
+        &mut self,
+        statements: &Vec<Statement>,
+        scope_type: ScopeType,
+    ) -> (PendingScopeBuilder, Vec<PendingExecStatement>) {
+        let mut scope = PendingScopeBuilder::new(self.next_scope_identifier(), scope_type);
+        let mut exec_statements = Vec::<PendingExecStatement>::new();
+        for stat in statements {
+            match stat {
+                Statement::VariableDeclaration(name, init) => {
+                    if let ScopeType::Block = scope_type {
+                        panic!("todo: block scoped variable is not implemented")
+                    }
+                    if let ScopeType::Global = scope_type {
+                        panic!("todo: global variable is not implemented")
+                    }
+                    scope.add_variable(name.clone(), PendingVariable {});
+                    exec_statements.push(PendingExecStatement::Expression(
+                        self.convert_to_exec_expression(init),
+                    ));
+                }
+                Statement::FunctionDeclaration(name, args, block) => {
+                    if let ScopeType::Block = scope_type {
+                        panic!("syntactic error: invalid return in block")
+                    }
+                    let (mut s, es) = self.syntactic_analyze_internal(block, ScopeType::Function);
+                    // add variable definition to scope
+                    for a in args {
+                        s.add_variable(a.clone(), PendingVariable {});
+                    }
+                    let block = PendingBlock {
+                        scope: s.build(),
+                        code: es,
+                    };
+                    // store variable identifier to function
+                    let func = PendingFunction {
+                        args: args
+                            .iter()
+                            .map(|a| block.scope.scope_dictionary.get(a).unwrap().to_owned()) // TODO: refactoring
+                            .collect(),
+                        block: block,
+                    };
+                    scope.add_function(name.clone(), func);
+                }
+                Statement::Return(e) => {
+                    if let ScopeType::Global = scope_type {
+                        panic!("syntactic error: invalid return in root")
+                    }
+                    exec_statements.push(PendingExecStatement::Return(
+                        self.convert_to_exec_expression(e),
+                    ));
+                }
+                Statement::Expression(e) => {
+                    if let ScopeType::Global = scope_type {
+                        panic!("syntactic error: invalid expression in root")
+                    }
+                    exec_statements.push(PendingExecStatement::Expression(
+                        self.convert_to_exec_expression(e),
+                    ));
+                }
+                Statement::Continue => {
+                    if let ScopeType::Global = scope_type {
+                        panic!("syntactic error: invalid return in root")
+                    }
+                    exec_statements.push(PendingExecStatement::Continue);
+                }
+                Statement::Break => {
+                    if let ScopeType::Global = scope_type {
+                        panic!("syntactic error: invalid return in root")
+                    }
+                    exec_statements.push(PendingExecStatement::Break);
+                }
+                Statement::Invalid(_) => (),
+            }
         }
+        (scope, exec_statements)
     }
-}
-
-enum ScopeType {
-    Root,
-    Function,
-    Block,
-}
-
-struct ScopeBuilder {
-    identifier_map: BTreeMap<String, Identifier>,
-    variables: Vec<Variable>,
-    functions: Vec<Function>,
-}
-
-impl ScopeBuilder {
-    fn new() -> Self {
-        Self {
-            identifier_map: BTreeMap::new(),
-            variables: vec![],
-            functions: vec![],
-        }
-    }
-
-    fn build(self) -> Scope {
-        Scope {
-            identifier_map: self.identifier_map,
-            variables: self.variables,
-            functions: self.functions,
-        }
-    }
-
-    fn add_identifier(&mut self, name: String, identifier: Identifier) {
-        if self.identifier_map.contains_key(&name) {
-            panic!("syntactic error: the name is already used");
-        }
-        self.identifier_map.insert(name, identifier);
-    }
-
-    fn add_variable(&mut self, name: String, var: Variable) {
-        let vi = self.variables.len();
-        self.variables.push(var);
-        self.add_identifier(name, Identifier::Variable(IdentifierInfo { idx: vi }));
-    }
-
-    fn add_function(&mut self, name: String, func: Function) {
-        let fi = self.functions.len();
-        self.functions.push(func);
-        self.add_identifier(name, Identifier::Function(IdentifierInfo { idx: fi }));
-    }
-}
-
-fn syntactic_analyze_internal(
-    statements: &Vec<Statement>,
-    scope_type: ScopeType,
-) -> (ScopeBuilder, Vec<ExecStatement>) {
-    let mut scope = ScopeBuilder::new();
-    let mut exec_statements = Vec::<ExecStatement>::new();
-    for stat in statements {
-        match stat {
-            Statement::VariableDeclaration(name, init) => {
-                if let ScopeType::Block = scope_type {
-                    panic!("todo: block scoped variable is not implemented")
-                }
-                if let ScopeType::Root = scope_type {
-                    panic!("todo: global variable is not implemented")
-                }
-                scope.add_variable(
-                    name.clone(),
-                    Variable {
-                        identifier: name.clone(),
-                    },
-                );
-                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(init)));
-            }
-            Statement::FunctionDeclaration(name, args, block) => {
-                if let ScopeType::Block = scope_type {
-                    panic!("syntactic error: invalid return in block")
-                }
-                let (mut s, es) = syntactic_analyze_internal(block, ScopeType::Function);
-                // add variable definition to scope
-                for a in args {
-                    s.add_variable(
-                        a.clone(),
-                        Variable {
-                            identifier: a.clone(),
-                        },
-                    );
-                }
-                // store variable identifier to function
-                let func = Function {
-                    args: args.clone(),
-                    scope: s.build(),
-                    code: es,
-                };
-                scope.add_function(name.clone(), func);
-            }
-            Statement::Return(e) => {
-                if let ScopeType::Root = scope_type {
-                    panic!("syntactic error: invalid return in root")
-                }
-                exec_statements.push(ExecStatement::Return(convert_to_exec_expression(e)));
-            }
-            Statement::Expression(e) => {
-                if let ScopeType::Root = scope_type {
-                    panic!("syntactic error: invalid expression in root")
-                }
-                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(e)));
-            }
-            Statement::Continue => {
-                if let ScopeType::Root = scope_type {
-                    panic!("syntactic error: invalid return in root")
-                }
-                exec_statements.push(ExecStatement::Continue);
-            }
-            Statement::Break => {
-                if let ScopeType::Root = scope_type {
-                    panic!("syntactic error: invalid return in root")
-                }
-                exec_statements.push(ExecStatement::Break);
-            }
-            Statement::Invalid(_) => (),
-        }
-    }
-    (scope, exec_statements)
 }
 
 pub fn syntactic_analyze(root: &Vec<Statement>) -> Scope {
-    syntactic_analyze_internal(root, ScopeType::Root).0.build()
-    // TODO: validate identifiers
+    let pending_scope = SyntacticAnalyzer::parse(root);
+    pending_scope.resolve()
 }

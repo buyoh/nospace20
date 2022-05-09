@@ -1,7 +1,14 @@
+//! # Interpreter
+//!
+//! コンパイル前のコードを実行します。
+//! コンパイラの実装は多様で複雑になりがちな為、Interpreterは極力シンプルな実装となるよう
+//! 他のモジュールを設計しなければなりません。
+//!
+
 use std::collections::BTreeMap;
 
 use crate::{
-    syntactic_analyzer::{ExecExpression, ExecStatement, Function, Scope},
+    syntactic_analyzer::{Entity, ExecExpression, ExecStatement, Function, Identifier, Scope},
     tree_parser::{Operator1, Operator2},
 };
 
@@ -40,11 +47,13 @@ impl Environment {
     }
 }
 
+// 1つのfunction scopeの`実行時インスタンス`を管理する
 struct LocalEnvironment<'a, 'aenv> {
     env: &'aenv mut Environment,
-    root_scope: &'a Scope,
-    current_scope: &'a Scope,
-    variables: BTreeMap<String, i64>,
+    current_scopes: Vec<&'a Scope>, // 末尾ほど、深いブロックスコープ。先頭は必ず関数スコープ。先頭以外は必ずブロックスコープ
+    parent_scope: Option<&'a Scope>, // Scope が親の情報を持っていないので、ここで持つ
+    parent_env: Option<&'a LocalEnvironment<'a, 'aenv>>,
+    variables: BTreeMap<Identifier, i64>,
 }
 
 fn bool_to_int(x: bool) -> i64 {
@@ -62,20 +71,45 @@ impl LocalEnvironment<'_, '_> {
         func: &'a Function,
         args: &Vec<i64>,
     ) -> LocalEnvironment<'a, 'aenv> {
-        let mut variables = BTreeMap::<String, i64>::new();
+        let mut variables = BTreeMap::<Identifier, i64>::new();
+        for id in func
+            .block
+            .scope
+            .iter_identifier()
+            .filter_map(|(i, e)| match e {
+                Entity::Function(_) => None,
+                Entity::Variable(_) => Some(i),
+            })
+        {
+            variables.insert(id.clone(), 0);
+        }
         for id_eval in func.args.iter().zip(args) {
             variables.insert(id_eval.0.clone(), *id_eval.1);
         }
-        for v in func.scope.variables.iter() {
-            if !variables.contains_key(&v.identifier) {
-                variables.insert(v.identifier.clone(), 0);
-            }
-        }
+        // - 関数を呼び出して、関数内で変数にアクセスするとする。
+        // 呼び出せる変数は、「親のスコープにあるstatic変数(未実装)」直近のLocalEnvironmentだけ
+        // 注意しなければならないのは、親のスコープにある変数を呼び出せること。LocalEnvironmentではない。
+        // LocalEnvironment はスタックであり、LocalEnvironmentに積まれている値を取り出せるわけではい。
         LocalEnvironment {
             env,
             root_scope,
-            current_scope: &func.scope,
+            current_scope: &func.block.scope,
             variables,
+        }
+    } // TODO: static スコープ作ったほうが良いかも
+
+    fn get_variable(&self, id: &Identifier) -> Option<&mut i64> {
+        // TODO: だから、以下の実装は間違い。親のスコープを参照しなければならない。
+        if let Some(a) = self.variables.get_mut(id) {
+            Some(a)
+        } else if let Some(env) = self.parent_env {
+            if let Some(a) = env.get_variable(id) {
+                Some(a)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
