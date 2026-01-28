@@ -1,3 +1,8 @@
+//! # Tree Parser
+//!
+//! このモジュールは、トークン列を木構造に変換します。
+//! 式が存在するべき場所に式が存在するかどうか等の、構造上の文法の誤り等を検知します。
+//!
 use crate::base::CodeParseErrorInternal;
 use crate::token_parser::PrettyToken;
 

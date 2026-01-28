@@ -1,3 +1,10 @@
+//! # Interpreter
+//!
+//! コンパイル前のコードを実行します。
+//! コンパイラの実装は多様で複雑になりがちな為、Interpreterは極力シンプルな実装となるよう
+//! 他のモジュールを設計しなければなりません。
+//!
+
 use std::collections::BTreeMap;
 
 use crate::{
@@ -40,6 +47,7 @@ impl Environment {
     }
 }
 
+// 1つのfunction scopeの`実行時インスタンス`を管理する
 struct LocalEnvironment<'a, 'aenv> {
     env: &'aenv mut Environment,
     root_scope: &'a Scope,
