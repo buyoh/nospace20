@@ -1,0 +1,15 @@
+func: main() {
+  __trace(0);
+  let:x;
+  x=1;
+  __assert(x == 1);
+  if:1{
+    let:x;
+    let:y;
+    x=3;
+    y=2;
+    __assert(y == 2);
+    __assert(x == 3);
+  };
+  __assert(x == 1);
+}
