@@ -193,7 +193,7 @@ impl LocalEnvironment<'_, '_> {
         stats_false: &Vec<ExecStatement>,
     ) -> ExpressionFlow {
         let cond = try_expr!(self.interpret_expression(cond));
-        match self.interpret_statements(if cond == 0 { stats_true } else { stats_false }) {
+        match self.interpret_statements(if cond != 0 { stats_true } else { stats_false }) {
             Flow::Proceed => ExpressionFlow::Value(0),
             other => ExpressionFlow::Jump(other),
         }
