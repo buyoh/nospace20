@@ -1,0 +1,8 @@
+# [未実装] 変数の初期値指定 #
+func: main() {
+  __trace(0);
+  let:x = 10;
+  __assert(x == 10);
+  let:y = x * 2;
+  __assert(y == 20);
+}

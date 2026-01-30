@@ -1,0 +1,21 @@
+# ネストした関数スコープでの変数アクセス #
+func: outer() {
+  __trace(1);
+  let:x;
+  x=5;
+  
+  func: inner() {
+    __trace(2);
+    let:y;
+    y=10;
+    __assert(y == 10);
+  }
+  
+  inner();
+  __assert(x == 5);
+}
+
+func: main() {
+  __trace(0);
+  outer();
+}

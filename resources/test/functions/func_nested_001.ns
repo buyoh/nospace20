@@ -1,0 +1,21 @@
+# ネストした関数定義 #
+func: outer(x) {
+  __trace(1);
+  
+  func: inner(y) {
+    __trace(2);
+    return: y + 1;
+  }
+  
+  let:result;
+  result=inner(x);
+  result=inner(result);
+  return: result;
+}
+
+func: main() {
+  __trace(0);
+  let:x;
+  x=outer(5);
+  __assert(x == 7);
+}

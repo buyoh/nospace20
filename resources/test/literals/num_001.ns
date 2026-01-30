@@ -1,0 +1,8 @@
+# 基本的な数値リテラル #
+func: main() {
+  __trace(0);
+  __assert_not(0);
+  __assert(1);
+  __assert(42);
+  __assert_not(123 - 123);
+}

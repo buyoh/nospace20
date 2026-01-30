@@ -1,0 +1,21 @@
+# 関数スコープ #
+func: func1() {
+  __trace(1);
+  let:a;
+  a=10;
+  __assert(a == 10);
+}
+
+func: func2() {
+  __trace(2);
+  let:a;
+  a=20;
+  __assert(a == 20);
+}
+
+func: main() {
+  __trace(0);
+  func1();
+  func2();
+  func1();
+}

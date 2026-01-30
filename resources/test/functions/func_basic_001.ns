@@ -1,0 +1,13 @@
+# 関数の基本: 定義と呼び出し #
+func: add(a, b) {
+  return: a + b;
+}
+
+func: main() {
+  __trace(0);
+  let:x;
+  x = add(3, 5);
+  __assert(x == 8);
+  x = add(10, -3);
+  __assert(x == 7);
+}

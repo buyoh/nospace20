@@ -1,0 +1,8 @@
+# __trace のテスト #
+func: main() {
+  __trace(0);
+  __trace(1);
+  __trace(2);
+  __trace(0);
+  __trace(3);
+}

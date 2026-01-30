@@ -1,0 +1,29 @@
+# if / else 文 #
+func: main() {
+  __trace(0);
+  let:x;
+  x = 10;
+  if: x - 5 {
+    __trace(1);
+  } else:{
+    __trace(2);
+  };
+  
+  x = 5;
+  if: x - 5 {
+    __trace(3);
+  } else:{
+    __trace(4);
+  };
+  
+  x = 1;
+  if: x {
+    __trace(5);
+  };
+  
+  x = 0;
+  if: x {
+    __trace(6);
+  };
+}
+

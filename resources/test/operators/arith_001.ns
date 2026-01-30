@@ -1,0 +1,13 @@
+# 基本的な四則演算 #
+func: main() {
+  __trace(0);
+  let:x;
+  x = 2 + 3;
+  __assert(x == 5);
+  x = 10 - 3;
+  __assert(x == 7);
+  x = 4 * 5;
+  __assert(x == 20);
+  x = 20 / 4;
+  __assert(x == 5);
+}

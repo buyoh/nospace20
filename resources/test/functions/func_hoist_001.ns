@@ -1,0 +1,12 @@
+# 関数のホイスティング #
+func: main() {
+  __trace(0);
+  let:x;
+  x=helper(5);
+  __assert(x == 10);
+}
+
+func: helper(n) {
+  __trace(1);
+  return: n * 2;
+}

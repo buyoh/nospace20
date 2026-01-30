@@ -1,0 +1,26 @@
+# 関数の引数 #
+func: test0() {
+  __trace(1);
+  return: 100;
+}
+
+func: test1(a) {
+  __trace(2);
+  return: a * 2;
+}
+
+func: test3(a, b, c) {
+  __trace(3);
+  return: a + b + c;
+}
+
+func: main() {
+  __trace(0);
+  let:x;
+  x=test0();
+  __assert(x == 100);
+  x=test1(5);
+  __assert(x == 10);
+  x=test3(1, 2, 3);
+  __assert(x == 6);
+}

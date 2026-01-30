@@ -1,0 +1,16 @@
+# 識別子の命名規則 #
+func: main() {
+  __trace(0);
+  let:x;
+  let:_foo;
+  let:myVar123;
+  let:ABC_def_999;
+  x = 1;
+  _foo = 2;
+  myVar123 = 3;
+  ABC_def_999 = 4;
+  __assert(x == 1);
+  __assert(_foo == 2);
+  __assert(myVar123 == 3);
+  __assert(ABC_def_999 == 4);
+}

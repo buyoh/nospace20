@@ -1,0 +1,10 @@
+# 負の数(単項マイナス演算子) #
+func: main() {
+  __trace(0);
+  let:x;
+  x = -7;
+  __assert_not(x + 7);
+  __assert_not(-x - 7);
+  x = -123;
+  __assert_not(x + 123);
+}

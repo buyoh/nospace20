@@ -1,0 +1,19 @@
+# return 文 #
+func: early_return(x) {
+  __trace(1);
+  if:x - 5{
+    __trace(2);
+    return: 0;
+  };
+  __trace(3);
+  return: 1;
+}
+
+func: main() {
+  __trace(0);
+  let:x;
+  x=early_return(10);
+  __assert(x == 0);
+  x=early_return(5);
+  __assert(x == 1);
+}

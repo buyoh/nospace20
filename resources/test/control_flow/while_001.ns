@@ -1,0 +1,12 @@
+# while 文 #
+func: main() {
+  __trace(0);
+  let:i;
+  i=0;
+  while:i-5{
+    __trace(1);
+    i=i+1;
+  };
+  __assert(i == 5);
+  __trace(0);
+}

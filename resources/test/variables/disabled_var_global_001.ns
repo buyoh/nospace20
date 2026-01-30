@@ -1,0 +1,21 @@
+# [未実装] グローバル変数 #
+let:global_x;
+global_x = 100;
+
+func: get_global() {
+  return: global_x;
+}
+
+func: set_global(val) {
+  global_x = val;
+}
+
+func: main() {
+  __trace(0);
+  let:x;
+  x = get_global();
+  __assert(x == 100);
+  set_global(200);
+  x = get_global();
+  __assert(x == 200);
+}

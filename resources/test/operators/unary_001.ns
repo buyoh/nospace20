@@ -1,0 +1,16 @@
+# 単項マイナス演算子 #
+func: main() {
+  __trace(0);
+  let:x;
+  x = -5;
+  __assert(x == -5);
+  x = --5;  # 二重否定 #
+  __assert(x == 5);
+  x = ---3;
+  __assert(x == -3);
+  let:y;
+  y = 10;
+  x = -y;
+  __assert(x == -10);
+  __assert(y == 10);  # y は変化しない #
+}

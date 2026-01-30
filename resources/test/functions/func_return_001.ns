@@ -1,0 +1,16 @@
+# 関数の戻り値 #
+func: no_return() {
+  __trace(1);
+}
+
+func: explicit_return(x) {
+  __trace(2);
+  return: x * x;
+}
+
+func: main() {
+  __trace(0);
+  let:x;
+  x=explicit_return(5);
+  __assert(x == 25);
+}
