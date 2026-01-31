@@ -12,6 +12,8 @@ pub(crate) use self::expression::Operator2;
 use self::statement::parse_to_statements;
 pub(crate) use self::statement::Statement;
 
+#[macro_use]
+mod macros;
 mod expression;
 mod statement;
 

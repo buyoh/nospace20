@@ -43,8 +43,8 @@ pub enum Token {
     BraceL,       // {
     BraceR,       // }
     Semicolon,    // ;
-    Colon,        // ;
-    Comma,        //,
+    Colon,        // :
+    Comma,        // ,
     Invalid,
 }
 

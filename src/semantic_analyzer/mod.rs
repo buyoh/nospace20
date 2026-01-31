@@ -1,3 +1,12 @@
+//! # Semantic Analyzer
+//!
+//! 意味解析器。ASTを実行可能な構造に変換する。
+//!
+//! 主な責務:
+//! - 変数・関数の識別子解決
+//! - スコープ構造の構築
+//! - 実行可能な中間表現への変換
+
 use std::collections::BTreeMap;
 
 use crate::tree_parser::{Expression, Operator1, Operator2, Statement};
@@ -17,6 +26,14 @@ pub struct Variable {
     pub identifier: String, // TODO: use IdentifierInfo
 }
 
+/// 実行可能な式を表す。
+///
+/// `Expression` (構文解析結果) との違い:
+/// - `Invalid` バリアントを持たない (パース成功後のみ生成される)
+/// - 将来的にはスコープ解決済みの識別子情報を保持する予定
+///   (例: 変数名の文字列ではなく、スコープ内のインデックスを保持)
+///
+/// 現状は `Expression` と構造が類似しているが、意味解析の責務拡張に伴い差異が生じる想定。
 // #[derive(Clone)] // TODO: REMOVE
 pub enum ExecExpression {
     Operation1(Operator1, Box<ExecExpression>),
@@ -25,9 +42,15 @@ pub enum ExecExpression {
     While(Box<ExecExpression>, Vec<ExecStatement>),
     Function(String, Vec<Box<ExecExpression>>),
     Factor(i64),
-    Variable(String),
+    Variable(String), // TODO: スコープ解決済みの IdentifierInfo に変更予定
 }
 
+/// 実行可能な文を表す。
+///
+/// `Statement` (構文解析結果) との違い:
+/// - `Invalid` バリアントを持たない
+/// - 宣言文 (VariableDeclaration, FunctionDeclaration) を持たない
+///   (宣言は `Scope` 構造に変換される)
 // #[derive(Clone)] // TODO: REMOVE
 pub enum ExecStatement {
     Return(Box<ExecExpression>),
@@ -62,7 +85,8 @@ fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
         )),
         Expression::Factor(v) => Box::new(ExecExpression::Factor(v.to_owned())),
         Expression::Variable(v) => Box::new(ExecExpression::Variable(v.to_owned())),
-        Expression::Invalid(_) => todo!(),
+        // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
+        Expression::Invalid(_) => unreachable!("Expression::Invalid should not reach semantic analysis"),
     }
 }
 
@@ -156,9 +180,11 @@ fn syntactic_analyze_internal(
         match stat {
             Statement::VariableDeclaration(name, init) => {
                 if let ScopeType::Block = scope_type {
+                    // TODO(unimplemented): ブロックスコープ変数は未実装
                     panic!("todo: block scoped variable is not implemented")
                 }
                 if let ScopeType::Root = scope_type {
+                    // TODO(unimplemented): グローバル変数は未実装
                     panic!("todo: global variable is not implemented")
                 }
                 scope.add_variable(
@@ -171,7 +197,8 @@ fn syntactic_analyze_internal(
             }
             Statement::FunctionDeclaration(name, args, block) => {
                 if let ScopeType::Block = scope_type {
-                    panic!("syntactic error: invalid return in block")
+                    // TODO(error-handling): Result型でエラーを返すべき (ネスト関数宣言は未対応)
+                    panic!("semantic error: nested function declaration is not supported")
                 }
                 let (mut s, es) = syntactic_analyze_internal(block, ScopeType::Function);
                 // add variable definition to scope
@@ -193,25 +220,29 @@ fn syntactic_analyze_internal(
             }
             Statement::Return(e) => {
                 if let ScopeType::Root = scope_type {
-                    panic!("syntactic error: invalid return in root")
+                    // TODO(error-handling): Result型でエラーを返すべき
+                    panic!("semantic error: return statement outside of function")
                 }
                 exec_statements.push(ExecStatement::Return(convert_to_exec_expression(e)));
             }
             Statement::Expression(e) => {
                 if let ScopeType::Root = scope_type {
-                    panic!("syntactic error: invalid expression in root")
+                    // TODO(error-handling): Result型でエラーを返すべき
+                    panic!("semantic error: expression statement at root level")
                 }
                 exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(e)));
             }
             Statement::Continue => {
                 if let ScopeType::Root = scope_type {
-                    panic!("syntactic error: invalid return in root")
+                    // TODO(error-handling): Result型でエラーを返すべき
+                    panic!("semantic error: continue statement outside of function")
                 }
                 exec_statements.push(ExecStatement::Continue);
             }
             Statement::Break => {
                 if let ScopeType::Root = scope_type {
-                    panic!("syntactic error: invalid return in root")
+                    // TODO(error-handling): Result型でエラーを返すべき
+                    panic!("semantic error: break statement outside of function")
                 }
                 exec_statements.push(ExecStatement::Break);
             }
@@ -221,7 +252,7 @@ fn syntactic_analyze_internal(
     (scope, exec_statements)
 }
 
-pub fn syntactic_analyze(root: &Vec<Statement>) -> Scope {
+pub fn analyze(root: &Vec<Statement>) -> Scope {
     syntactic_analyze_internal(root, ScopeType::Root).0.build()
     // TODO: validate identifiers
 }

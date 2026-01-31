@@ -7,14 +7,14 @@ use std::collections::BTreeMap;
 pub use base::CodeParseError;
 use interpreter::Environment;
 pub use logger::TextCode;
-use syntactic_analyzer::Scope;
+use semantic_analyzer::Scope;
 use token_parser::PrettyToken;
 use tree_parser::Statement;
 
 mod base;
 mod interpreter;
 mod logger;
-mod syntactic_analyzer;
+mod semantic_analyzer;
 mod token_parser;
 mod tree_parser;
 
@@ -33,7 +33,7 @@ pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<Statement>, Vec<Co
 }
 
 pub fn syntactic_analyze(root: &Vec<Statement>) -> Scope {
-    syntactic_analyzer::syntactic_analyze(root)
+    semantic_analyzer::analyze(root)
 }
 
 pub fn interpret_func(scope: &Scope, func_name: &str) -> Option<i64> {

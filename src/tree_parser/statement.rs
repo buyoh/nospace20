@@ -8,59 +8,7 @@ use crate::{
 
 use super::expression::*;
 
-//
-
-// 期待するトークンなら Ok を返すマクロ
-// そうでなければ、Expression::Invalid に渡すべき CodeParseError のインデックスを返す。
-// NOTE: iter.next() or iter.peek()?
-// peek は値を消費しない為に loop に陥る可能性がある。この判定は難しいので、next を推奨する。
-macro_rules! match_expect_token {
-    ($self: expr, $v: expr, $pat: pat) => {
-        // #[warn(unused_must_use)]
-        match $v {
-            Some(($pat, _)) => Ok(()),
-            Some((_, token_info)) => Err($self.add_parse_error(
-                token_info,
-                format!("unexpected token: expected {}", stringify!($pat)),
-            )),
-            None => Err($self.add_end_error("unexpected end of input".to_owned())),
-        }
-    };
-    ($self: expr, $v: expr, $pat: pat if $cond:expr) => {
-        // #[warn(unused_must_use)]
-        match $v {
-            Some(($pat, _)) if $cond => Ok(()),
-            Some((_, token_info)) => Err($self.add_parse_error(
-                token_info,
-                format!("unexpected token: expected {}", stringify!($pat)),
-            )),
-            None => Err($self.add_end_error("unexpected end of input".to_owned())),
-        }
-    };
-    ($self: expr, $v: expr, $pat: pat => $res: expr) => {
-        match $v {
-            Some(($pat, _)) => Ok($res),
-            Some((_, token_info)) => Err($self.add_parse_error(
-                token_info,
-                format!("unexpected token: expected {}", stringify!($pat)),
-            )),
-            None => Err($self.add_end_error("unexpected end of input".to_owned())),
-        }
-    };
-}
-
-// TODO: unused_must_use is experimental... remove this
-macro_rules! match_expect_token_unused {
-    ($self: expr, $v: expr, $pat: pat) => {
-        let _ = match_expect_token!($self, $v, $pat);
-    };
-
-    ($self: expr, $v: expr, $pat: pat if $cond:expr) => {
-        let _ = match_expect_token!($self, $v, $pat if $cond);
-    }
-}
-
-//
+// マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
 #[derive(Clone)] // TODO: REMOVE
 pub enum Statement {

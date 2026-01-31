@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    syntactic_analyzer::{ExecExpression, ExecStatement, Function, Scope},
+    semantic_analyzer::{ExecExpression, ExecStatement, Function, Scope},
     tree_parser::{Operator1, Operator2},
 };
 

@@ -2,6 +2,11 @@
 
 現在作業中のタスク・進捗を記録するディレクトリ。
 
+## ドキュメント
+
+- [unimplemented-features.md](unimplemented-features.md) - 未実装の機能・構文の一覧
+- [code-structure-refactoring.md](code-structure-refactoring.md) - ソースコード構成のリファクタリング計画
+
 ## 現在のタスク
 
 ### アクティブ
