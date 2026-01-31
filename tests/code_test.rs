@@ -1,6 +1,6 @@
 use std::{fmt::Result, fs, io};
 
-use nospace20::{interpret_func_testing, parse_to_tokens, parse_to_tree, syntactic_analyze};
+use nospace20::{interpret_func_testing, interpret_func_with_io, parse_to_tokens, parse_to_tree, syntactic_analyze};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -9,6 +9,14 @@ use serde::{Deserialize, Serialize};
 enum TestConfig {
     Success {
         trace: Vec<i64>,
+    },
+    SuccessIo {
+        #[serde(default)]
+        stdin: Option<String>,
+        #[serde(default)]
+        stdin_file: Option<String>,
+        stdout: Option<String>,
+        stdout_file: Option<String>,
     },
     ParseError {
         phase: String, // "tokenize" or "tree"
@@ -58,7 +66,14 @@ fn test_ok_coding_base(test_name: &str) -> Result {
     let check_json = if let Some(legacy) = TestConfig::from_legacy(&check_json_value) {
         legacy
     } else {
-        serde_json::from_value(check_json_value).ok().unwrap()
+        match serde_json::from_value(check_json_value.clone()) {
+            Ok(config) => config,
+            Err(e) => {
+                eprintln!("Failed to parse config: {:?}", e);
+                eprintln!("JSON value: {:?}", check_json_value);
+                panic!("Failed to parse test config");
+            }
+        }
     };
     
     match check_json {
@@ -74,6 +89,54 @@ fn test_ok_coding_base(test_name: &str) -> Result {
             }
         }
         _ => panic!("Expected success test config"),
+    }
+    Ok(())
+}
+
+fn test_ok_coding_io_base(test_name: &str) -> Result {
+    let path_base = "resources/tests/passes/".to_owned() + test_name;
+    let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
+        .expect("Something went wrong reading the file");
+
+    let check_json_value: serde_json::Value = serde_json::from_reader(io::BufReader::new(
+        fs::File::open(path_base.to_owned() + ".check.json")
+            .ok()
+            .unwrap(),
+    ))
+    .ok()
+    .unwrap();
+    
+    let check_json: TestConfig = serde_json::from_value(check_json_value).ok().unwrap();
+    
+    match check_json {
+        TestConfig::SuccessIo { stdin, stdin_file, stdout, stdout_file } => {
+            // stdin を取得（インラインまたはファイルから）
+            let stdin_content = if let Some(s) = stdin {
+                s
+            } else if let Some(f) = stdin_file {
+                fs::read_to_string(path_base.clone() + "." + &f).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            
+            // 期待される stdout を取得
+            let expected_stdout = if let Some(s) = stdout {
+                s
+            } else if let Some(f) = stdout_file {
+                fs::read_to_string(path_base.clone() + "." + &f).unwrap()
+            } else {
+                panic!("SuccessIo test must specify stdout or stdout_file");
+            };
+            
+            // 実行
+            let t = parse_to_tokens(&ns_cnt).unwrap();
+            let s = parse_to_tree(&t).unwrap();
+            let a = syntactic_analyze(&s);
+            let (_, actual_stdout) = interpret_func_with_io(&a, "main", &stdin_content);
+            
+            assert_eq!(expected_stdout, actual_stdout, "stdout mismatch");
+        }
+        _ => panic!("Expected success_io test config"),
     }
     Ok(())
 }
@@ -132,6 +195,15 @@ macro_rules! test_syntax_error {
     };
 }
 
+macro_rules! test_ok_coding_io {
+    ($name: ident, $test_name: expr) => {
+        #[test]
+        fn $name() -> Result {
+            test_ok_coding_io_base($test_name)
+        }
+    };
+}
+
 // Legacy tests (backward compatibility)
 test_ok_coding!(test_ok_coding_c000, "c000");
 test_ok_coding!(test_ok_coding_c001, "c001");
@@ -186,9 +258,22 @@ test_syntax_error!(test_syntax_error_invalid_token_001, "invalid_token_001");
 test_syntax_error!(test_syntax_error_unclosed_paren_001, "unclosed_paren_001");
 test_syntax_error!(test_syntax_error_unexpected_eof_001, "unexpected_eof_001");
 
+// I/O tests (migrated from legacy tests)
+test_ok_coding_io!(test_legacy_001, "legacy/legacy_001");
+test_ok_coding_io!(test_legacy_002, "legacy/legacy_002");
+test_ok_coding_io!(test_legacy_003, "legacy/legacy_003");
+test_ok_coding_io!(test_legacy_004, "legacy/legacy_004");
+test_ok_coding_io!(test_legacy_005, "legacy/legacy_005");
+test_ok_coding_io!(test_legacy_007, "legacy/legacy_007");
+test_ok_coding_io!(test_legacy_008, "legacy/legacy_008");
+test_ok_coding_io!(test_legacy_009, "legacy/legacy_009");
+test_ok_coding_io!(test_legacy_010, "legacy/legacy_010");
+
 // Disabled tests (未実装機能のテスト)
 // テスト名が disabled_ で始まるものは除外される
 // test_ok_coding!(test_variables_disabled_var_global_001, "variables/disabled_var_global_001");
 // test_ok_coding!(test_variables_disabled_var_final_001, "variables/disabled_var_final_001");
 // test_ok_coding!(test_variables_disabled_var_init_001, "variables/disabled_var_init_001");
 // test_ok_coding!(test_scope_disabled_scope_block_var_001, "scope/disabled_scope_block_var_001");
+// test_ok_coding_io!(test_legacy_011, "legacy/legacy_011");  // DISABLED: requires global variables
+// test_ok_coding_io!(test_legacy_012, "legacy/legacy_012");  // DISABLED: requires global variables

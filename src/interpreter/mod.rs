@@ -6,6 +6,7 @@
 //!
 
 use std::collections::BTreeMap;
+use std::io::{BufRead, Write};
 
 use crate::{
     semantic_analyzer::{ExecExpression, ExecStatement, Function, Scope},
@@ -37,12 +38,90 @@ macro_rules! try_expr {
 
 pub struct Environment {
     pub traced: BTreeMap<i64, i64>,
+    pub(crate) stdin: Box<dyn BufRead>,
+    pub(crate) stdout: Box<dyn Write>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Environment {
             traced: BTreeMap::new(),
+            stdin: Box::new(std::io::BufReader::new(std::io::stdin())),
+            stdout: Box::new(std::io::stdout()),
+        }
+    }
+
+    pub fn new_with_buffers(stdin: Box<dyn BufRead>, stdout: Box<dyn Write>) -> Self {
+        Environment {
+            traced: BTreeMap::new(),
+            stdin,
+            stdout,
+        }
+    }
+
+    pub fn write_int(&mut self, val: i64) {
+        write!(self.stdout, "{}", val).unwrap();
+    }
+
+    pub fn write_char(&mut self, val: i64) {
+        let byte = (val as u8) as char;
+        write!(self.stdout, "{}", byte).unwrap();
+    }
+
+    pub fn flush(&mut self) {
+        self.stdout.flush().unwrap();
+    }
+
+    pub fn read_int(&mut self) -> i64 {
+        let mut buf = String::new();
+        let mut chars_read = 0;
+        let mut negative = false;
+        let mut num_str = String::new();
+
+        // 空白・改行をスキップして数値を読み取る
+        loop {
+            buf.clear();
+            match self.stdin.read_line(&mut buf) {
+                Ok(0) => return 0, // EOF
+                Ok(_) => {
+                    for ch in buf.chars() {
+                        if chars_read == 0 && (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t') {
+                            continue; // 先頭の空白をスキップ
+                        }
+                        if chars_read == 0 && ch == '-' {
+                            negative = true;
+                            chars_read += 1;
+                            continue;
+                        }
+                        if ch.is_ascii_digit() {
+                            num_str.push(ch);
+                            chars_read += 1;
+                        } else if chars_read > 0 {
+                            // 数値の終わり
+                            break;
+                        }
+                    }
+                    if chars_read > 0 {
+                        break;
+                    }
+                }
+                Err(_) => return 0,
+            }
+        }
+
+        let result = num_str.parse::<i64>().unwrap_or(0);
+        if negative {
+            -result
+        } else {
+            result
+        }
+    }
+
+    pub fn read_char(&mut self) -> i64 {
+        let mut buf = [0u8; 1];
+        match self.stdin.read(&mut buf) {
+            Ok(1) => buf[0] as i64,
+            _ => 0, // EOF
         }
     }
 }
@@ -124,6 +203,24 @@ impl LocalEnvironment<'_, '_> {
                     traced.insert(key, 1);
                 }
                 ExpressionFlow::Value(0)
+            }
+            "__puti" => {
+                let a = try_expr!(self.interpret_expression(args.first().unwrap()));
+                self.env.write_int(a);
+                ExpressionFlow::Value(a)
+            }
+            "__putc" => {
+                let a = try_expr!(self.interpret_expression(args.first().unwrap()));
+                self.env.write_char(a);
+                ExpressionFlow::Value(a)
+            }
+            "__geti" => {
+                let val = self.env.read_int();
+                ExpressionFlow::Value(val)
+            }
+            "__getc" => {
+                let val = self.env.read_char();
+                ExpressionFlow::Value(val)
             }
             _ => self.interpret_call_user_function(id, args),
         }

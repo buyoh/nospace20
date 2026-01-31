@@ -42,7 +42,50 @@ pub fn interpret_func(scope: &Scope, func_name: &str) -> Option<i64> {
 }
 
 pub fn interpret_func_testing(scope: &Scope, func_name: &str) -> BTreeMap<i64, i64> {
-    let mut env = Environment::new();
+    use std::io::Cursor;
+    // テスト用には空のバッファを使用
+    let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(Vec::<u8>::new())));
+    let stdout_buf: Box<dyn std::io::Write> = Box::new(Vec::<u8>::new());
+    let mut env = Environment::new_with_buffers(stdin_cursor, stdout_buf);
     interpreter::interpret_func(&mut env, scope, func_name);
     env.traced
+}
+
+pub fn interpret_func_with_io(
+    scope: &Scope,
+    func_name: &str,
+    stdin: &str,
+) -> (BTreeMap<i64, i64>, String) {
+    use std::io::Cursor;
+    use std::rc::Rc;
+    use std::cell::RefCell;
+    
+    let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(
+        stdin.as_bytes().to_vec(),
+    )));
+    
+    // Rc<RefCell<Vec<u8>>> を使ってstdoutを共有
+    let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
+    let stdout_clone = Rc::clone(&stdout_buf);
+    
+    struct SharedWriter(Rc<RefCell<Vec<u8>>>);
+    impl std::io::Write for SharedWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.borrow_mut().write(buf)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.0.borrow_mut().flush()
+        }
+    }
+    
+    let stdout_writer: Box<dyn std::io::Write> = Box::new(SharedWriter(stdout_clone));
+    let mut env = Environment::new_with_buffers(stdin_cursor, stdout_writer);
+    
+    interpreter::interpret_func(&mut env, scope, func_name);
+    env.flush();
+    
+    let stdout_vec = stdout_buf.borrow().clone();
+    let stdout_string = String::from_utf8(stdout_vec).unwrap();
+    
+    (env.traced, stdout_string)
 }

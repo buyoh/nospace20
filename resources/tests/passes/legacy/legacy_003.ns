@@ -1,0 +1,9 @@
+func:main(){
+let:a;let:b;let:c;
+a=5;
+__puti(a+2);
+b=a+10;
+__puti(c=(a+b)/4);
+__puti(c*2);
+__puti(b/a);
+}
