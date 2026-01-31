@@ -51,6 +51,7 @@ pub enum Token {
     Invalid,
 }
 
+#[derive(Debug)]
 pub struct TokenInfo {
     pub code_pointer: usize,
 }

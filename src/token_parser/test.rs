@@ -104,5 +104,65 @@ test_ok_parse!(test_ok_p_2, "let:a;", it => {
     assert_matches!(it.next(), None);
 });
 
-// TODO: add fail case
+// Error case tests
+
+#[test]
+fn test_fail_unclosed_char_literal() {
+    let result = res_parse_to_tokens_internal(&mut to_iter("'a"));
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn test_fail_empty_char_literal() {
+    let result = res_parse_to_tokens_internal(&mut to_iter("''"));
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn test_fail_invalid_escape_sequence() {
+    let result = res_parse_to_tokens_internal(&mut to_iter("'\\x'"));
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn test_fail_unclosed_char_literal_with_escape() {
+    let result = res_parse_to_tokens_internal(&mut to_iter("'\\n"));
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn test_fail_char_literal_too_many_chars() {
+    let result = res_parse_to_tokens_internal(&mut to_iter("'ab'"));
+    assert!(result.is_err());
+    let errors = result.unwrap_err();
+    assert!(!errors.is_empty());
+}
+
+// Character literal and escape sequence tests
+
+test_ok_parse_single!(test_char_literal_simple, "'a'", Token::Number(n) if *n == 97);
+test_ok_parse_single!(test_char_literal_newline, "'\\n'", Token::Number(n) if *n == 10);
+test_ok_parse_single!(test_char_literal_tab, "'\\t'", Token::Number(n) if *n == 9);
+test_ok_parse_single!(test_char_literal_carriage_return, "'\\r'", Token::Number(n) if *n == 13);
+test_ok_parse_single!(test_char_literal_space, "'\\s'", Token::Number(n) if *n == 32);
+test_ok_parse_single!(test_char_literal_backslash, "'\\\\'", Token::Number(n) if *n == 92);
+test_ok_parse_single!(test_char_literal_quote, "'\\''", Token::Number(n) if *n == 39);
+
+// Empty input test
+#[test]
+fn test_empty_input() {
+    let result = res_parse_to_tokens_internal(&mut to_iter(""));
+    assert!(result.is_ok());
+    let tokens = result.unwrap();
+    assert_eq!(tokens.len(), 0);
+}
+
 // TODO: add tokeninfo
