@@ -6,7 +6,9 @@
 
 - [unimplemented-features.md](unimplemented-features.md) - 未実装の機能・構文の一覧
 - [code-structure-refactoring.md](code-structure-refactoring.md) - ソースコード構成のリファクタリング計画
-- [unit-test-analysis.md](unit-test-analysis.md) - ユニットテスト分析レポート
+- [unit-test-tree-parser.md](unit-test-tree-parser.md) - tree_parser ユニットテスト追加タスク
+- [unit-test-semantic-analyzer.md](unit-test-semantic-analyzer.md) - semantic_analyzer ユニットテスト追加タスク
+- [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 
 ## 現在のタスク
 
@@ -24,6 +26,7 @@
 
 - [test-categorization.md](../done-task/test-categorization.md) - テストケースのカテゴリ分け
 - [implement-new-features.md](../done-task/implement-new-features.md) - 新機能実装 (文字リテラル、論理演算子、剰余演算子)
+- [unit-test-analysis.md](../done-task/unit-test-analysis.md) - ユニットテスト分析レポート
 
 ## タスクファイルの命名規則
 
