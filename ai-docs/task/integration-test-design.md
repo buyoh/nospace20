@@ -8,16 +8,17 @@
 
 ## 背景
 
-- ユニットテストでは token_parser / tree_parser / semantic_analyzer / interpreter を独立してテスト
+- ユニットテストでは token_parser / tree_parser / semantic_analyzer を独立してテスト
 - 入力を手動構築するため、複雑なケースでは可読性・保守性が低下する
-- コード文字列から実行までの一連の流れをテストする結合テストが必要
+- コード文字列から意味解析までの一連の流れをテストする結合テストが必要
+- interpreter は実行環境であり、解析フェーズとは異なるため、このタスクではスコープ外とする
 
 ## 結合テストの位置づけ
 
 | テスト種別 | 対象 | 入力形式 | 特徴 |
 |-----------|------|---------|------|
 | ユニットテスト | 単一モジュール | 手動構築 | 高速、依存なし、詳細な検証 |
-| 結合テスト | 複数モジュール | コード文字列 | 実際の使用に近い、網羅的 |
+| 結合テスト | 解析パイプライン | コード文字列 | パーサー/意味解析の連携確認 |
 | largeテスト | 全パイプライン | .ns ファイル | E2E、実行確認 |
 
 ## 結合テストの種類
@@ -35,23 +36,13 @@ fn test_parse_from_str(code: &str) -> Vec<Statement> {
 
 ### 2. token_parser + tree_parser + semantic_analyzer
 
-コード文字列からScope構築までをテスト。
+コード文字列からScope構築までをテスト。意味解析の最終段階まで確認する。
 
 ```rust
 fn test_analyze_from_str(code: &str) -> Scope {
     let tokens = token_parser::parse_to_tokens(code).unwrap();
     let statements = tree_parser::parse_to_tree(&tokens).unwrap();
     semantic_analyzer::analyze(&statements).unwrap()
-}
-```
-
-### 3. 全パイプライン (既存の code_test.rs に近い)
-
-コード文字列から実行結果までをテスト。
-
-```rust
-fn test_run_code(code: &str, stdin: &str) -> (Option<i64>, String) {
-    // token_parser → tree_parser → semantic_analyzer → interpreter
 }
 ```
 
@@ -86,12 +77,10 @@ resources/
 │   ├── fails/           # 既存のエラーテスト
 │   └── integration/     # 結合テスト用データ
 │       ├── parser/      # token_parser + tree_parser
-│       ├── analyzer/    # + semantic_analyzer
-│       └── full/        # 全パイプライン
+│       └── analyzer/    # + semantic_analyzer
 └── unit-tests/          # ユニットテスト用データ
     ├── tree_parser/
-    ├── semantic_analyzer/
-    └── interpreter/
+    └── semantic_analyzer/
 ```
 
 ## タスク
@@ -116,6 +105,5 @@ resources/
 
 - [unit-test-tree-parser.md](unit-test-tree-parser.md)
 - [unit-test-semantic-analyzer.md](unit-test-semantic-analyzer.md)
-- [unit-test-interpreter.md](unit-test-interpreter.md)
 
 ````
