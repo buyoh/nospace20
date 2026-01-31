@@ -1,0 +1,3 @@
+// Unexpected EOF
+func: main() {
+  var: x = 1

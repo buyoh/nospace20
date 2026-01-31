@@ -1,0 +1,4 @@
+// Invalid token test
+func: main() {
+  @ invalid token
+}

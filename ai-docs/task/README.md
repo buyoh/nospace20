@@ -4,7 +4,15 @@
 
 ## 現在のタスク
 
-現在アクティブなタスクはありません。
+### アクティブ
+
+- [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
+  - ✅ Phase 1-2完了
+  - ⚠️ 既存テストの日本語コメント問題を解決する必要あり
+
+### 完了済み
+
+- [test-categorization.md](test-categorization.md) - テストケースのカテゴリ分け
 
 ## タスクファイルの命名規則
 
