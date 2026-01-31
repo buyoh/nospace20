@@ -19,6 +19,7 @@ pub enum Operator2 {
     Minus,
     Multiply,
     Divide,
+    Modulo,
     Assign,
     Equal,
     NotEqual,
@@ -26,11 +27,14 @@ pub enum Operator2 {
     LessEqual,
     Greater,
     GreaterEqual,
+    LogicalAnd,
+    LogicalOr,
 }
 
 #[derive(Clone)] // TODO: REMOVE
 pub enum Operator1 {
     Negative,
+    LogicalNot,
 }
 
 #[derive(Clone)] // TODO: REMOVE
@@ -173,6 +177,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             if let Some(token) = self.iter.peek() {
                 match token {
                     (Token::Minus, _) => op_stack.push(Operator1::Negative),
+                    (Token::Exclamation, _) => op_stack.push(Operator1::LogicalNot),
                     _ => break,
                 }
             } else {
@@ -194,6 +199,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 match token {
                     (Token::Asterisk, _) => Operator2::Multiply,
                     (Token::Slash, _) => Operator2::Divide,
+                    (Token::Percent, _) => Operator2::Modulo,
                     _ => return left,
                 }
             } else {
@@ -245,8 +251,42 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         }
     }
 
+    fn parse_to_expression_tree_logical_and(&mut self) -> Box<Expression> {
+        let mut left = self.parse_to_expression_tree_compare();
+        loop {
+            let op = if let Some(token) = self.iter.peek() {
+                match token {
+                    (Token::DoubleAmpersand, _) => Operator2::LogicalAnd,
+                    _ => return left,
+                }
+            } else {
+                return left;
+            };
+            self.iter.next();
+            let right = self.parse_to_expression_tree_compare();
+            left = Box::new(Expression::Operation2(op, left, right));
+        }
+    }
+
+    fn parse_to_expression_tree_logical_or(&mut self) -> Box<Expression> {
+        let mut left = self.parse_to_expression_tree_logical_and();
+        loop {
+            let op = if let Some(token) = self.iter.peek() {
+                match token {
+                    (Token::DoublePipe, _) => Operator2::LogicalOr,
+                    _ => return left,
+                }
+            } else {
+                return left;
+            };
+            self.iter.next();
+            let right = self.parse_to_expression_tree_logical_and();
+            left = Box::new(Expression::Operation2(op, left, right));
+        }
+    }
+
     fn parse_to_expression_tree_assign(&mut self) -> Box<Expression> {
-        let left = self.parse_to_expression_tree_compare();
+        let left = self.parse_to_expression_tree_logical_or();
         let op = if let Some(token) = self.iter.peek() {
             match token {
                 (Token::SingleEqual, _) => Operator2::Assign,

@@ -28,6 +28,7 @@ pub enum Token {
     Minus,
     Asterisk,
     Slash,
+    Percent,       // %
     Exclamation,
     SingleEqual,
     DoubleEqual,
@@ -36,6 +37,8 @@ pub enum Token {
     Greater,
     LessEqual,
     GreaterEqual,
+    DoubleAmpersand, // &&
+    DoublePipe,      // ||
     ParenthesisL, // (
     ParenthesisR, // )
     BracketL,     // [
@@ -73,6 +76,51 @@ fn parse_number(iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = c
         iter.next();
     }
     Token::Number(value)
+}
+
+/// 文字リテラルをパースする。'a' のような形式で、エスケープシーケンスも対応。
+/// 呼び出し時点で開始の `'` は既に消費されている必要がある。
+fn parse_char_literal(
+    iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>,
+    start_idx: usize,
+) -> Result<Token, CodeParseError> {
+    let char_value = match iter.next() {
+        Some((_, '\\')) => {
+            // エスケープシーケンス
+            match iter.next() {
+                Some((_, 'n')) => 10,   // 改行 (LF)
+                Some((_, 'r')) => 13,   // 復帰 (CR)
+                Some((_, 't')) => 9,    // タブ
+                Some((_, 's')) => 32,   // スペース
+                Some((_, '\\')) => 92,  // バックスラッシュ
+                Some((_, '\'')) => 39,  // シングルクォート
+                Some((idx, c)) => {
+                    return Err(code_parse_error!(idx, format!("unknown escape sequence: \\{}", c)));
+                }
+                None => {
+                    return Err(code_parse_error!(start_idx, "unexpected end of input in character literal".to_string()));
+                }
+            }
+        }
+        Some((_, '\'')) => {
+            return Err(code_parse_error!(start_idx, "empty character literal".to_string()));
+        }
+        Some((_, c)) => c as i64,
+        None => {
+            return Err(code_parse_error!(start_idx, "unexpected end of input in character literal".to_string()));
+        }
+    };
+
+    // 閉じる `'` を確認
+    match iter.next() {
+        Some((_, '\'')) => Ok(Token::Number(char_value)),
+        Some((idx, c)) => {
+            Err(code_parse_error!(idx, format!("expected closing quote, found: {}", c)))
+        }
+        None => {
+            Err(code_parse_error!(start_idx, "unclosed character literal".to_string()))
+        }
+    }
 }
 
 fn determine_keyword_or_identifier(id: String) -> Token {
@@ -137,6 +185,21 @@ fn parse_to_tokens_internal(
                     tokens.push((parse_identifier(iter), info));
                     continue;
                 }
+                '\'' => {
+                    // 文字リテラル
+                    let start_idx = *idx;
+                    iter.next(); // 開始の `'` を消費
+                    match parse_char_literal(iter, start_idx) {
+                        Ok(token) => {
+                            tokens.push((token, info));
+                            continue;
+                        }
+                        Err(err) => {
+                            parse_errors.push(err);
+                            continue;
+                        }
+                    }
+                }
                 '=' => {
                     iter.next();
                     match iter.peek() {
@@ -177,10 +240,33 @@ fn parse_to_tokens_internal(
                         }
                     }
                 }
+                '&' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '&' => Token::DoubleAmpersand,
+                        _ => {
+                            // 単独の & は未実装（参照演算子）
+                            parse_errors.push(code_parse_error!(info.code_pointer, "single '&' is not supported yet".to_string()));
+                            continue;
+                        }
+                    }
+                }
+                '|' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '|' => Token::DoublePipe,
+                        _ => {
+                            // 単独の | は未実装
+                            parse_errors.push(code_parse_error!(info.code_pointer, "single '|' is not supported".to_string()));
+                            continue;
+                        }
+                    }
+                }
                 '+' => Token::Plus,
                 '-' => Token::Minus,
                 '*' => Token::Asterisk,
                 '/' => Token::Slash,
+                '%' => Token::Percent,
                 '(' => Token::ParenthesisL,
                 ')' => Token::ParenthesisR,
                 '[' => Token::BracketL,

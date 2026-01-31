@@ -242,9 +242,9 @@ impl LocalEnvironment<'_, '_> {
         let mut env = LocalEnvironment::new_func(self.env, self.root_scope, &func, &arg_values);
         match env.interpret_statements(&func.code) {
             Flow::Proceed => ExpressionFlow::Value(0),
+            Flow::Return(x) => ExpressionFlow::Value(x), // 関数の return は呼び出し元の式の値となる
             Flow::Continue => panic!("internal error: unexpected continue"),
             Flow::Break => panic!("internal error: unexpected break"),
-            other => ExpressionFlow::Jump(other),
         }
     }
 
@@ -304,6 +304,7 @@ impl LocalEnvironment<'_, '_> {
         let v1 = try_expr!(self.interpret_expression(expr1));
         let res = match op {
             Operator1::Negative => -v1,
+            Operator1::LogicalNot => bool_to_int(v1 == 0),
         };
         ExpressionFlow::Value(res)
     }
@@ -314,6 +315,7 @@ impl LocalEnvironment<'_, '_> {
         expr1: &Box<ExecExpression>,
         expr2: &Box<ExecExpression>,
     ) -> ExpressionFlow {
+        // 代入演算子: 特別処理
         if let Operator2::Assign = op {
             if let ExecExpression::Variable(name) = expr1.as_ref() {
                 if self.variables.contains_key(name) {
@@ -329,6 +331,24 @@ impl LocalEnvironment<'_, '_> {
                 panic!("runtime error: left value is not variable");
             }
         }
+        // 論理AND: 短絡評価 (左辺が0なら右辺を評価せず0を返す)
+        if let Operator2::LogicalAnd = op {
+            let v1 = try_expr!(self.interpret_expression(expr1));
+            if v1 == 0 {
+                return ExpressionFlow::Value(0);
+            }
+            let v2 = try_expr!(self.interpret_expression(expr2));
+            return ExpressionFlow::Value(bool_to_int(v2 != 0));
+        }
+        // 論理OR: 短絡評価 (左辺が非0なら右辺を評価せず1を返す)
+        if let Operator2::LogicalOr = op {
+            let v1 = try_expr!(self.interpret_expression(expr1));
+            if v1 != 0 {
+                return ExpressionFlow::Value(1);
+            }
+            let v2 = try_expr!(self.interpret_expression(expr2));
+            return ExpressionFlow::Value(bool_to_int(v2 != 0));
+        }
         let v1 = try_expr!(self.interpret_expression(expr1));
         let v2 = try_expr!(self.interpret_expression(expr2));
         let res = match op {
@@ -336,6 +356,7 @@ impl LocalEnvironment<'_, '_> {
             Operator2::Minus => v1 - v2,
             Operator2::Multiply => v1 * v2,
             Operator2::Divide => v1 / v2,
+            Operator2::Modulo => v1 % v2,
             Operator2::Assign => unreachable!(),
             Operator2::Equal => bool_to_int(v1 == v2),
             Operator2::NotEqual => bool_to_int(v1 != v2),
@@ -343,6 +364,8 @@ impl LocalEnvironment<'_, '_> {
             Operator2::LessEqual => bool_to_int(v1 <= v2),
             Operator2::Greater => bool_to_int(v1 > v2),
             Operator2::GreaterEqual => bool_to_int(v1 >= v2),
+            Operator2::LogicalAnd => unreachable!(),
+            Operator2::LogicalOr => unreachable!(),
         };
         ExpressionFlow::Value(res)
     }

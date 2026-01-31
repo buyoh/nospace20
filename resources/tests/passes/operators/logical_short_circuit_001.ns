@@ -2,17 +2,17 @@
 # 左辺が0ならば右辺は評価されない #
 
 func: side_effect() {
-    __trace(100);
+    __trace(2);
     return: 1;
 }
 
 func: main() {
     let: a;
-    # 左辺が1なので右辺も評価される #
+    # 左辺が1なので右辺も評価される (side_effect が呼ばれて trace[2] がインクリメント) #
     a = 1 && side_effect();
     __trace(0); __assert(a == 1);
     
-    # 左辺が0なので右辺は評価されない #
+    # 左辺が0なので右辺は評価されない (side_effect は呼ばれない) #
     a = 0 && side_effect();
     __trace(1); __assert(a == 0);
     
