@@ -216,6 +216,9 @@ test_ok_coding!(test_literals_num_001, "literals/num_001");
 test_ok_coding!(test_literals_num_002, "literals/num_002");
 test_ok_coding!(test_literals_ident_001, "literals/ident_001");
 test_ok_coding!(test_literals_comment_001, "literals/comment_001");
+// test_ok_coding!(test_literals_char_001, "literals/char_001");  // DISABLED: character literals not implemented
+// test_ok_coding!(test_literals_char_escape_001, "literals/char_escape_001");  // DISABLED: character literals not implemented
+// test_ok_coding!(test_literals_char_arith_001, "literals/char_arith_001");  // DISABLED: character literals not implemented
 
 // Operators
 test_ok_coding!(test_operators_arith_001, "operators/arith_001");
@@ -223,6 +226,14 @@ test_ok_coding!(test_operators_arith_002, "operators/arith_002");
 test_ok_coding!(test_operators_arith_003, "operators/arith_003");
 test_ok_coding!(test_operators_unary_001, "operators/unary_001");
 test_ok_coding!(test_operators_compare_001, "operators/compare_001");
+// test_ok_coding!(test_operators_logical_not_001, "operators/logical_not_001");  // DISABLED: logical operators not implemented
+// test_ok_coding!(test_operators_logical_and_001, "operators/logical_and_001");  // DISABLED: logical operators not implemented
+// test_ok_coding!(test_operators_logical_or_001, "operators/logical_or_001");  // DISABLED: logical operators not implemented
+// test_ok_coding!(test_operators_logical_short_circuit_001, "operators/logical_short_circuit_001");  // DISABLED: logical operators not implemented
+// test_ok_coding!(test_operators_logical_short_circuit_002, "operators/logical_short_circuit_002");  // DISABLED: logical operators not implemented
+// test_ok_coding!(test_operators_logical_precedence_001, "operators/logical_precedence_001");  // DISABLED: logical operators not implemented
+// test_ok_coding!(test_operators_modulo_001, "operators/modulo_001");  // DISABLED: modulo operator not implemented
+// test_ok_coding!(test_operators_modulo_002, "operators/modulo_002");  // DISABLED: modulo operator not implemented
 
 // Builtins
 test_ok_coding!(test_builtins_trace_001, "builtins/trace_001");

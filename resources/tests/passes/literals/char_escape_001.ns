@@ -1,0 +1,15 @@
+# 文字リテラル: エスケープシーケンス #
+func: main() {
+    let: nl; let: tab; let: sp; let: bs; let: sq;
+    nl = '\n';
+    tab = '\t';
+    sp = '\s';
+    bs = '\\';
+    sq = '\'';
+    __trace(0); __assert(nl == 10);
+    __trace(1); __assert(tab == 9);
+    __trace(2); __assert(sp == 32);
+    __trace(3); __assert(bs == 92);
+    __trace(4); __assert(sq == 39);
+    return: 0;
+}

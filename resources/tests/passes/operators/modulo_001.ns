@@ -1,0 +1,13 @@
+# 剰余演算子: 基本 #
+func: main() {
+    let: a; let: b; let: c; let: d;
+    a = 7 % 3;
+    b = 10 % 5;
+    c = 15 % 4;
+    d = 1 % 7;
+    __trace(0); __assert(a == 1);
+    __trace(1); __assert(b == 0);
+    __trace(2); __assert(c == 3);
+    __trace(3); __assert(d == 1);
+    return: 0;
+}

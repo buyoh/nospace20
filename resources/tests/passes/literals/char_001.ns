@@ -1,0 +1,11 @@
+# 文字リテラル: 基本的な文字リテラル #
+func: main() {
+    let: a; let: b; let: c;
+    a = 'A';
+    b = '0';
+    c = 'z';
+    __trace(0); __assert(a == 65);
+    __trace(1); __assert(b == 48);
+    __trace(2); __assert(c == 122);
+    return: 0;
+}

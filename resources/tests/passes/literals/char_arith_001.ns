@@ -1,0 +1,10 @@
+# 文字リテラル: 演算で使用 #
+func: main() {
+    let: a; let: b;
+    a = 'A';
+    b = a + 1;
+    __trace(0); __assert(b == 66);
+    __trace(1); __assert('B' - 'A' == 1);
+    __trace(2); __assert('9' - '0' == 9);
+    return: 0;
+}

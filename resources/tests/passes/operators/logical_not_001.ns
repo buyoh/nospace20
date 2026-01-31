@@ -1,0 +1,11 @@
+# 論理演算子: 論理NOT #
+func: main() {
+    let: a; let: b; let: c;
+    a = !0;
+    b = !1;
+    c = !42;
+    __trace(0); __assert(a == 1);
+    __trace(1); __assert(b == 0);
+    __trace(2); __assert(c == 0);
+    return: 0;
+}

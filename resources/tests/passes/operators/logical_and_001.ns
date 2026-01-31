@@ -1,0 +1,13 @@
+# 論理演算子: 論理AND #
+func: main() {
+    let: a; let: b; let: c; let: d;
+    a = 1 && 1;
+    b = 1 && 0;
+    c = 0 && 1;
+    d = 0 && 0;
+    __trace(0); __assert(a == 1);
+    __trace(1); __assert(b == 0);
+    __trace(2); __assert(c == 0);
+    __trace(3); __assert(d == 0);
+    return: 0;
+}
