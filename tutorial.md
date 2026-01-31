@@ -31,17 +31,15 @@ func: main() {
 ## Fibonacci
 
 ```
-# calculate fibonacci(n)
+# calculate fibonacci(n) #
 func: fibo(n) {
-    if (n < 0) {
+    if: n < 0 {
         return: 0;
-    }
-    elsif (n == 0 || n == 1) {
+    } else: if: n == 0 || n == 1 {
         return: 1;
-    }
-    else {
+    } else: {
         return: fibo(n-1) + fibo(n-2);
-    }
+    };
 }
 func: main() {
     let: n;
@@ -54,8 +52,8 @@ func: main() {
 - `return` で関数の返り値を指定出来る
   - 省略した場合は常に0
 - `if`
-- `else if` ではなく `elsif`
-- 行コメントアウトは `#`
+- `else if` ではなく `else: if:` と書く
+- コメントは `#` で囲む
 - 変数宣言は `let`
 - ローカルスコープは関数のみ
 - 関数内のどこでも `let` を使うことが出来る
@@ -82,8 +80,8 @@ func: main() {
 }
 ```
 
-- `&a` は変数 `a` のアドレスを取得
-- `*p` は `p` をデリファレンスする
+- `&a` は変数 `a` の参照を取得
+- `*p` は `p` をデリファレンス（間接参照）する
 - `let` 宣言の時 `a(1)` で変数 `a` を `1` に初期化する
 
 ## Rotate Array
@@ -92,10 +90,10 @@ func: main() {
 func:swap(p,q){let:t;t=*p;*p=*q;*q=t;}
 func: rotate(begin, end) {
     end -= 1;
-    while (begin < end) {
+    while: begin < end {
         swap(end - 1, end);
         end -= 1;
-    }
+    };
 }
 func: main(){
     let: arr[4];
@@ -128,16 +126,16 @@ func: swap(p, q) {
     t = *p; *p = *q; *q = t;
 }
 func: qsort(begin, end) {
-    if (end - begin <= 1) { return; }
+    if: end - begin <= 1 { return; };
     let: pv(begin), it(begin + 1);
-    while (it < end) {
-        if (*pv > *it) {
+    while: it < end {
+        if: *pv > *it {
             swap(pv + 1, it);
             swap(pv, pv + 1);
             pv += 1;
-        }
+        };
         it += 1;
-    }
+    };
     qsort(begin, pv);
     qsort(pv+1, end);
 }
@@ -145,11 +143,11 @@ func: main() {
     let: arr[9](3,1,4,1,5,9,2,6,5);
     qsort(&arr, &arr+9);
     let: i(0);
-    while (i < 9) {
+    while: i < 9 {
         __puti(arr[i]);
         __putc(' ');
         i += 1;
-    }
+    };
 }
 ```
 
