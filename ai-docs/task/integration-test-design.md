@@ -80,17 +80,18 @@ fn test_run_code(code: &str, stdin: &str) -> (Option<i64>, String) {
 ### ディレクトリ構造案
 
 ```
-resources/tests/
-├── passes/          # 既存の large テスト
-├── fails/           # 既存のエラーテスト
-├── unit/            # ユニットテスト用データ（将来）
-│   ├── tree_parser/
-│   ├── semantic_analyzer/
-│   └── interpreter/
-└── integration/     # 結合テスト用データ
-    ├── parser/      # token_parser + tree_parser
-    ├── analyzer/    # + semantic_analyzer
-    └── full/        # 全パイプライン
+resources/
+├── tests/
+│   ├── passes/          # 既存の large テスト
+│   ├── fails/           # 既存のエラーテスト
+│   └── integration/     # 結合テスト用データ
+│       ├── parser/      # token_parser + tree_parser
+│       ├── analyzer/    # + semantic_analyzer
+│       └── full/        # 全パイプライン
+└── unit-tests/          # ユニットテスト用データ
+    ├── tree_parser/
+    ├── semantic_analyzer/
+    └── interpreter/
 ```
 
 ## タスク

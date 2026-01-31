@@ -39,7 +39,7 @@ tree_parser モジュールにユニットテストを追加するためのタ�
   ```
 - [ ] **T1-2**: 外部ファイル（JSON/YAML）によるテストケース定義の検討
   - テストケースが大きくなる場合、可読性のため外部ファイル化を検討
-  - `resources/tests/unit/tree_parser/` にテストデータを配置
+  - `resources/unit-tests/tree_parser/` にテストデータを配置
 
 ### Phase 2: ユニットテスト追加
 

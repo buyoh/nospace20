@@ -48,7 +48,7 @@ interpreter モジュールにユニットテストを追加するためのタ�
 - [ ] **T2-2**: Environment 構築ヘルパー追加（stdin/stdout モック含む）
 - [ ] **T2-3**: 外部ファイル（JSON/YAML）によるテストケース定義の検討
   - 複雑な Scope/Function を記述する場合、可読性のため外部ファイル化を検討
-  - `resources/tests/unit/interpreter/` にテストデータを配置
+  - `resources/unit-tests/interpreter/` にテストデータを配置
 
 ### Phase 3: ユニットテスト追加
 

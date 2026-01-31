@@ -55,7 +55,7 @@ semantic_analyzer モジュールにユニットテストを追加するため�
   ```
 - [ ] **T2-2**: 外部ファイル（JSON/YAML）によるテストケース定義の検討
   - 複雑なASTを記述する場合、可読性のため外部ファイル化を検討
-  - `resources/tests/unit/semantic_analyzer/` にテストデータを配置
+  - `resources/unit-tests/semantic_analyzer/` にテストデータを配置
 
 ### Phase 3: ユニットテスト追加
 
