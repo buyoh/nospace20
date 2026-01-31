@@ -2,7 +2,7 @@
 
 cd `dirname $0`/..
 
-BASE_PATH=resources/test/c
+BASE_PATH=resources/tests/c
 
 for n in `seq -f "%03.0f" 999`; do
   FILENAME_NS=${BASE_PATH}${n}.ns

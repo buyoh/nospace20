@@ -83,7 +83,7 @@ nospace20/
 
 ### Large テスト (統合テスト)
 
-`tests/code_test.rs` で実装。テストケースは `resources/test/` に配置。
+`tests/code_test.rs` で実装。テストケースは `resources/tests/` に配置。
 
 テストケースのフォーマット:
 - `*.ns` - nospace ソースコード

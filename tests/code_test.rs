@@ -3,7 +3,7 @@ use std::{fmt::Result, fs, io};
 use nospace20::{interpret_func_testing, parse_to_tokens, parse_to_tree, syntactic_analyze};
 
 fn test_ok_coding_base(test_name: &str) -> Result {
-    let path_base = "resources/test/".to_owned() + test_name;
+    let path_base = "resources/tests/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
 

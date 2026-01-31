@@ -2,7 +2,7 @@
 
 ## 概要
 
-resources/test のテストケースをカテゴリ分けし、テストを拡充するタスク。
+resources/tests のテストケースをカテゴリ分けし、テストを拡充するタスク。
 
 ## 現状分析
 
@@ -68,7 +68,7 @@ spec.md に基づき、以下のカテゴリを定義:
 ## テストディレクトリ構造案
 
 ```
-resources/test/
+resources/tests/
   literals/
     num_001.ns         - 基本的な数値リテラル
     num_002.ns         - 負の数
