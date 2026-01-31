@@ -11,6 +11,10 @@
 
 ### アクティブ
 
+- [migrate-legacy-tests.md](migrate-legacy-tests.md) - 旧テストの移行計画
+  - ⚠️ I/O ビルトイン関数の実装が必要
+  - 計画立案完了、実装待ち
+
 - [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
   - ✅ Phase 1-2完了
   - ⚠️ 既存テストの日本語コメント問題を解決する必要あり
