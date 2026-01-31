@@ -72,12 +72,12 @@ fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
         )),
         Expression::If(cond, stat1, stat2) => Box::new(ExecExpression::If(
             convert_to_exec_expression(cond),
-            syntactic_analyze_internal(stat1, ScopeType::Block).1,
-            syntactic_analyze_internal(stat2, ScopeType::Block).1,
+            analyze_internal(stat1, ScopeType::Block).1,
+            analyze_internal(stat2, ScopeType::Block).1,
         )),
         Expression::While(expr, stat) => Box::new(ExecExpression::While(
             convert_to_exec_expression(expr),
-            syntactic_analyze_internal(stat, ScopeType::Block).1,
+            analyze_internal(stat, ScopeType::Block).1,
         )),
         Expression::Function(f, a) => Box::new(ExecExpression::Function(
             f.to_owned(),
@@ -152,7 +152,7 @@ impl ScopeBuilder {
 
     fn add_identifier(&mut self, name: String, identifier: Identifier) {
         if self.identifier_map.contains_key(&name) {
-            panic!("syntactic error: the name is already used");
+            panic!("semantic error: the name is already used");
         }
         self.identifier_map.insert(name, identifier);
     }
@@ -170,7 +170,7 @@ impl ScopeBuilder {
     }
 }
 
-fn syntactic_analyze_internal(
+fn analyze_internal(
     statements: &Vec<Statement>,
     scope_type: ScopeType,
 ) -> (ScopeBuilder, Vec<ExecStatement>) {
@@ -200,7 +200,7 @@ fn syntactic_analyze_internal(
                     // TODO(error-handling): Result型でエラーを返すべき (ネスト関数宣言は未対応)
                     panic!("semantic error: nested function declaration is not supported")
                 }
-                let (mut s, es) = syntactic_analyze_internal(block, ScopeType::Function);
+                let (mut s, es) = analyze_internal(block, ScopeType::Function);
                 // add variable definition to scope
                 for a in args {
                     s.add_variable(
@@ -253,6 +253,6 @@ fn syntactic_analyze_internal(
 }
 
 pub fn analyze(root: &Vec<Statement>) -> Scope {
-    syntactic_analyze_internal(root, ScopeType::Root).0.build()
+    analyze_internal(root, ScopeType::Root).0.build()
     // TODO: validate identifiers
 }

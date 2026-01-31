@@ -17,7 +17,8 @@ Agent 向けのドキュメントは `ai-docs/` ディレクトリに配置さ�
 
 ## Git について
 
-コミットには以下のアカウントを設定してね
+コミットには以下のアカウントを設定してね  
+同時に別の Agent が修正を行っているかもしれないため、修正するファイルだけをコミットしてね
 
 - name: buyoh(agent)
 - email: 15198247+buyoh@users.noreply.github.com

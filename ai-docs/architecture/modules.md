@@ -99,9 +99,9 @@ pub enum Expression {
 
 ---
 
-## syntactic_analyzer
+## semantic_analyzer
 
-**ファイル**: `src/syntactic_analyzer/mod.rs`
+**ファイル**: `src/semantic_analyzer/mod.rs`
 
 意味解析器。ASTを実行可能な構造に変換する。
 

@@ -26,8 +26,8 @@ nospace20 のアーキテクチャに関するドキュメント。
      │
      ▼
 ┌─────────────────────┐
-│ Syntactic Analyzer  │  AST → 実行可能な構造体 (Scope)
-│(syntactic_analyzer) │
+│ Semantic Analyzer   │  AST → 実行可能な構造体 (Scope)
+│(semantic_analyzer)  │
 └─────────────────────┘
      │
      ├────────────────────────────┐

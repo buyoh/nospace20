@@ -13,7 +13,7 @@
 
 **現状**:
 - `tree_parser/expression.rs`: `Expression`, `Statement` (パース結果)
-- `syntactic_analyzer/mod.rs`: `ExecExpression`, `ExecStatement` (実行用)
+- `semantic_analyzer/mod.rs`: `ExecExpression`, `ExecStatement` (実行用)
 - `convert_to_exec_expression()` で変換
 
 **役割の違い** (意図的な設計):
@@ -343,7 +343,13 @@ pub struct CodeParseError {
   - `Expression::Invalid` 分岐を `unreachable!` に変更
   - 各 `panic!` に TODO コメント追加 (未実装 or Result型に変更すべき)
   - `CodeParseErrorInternal` のフィールドに問題点をドキュメント化
-- 🔲 リファクタリング実施待ち
+- ✅ Phase 1: 早期改善 (完了)
+  - マクロの重複解消
+  - syntactic_analyzer → semantic_analyzer リネーム
+  - コメント・命名の修正
+- ✅ Phase 2-1: エラー型の統一 (完了)
+  - CodeParseErrorInternal を削除し CodeParseError に統一
+- 🔲 Phase 2-2: semantic_analyzer のエラーハンドリング
 
 ---
 

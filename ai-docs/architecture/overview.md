@@ -11,7 +11,7 @@ nospace20/
 │   │   └── nospace20.rs    # CLIエントリポイント
 │   ├── token_parser/       # 字句解析器
 │   ├── tree_parser/        # 構文解析器
-│   ├── syntactic_analyzer/ # 意味解析器
+│   ├── semantic_analyzer/  # 意味解析器
 │   ├── interpreter/        # インタプリタ
 │   ├── compiler/           # コンパイラ (未実装)
 │   └── logger/             # ログ・テキスト処理ユーティリティ

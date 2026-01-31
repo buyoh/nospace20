@@ -1,7 +1,9 @@
 use std::{io::Read, iter::repeat, process};
 
 use nospace20::{
-    interpret_func, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError, TextCode,
+    interpret_func, parse_to_tokens, parse_to_tree,
+    syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
+    CodeParseError, TextCode,
 };
 use unicode_width::UnicodeWidthStr;
 
