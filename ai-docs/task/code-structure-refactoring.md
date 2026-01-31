@@ -75,8 +75,8 @@ pub enum Operator2 { ... }
 - `src/tree_parser/statement.rs`
 
 **改善案**:
-- [ ] `src/tree_parser/macros.rs` に共通マクロを抽出
-- [ ] または `src/tree_parser/mod.rs` 内でマクロ定義
+- [x] `src/tree_parser/macros.rs` に共通マクロを抽出 ✅ **完了**
+- [ ] ~~または `src/tree_parser/mod.rs` 内でマクロ定義~~ (上記で解決)
 
 **関連イシュー**: なし
 

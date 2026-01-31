@@ -13,16 +13,17 @@
 ### アクティブ
 
 - [migrate-legacy-tests.md](migrate-legacy-tests.md) - 旧テストの移行計画
-  - ⚠️ I/O ビルトイン関数の実装が必要
-  - 計画立案完了、実装待ち
+  - ✅ I/O ビルトイン関数は実装済み
+  - 計画立案完了、テスト移行待ち
 
 - [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
   - ✅ Phase 1-2完了
   - ⚠️ ブロックスコープ変数の実装を解決する必要あり
 
-### 完了済み
+### 完了済み (done-task/ に移動)
 
-- [test-categorization.md](test-categorization.md) - テストケースのカテゴリ分け
+- [test-categorization.md](../done-task/test-categorization.md) - テストケースのカテゴリ分け
+- [implement-new-features.md](../done-task/implement-new-features.md) - 新機能実装 (文字リテラル、論理演算子、剰余演算子)
 
 ## タスクファイルの命名規則
 

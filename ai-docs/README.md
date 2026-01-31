@@ -7,6 +7,7 @@ AI Agent 向けのドキュメントディレクトリ。
 - [architecture/](architecture/README.md) - アーキテクチャに関するドキュメント
 - [spec/](spec/README.md) - 設計・仕様に関するドキュメント
 - [task/](task/README.md) - 現在作業中のタスク・進捗を記録
+- [done-task/](done-task/) - 完了したタスクのアーカイブ
 
 ## プロジェクト概要
 

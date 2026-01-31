@@ -18,7 +18,7 @@ nospace20/
 ├── tests/
 │   └── code_test.rs        # 統合テスト (large テスト)
 ├── resources/
-│   └── test/               # テストケース (.ns + .check.json)
+│   └── tests/              # テストケース (.ns + .check.json)
 └── spec.md                 # 言語仕様書
 ```
 
