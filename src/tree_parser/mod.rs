@@ -3,7 +3,7 @@
 //! このモジュールは、トークン列を木構造に変換します。
 //! 式が存在するべき場所に式が存在するかどうか等の、構造上の文法の誤り等を検知します。
 //!
-use crate::base::CodeParseErrorInternal;
+use crate::base::CodeParseError;
 use crate::token_parser::PrettyToken;
 
 pub(crate) use self::expression::Expression;
@@ -21,7 +21,7 @@ mod statement;
 
 pub fn parse_to_tree(
     tokens: &Vec<PrettyToken>,
-) -> Result<Vec<Statement>, Vec<CodeParseErrorInternal>> {
+) -> Result<Vec<Statement>, Vec<CodeParseError>> {
     let mut iter = tokens.iter().peekable();
     let (st, err) = parse_to_statements(&mut iter);
     if err.is_empty() {

@@ -21,14 +21,14 @@ mod tree_parser;
 pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
     match token_parser::parse_to_tokens(text) {
         Ok(x) => Ok(x),
-        Err(err) => Err(err.iter().map(|e| e.shrink()).collect()),
+        Err(err) => Err(err),
     }
 }
 
 pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<Statement>, Vec<CodeParseError>> {
     match tree_parser::parse_to_tree(tokens) {
         Ok(x) => Ok(x),
-        Err(err) => Err(err.iter().map(|e| e.shrink()).collect()),
+        Err(err) => Err(err),
     }
 }
 

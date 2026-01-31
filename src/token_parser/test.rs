@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    base::CodeParseErrorInternal,
+    base::CodeParseError,
     token_parser::{parse_to_tokens_internal, Keyword, Token},
 };
 
@@ -12,7 +12,7 @@ use super::PrettyToken;
 
 fn res_parse_to_tokens_internal(
     iter: &mut iter::Peekable<iter::Enumerate<Chars>>,
-) -> Result<Vec<PrettyToken>, Vec<CodeParseErrorInternal>> {
+) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
     let (tk, err) = parse_to_tokens_internal(iter);
 
     if err.is_empty() {

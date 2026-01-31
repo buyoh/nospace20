@@ -5,7 +5,7 @@
 
 use std::{iter, str};
 
-use crate::{base::CodeParseErrorInternal, code_parse_error};
+use crate::{base::CodeParseError, code_parse_error};
 
 #[derive(Debug)]
 pub enum Keyword {
@@ -112,9 +112,9 @@ fn parse_identifier(
 
 fn parse_to_tokens_internal(
     iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>,
-) -> (Vec<PrettyToken>, Vec<CodeParseErrorInternal>) {
+) -> (Vec<PrettyToken>, Vec<CodeParseError>) {
     let mut tokens = Vec::<PrettyToken>::new();
-    let mut parse_errors = Vec::<CodeParseErrorInternal>::new();
+    let mut parse_errors = Vec::<CodeParseError>::new();
     while let Some((idx, c)) = iter.peek() {
         if *c == '#' {
             iter.next();
@@ -203,7 +203,7 @@ fn parse_to_tokens_internal(
     (tokens, parse_errors)
 }
 
-pub fn parse_to_tokens(text: &str) -> Result<Vec<PrettyToken>, Vec<CodeParseErrorInternal>> {
+pub fn parse_to_tokens(text: &str) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
     let (tk, err) = parse_to_tokens_internal(&mut text.chars().enumerate().peekable());
     if err.is_empty() {
         Ok(tk)

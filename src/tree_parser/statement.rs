@@ -1,7 +1,7 @@
 use std::iter;
 
 use crate::{
-    base::CodeParseErrorInternal,
+    base::CodeParseError,
     code_parse_error,
     token_parser::{Keyword, PrettyToken, Token, TokenInfo},
 };
@@ -25,13 +25,13 @@ pub enum Statement {
 
 struct StatementBuilder<'b: 'a, 'a> {
     iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
-    code_parse_error: Vec<CodeParseErrorInternal>,
+    code_parse_error: Vec<CodeParseError>,
 }
 
 impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     fn parse(
         iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
-    ) -> (Vec<Statement>, Vec<CodeParseErrorInternal>) {
+    ) -> (Vec<Statement>, Vec<CodeParseError>) {
         let mut b = Self {
             iter,
             code_parse_error: vec![],
@@ -193,6 +193,6 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
 pub(super) fn parse_to_statements(
     iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> (Vec<Statement>, Vec<CodeParseErrorInternal>) {
+) -> (Vec<Statement>, Vec<CodeParseError>) {
     StatementBuilder::parse(iter)
 }

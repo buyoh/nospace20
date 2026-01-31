@@ -5,7 +5,7 @@ use crate::code_parse_error;
 use crate::token_parser::{Keyword, TokenInfo};
 use crate::tree_parser::statement::parse_to_statements;
 use crate::{
-    base::CodeParseErrorInternal,
+    base::CodeParseError,
     token_parser::{PrettyToken, Token},
 };
 
@@ -52,13 +52,13 @@ pub enum Expression {
 
 struct ExpressionBuilder<'b: 'a, 'a> {
     iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
-    code_parse_error: Vec<CodeParseErrorInternal>,
+    code_parse_error: Vec<CodeParseError>,
 }
 
 impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     fn parse(
         iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
-    ) -> (Box<Expression>, Vec<CodeParseErrorInternal>) {
+    ) -> (Box<Expression>, Vec<CodeParseError>) {
         let mut b = Self {
             iter,
             code_parse_error: vec![],
@@ -341,6 +341,6 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
 
 pub(super) fn parse_to_expression_tree_root(
     iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> (Box<Expression>, Vec<CodeParseErrorInternal>) {
+) -> (Box<Expression>, Vec<CodeParseError>) {
     ExpressionBuilder::parse(iter)
 }
