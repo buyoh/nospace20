@@ -21,3 +21,11 @@ Agent 向けのドキュメントは `ai-docs/` ディレクトリに配置さ�
 
 - name: buyoh(agent)
 - email: 15198247+buyoh@users.noreply.github.com
+
+## SKILL について
+
+以下に関連するタスクの場合、該当のドキュメントを参照してください。
+
+`.github/skills/add-test-spec/SKILL.md` : `/resources/tests/` 以下にテストケースを追加するときに使う
+`.github/skills/design-architecture/SKILL.md` : 仕様を基にソフトウェアの設計・コード変更方法を検討するときに使う
+`.github/skills/update-code/SKILL.md` : .rs などアプリケーションに使用されるコードを更新する際に使う
