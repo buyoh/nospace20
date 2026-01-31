@@ -16,6 +16,21 @@
 | [instructions.md](instructions.md) | Whitespace 命令セットのエンコーディング |
 | [memory-layout.md](memory-layout.md) | メモリレイアウトとスタックフレーム管理 |
 
+### Rust 実装設計
+
+詳細な Rust 実装設計は [rust-impl/](rust-impl/) サブディレクトリに分割されています。
+
+| ファイル | 内容 |
+|----------|------|
+| [rust-impl/README.md](rust-impl/README.md) | 実装設計ドキュメントのインデックス |
+| [rust-impl/overview.md](rust-impl/overview.md) | 設計方針・モジュール構成 |
+| [rust-impl/whitespace.md](rust-impl/whitespace.md) | 命令表現・プログラム構造 |
+| [rust-impl/memory-label.md](rust-impl/memory-label.md) | メモリレイアウト・ラベル管理 |
+| [rust-impl/codegen.md](rust-impl/codegen.md) | コード生成 |
+| [rust-impl/builtin.md](rust-impl/builtin.md) | 組み込みルーチン |
+| [rust-impl/api-cli.md](rust-impl/api-cli.md) | 公開API・CLI統合 |
+| [rust-impl/implementation-plan.md](rust-impl/implementation-plan.md) | テスト戦略・実装計画 |
+
 ### 演算子
 
 | ファイル | 内容 |
