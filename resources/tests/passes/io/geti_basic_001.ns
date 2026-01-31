@@ -1,0 +1,8 @@
+# __geti: 標準入力から整数を読み込む #
+func: main() {
+    let: x;
+    x = __geti();
+    __puti(x);
+    x = __geti();
+    __puti(x);
+}

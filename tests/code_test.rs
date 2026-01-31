@@ -268,6 +268,14 @@ test_ok_coding_io!(test_legacy_007, "legacy/legacy_007");
 test_ok_coding_io!(test_legacy_008, "legacy/legacy_008");
 test_ok_coding_io!(test_legacy_009, "legacy/legacy_009");
 test_ok_coding_io!(test_legacy_010, "legacy/legacy_010");
+test_ok_coding_io!(test_legacy_016, "legacy/legacy_016");
+
+// I/O builtin function tests
+test_ok_coding_io!(test_io_puti_basic_001, "io/puti_basic_001");
+test_ok_coding_io!(test_io_putc_basic_001, "io/putc_basic_001");
+test_ok_coding_io!(test_io_geti_basic_001, "io/geti_basic_001");
+test_ok_coding_io!(test_io_getc_basic_001, "io/getc_basic_001");
+test_ok_coding_io!(test_io_combined_001, "io/io_combined_001");
 
 // Disabled tests (未実装機能のテスト)
 // テスト名が disabled_ で始まるものは除外される
@@ -275,5 +283,20 @@ test_ok_coding_io!(test_legacy_010, "legacy/legacy_010");
 // test_ok_coding!(test_variables_disabled_var_final_001, "variables/disabled_var_final_001");
 // test_ok_coding!(test_variables_disabled_var_init_001, "variables/disabled_var_init_001");
 // test_ok_coding!(test_scope_disabled_scope_block_var_001, "scope/disabled_scope_block_var_001");
+// test_ok_coding_io!(test_legacy_006, "legacy/legacy_006");  // DISABLED: requires global variables
 // test_ok_coding_io!(test_legacy_011, "legacy/legacy_011");  // DISABLED: requires global variables
 // test_ok_coding_io!(test_legacy_012, "legacy/legacy_012");  // DISABLED: requires global variables
+// test_ok_coding_io!(test_legacy_013, "legacy/legacy_013");  // DISABLED: requires pointers
+// test_ok_coding_io!(test_legacy_014, "legacy/legacy_014");  // DISABLED: requires negative literals
+// test_ok_coding_io!(test_legacy_015, "legacy/legacy_015");  // DISABLED: requires pointers and <=
+// test_ok_coding_io!(test_legacy_017, "legacy/legacy_017");  // DISABLED: requires pointers and <=
+// test_ok_coding_io!(test_legacy_018, "legacy/legacy_018");  // DISABLED: requires character literals
+// test_ok_coding_io!(test_legacy_019, "legacy/legacy_019");  // DISABLED: requires arrays
+// test_ok_coding_io!(test_legacy_020, "legacy/legacy_020");  // DISABLED: requires logical operators
+// test_ok_coding_io!(test_legacy_021, "legacy/legacy_021");  // DISABLED: requires array initialization
+// test_ok_coding_io!(test_legacy_022, "legacy/legacy_022");  // DISABLED: requires pointers
+// test_ok_coding_io!(test_legacy_023, "legacy/legacy_023");  // DISABLED: requires compound assignments
+// test_ok_coding_io!(test_legacy_024, "legacy/legacy_024");  // DISABLED: requires arrays and pointers
+// test_ok_coding_io!(test_legacy_025, "legacy/legacy_025");  // DISABLED: requires character arithmetic
+// test_ok_coding_io!(test_legacy_026, "legacy/legacy_026");  // DISABLED: requires multi-char literals
+// test_ok_coding_io!(test_legacy_027, "legacy/legacy_027");  // DISABLED: requires __getiv, __getcv, complex expressions

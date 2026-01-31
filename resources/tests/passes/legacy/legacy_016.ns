@@ -1,0 +1,23 @@
+
+func:a(){
+    __putc(65); # A #
+}
+
+func:b(){
+    __putc(66); # B #
+    a();
+}
+
+func:c(){
+    __putc(67); # C #
+    b();
+}
+
+func:d(){
+    __putc(68); # D #
+    b();c();
+}
+
+func:main(){
+    d();
+}

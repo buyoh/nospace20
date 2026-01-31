@@ -1,0 +1,5 @@
+{
+  "type": "success_io",
+  "stdin": "Aa+' \\\t.\nX",
+  "stdout": "111111110111"
+}

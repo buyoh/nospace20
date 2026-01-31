@@ -1,0 +1,9 @@
+# 入出力の組み合わせテスト #
+func: main() {
+    let: a; let: b;
+    a = __geti();
+    b = __geti();
+    __puti(a + b);
+    __putc(32); # space #
+    __puti(a - b);
+}

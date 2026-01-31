@@ -1,0 +1,24 @@
+let:x;
+
+func:test(){
+    if (x == 5){
+        __puti(1);
+    }else{
+        __puti(0);
+    }
+    if (x < 5){
+        __puti(1);
+    }else{
+        __puti(0);
+    }
+}
+
+func:main(){
+    let:n;
+    n = __geti();
+    while(n){
+        x = __geti();
+        test();
+        n = n-1;
+    }
+}
