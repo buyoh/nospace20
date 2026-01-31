@@ -6,6 +6,7 @@
 
 - [unimplemented-features.md](unimplemented-features.md) - 未実装の機能・構文の一覧
 - [code-structure-refactoring.md](code-structure-refactoring.md) - ソースコード構成のリファクタリング計画
+- [unit-test-analysis.md](unit-test-analysis.md) - ユニットテスト分析レポート
 
 ## 現在のタスク
 

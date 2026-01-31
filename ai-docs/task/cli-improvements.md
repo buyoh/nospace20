@@ -121,7 +121,7 @@ nospace20 0.1.0
    - ヘルプ自動生成
    - 将来の拡張が容易
 
-**推奨**: 現時点では手動パースで実装。将来的に機能が増えた場合は clap への移行を検討。
+**推奨**: clap ライブラリを使用
 
 ### 実装手順
 
@@ -131,10 +131,65 @@ nospace20 0.1.0
 4. [ ] `--help` フラグを実装
 5. [ ] `--version` フラグを実装
 6. [ ] テスト・動作確認
-7. [ ] README.md にCLI使用法を追記
+7. [ ] README.md にCLI使用法を追記 (英語)
 
 ## 進捗
 
-- [ ] 設計完了
-- [ ] 実装完了
-- [ ] テスト完了
+- [x] 設計完了
+- [x] 実装完了
+- [x] テスト完了
+
+## 実装完了レポート (2026-02-01)
+
+すべての機能が実装され、動作確認が完了しました。
+
+### 実装された機能
+
+1. **ファイル引数からの読み込み** ✓
+   - `nospace20 program.ns` で直接ファイルを実行可能
+   - 引数がない場合は標準入力から読み取り
+   - ファイルが存在しない場合は適切なエラーメッセージを表示
+
+2. **デバッグフラグ (`--debug` / `-d`)** ✓
+   - `__trace` の結果を実行完了時に表示
+   - trace が空の場合は何も表示しない
+   - 出力形式: `trace[キー]: 値`
+
+3. **ヘルプ表示 (`--help`)** ✓
+   - 使い方、引数、オプションを表示
+
+4. **バージョン表示 (`--version`)** ✓
+   - バージョン番号を表示 (`nospace20 0.1.0`)
+
+### テスト結果
+
+```bash
+# ヘルプ表示
+$ nospace20 --help
+A nospace language interpreter
+Usage: nospace20 [OPTIONS] [FILE]
+...
+
+# バージョン表示
+$ nospace20 --version
+nospace20 0.1.0
+
+# ファイル実行
+$ nospace20 tmp/test_trace.ns
+main returns: 42
+
+# デバッグモード
+$ nospace20 --debug tmp/test_trace.ns
+main returns: 42
+
+=== Trace Results ===
+trace[10]: 1
+trace[20]: 2
+```
+
+### 技術的な詳細
+
+- `clap` クレートの `derive` APIを使用
+- `Environment` を外部から作成・アクセス可能に変更
+- `interpret_func_with_env` 関数を追加してEnvironmentへのアクセスを可能に
+- エラーハンドリングを適切に実装
