@@ -9,6 +9,7 @@
 - [unit-test-tree-parser.md](unit-test-tree-parser.md) - tree_parser ユニットテスト追加タスク
 - [unit-test-semantic-analyzer.md](unit-test-semantic-analyzer.md) - semantic_analyzer ユニットテスト追加タスク
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
+- [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 
 ## 現在のタスク
 

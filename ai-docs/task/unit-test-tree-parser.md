@@ -19,26 +19,38 @@ tree_parser モジュールにユニットテストを追加するためのタ�
 
 ### Phase 1: テストヘルパー整備
 
-- [ ] **T1-1**: tree_parser 用ヘルパー関数追加
+- [ ] **T1-1**: トークン列を手動構築するためのビルダー追加
   ```rust
   #[cfg(test)]
-  pub(crate) fn parse_expression_from_str(code: &str) -> Box<Expression>
-  ```
-- [ ] **T1-2**: tokens_from_str ヘルパー追加
-  ```rust
-  #[cfg(test)]
-  fn tokens_from_str(s: &str) -> Vec<PrettyToken> {
-      crate::token_parser::parse_to_tokens(s).unwrap()
+  mod test_helpers {
+      use super::*;
+      
+      pub fn token_number(value: i64) -> PrettyToken {
+          PrettyToken { token: Token::Number(value), .. }
+      }
+      pub fn token_ident(name: &str) -> PrettyToken {
+          PrettyToken { token: Token::Identifier(name.to_string()), .. }
+      }
+      pub fn token_op(op: &str) -> PrettyToken {
+          PrettyToken { token: Token::Operator(op.to_string()), .. }
+      }
+      // 他のトークン種別も同様に追加
   }
   ```
+- [ ] **T1-2**: 外部ファイル（JSON/YAML）によるテストケース定義の検討
+  - テストケースが大きくなる場合、可読性のため外部ファイル化を検討
+  - `resources/tests/unit/tree_parser/` にテストデータを配置
 
 ### Phase 2: ユニットテスト追加
 
 - [ ] **T2-1**: tree_parser のユニットテスト追加（10件程度）
-  - 基本的な式のパース
+  - 基本的な式のパース（トークン列を手動構築）
   - 演算子優先順位
   - 関数呼び出し
   - エラーケース
+
+**注意**: ユニットテストでは `token_parser` に依存せず、トークン列を直接構築すること。
+`token_parser::parse_to_tokens()` を使用するテストは結合テストとして別途実施する。
 
 ## 推奨される設計変更
 
@@ -49,20 +61,22 @@ tree_parser モジュールにユニットテストを追加するためのタ�
 pub(crate) fn parse_to_expression_tree_root(...) -> ...
 ```
 
-### Option B: テスト専用モジュール
+### Option B: テスト専用モジュール（推奨）
 
 ```rust
 #[cfg(test)]
 mod test {
     use super::*;
-    
-    fn tokens_from_str(s: &str) -> Vec<PrettyToken> {
-        crate::token_parser::parse_to_tokens(s).unwrap()
-    }
+    use super::test_helpers::*;
     
     #[test]
     fn test_parse_simple_expression() {
-        let tokens = tokens_from_str("1 + 2");
+        // トークン列を手動構築（token_parser に依存しない）
+        let tokens = vec![
+            token_number(1),
+            token_op("+"),
+            token_number(2),
+        ];
         let (expr, errs) = parse_to_expression_tree_root(&mut tokens.iter().peekable());
         assert!(errs.is_empty());
         // ...

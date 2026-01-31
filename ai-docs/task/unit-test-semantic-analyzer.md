@@ -26,28 +26,47 @@ semantic_analyzer モジュールにユニットテストを追加するため�
 
 ### Phase 2: テストヘルパー整備
 
-- [ ] **T2-1**: semantic_analyzer 用ヘルパー関数追加
-  ```rust
-  #[cfg(test)]
-  pub(crate) fn analyze_from_str(code: &str) -> Scope
-  ```
-- [ ] **T2-2**: テスト用ビルダーの追加
+- [ ] **T2-1**: AST（Statement/Expression）を手動構築するためのビルダー追加
   ```rust
   #[cfg(test)]
   mod test_helpers {
-      pub fn make_simple_function(name: &str, body: Vec<Statement>) -> Statement {
-          Statement::FunctionDeclaration(name.to_string(), vec![], body)
+      use super::*;
+      
+      pub fn make_number_expr(value: i64) -> Expression {
+          Expression::Number(value)
+      }
+      pub fn make_variable_expr(name: &str) -> Expression {
+          Expression::Variable(name.to_string())
+      }
+      pub fn make_binary_expr(op: &str, left: Expression, right: Expression) -> Expression {
+          Expression::BinaryOperator(op.to_string(), Box::new(left), Box::new(right))
+      }
+      pub fn make_var_decl(name: &str, init: Expression) -> Statement {
+          Statement::VariableDeclaration(name.to_string(), init)
+      }
+      pub fn make_function(name: &str, args: Vec<&str>, body: Vec<Statement>) -> Statement {
+          Statement::FunctionDeclaration(
+              name.to_string(),
+              args.iter().map(|s| s.to_string()).collect(),
+              body
+          )
       }
   }
   ```
+- [ ] **T2-2**: 外部ファイル（JSON/YAML）によるテストケース定義の検討
+  - 複雑なASTを記述する場合、可読性のため外部ファイル化を検討
+  - `resources/tests/unit/semantic_analyzer/` にテストデータを配置
 
 ### Phase 3: ユニットテスト追加
 
 - [ ] **T3-1**: semantic_analyzer のユニットテスト追加（10件程度）
-  - スコープ解決
+  - スコープ解決（ASTを手動構築）
   - 変数宣言
   - 関数定義
   - エラーケース
+
+**注意**: ユニットテストでは `token_parser` / `tree_parser` に依存せず、AST を直接構築すること。
+文字列からパースするテストは結合テストとして別途実施する。
 
 ## 推奨されるモジュール構造
 

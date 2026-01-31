@@ -27,19 +27,38 @@ interpreter モジュールにユニットテストを追加するためのタ�
 
 ### Phase 2: テストヘルパー整備
 
-- [ ] **T2-1**: interpreter 用ヘルパー関数追加
+- [ ] **T2-1**: ExecExpression/ExecStatement を手動構築するためのビルダー追加
   ```rust
   #[cfg(test)]
-  pub(crate) fn run_code(code: &str) -> Option<i64>
+  mod test_helpers {
+      use super::*;
+      
+      pub fn make_exec_number(value: i64) -> ExecExpression {
+          ExecExpression::Number(value)
+      }
+      pub fn make_exec_binary(op: &str, left: ExecExpression, right: ExecExpression) -> ExecExpression {
+          ExecExpression::BinaryOperator(op.to_string(), Box::new(left), Box::new(right))
+      }
+      pub fn make_exec_call(func_id: usize, args: Vec<ExecExpression>) -> ExecExpression {
+          ExecExpression::FunctionCall(func_id, args)
+      }
+      // Scope, Function の構築ヘルパーも追加
+  }
   ```
-- [ ] **T2-2**: Environment 構築ヘルパー追加
+- [ ] **T2-2**: Environment 構築ヘルパー追加（stdin/stdout モック含む）
+- [ ] **T2-3**: 外部ファイル（JSON/YAML）によるテストケース定義の検討
+  - 複雑な Scope/Function を記述する場合、可読性のため外部ファイル化を検討
+  - `resources/tests/unit/interpreter/` にテストデータを配置
 
 ### Phase 3: ユニットテスト追加
 
 - [ ] **T3-1**: interpreter のユニットテスト追加（10件程度）
-  - 組み込み関数
+  - 組み込み関数（ExecExpression を手動構築）
   - 演算子
   - 制御フロー
+
+**注意**: ユニットテストでは前段のモジュール（token_parser / tree_parser / semantic_analyzer）に依存せず、
+`Scope` や `ExecExpression` を直接構築すること。文字列からパースするテストは結合テストとして別途実施する。
 
 ## 推奨されるモジュール構造
 
