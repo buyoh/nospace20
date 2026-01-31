@@ -1,0 +1,14 @@
+{
+  "name": "nospace-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tools for nospace language development",
+  "scripts": {
+    "validate": "node validate-tmgrammar.js",
+    "build-ext": "node build-vscode-ext.js"
+  },
+  "devDependencies": {
+    "vscode-textmate": "^9.0.0",
+    "vscode-oniguruma": "^2.0.1"
+  }
+}

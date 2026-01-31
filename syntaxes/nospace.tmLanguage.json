@@ -1,0 +1,145 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "nospace",
+  "scopeName": "source.nospace",
+  "fileTypes": ["ns"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#builtins" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#operators" },
+    { "include": "#punctuation" },
+    { "include": "#function-definition" },
+    { "include": "#function-call" },
+    { "include": "#variables" }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.block.nospace",
+      "begin": "#",
+      "end": "#",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.begin.nospace" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.comment.end.nospace" }
+      }
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.nospace",
+          "match": "\\b(if|else|while|return|break|continue)\\b"
+        },
+        {
+          "name": "keyword.declaration.nospace",
+          "match": "\\b(func|let)\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.debug.nospace",
+          "match": "\\b(__clog|__assert|__assert_not|__trace)\\b"
+        },
+        {
+          "name": "support.function.io.nospace",
+          "match": "\\b(__puti|__putc|__geti|__getc)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.single.nospace",
+      "begin": "'",
+      "end": "'",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.nospace" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.nospace" }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.nospace",
+          "match": "\\\\[\\\\tns'r]"
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.integer.nospace",
+      "match": "\\b[0-9]+\\b"
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.nospace",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.logical.nospace",
+          "match": "(&&|\\|\\||!)"
+        },
+        {
+          "name": "keyword.operator.arithmetic.nospace",
+          "match": "[+\\-*/%]"
+        },
+        {
+          "name": "keyword.operator.assignment.nospace",
+          "match": "="
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.colon.nospace",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.separator.comma.nospace",
+          "match": ","
+        },
+        {
+          "name": "punctuation.terminator.semicolon.nospace",
+          "match": ";"
+        },
+        {
+          "name": "punctuation.section.braces.begin.nospace",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.braces.end.nospace",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.section.parens.begin.nospace",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.nospace",
+          "match": "\\)"
+        }
+      ]
+    },
+    "function-definition": {
+      "match": "\\b(func)\\s*:\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+      "captures": {
+        "1": { "name": "keyword.declaration.function.nospace" },
+        "2": { "name": "entity.name.function.nospace" }
+      }
+    },
+    "function-call": {
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+      "captures": {
+        "1": { "name": "entity.name.function.call.nospace" }
+      }
+    },
+    "variables": {
+      "name": "variable.other.nospace",
+      "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+    }
+  }
+}
