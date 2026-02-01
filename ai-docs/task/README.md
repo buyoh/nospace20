@@ -16,10 +16,6 @@
 
 ### アクティブ
 
-- [migrate-legacy-tests.md](migrate-legacy-tests.md) - 旧テストの移行計画
-  - ✅ I/O ビルトイン関数は実装済み
-  - 計画立案完了、テスト移行待ち
-
 - [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
   - ✅ Phase 1-2完了
   - ⚠️ ブロックスコープ変数の実装を解決する必要あり
@@ -31,6 +27,7 @@
 - [unit-test-analysis.md](../done-task/unit-test-analysis.md) - ユニットテスト分析レポート
 - [unit-test-tree-parser.md](../done-task/unit-test-tree-parser.md) - tree_parser ユニットテスト追加タスク (2026-02-01完了)
 - [unit-test-semantic-analyzer.md](../done-task/unit-test-semantic-analyzer.md) - semantic_analyzer ユニットテスト追加タスク (2026-02-01完了)
+- [migrate-legacy-tests.md](../done-task/migrate-legacy-tests.md) - 旧テストの移行計画 (2026-02-01完了)
 
 ## タスクファイルの命名規則
 
