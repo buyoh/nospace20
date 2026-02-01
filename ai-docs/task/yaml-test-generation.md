@@ -98,11 +98,11 @@ nospace20/
 
 ## 実装状態
 
-- [ ] Cargo.toml 修正
-- [ ] test-manifest.yaml 作成
-- [ ] build.rs 作成
-- [ ] code_test.rs 修正
-- [ ] 動作確認
+- [x] Cargo.toml 修正
+- [x] test-manifest.yaml 作成
+- [x] build.rs 作成
+- [x] code_test.rs 修正
+- [x] 動作確認（コミット完了: 5e3a072）
 
 ## 注意事項
 
