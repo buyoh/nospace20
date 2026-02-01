@@ -9,6 +9,7 @@
 - [semantic-analyzer-error-handling.md](semantic-analyzer-error-handling.md) - semantic_analyzer エラーハンドリング改善設計
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
+- [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [scope/](scope/) - スコープ機能の実装計画
 
@@ -28,6 +29,7 @@
 - [unit-test-tree-parser.md](../done-task/unit-test-tree-parser.md) - tree_parser ユニットテスト追加タスク (2026-02-01完了)
 - [unit-test-semantic-analyzer.md](../done-task/unit-test-semantic-analyzer.md) - semantic_analyzer ユニットテスト追加タスク (2026-02-01完了)
 - [migrate-legacy-tests.md](../done-task/migrate-legacy-tests.md) - 旧テストの移行計画 (2026-02-01完了)
+- [cli-improvements.md](../done-task/cli-improvements.md) - CLI改善（ファイル引数、デバッグフラグ、ヘルプ表示） (2026-02-01完了)
 
 ## タスクファイルの命名規則
 
