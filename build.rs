@@ -37,6 +37,7 @@ fn main() {
     let mut f = fs::File::create(&dest_path).unwrap();
 
     // テストコードを生成
+    let test_count = manifest.tests.len();
     for test in manifest.tests {
         let comment_line = if let Some(comment) = &test.comment {
             format!("// {}\n", comment)
@@ -87,5 +88,5 @@ fn {}() -> std::fmt::Result {{
         }
     }
 
-    println!("Generated {} tests", manifest.tests.len());
+    println!("Generated {} tests", test_count);
 }
