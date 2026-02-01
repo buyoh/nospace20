@@ -1,0 +1,454 @@
+# nospace20 Test Manifest
+# このファイルで定義されたテストケースは build.rs によって自動的にテストコードとして生成されます
+#
+# フィールド:
+#   name: テスト関数名
+#   type: success | success_io | syntax_error
+#   path: テストファイルのパス（resources/tests/passes/ または fails/syntax/ からの相対パス）
+#   comment: (オプション) テストの説明
+
+tests:
+  # ========================================
+  # Legacy tests (backward compatibility)
+  # ========================================
+  - name: test_ok_coding_c000
+    type: success
+    path: c000
+    comment: "Legacy test - basic functionality"
+
+  - name: test_ok_coding_c001
+    type: success
+    path: c001
+    comment: "Legacy test"
+
+  # DISABLED: hangs (break/continue issue)
+  # - name: test_ok_coding_c002
+  #   type: success
+  #   path: c002
+
+  - name: test_ok_coding_c003
+    type: success
+    path: c003
+    comment: "Legacy test"
+
+  - name: test_ok_coding_c004
+    type: success
+    path: c004
+    comment: "Legacy test"
+
+  # ========================================
+  # Literals
+  # ========================================
+  - name: test_literals_num_001
+    type: success
+    path: literals/num_001
+    comment: "Numeric literal parsing"
+
+  - name: test_literals_num_002
+    type: success
+    path: literals/num_002
+    comment: "Multiple numeric literals"
+
+  - name: test_literals_ident_001
+    type: success
+    path: literals/ident_001
+    comment: "Identifier parsing"
+
+  - name: test_literals_comment_001
+    type: success
+    path: literals/comment_001
+    comment: "Comment handling"
+
+  - name: test_literals_char_001
+    type: success
+    path: literals/char_001
+    comment: "Character literal"
+
+  - name: test_literals_char_escape_001
+    type: success
+    path: literals/char_escape_001
+    comment: "Character escape sequences"
+
+  - name: test_literals_char_arith_001
+    type: success
+    path: literals/char_arith_001
+    comment: "Character arithmetic operations"
+
+  # ========================================
+  # Operators
+  # ========================================
+  - name: test_operators_arith_001
+    type: success
+    path: operators/arith_001
+    comment: "Basic arithmetic operations"
+
+  - name: test_operators_arith_002
+    type: success
+    path: operators/arith_002
+    comment: "Arithmetic with precedence"
+
+  - name: test_operators_arith_003
+    type: success
+    path: operators/arith_003
+    comment: "Complex arithmetic expressions"
+
+  - name: test_operators_unary_001
+    type: success
+    path: operators/unary_001
+    comment: "Unary operators"
+
+  - name: test_operators_compare_001
+    type: success
+    path: operators/compare_001
+    comment: "Comparison operators"
+
+  - name: test_operators_logical_not_001
+    type: success
+    path: operators/logical_not_001
+    comment: "Logical NOT operator"
+
+  - name: test_operators_logical_and_001
+    type: success
+    path: operators/logical_and_001
+    comment: "Logical AND operator"
+
+  - name: test_operators_logical_or_001
+    type: success
+    path: operators/logical_or_001
+    comment: "Logical OR operator"
+
+  - name: test_operators_logical_short_circuit_001
+    type: success
+    path: operators/logical_short_circuit_001
+    comment: "Logical short-circuit evaluation (AND)"
+
+  - name: test_operators_logical_short_circuit_002
+    type: success
+    path: operators/logical_short_circuit_002
+    comment: "Logical short-circuit evaluation (OR)"
+
+  - name: test_operators_logical_precedence_001
+    type: success
+    path: operators/logical_precedence_001
+    comment: "Logical operator precedence"
+
+  - name: test_operators_modulo_001
+    type: success
+    path: operators/modulo_001
+    comment: "Modulo operator (positive)"
+
+  - name: test_operators_modulo_002
+    type: success
+    path: operators/modulo_002
+    comment: "Modulo operator (various cases)"
+
+  # ========================================
+  # Builtins
+  # ========================================
+  - name: test_builtins_trace_001
+    type: success
+    path: builtins/trace_001
+    comment: "Built-in trace() function"
+
+  - name: test_builtins_assert_001
+    type: success
+    path: builtins/assert_001
+    comment: "Built-in assert() function"
+
+  # ========================================
+  # Variables
+  # ========================================
+  - name: test_variables_var_basic_001
+    type: success
+    path: variables/var_basic_001
+    comment: "Basic variable declaration and assignment"
+
+  - name: test_variables_var_hoist_001
+    type: success
+    path: variables/var_hoist_001
+    comment: "Variable hoisting"
+
+  # ========================================
+  # Functions
+  # ========================================
+  - name: test_functions_func_basic_001
+    type: success
+    path: functions/func_basic_001
+    comment: "Basic function declaration and call"
+
+  - name: test_functions_func_args_001
+    type: success
+    path: functions/func_args_001
+    comment: "Function with arguments"
+
+  - name: test_functions_func_return_001
+    type: success
+    path: functions/func_return_001
+    comment: "Function return values"
+
+  - name: test_functions_func_hoist_001
+    type: success
+    path: functions/func_hoist_001
+    comment: "Function hoisting"
+
+  - name: test_functions_func_nested_001
+    type: success
+    path: functions/func_nested_001
+    comment: "Nested function declarations"
+
+  # ========================================
+  # Control Flow
+  # ========================================
+  - name: test_control_flow_while_001
+    type: success
+    path: control_flow/while_001
+    comment: "While loop"
+
+  - name: test_control_flow_if_001
+    type: success
+    path: control_flow/if_001
+    comment: "If statement"
+
+  # DISABLED: hangs (break/continue issue)
+  # - name: test_control_flow_break_continue_001
+  #   type: success
+  #   path: control_flow/break_continue_001
+
+  - name: test_control_flow_return_001
+    type: success
+    path: control_flow/return_001
+    comment: "Return statement"
+
+  # ========================================
+  # Scope
+  # ========================================
+  - name: test_scope_scope_block_001
+    type: success
+    path: scope/scope_block_001
+    comment: "Block scope"
+
+  - name: test_scope_scope_func_001
+    type: success
+    path: scope/scope_func_001
+    comment: "Function scope"
+
+  - name: test_scope_scope_nested_func_001
+    type: success
+    path: scope/scope_nested_func_001
+    comment: "Nested function scope"
+
+  # ========================================
+  # Integration
+  # ========================================
+  - name: test_integration_integ_001
+    type: success
+    path: integration/integ_001
+    comment: "Integration test - complex program"
+
+  # ========================================
+  # Syntax Errors
+  # ========================================
+  - name: test_syntax_error_invalid_token_001
+    type: syntax_error
+    path: fails/syntax/invalid_token_001
+    comment: "Invalid token detection"
+
+  - name: test_syntax_error_unclosed_paren_001
+    type: syntax_error
+    path: fails/syntax/unclosed_paren_001
+    comment: "Unclosed parenthesis detection"
+
+  - name: test_syntax_error_unexpected_eof_001
+    type: syntax_error
+    path: fails/syntax/unexpected_eof_001
+    comment: "Unexpected EOF detection"
+
+  # ========================================
+  # I/O tests (migrated from legacy tests)
+  # ========================================
+  - name: test_legacy_001
+    type: success_io
+    path: legacy/legacy_001
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_002
+    type: success_io
+    path: legacy/legacy_002
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_003
+    type: success_io
+    path: legacy/legacy_003
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_004
+    type: success_io
+    path: legacy/legacy_004
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_005
+    type: success_io
+    path: legacy/legacy_005
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_007
+    type: success_io
+    path: legacy/legacy_007
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_008
+    type: success_io
+    path: legacy/legacy_008
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_009
+    type: success_io
+    path: legacy/legacy_009
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_010
+    type: success_io
+    path: legacy/legacy_010
+    comment: "Legacy I/O test"
+
+  - name: test_legacy_016
+    type: success_io
+    path: legacy/legacy_016
+    comment: "Legacy I/O test"
+
+  # ========================================
+  # I/O builtin function tests
+  # ========================================
+  - name: test_io_puti_basic_001
+    type: success_io
+    path: io/puti_basic_001
+    comment: "Built-in puti() function"
+
+  - name: test_io_putc_basic_001
+    type: success_io
+    path: io/putc_basic_001
+    comment: "Built-in putc() function"
+
+  - name: test_io_geti_basic_001
+    type: success_io
+    path: io/geti_basic_001
+    comment: "Built-in geti() function"
+
+  - name: test_io_getc_basic_001
+    type: success_io
+    path: io/getc_basic_001
+    comment: "Built-in getc() function"
+
+  - name: test_io_combined_001
+    type: success_io
+    path: io/io_combined_001
+    comment: "Combined I/O operations"
+
+# ========================================
+# Disabled tests (未実装機能のテスト)
+# ========================================
+# DISABLED: requires global variables
+# - name: test_variables_disabled_var_global_001
+#   type: success
+#   path: variables/disabled_var_global_001
+
+# DISABLED: requires final/const variables
+# - name: test_variables_disabled_var_final_001
+#   type: success
+#   path: variables/disabled_var_final_001
+
+# DISABLED: requires variable initialization in declaration
+# - name: test_variables_disabled_var_init_001
+#   type: success
+#   path: variables/disabled_var_init_001
+
+# DISABLED: requires block-scoped variables
+# - name: test_scope_disabled_scope_block_var_001
+#   type: success
+#   path: scope/disabled_scope_block_var_001
+
+# DISABLED legacy tests (require unimplemented features)
+# - name: test_legacy_006
+#   type: success_io
+#   path: legacy/legacy_006
+#   comment: "DISABLED: requires global variables"
+
+# - name: test_legacy_011
+#   type: success_io
+#   path: legacy/legacy_011
+#   comment: "DISABLED: requires global variables"
+
+# - name: test_legacy_012
+#   type: success_io
+#   path: legacy/legacy_012
+#   comment: "DISABLED: requires global variables"
+
+# - name: test_legacy_013
+#   type: success_io
+#   path: legacy/legacy_013
+#   comment: "DISABLED: requires pointers"
+
+# - name: test_legacy_014
+#   type: success_io
+#   path: legacy/legacy_014
+#   comment: "DISABLED: requires negative literals"
+
+# - name: test_legacy_015
+#   type: success_io
+#   path: legacy/legacy_015
+#   comment: "DISABLED: requires pointers and <="
+
+# - name: test_legacy_017
+#   type: success_io
+#   path: legacy/legacy_017
+#   comment: "DISABLED: requires pointers and <="
+
+# - name: test_legacy_018
+#   type: success_io
+#   path: legacy/legacy_018
+#   comment: "DISABLED: requires character literals"
+
+# - name: test_legacy_019
+#   type: success_io
+#   path: legacy/legacy_019
+#   comment: "DISABLED: requires arrays"
+
+# - name: test_legacy_020
+#   type: success_io
+#   path: legacy/legacy_020
+#   comment: "DISABLED: requires logical operators"
+
+# - name: test_legacy_021
+#   type: success_io
+#   path: legacy/legacy_021
+#   comment: "DISABLED: requires array initialization"
+
+# - name: test_legacy_022
+#   type: success_io
+#   path: legacy/legacy_022
+#   comment: "DISABLED: requires pointers"
+
+# - name: test_legacy_023
+#   type: success_io
+#   path: legacy/legacy_023
+#   comment: "DISABLED: requires compound assignments"
+
+# - name: test_legacy_024
+#   type: success_io
+#   path: legacy/legacy_024
+#   comment: "DISABLED: requires arrays and pointers"
+
+# - name: test_legacy_025
+#   type: success_io
+#   path: legacy/legacy_025
+#   comment: "DISABLED: requires character arithmetic"
+
+# - name: test_legacy_026
+#   type: success_io
+#   path: legacy/legacy_026
+#   comment: "DISABLED: requires multi-char literals"
+
+# - name: test_legacy_027
+#   type: success_io
+#   path: legacy/legacy_027
+#   comment: "DISABLED: requires __getiv, __getcv, complex expressions"
