@@ -10,6 +10,7 @@
 | [implement-new-features.md](implement-new-features.md) | 新機能実装（文字リテラル、論理演算子、剰余演算子、I/O関数） | 2026-02 |
 | [unit-test-analysis.md](unit-test-analysis.md) | ユニットテスト分析レポート（Phase 1完了、タスク分離） | 2026-02 |
 | [unit-test-tree-parser.md](unit-test-tree-parser.md) | tree_parser モジュールのユニットテスト追加（37件のテスト実装） | 2026-02-01 |
+| [unit-test-semantic-analyzer.md](unit-test-semantic-analyzer.md) | semantic_analyzer モジュールのユニットテスト追加（11件のテスト実装、モジュール分割） | 2026-02-01 |
 
 ## 注意
 
