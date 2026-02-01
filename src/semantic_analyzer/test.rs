@@ -131,7 +131,7 @@ fn test_analyze_multiple_functions() {
 #[test]
 fn test_convert_number_expression() {
     let expr = Box::new(make_number_expr(123));
-    let exec_expr = converter::convert_to_exec_expression(&expr);
+    let exec_expr = converter::convert_to_exec_expression(expr.clone());
     
     match *exec_expr {
         ExecExpression::Factor(value) => assert_eq!(value, 123),
@@ -142,7 +142,7 @@ fn test_convert_number_expression() {
 #[test]
 fn test_convert_variable_expression() {
     let expr = Box::new(make_variable_expr("x"));
-    let exec_expr = converter::convert_to_exec_expression(&expr);
+    let exec_expr = converter::convert_to_exec_expression(expr.clone());
     
     match *exec_expr {
         ExecExpression::Variable(ref name) => assert_eq!(name, "x"),
@@ -157,7 +157,7 @@ fn test_convert_binary_expression() {
         make_number_expr(1),
         make_number_expr(2),
     ));
-    let exec_expr = converter::convert_to_exec_expression(&expr);
+    let exec_expr = converter::convert_to_exec_expression(expr.clone());
     
     match *exec_expr {
         ExecExpression::Operation2(ref op, ref left, ref right) => {

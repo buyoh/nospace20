@@ -37,23 +37,20 @@
 
 #### 2. `Operator1`/`Operator2` の不要な `Clone` derive
 
-**現状**:
-```rust
-#[derive(Clone)] // TODO: REMOVE
-pub enum Operator2 { ... }
-```
+**現状**: ✅ **完了**
 
 **問題**:
-- `syntactic_analyzer` で参照からのコピーを行っている
+- `semantic_analyzer` で参照からのコピーを行っていた
 - 本来は所有権の移動で十分
 
-**影響範囲**:
-- `src/tree_parser/expression.rs` (L43-62)
-- `src/syntactic_analyzer/mod.rs` (convert_to_exec_expression)
+**実施した変更**:
+- [x] `convert_to_exec_expression` を所有権移動バージョンに変更
+- [x] `Expression` が `Clone` を必要とするため、`Operator1`/`Operator2` も `Clone` が必要と判明
+  - コメントを「Expression が Clone を必要とするため必要」に変更
 
-**改善案**:
-- [ ] `convert_to_exec_expression` を所有権移動バージョンに変更
-- [ ] `Clone` derive を削除
+**結果**:
+- 不要な `.to_owned()` 呼び出しを削除
+- 所有権の移動により、より効率的なコードに改善
 
 **関連イシュー**: なし
 
@@ -222,6 +219,13 @@ pub struct CodeParseError {
      - `Colon` のコメント修正
      - `syntactic_analyzer` → `semantic_analyzer` にリネーム
 
+3. ✅ **`Operator1`/`Operator2` の所有権移動** (問題2) - 完了
+   - リスク: 低
+   - 効果: 不要な `to_owned()` 削除、効率改善
+   - 実施内容:
+     - `convert_to_exec_expression` を所有権移動バージョンに変更
+     - `Expression` が `Clone` を必要とするため、`Operator1`/`Operator2` にも `Clone` が必要と判明
+
 ### Phase 2: 中期改善 (設計検討が必要)
 
 3. ✅ **エラー型の統一** (問題5) - 完了
@@ -247,20 +251,14 @@ pub struct CodeParseError {
    - 依存: Phase 2-3, 2-4 (エラーハンドリング整備後)
    - 注意: 設計方針の確定が必要
 
-6. 🔲 **`Clone` の削除** (問題2)
-   - リスク: 中
-   - 効果: パフォーマンス向上
-   - 所要時間: 2-3時間
-   - 依存: Phase 3-5 (型統合後に自然に解決する可能性)
-
 ### Phase 4: クリーンアップ
 
-7. 🔲 **未使用コードの削除** (問題7)
+6. 🔲 **未使用コードの削除** (問題7)
    - リスク: 低
    - 効果: プロジェクト構造の明確化
    - 所要時間: 30分
 
-8. 🔲 **モジュール可視性の統一** (問題4)
+7. 🔲 **モジュール可視性の統一** (問題4)
    - リスク: 低
    - 効果: API設計の明確化
    - 所要時間: 1時間
@@ -329,6 +327,16 @@ pub struct CodeParseError {
 ---
 
 ## 進捗記録
+
+### 2026-02-01
+
+- ✅ Phase 1-3: `Operator1`/`Operator2` の所有権移動の改善
+  - `convert_to_exec_expression` を所有権移動バージョンに変更
+  - `.to_owned()` 呼び出しを削除
+  - `Expression` が `Clone` を必要とするため、`Operator1`/`Operator2` にも `Clone` derive が必要と判明
+  - コメントを「Expression が Clone を必要とするため必要」に変更
+  - テストコードを修正して `clone()` を使用
+  - 全ての単体テストがパス
 
 ### 2026-01-31
 

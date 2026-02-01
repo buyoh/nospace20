@@ -13,7 +13,7 @@ use super::Statement;
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
-#[derive(Clone)] // TODO: REMOVE
+#[derive(Clone)] // Expression が Clone を必要とするため必要
 pub enum Operator2 {
     Plus,
     Minus,
@@ -31,13 +31,13 @@ pub enum Operator2 {
     LogicalOr,
 }
 
-#[derive(Clone)] // TODO: REMOVE
+#[derive(Clone)] // Expression が Clone を必要とするため必要
 pub enum Operator1 {
     Negative,
     LogicalNot,
 }
 
-#[derive(Clone)] // TODO: REMOVE
+#[derive(Clone)]
 pub enum Expression {
     Operation1(Operator1, Box<Expression>),
     Operation2(Operator2, Box<Expression>, Box<Expression>),
