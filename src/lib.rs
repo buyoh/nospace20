@@ -5,7 +5,7 @@ extern crate assert_matches;
 use std::collections::BTreeMap;
 
 pub use base::CodeParseError;
-pub use interpreter::Environment;
+pub use interpreter::{Environment, EnvironmentConfig};
 pub use logger::TextCode;
 use semantic_analyzer::Scope;
 use token_parser::PrettyToken;
@@ -50,7 +50,8 @@ pub fn interpret_func_testing(scope: &Scope, func_name: &str) -> BTreeMap<i64, i
     // テスト用には空のバッファを使用
     let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(Vec::<u8>::new())));
     let stdout_buf: Box<dyn std::io::Write> = Box::new(Vec::<u8>::new());
-    let mut env = Environment::new_with_buffers(stdin_cursor, stdout_buf);
+    let config = EnvironmentConfig::with_max_expression_count(100000);
+    let mut env = Environment::new_with_config(stdin_cursor, stdout_buf, config);
     interpreter::interpret_func(&mut env, scope, func_name);
     env.traced
 }
@@ -83,7 +84,8 @@ pub fn interpret_func_with_io(
     }
     
     let stdout_writer: Box<dyn std::io::Write> = Box::new(SharedWriter(stdout_clone));
-    let mut env = Environment::new_with_buffers(stdin_cursor, stdout_writer);
+    let config = EnvironmentConfig::with_max_expression_count(100000);
+    let mut env = Environment::new_with_config(stdin_cursor, stdout_writer, config);
     
     interpreter::interpret_func(&mut env, scope, func_name);
     env.flush();

@@ -36,10 +36,61 @@ macro_rules! try_expr {
     };
 }
 
+/// インタプリタの実行制限設定
+pub struct EnvironmentConfig {
+    /// Expression評価の最大実行回数 (Noneの場合は無制限)
+    pub max_expression_count: Option<usize>,
+}
+
+impl EnvironmentConfig {
+    pub fn new() -> Self {
+        EnvironmentConfig {
+            max_expression_count: None,
+        }
+    }
+
+    pub fn with_max_expression_count(max_count: usize) -> Self {
+        EnvironmentConfig {
+            max_expression_count: Some(max_count),
+        }
+    }
+}
+
+impl Default for EnvironmentConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// インタプリタの実行メトリクス
+pub struct EnvironmentMetrics {
+    expression_count: usize,
+}
+
+impl EnvironmentMetrics {
+    pub fn new() -> Self {
+        EnvironmentMetrics {
+            expression_count: 0,
+        }
+    }
+
+    pub fn expression_count(&self) -> usize {
+        self.expression_count
+    }
+}
+
+impl Default for EnvironmentMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Environment {
     pub traced: BTreeMap<i64, i64>,
     pub(crate) stdin: Box<dyn BufRead>,
     pub(crate) stdout: Box<dyn Write>,
+    pub config: EnvironmentConfig,
+    metrics: EnvironmentMetrics,
 }
 
 impl Environment {
@@ -48,6 +99,8 @@ impl Environment {
             traced: BTreeMap::new(),
             stdin: Box::new(std::io::BufReader::new(std::io::stdin())),
             stdout: Box::new(std::io::stdout()),
+            config: EnvironmentConfig::new(),
+            metrics: EnvironmentMetrics::new(),
         }
     }
 
@@ -56,7 +109,39 @@ impl Environment {
             traced: BTreeMap::new(),
             stdin,
             stdout,
+            config: EnvironmentConfig::new(),
+            metrics: EnvironmentMetrics::new(),
         }
+    }
+
+    pub fn new_with_config(
+        stdin: Box<dyn BufRead>,
+        stdout: Box<dyn Write>,
+        config: EnvironmentConfig,
+    ) -> Self {
+        Environment {
+            traced: BTreeMap::new(),
+            stdin,
+            stdout,
+            config,
+            metrics: EnvironmentMetrics::new(),
+        }
+    }
+
+    fn increment_expression_count(&mut self) {
+        self.metrics.expression_count += 1;
+        if let Some(max) = self.config.max_expression_count {
+            if self.metrics.expression_count > max {
+                panic!(
+                    "Expression evaluation limit exceeded: {} > {}",
+                    self.metrics.expression_count, max
+                );
+            }
+        }
+    }
+
+    pub fn metrics(&self) -> &EnvironmentMetrics {
+        &self.metrics
     }
 
     pub fn write_int(&mut self, val: i64) {
@@ -372,6 +457,7 @@ impl LocalEnvironment<'_, '_> {
 
     // if while を式にした以上、式の中に文が含まれる可能性がある…
     fn interpret_expression(&mut self, expr: &Box<ExecExpression>) -> ExpressionFlow {
+        self.env.increment_expression_count();
         match expr.as_ref() {
             ExecExpression::Operation1(op, expr1) => self.interpret_operation1(op, expr1),
             ExecExpression::Operation2(op, expr1, expr2) => {
