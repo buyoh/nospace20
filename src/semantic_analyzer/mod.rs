@@ -212,7 +212,7 @@ fn analyze_internal(
                 exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(init)?));
             }
             Statement::FunctionDeclaration(name, args, block) => {
-                if let ScopeType::Block = scope_type {
+                if !matches!(scope_type, ScopeType::Root) {
                     return Err(vec![code_parse_error!(
                         loc.start,
                         "semantic error: nested function declaration is not supported".to_string()
@@ -282,4 +282,219 @@ pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError
     analyze_internal(root, ScopeType::Root)
         .map(|(scope, _)| scope.build())
     // TODO: validate identifiers
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::base::SourceLocation;
+
+    #[test]
+    fn test_error_return_outside_function() {
+        // return:0; at root level should error with position
+        let statements = vec![LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(10, 20),
+        }];
+
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code_pointer, Some(10));
+        assert!(errors[0]
+            .message
+            .contains("return statement outside of function"));
+    }
+
+    #[test]
+    fn test_error_break_outside_function() {
+        let statements = vec![LocatedStatement {
+            statement: Statement::Break,
+            location: SourceLocation::new(25, 30),
+        }];
+
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code_pointer, Some(25));
+        assert!(errors[0]
+            .message
+            .contains("break statement outside of function"));
+    }
+
+    #[test]
+    fn test_error_continue_outside_function() {
+        let statements = vec![LocatedStatement {
+            statement: Statement::Continue,
+            location: SourceLocation::new(35, 45),
+        }];
+
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code_pointer, Some(35));
+        assert!(errors[0]
+            .message
+            .contains("continue statement outside of function"));
+    }
+
+    #[test]
+    fn test_error_expression_at_root_level() {
+        let statements = vec![LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::Factor(42))),
+            location: SourceLocation::new(50, 55),
+        }];
+
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code_pointer, Some(50));
+        assert!(errors[0]
+            .message
+            .contains("expression statement at root level"));
+    }
+
+    #[test]
+    fn test_error_nested_function_declaration() {
+        // func: outer() { func: inner() {} }
+        let inner_func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "inner".to_string(),
+                vec![],
+                vec![], // empty body
+            ),
+            location: SourceLocation::new(100, 120),
+        };
+
+        let outer_func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "outer".to_string(),
+                vec![],
+                vec![inner_func],
+            ),
+            location: SourceLocation::new(80, 130),
+        };
+
+        let statements = vec![outer_func];
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code_pointer, Some(100));
+        assert!(errors[0]
+            .message
+            .contains("nested function declaration is not supported"));
+    }
+
+    #[test]
+    fn test_error_block_scoped_variable() {
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "x".to_string(),
+                Box::new(Expression::Factor(0)),
+            ),
+            location: SourceLocation::new(150, 160),
+        };
+
+        // ブロックスコープでの変数宣言をシミュレート
+        // If式のthen節内で変数宣言を試みる
+        let if_expr = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::If(
+                Box::new(Expression::Factor(1)),
+                vec![var_decl], // block内の変数宣言
+                vec![],
+            ))),
+            location: SourceLocation::new(140, 170),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration("test".to_string(), vec![], vec![if_expr]),
+            location: SourceLocation::new(135, 175),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code_pointer, Some(150));
+        assert!(errors[0]
+            .message
+            .contains("block scoped variable is not implemented"));
+    }
+
+    #[test]
+    fn test_error_global_variable() {
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "global".to_string(),
+                Box::new(Expression::Factor(42)),
+            ),
+            location: SourceLocation::new(200, 210),
+        };
+
+        let statements = vec![var_decl];
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].code_pointer, Some(200));
+        assert!(errors[0]
+            .message
+            .contains("global variable is not implemented"));
+    }
+
+    #[test]
+    fn test_success_simple_function() {
+        // func: main() { return:0; }
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![return_stmt],
+            ),
+            location: SourceLocation::new(0, 35),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+    }
 }
