@@ -119,54 +119,69 @@ Statement::VariableDeclaration(name, init) => {
 }
 ```
 
-### Step 3: Block を返すように変更
+### Step 3: Block の構築方法
 
-`analyze_internal` の戻り値を変更し、`Block` を構築できるようにする。
+`analyze_internal` の戻り値は **現状のまま `(ScopeBuilder, Vec<ExecStatement>)` を維持**し、
+呼び出し側で `Block` を構築する。
 
-**設計判断: BlockBuilder は不要**
-
-- `Block` は `Scope` + `Vec<ExecStatement>` という単純な構造
-- `ScopeBuilder` が識別子追加などの可変操作を担当
-- `analyze_internal` の最後で `ScopeBuilder.build()` を呼び、`Block` を構築すれば十分
-
-#### 変更前
+**理由**: 関数宣言時に引数を `ScopeBuilder` に追加する必要があるため、
+`Block`（不変の `Scope` を含む）を返すと追加操作ができなくなる。
 
 ```rust
-fn analyze_internal(
-    statements: &Vec<Statement>,
-    scope_type: ScopeType,
-) -> (ScopeBuilder, Vec<ExecStatement>) { ... }
+Statement::FunctionDeclaration(name, args, block) => {
+    let (mut s, es) = analyze_internal(block, ScopeType::Function);
+    // 引数を変数として追加（ScopeBuilder が必要）
+    for a in args {
+        s.add_variable(a.clone(), Variable { identifier: a.clone() });
+    }
+    // ここで Block を構築
+    let block = Block {
+        scope: s.build(),
+        statements: es,
+    };
+    let func = Function {
+        args: args.clone(),
+        block,
+    };
+    scope.add_function(name.clone(), func);
+}
 ```
 
-#### 変更後
+#### If/While での Block 構築
+
+If/While の内部ブロックは引数追加が不要なので、その場で `Block` を構築できる。
 
 ```rust
-fn analyze_internal(
-    statements: &Vec<Statement>,
-    scope_type: ScopeType,
-) -> Block {
-    let mut scope = ScopeBuilder::new();
-    let mut exec_statements = Vec::<ExecStatement>::new();
-    
-    // ... 既存のループ処理 ...
-    
-    // 最後に Block を構築して返す
-    Block {
-        scope: scope.build(),  // ScopeBuilder → Scope
-        statements: exec_statements,
+fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
+    match expr.as_ref() {
+        Expression::If(cond, stat1, stat2) => {
+            let (s1, es1) = analyze_internal(stat1, ScopeType::Block);
+            let (s2, es2) = analyze_internal(stat2, ScopeType::Block);
+            Box::new(ExecExpression::If(
+                convert_to_exec_expression(cond),
+                Block { scope: s1.build(), statements: es1 },
+                Block { scope: s2.build(), statements: es2 },
+            ))
+        }
+        Expression::While(expr, stat) => {
+            let (s, es) = analyze_internal(stat, ScopeType::Block);
+            Box::new(ExecExpression::While(
+                convert_to_exec_expression(expr),
+                Block { scope: s.build(), statements: es },
+            ))
+        }
+        ...
     }
 }
 ```
 
-**注意**: ルートレベル（`analyze` 関数）では `Block` ではなく `Scope` を返す必要があるため、
-ルート用のラッパー関数を維持するか、戻り値の扱いを調整する。
+#### まとめ
 
-```rust
-pub fn analyze(root: &Vec<Statement>) -> Scope {
-    let block = analyze_internal(root, ScopeType::Root);
-    block.scope  // Block から Scope を取り出す
-}
-```
+| 呼び出し箇所 | 戻り値の扱い |
+|-------------|-------------|
+| 関数宣言 | `ScopeBuilder` に引数追加後、`Block` 構築 |
+| If/While | 即座に `Block` 構築 |
+| ルートレベル | `Scope` のみ取り出し |
 
 ### Step 4: インタプリタにスコープスタック導入
 
