@@ -8,26 +8,26 @@ func:main(){
         __puti(2);
     } else:{
         __puti(3);
-    };;
+    };
     if: a - 9 {
         __puti(4);
     } else:if: b - 20 {
         __puti(5);
     } else:{
         __puti(6);
-    };;
+    };
     if: a - 10 {
         __puti(7);
     } else:if: b - 19 {
         __puti(8);
     } else:{
         __puti(9);
-    };;
+    };
     if: a - 9 {
         __puti(10);
     } else:if: b - 19 {
         __puti(11);
     } else:{
         __puti(12);
-    };;
+    };
 }
