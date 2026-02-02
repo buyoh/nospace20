@@ -203,66 +203,43 @@ mod tests {
 
     // テストヘルパー: トークン生成関数
     fn token_keyword_let() -> PrettyToken {
-        (
-            Token::Keyword(Keyword::Let),
-            TokenInfo {
-                code_pointer: 0,
-            },
-        )
+        (Token::Keyword(Keyword::Let), TokenInfo { code_pointer: 0 })
     }
 
     fn token_keyword_func() -> PrettyToken {
-        (
-            Token::Keyword(Keyword::Func),
-            TokenInfo {
-                code_pointer: 0,
-            },
-        )
+        (Token::Keyword(Keyword::Func), TokenInfo { code_pointer: 0 })
     }
 
     fn token_keyword_return() -> PrettyToken {
         (
             Token::Keyword(Keyword::Return),
-            TokenInfo {
-                code_pointer: 0,
-            },
+            TokenInfo { code_pointer: 0 },
         )
     }
 
     fn token_keyword_break() -> PrettyToken {
         (
             Token::Keyword(Keyword::Break),
-            TokenInfo {
-                code_pointer: 0,
-            },
+            TokenInfo { code_pointer: 0 },
         )
     }
 
     fn token_keyword_continue() -> PrettyToken {
         (
             Token::Keyword(Keyword::Continue),
-            TokenInfo {
-                code_pointer: 0,
-            },
+            TokenInfo { code_pointer: 0 },
         )
     }
 
     fn token_ident(name: &str) -> PrettyToken {
         (
             Token::Identifier(name.to_string()),
-            TokenInfo {
-                code_pointer: 0,
-            },
+            TokenInfo { code_pointer: 0 },
         )
     }
 
     fn token_number(value: i64) -> PrettyToken {
-        (
-            Token::Number(value),
-            TokenInfo {
-                code_pointer: 0,
-            },
-        )
+        (Token::Number(value), TokenInfo { code_pointer: 0 })
     }
 
     fn token_colon() -> PrettyToken {
@@ -270,24 +247,15 @@ mod tests {
     }
 
     fn token_semicolon() -> PrettyToken {
-        (
-            Token::Semicolon,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::Semicolon, TokenInfo { code_pointer: 0 })
     }
 
     fn token_paren_l() -> PrettyToken {
-        (
-            Token::ParenthesisL,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::ParenthesisL, TokenInfo { code_pointer: 0 })
     }
 
     fn token_paren_r() -> PrettyToken {
-        (
-            Token::ParenthesisR,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::ParenthesisR, TokenInfo { code_pointer: 0 })
     }
 
     fn token_brace_l() -> PrettyToken {
@@ -303,10 +271,7 @@ mod tests {
     }
 
     fn token_op_single_equal() -> PrettyToken {
-        (
-            Token::SingleEqual,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::SingleEqual, TokenInfo { code_pointer: 0 })
     }
 
     // ヘルパー: パース実行

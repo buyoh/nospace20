@@ -2,9 +2,13 @@ use std::{io::Read, iter::repeat, process};
 
 use clap::Parser;
 use nospace20::{
-    interpret_func_with_env, parse_to_tokens, parse_to_tree,
+    interpret_func_with_env,
+    parse_to_tokens,
+    parse_to_tree,
     syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
-    CodeParseError, Environment, TextCode,
+    CodeParseError,
+    Environment,
+    TextCode,
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -73,11 +77,11 @@ fn main() {
     let t = handle_parse_error(parse_to_tokens(&code_raw), &text);
     let s = handle_parse_error(parse_to_tree(&t), &text);
     let a = syntactic_analyze(&s);
-    
+
     // Environmentを作成して実行
     let mut env = Environment::new();
     let result = interpret_func_with_env(&mut env, &a, "main");
-    
+
     if let Some(val) = result {
         println!("main returns: {}", val);
     } else {

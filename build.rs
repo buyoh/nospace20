@@ -25,11 +25,11 @@ fn main() {
 
     // YAMLファイルを読み込み
     let manifest_path = "resources/tests/test-manifest.yaml";
-    let manifest_content = fs::read_to_string(manifest_path)
-        .expect("Failed to read test-manifest.yaml");
-    
-    let manifest: TestManifest = serde_yaml::from_str(&manifest_content)
-        .expect("Failed to parse test-manifest.yaml");
+    let manifest_content =
+        fs::read_to_string(manifest_path).expect("Failed to read test-manifest.yaml");
+
+    let manifest: TestManifest =
+        serde_yaml::from_str(&manifest_content).expect("Failed to parse test-manifest.yaml");
 
     // 出力ディレクトリを取得
     let out_dir = env::var("OUT_DIR").unwrap();

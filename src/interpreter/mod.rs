@@ -170,7 +170,8 @@ impl Environment {
                 Ok(0) => return 0, // EOF
                 Ok(_) => {
                     for ch in buf.chars() {
-                        if chars_read == 0 && (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t') {
+                        if chars_read == 0 && (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t')
+                        {
                             continue; // 先頭の空白をスキップ
                         }
                         if chars_read == 0 && ch == '-' {

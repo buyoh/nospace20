@@ -86,7 +86,9 @@ fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
         Expression::Factor(v) => Box::new(ExecExpression::Factor(v.to_owned())),
         Expression::Variable(v) => Box::new(ExecExpression::Variable(v.to_owned())),
         // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
-        Expression::Invalid(_) => unreachable!("Expression::Invalid should not reach semantic analysis"),
+        Expression::Invalid(_) => {
+            unreachable!("Expression::Invalid should not reach semantic analysis")
+        }
     }
 }
 

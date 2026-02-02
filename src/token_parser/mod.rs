@@ -28,7 +28,7 @@ pub enum Token {
     Minus,
     Asterisk,
     Slash,
-    Percent,       // %
+    Percent, // %
     Exclamation,
     SingleEqual,
     DoubleEqual,
@@ -39,15 +39,15 @@ pub enum Token {
     GreaterEqual,
     DoubleAmpersand, // &&
     DoublePipe,      // ||
-    ParenthesisL, // (
-    ParenthesisR, // )
-    BracketL,     // [
-    BracketR,     // ]
-    BraceL,       // {
-    BraceR,       // }
-    Semicolon,    // ;
-    Colon,        // :
-    Comma,        // ,
+    ParenthesisL,    // (
+    ParenthesisR,    // )
+    BracketL,        // [
+    BracketR,        // ]
+    BraceL,          // {
+    BraceR,          // }
+    Semicolon,       // ;
+    Colon,           // :
+    Comma,           // ,
     Invalid,
 }
 
@@ -89,38 +89,52 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
         Some((_, '\\')) => {
             // エスケープシーケンス
             match iter.next() {
-                Some((_, 'n')) => 10,   // 改行 (LF)
-                Some((_, 'r')) => 13,   // 復帰 (CR)
-                Some((_, 't')) => 9,    // タブ
-                Some((_, 's')) => 32,   // スペース
-                Some((_, '\\')) => 92,  // バックスラッシュ
-                Some((_, '\'')) => 39,  // シングルクォート
+                Some((_, 'n')) => 10,  // 改行 (LF)
+                Some((_, 'r')) => 13,  // 復帰 (CR)
+                Some((_, 't')) => 9,   // タブ
+                Some((_, 's')) => 32,  // スペース
+                Some((_, '\\')) => 92, // バックスラッシュ
+                Some((_, '\'')) => 39, // シングルクォート
                 Some((idx, c)) => {
-                    return Err(code_parse_error!(idx, format!("unknown escape sequence: \\{}", c)));
+                    return Err(code_parse_error!(
+                        idx,
+                        format!("unknown escape sequence: \\{}", c)
+                    ));
                 }
                 None => {
-                    return Err(code_parse_error!(start_idx, "unexpected end of input in character literal".to_string()));
+                    return Err(code_parse_error!(
+                        start_idx,
+                        "unexpected end of input in character literal".to_string()
+                    ));
                 }
             }
         }
         Some((_, '\'')) => {
-            return Err(code_parse_error!(start_idx, "empty character literal".to_string()));
+            return Err(code_parse_error!(
+                start_idx,
+                "empty character literal".to_string()
+            ));
         }
         Some((_, c)) => c as i64,
         None => {
-            return Err(code_parse_error!(start_idx, "unexpected end of input in character literal".to_string()));
+            return Err(code_parse_error!(
+                start_idx,
+                "unexpected end of input in character literal".to_string()
+            ));
         }
     };
 
     // 閉じる `'` を確認
     match iter.next() {
         Some((_, '\'')) => Ok(Token::Number(char_value)),
-        Some((idx, c)) => {
-            Err(code_parse_error!(idx, format!("expected closing quote, found: {}", c)))
-        }
-        None => {
-            Err(code_parse_error!(start_idx, "unclosed character literal".to_string()))
-        }
+        Some((idx, c)) => Err(code_parse_error!(
+            idx,
+            format!("expected closing quote, found: {}", c)
+        )),
+        None => Err(code_parse_error!(
+            start_idx,
+            "unclosed character literal".to_string()
+        )),
     }
 }
 
@@ -138,9 +152,7 @@ fn determine_keyword_or_identifier(id: String) -> Token {
     }
 }
 
-fn parse_identifier<I: Iterator<Item = (usize, char)>>(
-    iter: &mut iter::Peekable<I>,
-) -> Token {
+fn parse_identifier<I: Iterator<Item = (usize, char)>>(iter: &mut iter::Peekable<I>) -> Token {
     if let Some((_, 'A'..='Z')) | Some((_, 'a'..='z')) | Some((_, '_')) = iter.peek() {
     } else {
         panic!("internal error");
@@ -244,7 +256,10 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                         Some((_, c)) if *c == '&' => Token::DoubleAmpersand,
                         _ => {
                             // 単独の & は未実装（参照演算子）
-                            parse_errors.push(code_parse_error!(info.code_pointer, "single '&' is not supported yet".to_string()));
+                            parse_errors.push(code_parse_error!(
+                                info.code_pointer,
+                                "single '&' is not supported yet".to_string()
+                            ));
                             continue;
                         }
                     }
@@ -255,7 +270,10 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                         Some((_, c)) if *c == '|' => Token::DoublePipe,
                         _ => {
                             // 単独の | は未実装
-                            parse_errors.push(code_parse_error!(info.code_pointer, "single '|' is not supported".to_string()));
+                            parse_errors.push(code_parse_error!(
+                                info.code_pointer,
+                                "single '|' is not supported".to_string()
+                            ));
                             continue;
                         }
                     }
@@ -289,7 +307,13 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
 
 pub fn parse_to_tokens(text: &str) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
     // Remove whitespace characters completely!!!
-    let (tk, err) = parse_to_tokens_internal(&mut text.chars().enumerate().filter(|(_, c)| !c.is_whitespace()).peekable());
+    let (tk, err) = parse_to_tokens_internal(
+        &mut text
+            .chars()
+            .enumerate()
+            .filter(|(_, c)| !c.is_whitespace())
+            .peekable(),
+    );
     if err.is_empty() {
         Ok(tk)
     } else {

@@ -391,20 +391,13 @@ mod tests {
 
     // テストヘルパー: トークン生成関数
     fn token_number(value: i64) -> PrettyToken {
-        (
-            Token::Number(value),
-            TokenInfo {
-                code_pointer: 0,
-            },
-        )
+        (Token::Number(value), TokenInfo { code_pointer: 0 })
     }
 
     fn token_ident(name: &str) -> PrettyToken {
         (
             Token::Identifier(name.to_string()),
-            TokenInfo {
-                code_pointer: 0,
-            },
+            TokenInfo { code_pointer: 0 },
         )
     }
 
@@ -429,17 +422,11 @@ mod tests {
     }
 
     fn token_op_double_equal() -> PrettyToken {
-        (
-            Token::DoubleEqual,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::DoubleEqual, TokenInfo { code_pointer: 0 })
     }
 
     fn token_op_not_equal() -> PrettyToken {
-        (
-            Token::NotEqual,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::NotEqual, TokenInfo { code_pointer: 0 })
     }
 
     fn token_op_less() -> PrettyToken {
@@ -447,66 +434,39 @@ mod tests {
     }
 
     fn token_op_less_equal() -> PrettyToken {
-        (
-            Token::LessEqual,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::LessEqual, TokenInfo { code_pointer: 0 })
     }
 
     fn token_op_greater() -> PrettyToken {
-        (
-            Token::Greater,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::Greater, TokenInfo { code_pointer: 0 })
     }
 
     fn token_op_greater_equal() -> PrettyToken {
-        (
-            Token::GreaterEqual,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::GreaterEqual, TokenInfo { code_pointer: 0 })
     }
 
     fn token_op_logical_and() -> PrettyToken {
-        (
-            Token::DoubleAmpersand,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::DoubleAmpersand, TokenInfo { code_pointer: 0 })
     }
 
     fn token_op_logical_or() -> PrettyToken {
-        (
-            Token::DoublePipe,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::DoublePipe, TokenInfo { code_pointer: 0 })
     }
 
     fn token_op_single_equal() -> PrettyToken {
-        (
-            Token::SingleEqual,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::SingleEqual, TokenInfo { code_pointer: 0 })
     }
 
     fn token_op_exclamation() -> PrettyToken {
-        (
-            Token::Exclamation,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::Exclamation, TokenInfo { code_pointer: 0 })
     }
 
     fn token_paren_l() -> PrettyToken {
-        (
-            Token::ParenthesisL,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::ParenthesisL, TokenInfo { code_pointer: 0 })
     }
 
     fn token_paren_r() -> PrettyToken {
-        (
-            Token::ParenthesisR,
-            TokenInfo { code_pointer: 0 },
-        )
+        (Token::ParenthesisR, TokenInfo { code_pointer: 0 })
     }
 
     fn token_comma() -> PrettyToken {
@@ -546,12 +506,10 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Plus, left, right) => {
-                match (*left, *right) {
-                    (Expression::Factor(1), Expression::Factor(2)) => (),
-                    _ => panic!("Expected Factor(1) + Factor(2)"),
-                }
-            }
+            Expression::Operation2(Operator2::Plus, left, right) => match (*left, *right) {
+                (Expression::Factor(1), Expression::Factor(2)) => (),
+                _ => panic!("Expected Factor(1) + Factor(2)"),
+            },
             _ => panic!("Expected Expression::Operation2(Plus)"),
         }
     }
@@ -562,12 +520,10 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Minus, left, right) => {
-                match (*left, *right) {
-                    (Expression::Factor(5), Expression::Factor(3)) => (),
-                    _ => panic!("Expected Factor(5) - Factor(3)"),
-                }
-            }
+            Expression::Operation2(Operator2::Minus, left, right) => match (*left, *right) {
+                (Expression::Factor(5), Expression::Factor(3)) => (),
+                _ => panic!("Expected Factor(5) - Factor(3)"),
+            },
             _ => panic!("Expected Expression::Operation2(Minus)"),
         }
     }
@@ -578,12 +534,10 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Multiply, left, right) => {
-                match (*left, *right) {
-                    (Expression::Factor(3), Expression::Factor(4)) => (),
-                    _ => panic!("Expected Factor(3) * Factor(4)"),
-                }
-            }
+            Expression::Operation2(Operator2::Multiply, left, right) => match (*left, *right) {
+                (Expression::Factor(3), Expression::Factor(4)) => (),
+                _ => panic!("Expected Factor(3) * Factor(4)"),
+            },
             _ => panic!("Expected Expression::Operation2(Multiply)"),
         }
     }
@@ -594,12 +548,10 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Divide, left, right) => {
-                match (*left, *right) {
-                    (Expression::Factor(10), Expression::Factor(2)) => (),
-                    _ => panic!("Expected Factor(10) / Factor(2)"),
-                }
-            }
+            Expression::Operation2(Operator2::Divide, left, right) => match (*left, *right) {
+                (Expression::Factor(10), Expression::Factor(2)) => (),
+                _ => panic!("Expected Factor(10) / Factor(2)"),
+            },
             _ => panic!("Expected Expression::Operation2(Divide)"),
         }
     }
@@ -610,12 +562,10 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Modulo, left, right) => {
-                match (*left, *right) {
-                    (Expression::Factor(10), Expression::Factor(3)) => (),
-                    _ => panic!("Expected Factor(10) % Factor(3)"),
-                }
-            }
+            Expression::Operation2(Operator2::Modulo, left, right) => match (*left, *right) {
+                (Expression::Factor(10), Expression::Factor(3)) => (),
+                _ => panic!("Expected Factor(10) % Factor(3)"),
+            },
             _ => panic!("Expected Expression::Operation2(Modulo)"),
         }
     }
@@ -633,17 +583,15 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Plus, left, right) => {
-                match (*left, *right) {
-                    (Expression::Factor(1), Expression::Operation2(Operator2::Multiply, l2, r2)) => {
-                        match (*l2, *r2) {
-                            (Expression::Factor(2), Expression::Factor(3)) => (),
-                            _ => panic!("Expected Factor(2) * Factor(3)"),
-                        }
+            Expression::Operation2(Operator2::Plus, left, right) => match (*left, *right) {
+                (Expression::Factor(1), Expression::Operation2(Operator2::Multiply, l2, r2)) => {
+                    match (*l2, *r2) {
+                        (Expression::Factor(2), Expression::Factor(3)) => (),
+                        _ => panic!("Expected Factor(2) * Factor(3)"),
                     }
-                    _ => panic!("Expected 1 + (2 * 3)"),
                 }
-            }
+                _ => panic!("Expected 1 + (2 * 3)"),
+            },
             _ => panic!("Expected Expression::Operation2(Plus)"),
         }
     }
@@ -663,17 +611,15 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Multiply, left, right) => {
-                match (*left, *right) {
-                    (Expression::Operation2(Operator2::Plus, l2, r2), Expression::Factor(3)) => {
-                        match (*l2, *r2) {
-                            (Expression::Factor(1), Expression::Factor(2)) => (),
-                            _ => panic!("Expected Factor(1) + Factor(2)"),
-                        }
+            Expression::Operation2(Operator2::Multiply, left, right) => match (*left, *right) {
+                (Expression::Operation2(Operator2::Plus, l2, r2), Expression::Factor(3)) => {
+                    match (*l2, *r2) {
+                        (Expression::Factor(1), Expression::Factor(2)) => (),
+                        _ => panic!("Expected Factor(1) + Factor(2)"),
                     }
-                    _ => panic!("Expected (1 + 2) * 3"),
                 }
-            }
+                _ => panic!("Expected (1 + 2) * 3"),
+            },
             _ => panic!("Expected Expression::Operation2(Multiply)"),
         }
     }
@@ -780,15 +726,13 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Equal, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Variable(b)) => {
-                        assert_eq!(a, "a");
-                        assert_eq!(b, "b");
-                    }
-                    _ => panic!("Expected Variable(a) == Variable(b)"),
+            Expression::Operation2(Operator2::Equal, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
                 }
-            }
+                _ => panic!("Expected Variable(a) == Variable(b)"),
+            },
             _ => panic!("Expected Expression::Operation2(Equal)"),
         }
     }
@@ -800,15 +744,13 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::NotEqual, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Variable(b)) => {
-                        assert_eq!(a, "a");
-                        assert_eq!(b, "b");
-                    }
-                    _ => panic!("Expected Variable(a) != Variable(b)"),
+            Expression::Operation2(Operator2::NotEqual, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
                 }
-            }
+                _ => panic!("Expected Variable(a) != Variable(b)"),
+            },
             _ => panic!("Expected Expression::Operation2(NotEqual)"),
         }
     }
@@ -820,15 +762,13 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Less, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Variable(b)) => {
-                        assert_eq!(a, "a");
-                        assert_eq!(b, "b");
-                    }
-                    _ => panic!("Expected Variable(a) < Variable(b)"),
+            Expression::Operation2(Operator2::Less, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
                 }
-            }
+                _ => panic!("Expected Variable(a) < Variable(b)"),
+            },
             _ => panic!("Expected Expression::Operation2(Less)"),
         }
     }
@@ -840,15 +780,13 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::LessEqual, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Variable(b)) => {
-                        assert_eq!(a, "a");
-                        assert_eq!(b, "b");
-                    }
-                    _ => panic!("Expected Variable(a) <= Variable(b)"),
+            Expression::Operation2(Operator2::LessEqual, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
                 }
-            }
+                _ => panic!("Expected Variable(a) <= Variable(b)"),
+            },
             _ => panic!("Expected Expression::Operation2(LessEqual)"),
         }
     }
@@ -860,15 +798,13 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Greater, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Variable(b)) => {
-                        assert_eq!(a, "a");
-                        assert_eq!(b, "b");
-                    }
-                    _ => panic!("Expected Variable(a) > Variable(b)"),
+            Expression::Operation2(Operator2::Greater, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
                 }
-            }
+                _ => panic!("Expected Variable(a) > Variable(b)"),
+            },
             _ => panic!("Expected Expression::Operation2(Greater)"),
         }
     }
@@ -880,15 +816,13 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::GreaterEqual, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Variable(b)) => {
-                        assert_eq!(a, "a");
-                        assert_eq!(b, "b");
-                    }
-                    _ => panic!("Expected Variable(a) >= Variable(b)"),
+            Expression::Operation2(Operator2::GreaterEqual, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
                 }
-            }
+                _ => panic!("Expected Variable(a) >= Variable(b)"),
+            },
             _ => panic!("Expected Expression::Operation2(GreaterEqual)"),
         }
     }
@@ -900,15 +834,13 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::LogicalAnd, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Variable(b)) => {
-                        assert_eq!(a, "a");
-                        assert_eq!(b, "b");
-                    }
-                    _ => panic!("Expected Variable(a) && Variable(b)"),
+            Expression::Operation2(Operator2::LogicalAnd, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
                 }
-            }
+                _ => panic!("Expected Variable(a) && Variable(b)"),
+            },
             _ => panic!("Expected Expression::Operation2(LogicalAnd)"),
         }
     }
@@ -920,15 +852,13 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::LogicalOr, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Variable(b)) => {
-                        assert_eq!(a, "a");
-                        assert_eq!(b, "b");
-                    }
-                    _ => panic!("Expected Variable(a) || Variable(b)"),
+            Expression::Operation2(Operator2::LogicalOr, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
                 }
-            }
+                _ => panic!("Expected Variable(a) || Variable(b)"),
+            },
             _ => panic!("Expected Expression::Operation2(LogicalOr)"),
         }
     }
@@ -940,14 +870,12 @@ mod tests {
         let (expr, errs) = parse_expr(tokens);
         assert!(errs.is_empty(), "Expected no errors");
         match *expr {
-            Expression::Operation2(Operator2::Assign, left, right) => {
-                match (*left, *right) {
-                    (Expression::Variable(a), Expression::Factor(10)) => {
-                        assert_eq!(a, "a");
-                    }
-                    _ => panic!("Expected Variable(a) = Factor(10)"),
+            Expression::Operation2(Operator2::Assign, left, right) => match (*left, *right) {
+                (Expression::Variable(a), Expression::Factor(10)) => {
+                    assert_eq!(a, "a");
                 }
-            }
+                _ => panic!("Expected Variable(a) = Factor(10)"),
+            },
             _ => panic!("Expected Expression::Operation2(Assign)"),
         }
     }
