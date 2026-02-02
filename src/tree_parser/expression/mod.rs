@@ -41,7 +41,11 @@ pub enum Operator1 {
 pub enum Expression {
     Operation1(Operator1, Box<Expression>),
     Operation2(Operator2, Box<Expression>, Box<Expression>),
-    If(Box<Expression>, Vec<LocatedStatement>, Vec<LocatedStatement>),
+    If(
+        Box<Expression>,
+        Vec<LocatedStatement>,
+        Vec<LocatedStatement>,
+    ),
     While(Box<Expression>, Vec<LocatedStatement>),
     Function(String, Vec<Box<Expression>>),
     Factor(i64),
@@ -357,17 +361,23 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                         // TODO: elsif を実装したほうが便利？
                         // TODO: allow single expression ???
                         let if_expr = self.parse_to_expression_tree_if();
-                        let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(else_start);
+                        let end_pos = self
+                            .iter
+                            .peek()
+                            .map(|(_, info)| info.code_pointer)
+                            .unwrap_or(else_start);
                         vec![LocatedStatement {
                             statement: Statement::Expression(if_expr),
                             location: SourceLocation::new(else_start, end_pos),
                         }]
                     }
                     _ => {
+                        match_expect_token_unused!(self, self.iter.next(), Token::BraceL);
                         let (stats, mut stats_err) = parse_to_statements(self.iter);
                         if !stats_err.is_empty() {
                             self.code_parse_error.append(&mut stats_err);
                         }
+                        match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
                         stats
                     }
                 }

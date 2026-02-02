@@ -23,5 +23,5 @@ func: main() {
     b=tmp;
     i=i - 1;
   };
-  __assert(b == 34);
+  __assert(b == 55);
 }

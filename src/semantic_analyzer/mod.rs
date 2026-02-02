@@ -9,7 +9,11 @@
 
 use std::collections::BTreeMap;
 
-use crate::{base::CodeParseError, code_parse_error, tree_parser::{Expression, LocatedStatement, Operator1, Operator2, Statement}};
+use crate::{
+    base::CodeParseError,
+    code_parse_error,
+    tree_parser::{Expression, LocatedStatement, Operator1, Operator2, Statement},
+};
 
 struct IdentifierInfo {
     // name: String,
@@ -26,6 +30,12 @@ pub struct Variable {
     pub identifier: String, // TODO: use IdentifierInfo
 }
 
+/// ブロック（文の列とスコープ情報）
+pub struct Block {
+    pub scope: Scope,
+    pub statements: Vec<ExecStatement>,
+}
+
 /// 実行可能な式を表す。
 ///
 /// `Expression` (構文解析結果) との違い:
@@ -38,8 +48,8 @@ pub struct Variable {
 pub enum ExecExpression {
     Operation1(Operator1, Box<ExecExpression>),
     Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
-    If(Box<ExecExpression>, Vec<ExecStatement>, Vec<ExecStatement>),
-    While(Box<ExecExpression>, Vec<ExecStatement>),
+    If(Box<ExecExpression>, Block, Block),
+    While(Box<ExecExpression>, Block),
     Function(String, Vec<Box<ExecExpression>>),
     Factor(i64),
     Variable(String), // TODO: スコープ解決済みの IdentifierInfo に変更予定
@@ -59,7 +69,9 @@ pub enum ExecStatement {
     Expression(Box<ExecExpression>),
 }
 
-fn convert_to_exec_expression(expr: &Box<Expression>) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
+fn convert_to_exec_expression(
+    expr: &Box<Expression>,
+) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
     match expr.as_ref() {
         Expression::Operation1(op, x) => Ok(Box::new(ExecExpression::Operation1(
             op.to_owned(),
@@ -70,15 +82,31 @@ fn convert_to_exec_expression(expr: &Box<Expression>) -> Result<Box<ExecExpressi
             convert_to_exec_expression(&l)?,
             convert_to_exec_expression(&r)?,
         ))),
-        Expression::If(cond, stat1, stat2) => Ok(Box::new(ExecExpression::If(
-            convert_to_exec_expression(cond)?,
-            analyze_internal(stat1, ScopeType::Block)?.1,
-            analyze_internal(stat2, ScopeType::Block)?.1,
-        ))),
-        Expression::While(expr, stat) => Ok(Box::new(ExecExpression::While(
-            convert_to_exec_expression(expr)?,
-            analyze_internal(stat, ScopeType::Block)?.1,
-        ))),
+        Expression::If(cond, stat1, stat2) => {
+            let (s1, es1) = analyze_internal(stat1, ScopeType::Block)?;
+            let (s2, es2) = analyze_internal(stat2, ScopeType::Block)?;
+            Ok(Box::new(ExecExpression::If(
+                convert_to_exec_expression(cond)?,
+                Block {
+                    scope: s1.build(),
+                    statements: es1,
+                },
+                Block {
+                    scope: s2.build(),
+                    statements: es2,
+                },
+            )))
+        }
+        Expression::While(expr, stat) => {
+            let (s, es) = analyze_internal(stat, ScopeType::Block)?;
+            Ok(Box::new(ExecExpression::While(
+                convert_to_exec_expression(expr)?,
+                Block {
+                    scope: s.build(),
+                    statements: es,
+                },
+            )))
+        }
         Expression::Function(f, a) => {
             let mut args = Vec::new();
             for e in a {
@@ -97,8 +125,7 @@ fn convert_to_exec_expression(expr: &Box<Expression>) -> Result<Box<ExecExpressi
 
 pub struct Function {
     pub args: Vec<String>, // TODO: change string to identifier_ptr
-    pub scope: Scope,
-    pub code: Vec<ExecStatement>,
+    pub block: Block,
     // pub identifier: String,
 }
 
@@ -155,11 +182,16 @@ impl ScopeBuilder {
         }
     }
 
-    fn add_identifier(&mut self, name: &str, identifier: Identifier) -> Result<(), Vec<CodeParseError>> {
+    fn add_identifier(
+        &mut self,
+        name: &str,
+        identifier: Identifier,
+    ) -> Result<(), Vec<CodeParseError>> {
         if self.identifier_map.contains_key(name) {
-            return Err(vec![code_parse_error!(
-                format!("semantic error: the name '{}' is already used", name)
-            )]);
+            return Err(vec![code_parse_error!(format!(
+                "semantic error: the name '{}' is already used",
+                name
+            ))]);
         }
         self.identifier_map.insert(name.to_string(), identifier);
         Ok(())
@@ -189,13 +221,6 @@ fn analyze_internal(
         let loc = &located_stat.location;
         match stat {
             Statement::VariableDeclaration(name, init) => {
-                if let ScopeType::Block = scope_type {
-                    // TODO(unimplemented): ブロックスコープ変数は未実装
-                    return Err(vec![code_parse_error!(
-                        loc.start,
-                        "semantic error: block scoped variable is not implemented".to_string()
-                    )]);
-                }
                 if let ScopeType::Root = scope_type {
                     // TODO(unimplemented): グローバル変数は未実装
                     return Err(vec![code_parse_error!(
@@ -203,6 +228,7 @@ fn analyze_internal(
                         "semantic error: global variable is not implemented".to_string()
                     )]);
                 }
+                // ブロックスコープでも関数スコープでも変数宣言を許可
                 scope.add_variable(
                     name,
                     Variable {
@@ -231,8 +257,10 @@ fn analyze_internal(
                 // store variable identifier to function
                 let func = Function {
                     args: args.clone(),
-                    scope: s.build(),
-                    code: es,
+                    block: Block {
+                        scope: s.build(),
+                        statements: es,
+                    },
                 };
                 scope.add_function(name, func)?;
             }
@@ -279,8 +307,7 @@ fn analyze_internal(
 }
 
 pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
-    analyze_internal(root, ScopeType::Root)
-        .map(|(scope, _)| scope.build())
+    analyze_internal(root, ScopeType::Root).map(|(scope, _)| scope.build())
     // TODO: validate identifiers
 }
 
@@ -411,7 +438,7 @@ mod test {
     }
 
     #[test]
-    fn test_error_block_scoped_variable() {
+    fn test_success_block_scoped_variable() {
         let var_decl = LocatedStatement {
             statement: Statement::VariableDeclaration(
                 "x".to_string(),
@@ -438,17 +465,7 @@ mod test {
 
         let statements = vec![func];
         let result = analyze(&statements);
-        assert!(result.is_err());
-
-        let errors = match result {
-            Err(e) => e,
-            Ok(_) => panic!("Expected error"),
-        };
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].code_pointer, Some(150));
-        assert!(errors[0]
-            .message
-            .contains("block scoped variable is not implemented"));
+        assert!(result.is_ok());
     }
 
     #[test]

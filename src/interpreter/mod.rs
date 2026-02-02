@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 
 use crate::{
-    semantic_analyzer::{ExecExpression, ExecStatement, Function, Scope},
+    semantic_analyzer::{Block, ExecExpression, ExecStatement, Function, Scope},
     tree_parser::{Operator1, Operator2},
 };
 
@@ -216,8 +216,8 @@ impl Environment {
 struct LocalEnvironment<'a, 'aenv> {
     env: &'aenv mut Environment,
     root_scope: &'a Scope,
-    current_scope: &'a Scope,
-    variables: BTreeMap<String, i64>,
+    // スコープスタック: 末尾が現在のスコープ
+    scope_stack: Vec<BTreeMap<String, i64>>,
 }
 
 fn bool_to_int(x: bool) -> i64 {
@@ -239,7 +239,7 @@ impl LocalEnvironment<'_, '_> {
         for id_eval in func.args.iter().zip(args) {
             variables.insert(id_eval.0.clone(), *id_eval.1);
         }
-        for v in func.scope.variables.iter() {
+        for v in func.block.scope.variables.iter() {
             if !variables.contains_key(&v.identifier) {
                 variables.insert(v.identifier.clone(), 0);
             }
@@ -247,9 +247,32 @@ impl LocalEnvironment<'_, '_> {
         LocalEnvironment {
             env,
             root_scope,
-            current_scope: &func.scope,
-            variables,
+            scope_stack: vec![variables],
         }
+    }
+
+    /// ブロックに入る
+    fn enter_block(&mut self, scope: &Scope) {
+        let mut block_vars = BTreeMap::new();
+        for v in scope.variables.iter() {
+            block_vars.insert(v.identifier.clone(), 0);
+        }
+        self.scope_stack.push(block_vars);
+    }
+
+    /// ブロックから出る
+    fn leave_block(&mut self) {
+        self.scope_stack.pop();
+    }
+
+    /// 変数を取得（スコープスタックを上から探索）
+    fn get_variable_mut(&mut self, name: &str) -> Option<&mut i64> {
+        for scope in self.scope_stack.iter_mut().rev() {
+            if let Some(val) = scope.get_mut(name) {
+                return Some(val);
+            }
+        }
+        None
     }
 
     fn interpret_call_function(
@@ -326,7 +349,7 @@ impl LocalEnvironment<'_, '_> {
         let func = self.root_scope.get_function(id.as_str()).unwrap();
 
         let mut env = LocalEnvironment::new_func(self.env, self.root_scope, &func, &arg_values);
-        match env.interpret_statements(&func.code) {
+        match env.interpret_statements(&func.block.statements) {
             Flow::Proceed => ExpressionFlow::Value(0),
             Flow::Return(x) => ExpressionFlow::Value(x), // 関数の return は呼び出し元の式の値となる
             Flow::Continue => panic!("internal error: unexpected continue"),
@@ -334,11 +357,7 @@ impl LocalEnvironment<'_, '_> {
         }
     }
 
-    fn interpret_while(
-        &mut self,
-        cond: &Box<ExecExpression>,
-        code: &Vec<ExecStatement>,
-    ) -> ExpressionFlow {
+    fn interpret_while(&mut self, cond: &Box<ExecExpression>, block: &Block) -> ExpressionFlow {
         loop {
             let cond = match self.interpret_expression(cond) {
                 ExpressionFlow::Value(e) => e,
@@ -359,11 +378,19 @@ impl LocalEnvironment<'_, '_> {
             if cond == 0 {
                 break;
             }
-            match self.interpret_statements(code) {
-                Flow::Proceed => (),
-                Flow::Return(v) => return ExpressionFlow::Value(v),
-                Flow::Continue => continue,
-                Flow::Break => break,
+            self.enter_block(&block.scope);
+            let result = match self.interpret_statements(&block.statements) {
+                Flow::Proceed => None,
+                Flow::Return(v) => Some(ExpressionFlow::Value(v)),
+                Flow::Continue => None,
+                Flow::Break => {
+                    self.leave_block();
+                    break;
+                }
+            };
+            self.leave_block();
+            if let Some(r) = result {
+                return r;
             }
         }
         ExpressionFlow::Value(0) // TODO: spec
@@ -372,14 +399,18 @@ impl LocalEnvironment<'_, '_> {
     fn interpret_if(
         &mut self,
         cond: &Box<ExecExpression>,
-        stats_true: &Vec<ExecStatement>,
-        stats_false: &Vec<ExecStatement>,
+        then_block: &Block,
+        else_block: &Block,
     ) -> ExpressionFlow {
         let cond = try_expr!(self.interpret_expression(cond));
-        match self.interpret_statements(if cond != 0 { stats_true } else { stats_false }) {
+        let block = if cond != 0 { then_block } else { else_block };
+        self.enter_block(&block.scope);
+        let result = match self.interpret_statements(&block.statements) {
             Flow::Proceed => ExpressionFlow::Value(0),
             other => ExpressionFlow::Jump(other),
-        }
+        };
+        self.leave_block();
+        result
     }
 
     fn interpret_operation1(
@@ -404,11 +435,9 @@ impl LocalEnvironment<'_, '_> {
         // 代入演算子: 特別処理
         if let Operator2::Assign = op {
             if let ExecExpression::Variable(name) = expr1.as_ref() {
-                if self.variables.contains_key(name) {
-                    // todo: more nice impl
-                    // todo: should be checked not in runtime.
-                    let v = try_expr!(self.interpret_expression(expr2));
-                    self.variables.insert(name.clone(), v);
+                let v = try_expr!(self.interpret_expression(expr2));
+                if let Some(var_ref) = self.get_variable_mut(name) {
+                    *var_ref = v;
                     return ExpressionFlow::Value(v);
                 } else {
                     panic!("syntax error: unknown variable name `{}`", name)
@@ -467,16 +496,16 @@ impl LocalEnvironment<'_, '_> {
             ExecExpression::Function(id, args) => self.interpret_call_function(id, args),
             ExecExpression::Factor(v) => ExpressionFlow::Value(*v),
             ExecExpression::Variable(name) => {
-                if let Some(val) = self.variables.get(name) {
+                if let Some(val) = self.get_variable_mut(name) {
                     ExpressionFlow::Value(*val)
                 } else {
                     panic!("syntax error: unknown variable name")
                 }
             }
-            ExecExpression::If(cond, stats_true, stats_false) => {
-                self.interpret_if(cond, stats_true, stats_false)
+            ExecExpression::If(cond, then_block, else_block) => {
+                self.interpret_if(cond, then_block, else_block)
             }
-            ExecExpression::While(cond, code) => self.interpret_while(cond, code),
+            ExecExpression::While(cond, block) => self.interpret_while(cond, block),
         }
     }
 
@@ -509,7 +538,7 @@ impl LocalEnvironment<'_, '_> {
 pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> Option<i64> {
     let func = scope.get_function(func_name).unwrap();
     let mut e = LocalEnvironment::new_func(env, scope, &func, &Vec::<i64>::new());
-    let res = e.interpret_statements(&func.code);
+    let res = e.interpret_statements(&func.block.statements);
     if let Flow::Return(x) = res {
         Some(x)
     } else {
