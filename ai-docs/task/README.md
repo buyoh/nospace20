@@ -6,6 +6,7 @@
 
 - [unimplemented-features.md](unimplemented-features.md) - 未実装の機能・構文の一覧
 - [code-structure-refactoring.md](code-structure-refactoring.md) - ソースコード構成のリファクタリング計画
+- [semantic-analyzer-error-handling.md](semantic-analyzer-error-handling.md) - semantic_analyzer エラーハンドリング改善設計
 - [unit-test-semantic-analyzer.md](unit-test-semantic-analyzer.md) - semantic_analyzer ユニットテスト追加タスク
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
