@@ -10,6 +10,7 @@
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
+- [scope/](scope/) - スコープ機能の実装計画
 
 ## 現在のタスク
 
