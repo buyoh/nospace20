@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::tree_parser::{Expression, Operator1, Operator2, Statement};
+use crate::{base::CodeParseError, code_parse_error, tree_parser::{Expression, Operator1, Operator2, Statement}};
 
 struct IdentifierInfo {
     // name: String,
@@ -59,32 +59,35 @@ pub enum ExecStatement {
     Expression(Box<ExecExpression>),
 }
 
-fn convert_to_exec_expression(expr: &Box<Expression>) -> Box<ExecExpression> {
+fn convert_to_exec_expression(expr: &Box<Expression>) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
     match expr.as_ref() {
-        Expression::Operation1(op, x) => Box::new(ExecExpression::Operation1(
+        Expression::Operation1(op, x) => Ok(Box::new(ExecExpression::Operation1(
             op.to_owned(),
-            convert_to_exec_expression(&x),
-        )),
-        Expression::Operation2(op, l, r) => Box::new(ExecExpression::Operation2(
+            convert_to_exec_expression(&x)?,
+        ))),
+        Expression::Operation2(op, l, r) => Ok(Box::new(ExecExpression::Operation2(
             op.to_owned(),
-            convert_to_exec_expression(&l),
-            convert_to_exec_expression(&r),
-        )),
-        Expression::If(cond, stat1, stat2) => Box::new(ExecExpression::If(
-            convert_to_exec_expression(cond),
-            analyze_internal(stat1, ScopeType::Block).1,
-            analyze_internal(stat2, ScopeType::Block).1,
-        )),
-        Expression::While(expr, stat) => Box::new(ExecExpression::While(
-            convert_to_exec_expression(expr),
-            analyze_internal(stat, ScopeType::Block).1,
-        )),
-        Expression::Function(f, a) => Box::new(ExecExpression::Function(
-            f.to_owned(),
-            a.iter().map(|e| convert_to_exec_expression(e)).collect(),
-        )),
-        Expression::Factor(v) => Box::new(ExecExpression::Factor(v.to_owned())),
-        Expression::Variable(v) => Box::new(ExecExpression::Variable(v.to_owned())),
+            convert_to_exec_expression(&l)?,
+            convert_to_exec_expression(&r)?,
+        ))),
+        Expression::If(cond, stat1, stat2) => Ok(Box::new(ExecExpression::If(
+            convert_to_exec_expression(cond)?,
+            analyze_internal(stat1, ScopeType::Block)?.1,
+            analyze_internal(stat2, ScopeType::Block)?.1,
+        ))),
+        Expression::While(expr, stat) => Ok(Box::new(ExecExpression::While(
+            convert_to_exec_expression(expr)?,
+            analyze_internal(stat, ScopeType::Block)?.1,
+        ))),
+        Expression::Function(f, a) => {
+            let mut args = Vec::new();
+            for e in a {
+                args.push(convert_to_exec_expression(e)?);
+            }
+            Ok(Box::new(ExecExpression::Function(f.to_owned(), args)))
+        }
+        Expression::Factor(v) => Ok(Box::new(ExecExpression::Factor(v.to_owned()))),
+        Expression::Variable(v) => Ok(Box::new(ExecExpression::Variable(v.to_owned()))),
         // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
         Expression::Invalid(_) => {
             unreachable!("Expression::Invalid should not reach semantic analysis")
@@ -152,30 +155,33 @@ impl ScopeBuilder {
         }
     }
 
-    fn add_identifier(&mut self, name: String, identifier: Identifier) {
-        if self.identifier_map.contains_key(&name) {
-            panic!("semantic error: the name is already used");
+    fn add_identifier(&mut self, name: &str, identifier: Identifier) -> Result<(), Vec<CodeParseError>> {
+        if self.identifier_map.contains_key(name) {
+            return Err(vec![code_parse_error!(
+                format!("semantic error: the name '{}' is already used", name)
+            )]);
         }
-        self.identifier_map.insert(name, identifier);
+        self.identifier_map.insert(name.to_string(), identifier);
+        Ok(())
     }
 
-    fn add_variable(&mut self, name: String, var: Variable) {
+    fn add_variable(&mut self, name: &str, var: Variable) -> Result<(), Vec<CodeParseError>> {
         let vi = self.variables.len();
         self.variables.push(var);
-        self.add_identifier(name, Identifier::Variable(IdentifierInfo { idx: vi }));
+        self.add_identifier(name, Identifier::Variable(IdentifierInfo { idx: vi }))
     }
 
-    fn add_function(&mut self, name: String, func: Function) {
+    fn add_function(&mut self, name: &str, func: Function) -> Result<(), Vec<CodeParseError>> {
         let fi = self.functions.len();
         self.functions.push(func);
-        self.add_identifier(name, Identifier::Function(IdentifierInfo { idx: fi }));
+        self.add_identifier(name, Identifier::Function(IdentifierInfo { idx: fi }))
     }
 }
 
 fn analyze_internal(
     statements: &Vec<Statement>,
     scope_type: ScopeType,
-) -> (ScopeBuilder, Vec<ExecStatement>) {
+) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
     let mut scope = ScopeBuilder::new();
     let mut exec_statements = Vec::<ExecStatement>::new();
     for stat in statements {
@@ -183,34 +189,39 @@ fn analyze_internal(
             Statement::VariableDeclaration(name, init) => {
                 if let ScopeType::Block = scope_type {
                     // TODO(unimplemented): ブロックスコープ変数は未実装
-                    panic!("todo: block scoped variable is not implemented")
+                    return Err(vec![code_parse_error!(
+                        "semantic error: block scoped variable is not implemented".to_string()
+                    )]);
                 }
                 if let ScopeType::Root = scope_type {
                     // TODO(unimplemented): グローバル変数は未実装
-                    panic!("todo: global variable is not implemented")
+                    return Err(vec![code_parse_error!(
+                        "semantic error: global variable is not implemented".to_string()
+                    )]);
                 }
                 scope.add_variable(
-                    name.clone(),
+                    name,
                     Variable {
                         identifier: name.clone(),
                     },
-                );
-                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(init)));
+                )?;
+                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(init)?));
             }
             Statement::FunctionDeclaration(name, args, block) => {
                 if let ScopeType::Block = scope_type {
-                    // TODO(error-handling): Result型でエラーを返すべき (ネスト関数宣言は未対応)
-                    panic!("semantic error: nested function declaration is not supported")
+                    return Err(vec![code_parse_error!(
+                        "semantic error: nested function declaration is not supported".to_string()
+                    )]);
                 }
-                let (mut s, es) = analyze_internal(block, ScopeType::Function);
+                let (mut s, es) = analyze_internal(block, ScopeType::Function)?;
                 // add variable definition to scope
                 for a in args {
                     s.add_variable(
-                        a.clone(),
+                        a,
                         Variable {
                             identifier: a.clone(),
                         },
-                    );
+                    )?;
                 }
                 // store variable identifier to function
                 let func = Function {
@@ -218,43 +229,48 @@ fn analyze_internal(
                     scope: s.build(),
                     code: es,
                 };
-                scope.add_function(name.clone(), func);
+                scope.add_function(name, func)?;
             }
             Statement::Return(e) => {
                 if let ScopeType::Root = scope_type {
-                    // TODO(error-handling): Result型でエラーを返すべき
-                    panic!("semantic error: return statement outside of function")
+                    return Err(vec![code_parse_error!(
+                        "semantic error: return statement outside of function".to_string()
+                    )]);
                 }
-                exec_statements.push(ExecStatement::Return(convert_to_exec_expression(e)));
+                exec_statements.push(ExecStatement::Return(convert_to_exec_expression(e)?));
             }
             Statement::Expression(e) => {
                 if let ScopeType::Root = scope_type {
-                    // TODO(error-handling): Result型でエラーを返すべき
-                    panic!("semantic error: expression statement at root level")
+                    return Err(vec![code_parse_error!(
+                        "semantic error: expression statement at root level".to_string()
+                    )]);
                 }
-                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(e)));
+                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(e)?));
             }
             Statement::Continue => {
                 if let ScopeType::Root = scope_type {
-                    // TODO(error-handling): Result型でエラーを返すべき
-                    panic!("semantic error: continue statement outside of function")
+                    return Err(vec![code_parse_error!(
+                        "semantic error: continue statement outside of function".to_string()
+                    )]);
                 }
                 exec_statements.push(ExecStatement::Continue);
             }
             Statement::Break => {
                 if let ScopeType::Root = scope_type {
-                    // TODO(error-handling): Result型でエラーを返すべき
-                    panic!("semantic error: break statement outside of function")
+                    return Err(vec![code_parse_error!(
+                        "semantic error: break statement outside of function".to_string()
+                    )]);
                 }
                 exec_statements.push(ExecStatement::Break);
             }
             Statement::Invalid(_) => (),
         }
     }
-    (scope, exec_statements)
+    Ok((scope, exec_statements))
 }
 
-pub fn analyze(root: &Vec<Statement>) -> Scope {
-    analyze_internal(root, ScopeType::Root).0.build()
+pub fn analyze(root: &Vec<Statement>) -> Result<Scope, Vec<CodeParseError>> {
+    analyze_internal(root, ScopeType::Root)
+        .map(|(scope, _)| scope.build())
     // TODO: validate identifiers
 }

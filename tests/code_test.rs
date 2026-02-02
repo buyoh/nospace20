@@ -54,7 +54,7 @@ fn test_ok_coding_base(test_name: &str) -> Result {
 
     let t = parse_to_tokens(&ns_cnt).ok().unwrap();
     let s = parse_to_tree(&t).ok().unwrap();
-    let a = syntactic_analyze(&s);
+    let a = syntactic_analyze(&s).ok().unwrap();
     let trace = interpret_func_testing(&a, "main");
 
     let check_json_value: serde_json::Value = serde_json::from_reader(io::BufReader::new(
@@ -141,7 +141,7 @@ fn test_ok_coding_io_base(test_name: &str) -> Result {
             // 実行
             let t = parse_to_tokens(&ns_cnt).unwrap();
             let s = parse_to_tree(&t).unwrap();
-            let a = syntactic_analyze(&s);
+            let a = syntactic_analyze(&s).unwrap();
             let (_, actual_stdout) = interpret_func_with_io(&a, "main", &stdin_content);
 
             assert_eq!(expected_stdout, actual_stdout, "stdout mismatch");

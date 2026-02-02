@@ -32,7 +32,7 @@ pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<Statement>, Vec<Co
     }
 }
 
-pub fn syntactic_analyze(root: &Vec<Statement>) -> Scope {
+pub fn syntactic_analyze(root: &Vec<Statement>) -> Result<Scope, Vec<CodeParseError>> {
     semantic_analyzer::analyze(root)
 }
 

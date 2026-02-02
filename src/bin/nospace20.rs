@@ -76,7 +76,7 @@ fn main() {
     let text = TextCode::new(&code_raw);
     let t = handle_parse_error(parse_to_tokens(&code_raw), &text);
     let s = handle_parse_error(parse_to_tree(&t), &text);
-    let a = syntactic_analyze(&s);
+    let a = handle_parse_error(syntactic_analyze(&s), &text);
 
     // Environmentを作成して実行
     let mut env = Environment::new();
