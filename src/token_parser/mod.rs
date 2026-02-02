@@ -64,7 +64,7 @@ impl TokenInfo {
     }
 }
 
-fn parse_number(iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>) -> Token {
+fn parse_number<I: Iterator<Item = (usize, char)>>(iter: &mut iter::Peekable<I>) -> Token {
     // token レベルでは負の数を扱うことはできない
     let mut value = 0 as i64;
     while let Some((_, c)) = iter.peek() {
@@ -81,8 +81,8 @@ fn parse_number(iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = c
 
 /// 文字リテラルをパースする。'a' のような形式で、エスケープシーケンスも対応。
 /// 呼び出し時点で開始の `'` は既に消費されている必要がある。
-fn parse_char_literal(
-    iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>,
+fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
+    iter: &mut iter::Peekable<I>,
     start_idx: usize,
 ) -> Result<Token, CodeParseError> {
     let char_value = match iter.next() {
@@ -138,8 +138,8 @@ fn determine_keyword_or_identifier(id: String) -> Token {
     }
 }
 
-fn parse_identifier(
-    iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>,
+fn parse_identifier<I: Iterator<Item = (usize, char)>>(
+    iter: &mut iter::Peekable<I>,
 ) -> Token {
     if let Some((_, 'A'..='Z')) | Some((_, 'a'..='z')) | Some((_, '_')) = iter.peek() {
     } else {
@@ -159,8 +159,8 @@ fn parse_identifier(
     }
 }
 
-fn parse_to_tokens_internal(
-    iter: &mut iter::Peekable<iter::Enumerate<impl Iterator<Item = char>>>,
+fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
+    iter: &mut iter::Peekable<I>,
 ) -> (Vec<PrettyToken>, Vec<CodeParseError>) {
     let mut tokens = Vec::<PrettyToken>::new();
     let mut parse_errors = Vec::<CodeParseError>::new();
@@ -177,9 +177,6 @@ fn parse_to_tokens_internal(
         let info = TokenInfo::new(*idx);
         if c.is_ascii_digit() {
             tokens.push((parse_number(iter), info));
-        } else if c.is_whitespace() {
-            iter.next();
-            // c.is_ascii()
         } else {
             let t = match *c {
                 'A'..='Z' | 'a'..='z' | '_' => {
@@ -291,7 +288,8 @@ fn parse_to_tokens_internal(
 }
 
 pub fn parse_to_tokens(text: &str) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
-    let (tk, err) = parse_to_tokens_internal(&mut text.chars().enumerate().peekable());
+    // Remove whitespace characters completely!!!
+    let (tk, err) = parse_to_tokens_internal(&mut text.chars().enumerate().filter(|(_, c)| !c.is_whitespace()).peekable());
     if err.is_empty() {
         Ok(tk)
     } else {
