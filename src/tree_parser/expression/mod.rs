@@ -5,11 +5,11 @@ use crate::code_parse_error;
 use crate::token_parser::{Keyword, TokenInfo};
 use crate::tree_parser::statement::parse_to_statements;
 use crate::{
-    base::CodeParseError,
+    base::{CodeParseError, SourceLocation},
     token_parser::{PrettyToken, Token},
 };
 
-use super::Statement;
+use super::{LocatedStatement, Statement};
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
@@ -41,8 +41,8 @@ pub enum Operator1 {
 pub enum Expression {
     Operation1(Operator1, Box<Expression>),
     Operation2(Operator2, Box<Expression>, Box<Expression>),
-    If(Box<Expression>, Vec<Statement>, Vec<Statement>),
-    While(Box<Expression>, Vec<Statement>),
+    If(Box<Expression>, Vec<LocatedStatement>, Vec<LocatedStatement>),
+    While(Box<Expression>, Vec<LocatedStatement>),
     Function(String, Vec<Box<Expression>>),
     Factor(i64),
     Variable(String),
@@ -346,7 +346,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
 
         let stats_false = match self.iter.peek() {
-            Some((Token::Keyword(Keyword::Else), _)) => {
+            Some((Token::Keyword(Keyword::Else), token_info)) => {
+                let else_start = token_info.code_pointer;
                 self.iter.next();
                 match_expect_token_unused!(self, self.iter.next(), Token::Colon);
 
@@ -355,7 +356,12 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                         // else: if: cond {}
                         // TODO: elsif を実装したほうが便利？
                         // TODO: allow single expression ???
-                        vec![Statement::Expression(self.parse_to_expression_tree_if())]
+                        let if_expr = self.parse_to_expression_tree_if();
+                        let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(else_start);
+                        vec![LocatedStatement {
+                            statement: Statement::Expression(if_expr),
+                            location: SourceLocation::new(else_start, end_pos),
+                        }]
                     }
                     _ => {
                         let (stats, mut stats_err) = parse_to_statements(self.iter);

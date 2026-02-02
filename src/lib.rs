@@ -9,7 +9,7 @@ pub use interpreter::{Environment, EnvironmentConfig};
 pub use logger::TextCode;
 use semantic_analyzer::Scope;
 use token_parser::PrettyToken;
-use tree_parser::Statement;
+use tree_parser::LocatedStatement;
 
 mod base;
 mod interpreter;
@@ -25,14 +25,14 @@ pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseE
     }
 }
 
-pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<Statement>, Vec<CodeParseError>> {
+pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
     match tree_parser::parse_to_tree(tokens) {
         Ok(x) => Ok(x),
         Err(err) => Err(err),
     }
 }
 
-pub fn syntactic_analyze(root: &Vec<Statement>) -> Result<Scope, Vec<CodeParseError>> {
+pub fn syntactic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
     semantic_analyzer::analyze(root)
 }
 

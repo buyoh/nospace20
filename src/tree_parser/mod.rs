@@ -10,7 +10,7 @@ pub(crate) use self::expression::Expression;
 pub(crate) use self::expression::Operator1;
 pub(crate) use self::expression::Operator2;
 use self::statement::parse_to_statements;
-pub(crate) use self::statement::Statement;
+pub(crate) use self::statement::{LocatedStatement, Statement};
 
 #[macro_use]
 mod macros;
@@ -19,7 +19,7 @@ mod statement;
 
 // convert token sequence to tree structure.
 
-pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<Statement>, Vec<CodeParseError>> {
+pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
     let mut iter = tokens.iter().peekable();
     let (st, err) = parse_to_statements(&mut iter);
     if err.is_empty() {

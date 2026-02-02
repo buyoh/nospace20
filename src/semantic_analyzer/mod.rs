@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{base::CodeParseError, code_parse_error, tree_parser::{Expression, Operator1, Operator2, Statement}};
+use crate::{base::CodeParseError, code_parse_error, tree_parser::{Expression, LocatedStatement, Operator1, Operator2, Statement}};
 
 struct IdentifierInfo {
     // name: String,
@@ -179,23 +179,27 @@ impl ScopeBuilder {
 }
 
 fn analyze_internal(
-    statements: &Vec<Statement>,
+    statements: &Vec<LocatedStatement>,
     scope_type: ScopeType,
 ) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
     let mut scope = ScopeBuilder::new();
     let mut exec_statements = Vec::<ExecStatement>::new();
-    for stat in statements {
+    for located_stat in statements {
+        let stat = &located_stat.statement;
+        let loc = &located_stat.location;
         match stat {
             Statement::VariableDeclaration(name, init) => {
                 if let ScopeType::Block = scope_type {
                     // TODO(unimplemented): ブロックスコープ変数は未実装
                     return Err(vec![code_parse_error!(
+                        loc.start,
                         "semantic error: block scoped variable is not implemented".to_string()
                     )]);
                 }
                 if let ScopeType::Root = scope_type {
                     // TODO(unimplemented): グローバル変数は未実装
                     return Err(vec![code_parse_error!(
+                        loc.start,
                         "semantic error: global variable is not implemented".to_string()
                     )]);
                 }
@@ -210,6 +214,7 @@ fn analyze_internal(
             Statement::FunctionDeclaration(name, args, block) => {
                 if let ScopeType::Block = scope_type {
                     return Err(vec![code_parse_error!(
+                        loc.start,
                         "semantic error: nested function declaration is not supported".to_string()
                     )]);
                 }
@@ -234,6 +239,7 @@ fn analyze_internal(
             Statement::Return(e) => {
                 if let ScopeType::Root = scope_type {
                     return Err(vec![code_parse_error!(
+                        loc.start,
                         "semantic error: return statement outside of function".to_string()
                     )]);
                 }
@@ -242,6 +248,7 @@ fn analyze_internal(
             Statement::Expression(e) => {
                 if let ScopeType::Root = scope_type {
                     return Err(vec![code_parse_error!(
+                        loc.start,
                         "semantic error: expression statement at root level".to_string()
                     )]);
                 }
@@ -250,6 +257,7 @@ fn analyze_internal(
             Statement::Continue => {
                 if let ScopeType::Root = scope_type {
                     return Err(vec![code_parse_error!(
+                        loc.start,
                         "semantic error: continue statement outside of function".to_string()
                     )]);
                 }
@@ -258,6 +266,7 @@ fn analyze_internal(
             Statement::Break => {
                 if let ScopeType::Root = scope_type {
                     return Err(vec![code_parse_error!(
+                        loc.start,
                         "semantic error: break statement outside of function".to_string()
                     )]);
                 }
@@ -269,7 +278,7 @@ fn analyze_internal(
     Ok((scope, exec_statements))
 }
 
-pub fn analyze(root: &Vec<Statement>) -> Result<Scope, Vec<CodeParseError>> {
+pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
     analyze_internal(root, ScopeType::Root)
         .map(|(scope, _)| scope.build())
     // TODO: validate identifiers

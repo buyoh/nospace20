@@ -1,7 +1,7 @@
 use std::iter;
 
 use crate::{
-    base::CodeParseError,
+    base::{CodeParseError, SourceLocation},
     code_parse_error,
     token_parser::{Keyword, PrettyToken, Token, TokenInfo},
 };
@@ -13,12 +13,19 @@ use super::expression::*;
 #[derive(Clone)] // TODO: REMOVE
 pub enum Statement {
     VariableDeclaration(String, Box<Expression>),
-    FunctionDeclaration(String, Vec<String>, Vec<Statement>),
+    FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),
     Continue,
     Break,
     Return(Box<Expression>),
     Expression(Box<Expression>),
     Invalid(usize), // See, Expression::Invalid
+}
+
+/// 位置情報付きの Statement
+#[derive(Clone)]
+pub struct LocatedStatement {
+    pub statement: Statement,
+    pub location: SourceLocation,
 }
 
 //
@@ -31,7 +38,7 @@ struct StatementBuilder<'b: 'a, 'a> {
 impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     fn parse(
         iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
-    ) -> (Vec<Statement>, Vec<CodeParseError>) {
+    ) -> (Vec<LocatedStatement>, Vec<CodeParseError>) {
         let mut b = Self {
             iter,
             code_parse_error: vec![],
@@ -53,14 +60,14 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         i
     }
 
-    fn parse_to_statements_block(&mut self) -> Vec<Statement> {
+    fn parse_to_statements_block(&mut self) -> Vec<LocatedStatement> {
         match_expect_token_unused!(self, self.iter.next(), Token::BraceL);
         let ss = self.parse_to_statements();
         match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
         return ss;
     }
 
-    fn parse_to_statements_let(&mut self) -> Statement {
+    fn parse_to_statements_let(&mut self, start_pos: usize) -> LocatedStatement {
         if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Let)) {
             panic!("internal error");
         }
@@ -68,14 +75,21 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
             Ok(x) => x,
             Err(e) => {
-                return Statement::Invalid(e);
+                return LocatedStatement {
+                    statement: Statement::Invalid(e),
+                    location: SourceLocation::from_single(start_pos),
+                };
             }
         };
+        let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
-        return Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0)));
+        return LocatedStatement {
+            statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(start_pos, end_pos),
+        };
     }
 
-    fn parse_to_statements_func(&mut self) -> Statement {
+    fn parse_to_statements_func(&mut self, start_pos: usize) -> LocatedStatement {
         if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Func)) {
             panic!("internal error");
         }
@@ -83,7 +97,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
             Ok(x) => x,
             Err(e) => {
-                return Statement::Invalid(e);
+                return LocatedStatement {
+                    statement: Statement::Invalid(e),
+                    location: SourceLocation::from_single(start_pos),
+                };
             }
         };
         match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisL);
@@ -130,12 +147,20 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         }
         if let Err(e) = match_expect_token!(self, self.iter.peek(), Token::BraceL) {
             self.iter.next(); // NOTE: nextが安全だが不親切とは思う
-            return Statement::Invalid(e);
+            return LocatedStatement {
+                statement: Statement::Invalid(e),
+                location: SourceLocation::from_single(start_pos),
+            };
         }
-        return Statement::FunctionDeclaration(id.clone(), args, self.parse_to_statements_block());
+        let body = self.parse_to_statements_block();
+        let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+        return LocatedStatement {
+            statement: Statement::FunctionDeclaration(id.clone(), args, body),
+            location: SourceLocation::new(start_pos, end_pos),
+        };
     }
 
-    fn parse_to_statements_return(&mut self) -> Statement {
+    fn parse_to_statements_return(&mut self, start_pos: usize) -> LocatedStatement {
         if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Return))
         {
             panic!("internal error");
@@ -143,35 +168,48 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
         let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
         self.code_parse_error.append(&mut errs);
+        let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
-        return Statement::Return(expr);
+        return LocatedStatement {
+            statement: Statement::Return(expr),
+            location: SourceLocation::new(start_pos, end_pos),
+        };
     }
 
-    fn parse_to_statements(&mut self) -> Vec<Statement> {
-        let mut statements = Vec::<Statement>::new();
+    fn parse_to_statements(&mut self) -> Vec<LocatedStatement> {
+        let mut statements = Vec::<LocatedStatement>::new();
         while let Some(token) = self.iter.peek() {
+            let start_pos = token.1.code_pointer;
             match token {
                 (Token::Keyword(Keyword::Let), _) => {
-                    statements.push(self.parse_to_statements_let());
+                    statements.push(self.parse_to_statements_let(start_pos));
                     continue;
                 }
                 (Token::Keyword(Keyword::Func), _) => {
-                    statements.push(self.parse_to_statements_func());
+                    statements.push(self.parse_to_statements_func(start_pos));
                     continue;
                 }
                 (Token::Keyword(Keyword::Return), _) => {
-                    statements.push(self.parse_to_statements_return());
+                    statements.push(self.parse_to_statements_return(start_pos));
                     continue;
                 }
                 (Token::Keyword(Keyword::Break), _) => {
                     self.iter.next();
-                    statements.push(Statement::Break);
+                    let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+                    statements.push(LocatedStatement {
+                        statement: Statement::Break,
+                        location: SourceLocation::new(start_pos, end_pos),
+                    });
                     match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
                     continue;
                 }
                 (Token::Keyword(Keyword::Continue), _) => {
                     self.iter.next();
-                    statements.push(Statement::Continue);
+                    let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+                    statements.push(LocatedStatement {
+                        statement: Statement::Continue,
+                        location: SourceLocation::new(start_pos, end_pos),
+                    });
                     match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
                     continue;
                 }
@@ -183,7 +221,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             }
             let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
             self.code_parse_error.append(&mut errs);
-            statements.push(Statement::Expression(expr));
+            let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+            statements.push(LocatedStatement {
+                statement: Statement::Expression(expr),
+                location: SourceLocation::new(start_pos, end_pos),
+            });
             match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         }
         return statements;
@@ -193,7 +235,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
 pub(super) fn parse_to_statements(
     iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> (Vec<Statement>, Vec<CodeParseError>) {
+) -> (Vec<LocatedStatement>, Vec<CodeParseError>) {
     StatementBuilder::parse(iter)
 }
 

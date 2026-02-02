@@ -74,7 +74,7 @@ fn token_op_single_equal() -> PrettyToken {
 }
 
 // ヘルパー: パース実行
-fn parse_stmts(tokens: Vec<PrettyToken>) -> (Vec<Statement>, Vec<CodeParseError>) {
+fn parse_stmts(tokens: Vec<PrettyToken>) -> (Vec<LocatedStatement>, Vec<CodeParseError>) {
     parse_to_statements(&mut tokens.iter().peekable())
 }
 
@@ -90,7 +90,7 @@ fn test_parse_let_statement() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::VariableDeclaration(name, expr) => {
             assert_eq!(name, "x");
             match **expr {
@@ -109,7 +109,7 @@ fn test_parse_break_statement() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::Break => (),
         _ => panic!("Expected Statement::Break"),
     }
@@ -122,7 +122,7 @@ fn test_parse_continue_statement() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::Continue => (),
         _ => panic!("Expected Statement::Continue"),
     }
@@ -140,7 +140,7 @@ fn test_parse_return_statement() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::Return(expr) => match **expr {
             Expression::Factor(42) => (),
             _ => panic!("Expected Factor(42)"),
@@ -161,7 +161,7 @@ fn test_parse_expression_statement() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::Expression(expr) => match **expr {
             Expression::Operation2(Operator2::Assign, _, _) => (),
             _ => panic!("Expected Operation2(Assign)"),
@@ -185,7 +185,7 @@ fn test_parse_func_no_args() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::FunctionDeclaration(name, args, body) => {
             assert_eq!(name, "foo");
             assert_eq!(args.len(), 0);
@@ -211,7 +211,7 @@ fn test_parse_func_one_arg() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::FunctionDeclaration(name, args, body) => {
             assert_eq!(name, "bar");
             assert_eq!(args.len(), 1);
@@ -240,7 +240,7 @@ fn test_parse_func_multi_args() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::FunctionDeclaration(name, args, body) => {
             assert_eq!(name, "baz");
             assert_eq!(args.len(), 2);
@@ -271,12 +271,12 @@ fn test_parse_func_with_body() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::FunctionDeclaration(name, args, body) => {
             assert_eq!(name, "foo");
             assert_eq!(args.len(), 0);
             assert_eq!(body.len(), 1);
-            match &body[0] {
+            match &body[0].statement {
                 Statement::Return(_) => (),
                 _ => panic!("Expected Statement::Return in body"),
             }
@@ -302,13 +302,13 @@ fn test_parse_multiple_statements() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 2);
-    match &stmts[0] {
+    match &stmts[0].statement {
         Statement::VariableDeclaration(name, _) => {
             assert_eq!(name, "x");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
-    match &stmts[1] {
+    match &stmts[1].statement {
         Statement::VariableDeclaration(name, _) => {
             assert_eq!(name, "y");
         }
