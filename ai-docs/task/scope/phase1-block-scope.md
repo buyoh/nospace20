@@ -123,6 +123,12 @@ Statement::VariableDeclaration(name, init) => {
 
 `analyze_internal` の戻り値を変更し、`Block` を構築できるようにする。
 
+**設計判断: BlockBuilder は不要**
+
+- `Block` は `Scope` + `Vec<ExecStatement>` という単純な構造
+- `ScopeBuilder` が識別子追加などの可変操作を担当
+- `analyze_internal` の最後で `ScopeBuilder.build()` を呼び、`Block` を構築すれば十分
+
 #### 変更前
 
 ```rust
@@ -138,7 +144,28 @@ fn analyze_internal(
 fn analyze_internal(
     statements: &Vec<Statement>,
     scope_type: ScopeType,
-) -> Block { ... }
+) -> Block {
+    let mut scope = ScopeBuilder::new();
+    let mut exec_statements = Vec::<ExecStatement>::new();
+    
+    // ... 既存のループ処理 ...
+    
+    // 最後に Block を構築して返す
+    Block {
+        scope: scope.build(),  // ScopeBuilder → Scope
+        statements: exec_statements,
+    }
+}
+```
+
+**注意**: ルートレベル（`analyze` 関数）では `Block` ではなく `Scope` を返す必要があるため、
+ルート用のラッパー関数を維持するか、戻り値の扱いを調整する。
+
+```rust
+pub fn analyze(root: &Vec<Statement>) -> Scope {
+    let block = analyze_internal(root, ScopeType::Root);
+    block.scope  // Block から Scope を取り出す
+}
 ```
 
 ### Step 4: インタプリタにスコープスタック導入
