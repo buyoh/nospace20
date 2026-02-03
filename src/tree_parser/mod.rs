@@ -19,7 +19,9 @@ mod statement;
 
 // convert token sequence to tree structure.
 
-pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
+pub fn parse_to_tree(
+    tokens: &Vec<PrettyToken>,
+) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
     let mut iter = tokens.iter().peekable();
     let (st, err) = parse_to_statements(&mut iter);
     if err.is_empty() {

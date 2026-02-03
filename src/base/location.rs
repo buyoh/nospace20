@@ -18,6 +18,9 @@ impl SourceLocation {
     }
 
     pub fn from_single(pos: usize) -> Self {
-        Self { start: pos, end: pos }
+        Self {
+            start: pos,
+            end: pos,
+        }
     }
 }

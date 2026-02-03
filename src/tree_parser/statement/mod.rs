@@ -81,7 +81,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 };
             }
         };
-        let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+        let end_pos = self
+            .iter
+            .peek()
+            .map(|(_, info)| info.code_pointer)
+            .unwrap_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         return LocatedStatement {
             statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0))),
@@ -153,7 +157,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             };
         }
         let body = self.parse_to_statements_block();
-        let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+        let end_pos = self
+            .iter
+            .peek()
+            .map(|(_, info)| info.code_pointer)
+            .unwrap_or(start_pos);
         return LocatedStatement {
             statement: Statement::FunctionDeclaration(id.clone(), args, body),
             location: SourceLocation::new(start_pos, end_pos),
@@ -168,7 +176,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
         let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
         self.code_parse_error.append(&mut errs);
-        let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+        let end_pos = self
+            .iter
+            .peek()
+            .map(|(_, info)| info.code_pointer)
+            .unwrap_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         return LocatedStatement {
             statement: Statement::Return(expr),
@@ -195,7 +207,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 (Token::Keyword(Keyword::Break), _) => {
                     self.iter.next();
-                    let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+                    let end_pos = self
+                        .iter
+                        .peek()
+                        .map(|(_, info)| info.code_pointer)
+                        .unwrap_or(start_pos);
                     statements.push(LocatedStatement {
                         statement: Statement::Break,
                         location: SourceLocation::new(start_pos, end_pos),
@@ -205,7 +221,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 (Token::Keyword(Keyword::Continue), _) => {
                     self.iter.next();
-                    let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+                    let end_pos = self
+                        .iter
+                        .peek()
+                        .map(|(_, info)| info.code_pointer)
+                        .unwrap_or(start_pos);
                     statements.push(LocatedStatement {
                         statement: Statement::Continue,
                         location: SourceLocation::new(start_pos, end_pos),
@@ -221,7 +241,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             }
             let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
             self.code_parse_error.append(&mut errs);
-            let end_pos = self.iter.peek().map(|(_, info)| info.code_pointer).unwrap_or(start_pos);
+            let end_pos = self
+                .iter
+                .peek()
+                .map(|(_, info)| info.code_pointer)
+                .unwrap_or(start_pos);
             statements.push(LocatedStatement {
                 statement: Statement::Expression(expr),
                 location: SourceLocation::new(start_pos, end_pos),

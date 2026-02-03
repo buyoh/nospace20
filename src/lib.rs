@@ -25,7 +25,9 @@ pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseE
     }
 }
 
-pub fn parse_to_tree(tokens: &Vec<PrettyToken>) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
+pub fn parse_to_tree(
+    tokens: &Vec<PrettyToken>,
+) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
     match tree_parser::parse_to_tree(tokens) {
         Ok(x) => Ok(x),
         Err(err) => Err(err),
