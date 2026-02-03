@@ -10,6 +10,7 @@
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
+- [legacy-migration-phase3.md](legacy-migration-phase3.md) - 旧テストの移行 Phase 3 (else:if構文とI/Oテスト)
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [scope/](scope/) - スコープ機能の実装計画
 
@@ -20,6 +21,10 @@
 - [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
   - ✅ Phase 1-2完了
   - ⚠️ ブロックスコープ変数の実装を解決する必要あり
+- [legacy-migration-phase3.md](legacy-migration-phase3.md) - 旧テストの移行 Phase 3
+  - else:if構文のパーサー対応
+  - legacy_009, 010の有効化
+  - 新しいI/Oテストケースの作成
 
 ### 完了済み (done-task/ に移動)
 
@@ -30,6 +35,7 @@
 - [unit-test-semantic-analyzer.md](../done-task/unit-test-semantic-analyzer.md) - semantic_analyzer ユニットテスト追加タスク (2026-02-01完了)
 - [migrate-legacy-tests.md](../done-task/migrate-legacy-tests.md) - 旧テストの移行計画 (2026-02-01完了)
 - [cli-improvements.md](../done-task/cli-improvements.md) - CLI改善（ファイル引数、デバッグフラグ、ヘルプ表示） (2026-02-01完了)
+- [legacy-migration-phase2-report.md](../done-task/legacy-migration-phase2-report.md) - 旧テストの移行 Phase 2 完了報告 (2026-01-31完了)
 
 ## タスクファイルの命名規則
 
