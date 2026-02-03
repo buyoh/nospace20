@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 pub use base::CodeParseError;
 pub use interpreter::{Environment, EnvironmentConfig};
 pub use logger::TextCode;
-use semantic_analyzer::Scope;
+pub use semantic_analyzer::Scope;
 use token_parser::PrettyToken;
 use tree_parser::LocatedStatement;
 

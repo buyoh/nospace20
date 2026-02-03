@@ -83,23 +83,24 @@
 
 #### 4. モジュール可視性の不整合
 
-**現状**:
-- `tree_parser`: `pub(crate) use` で公開
-- `syntactic_analyzer`: `pub` で直接公開
-- `interpreter`: 内部型は非公開
+**現状**: ✅ **完了**
 
-**問題**:
-- 一貫性がなく、意図が不明確
-- API設計方針が定まっていない
+**実施した方針**:
+- **外部公開API**: `lib.rs` で明示的に `pub use` で公開
+- **内部型**: すべて `pub(crate)` で統一
+- **モジュール内のみ使用**: デフォルト (`pub` なし)
 
-**影響範囲**:
-- `src/tree_parser/mod.rs`
-- `src/syntactic_analyzer/mod.rs`
-- `src/interpreter/mod.rs`
+**実施した変更**:
+- [x] `semantic_analyzer` の型を `pub(crate)` に変更
+  - `Variable`, `Block`, `ExecExpression`, `ExecStatement`, `Function` を `pub(crate)` に
+  - `Scope` のみ外部公開（`lib.rs` で `pub use`）
+- [x] `lib.rs` で外部公開APIを明示化
+  - `pub use semantic_analyzer::Scope;` を追加
 
-**改善案**:
-- [ ] 公開APIのポリシーを明確化
-- [ ] `lib.rs` で必要な型のみ再公開
+**結果**:
+- 公開APIと内部実装の境界が明確化
+- モジュール間の依存関係が可視化
+- 将来の内部リファクタリングが容易に
 
 **関連イシュー**: なし
 
@@ -135,29 +136,28 @@ pub struct CodeParseError {
 
 ---
 
-#### 6. `syntactic_analyzer` のエラーハンドリング不足
+#### 6. `semantic_analyzer` のエラーハンドリング不足
 
-**現状の panic! 分類結果**:
+**現状**: ✅ **完了**
 
-| 分類 | 箇所 | メッセージ | 対応 |
-|------|------|------------|------|
-| 未実装機能 | L159 | `"todo: block scoped variable is not implemented"` | panic! が適切 ✅ |
-| 未実装機能 | L162 | `"todo: global variable is not implemented"` | panic! が適切 ✅ |
-| ユーザーエラー | L176 | `"semantic error: nested function declaration is not supported"` | TODO: Result型に変更 |
-| ユーザーエラー | L197 | `"semantic error: return statement outside of function"` | TODO: Result型に変更 |
-| ユーザーエラー | L201 | `"semantic error: expression statement at root level"` | TODO: Result型に変更 |
-| ユーザーエラー | L206 | `"semantic error: continue statement outside of function"` | TODO: Result型に変更 |
-| ユーザーエラー | L211 | `"semantic error: break statement outside of function"` | TODO: Result型に変更 |
-| 到達不能 | L66 | `Expression::Invalid` 分岐 | `unreachable!` に変更済 ✅ |
+**確認結果**:
+すべてのユーザーエラーは既に `Result<_, Vec<CodeParseError>>` 型で返されており、適切に処理されている。
 
-**影響範囲**:
-- `src/syntactic_analyzer/mod.rs`
-- `src/interpreter/mod.rs` (変数参照など)
+| 箇所 | メッセージ | 対応状況 |
+|------|------------|---------|
+| L244 | `"nested function declaration is not supported"` | `return Err(...)` で実装済み ✅ |
+| L272 | `"return statement outside of function"` | `return Err(...)` で実装済み ✅ |
+| L280 | `"expression statement at root level"` | `return Err(...)` で実装済み ✅ |
+| L288 | `"continue statement outside of function"` | `return Err(...)` で実装済み ✅ |
+| L296 | `"break statement outside of function"` | `return Err(...)` で実装済み ✅ |
 
-**改善案**:
-- [ ] `SemanticError` 型を定義
-- [ ] `syntactic_analyze` を `Result<Scope, Vec<SemanticError>>` に変更
-- [ ] スコープ検証、変数解決を事前チェック
+**未実装機能の panic!**:
+- L228: `"global variable is not implemented"` - 未実装機能のため panic! が適切 ✅
+
+**結果**:
+- すべてのユーザーエラーが適切にエラー型で返される
+- 未実装機能のみ panic! を使用
+- エラーハンドリングが統一されている
 
 **関連イシュー**: なし
 

@@ -25,13 +25,13 @@ enum Identifier {
     Variable(IdentifierInfo),
 }
 
-pub struct Variable {
+pub(crate) struct Variable {
     // NOTE: ここに初期化情報は置かない
     pub identifier: String, // TODO: use IdentifierInfo
 }
 
 /// ブロック（文の列とスコープ情報）
-pub struct Block {
+pub(crate) struct Block {
     pub scope: Scope,
     pub statements: Vec<ExecStatement>,
 }
@@ -45,7 +45,7 @@ pub struct Block {
 ///
 /// 現状は `Expression` と構造が類似しているが、意味解析の責務拡張に伴い差異が生じる想定。
 // #[derive(Clone)] // TODO: REMOVE
-pub enum ExecExpression {
+pub(crate) enum ExecExpression {
     Operation1(Operator1, Box<ExecExpression>),
     Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
     If(Box<ExecExpression>, Block, Block),
@@ -62,7 +62,7 @@ pub enum ExecExpression {
 /// - 宣言文 (VariableDeclaration, FunctionDeclaration) を持たない
 ///   (宣言は `Scope` 構造に変換される)
 // #[derive(Clone)] // TODO: REMOVE
-pub enum ExecStatement {
+pub(crate) enum ExecStatement {
     Return(Box<ExecExpression>),
     Break,
     Continue,
@@ -123,7 +123,7 @@ fn convert_to_exec_expression(
     }
 }
 
-pub struct Function {
+pub(crate) struct Function {
     pub args: Vec<String>, // TODO: change string to identifier_ptr
     pub block: Block,
     // pub identifier: String,
@@ -131,12 +131,12 @@ pub struct Function {
 
 pub struct Scope {
     identifier_map: BTreeMap<String, Identifier>,
-    pub variables: Vec<Variable>,
+    pub(crate) variables: Vec<Variable>,
     functions: Vec<Function>,
 }
 
 impl Scope {
-    pub fn get_function(&self, id: &str) -> Option<&Function> {
+    pub(crate) fn get_function(&self, id: &str) -> Option<&Function> {
         if let Some(Identifier::Function(info)) = self.identifier_map.get(id) {
             Some(&self.functions[info.idx])
         } else {
@@ -144,7 +144,7 @@ impl Scope {
         }
     }
 
-    pub fn get_variable(&self, id: &str) -> Option<&Variable> {
+    pub(crate) fn get_variable(&self, id: &str) -> Option<&Variable> {
         if let Some(Identifier::Variable(info)) = self.identifier_map.get(id) {
             Some(&self.variables[info.idx])
         } else {
