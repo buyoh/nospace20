@@ -34,6 +34,13 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
 
     for error in errors.iter().take(3) {
         println!("error: {}", error.message);
+        
+        // デバッグビルド時は内部位置情報を表示
+        #[cfg(debug_assertions)]
+        {
+            println!("  (internal: {}:{})", error.caller.file(), error.caller.line());
+        }
+        
         if let Some(code_pointer) = error.code_pointer {
             let (line_no, column) = text.char_index_to_line(code_pointer);
             let line_str = text.line(line_no);

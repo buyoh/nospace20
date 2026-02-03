@@ -105,36 +105,31 @@
 
 ---
 
-#### 5. エラー型の二重構造
+#### 5. エラー型のデバッグ情報
 
-**現状**:
+**現状**: ✅ **完了**
+
+**実装内容**:
+- `CodeParseError` に `#[cfg(debug_assertions)]` 付きで `caller` フィールドを追加
+- `CodeParseError::new()` メソッドに `#[track_caller]` 属性を付与
+- デバッグビルドでエラー発生箇所のファイル名・行番号を自動記録
+- リリースビルドではオーバーヘッドなし
+
+**実装結果**:
 ```rust
-pub struct CodeParseErrorInternal {
-    pub code_pointer: Option<usize>,
-    pub message: String,
-    pub internal_line: u32,      // デバッグ用
-    pub internal_file: &'static str,  // デバッグ用
-}
-
+#[derive(Clone, Debug)]
 pub struct CodeParseError {
     pub code_pointer: Option<usize>,
     pub message: String,
+    #[cfg(debug_assertions)]
+    pub caller: &'static std::panic::Location<'static>,
 }
 ```
 
-**問題**:
-- `shrink()` メソッドで都度変換が必要
-- `internal_line`/`internal_file` が正しく機能していない
-  - `code_parse_error!` マクロがヘルパー関数内で展開されるため、実際のエラー発生箇所ではなくヘルパー関数の行を指す
-  - 修正には周辺の実装変更が必要 (呼び出し元で `line!()` を評価して渡す)
-
-**影響範囲**:
-- `src/base/mod.rs`
-- 全パーサーモジュール
-
-**改善案**:
-- [ ] デバッグ情報の実装コストが高いため削除を検討 (`internal_line`, `internal_file` の削除)
-- [ ] `CodeParseErrorInternal` と `CodeParseError` の統合
+**メリット**:
+- マクロ展開位置ではなく、実際のエラー発生箇所を記録
+- ヘルパー関数を経由しても正しい位置情報を取得
+- デバッグ時のみ有効で、リリースビルドに影響なし
 
 **関連イシュー**: なし
 
@@ -228,13 +223,13 @@ pub struct CodeParseError {
 
 ### Phase 2: 中期改善 (設計検討が必要)
 
-3. ✅ **エラー型の統一** (問題5) - 完了
-   - リスク: 中
-   - 効果: エラーハンドリングの一貫性
+3. ✅ **エラー型のデバッグ情報追加** (問題5) - 完了
+   - リスク: 低
+   - 効果: デバッグ時のエラー追跡改善、リリースビルドに影響なし
    - 実施内容:
-     - `CodeParseErrorInternal` を削除
-     - `internal_line`/`internal_file` フィールドを削除
-     - 全モジュールで `CodeParseError` を直接使用
+     - `#[track_caller]` を使用してエラー発生箇所を記録
+     - デバッグビルドのみで有効（`#[cfg(debug_assertions)]`）
+     - `code_parse_error!` マクロは `CodeParseError::new()` を呼び出すように変更
 
 4. 🔲 **`semantic_analyzer` のエラーハンドリング** (問題6)
    - リスク: 中
@@ -284,18 +279,21 @@ pub struct CodeParseError {
 
 ### 2. エラー型の設計方針
 
-**決定**: Option B 採用 (デバッグ情報を削除)
+**決定**: `#[track_caller]` を使用したデバッグ情報の追加 ✅ **実装完了**
 
 **理由**:
-- `internal_line`/`internal_file` の実装には周辺コードの大幅な変更が必要
-  - 各ヘルパー関数に `line!()` 結果を引数として渡す必要がある
-  - マクロ内で `line!()` を評価するとマクロ定義位置ではなく展開位置の行が得られるが、
-    ヘルパー関数内でマクロが展開される現状の設計では意味をなさない
-- 実装コストに見合わない
+- `#[track_caller]` により、マクロやヘルパー関数を経由しても正しいエラー発生箇所を記録できる
+- `#[cfg(debug_assertions)]` により、リリースビルドではオーバーヘッドなし
+- 開発時のデバッグ効率が大幅に向上
+
+**実装内容**:
+- `CodeParseError` に `caller: &'static Location<'static>` フィールドを追加（デバッグビルドのみ）
+- `CodeParseError::new()` に `#[track_caller]` 属性を付与
+- エラーメッセージ出力時に内部位置情報を表示
 
 **次のステップ**:
-- [ ] `CodeParseErrorInternal` から `internal_line`, `internal_file` を削除
-- [ ] `CodeParseErrorInternal` と `CodeParseError` を統合
+- ✅ 実装完了
+- ✅ 全テスト通過確認
 
 ---
 
@@ -327,6 +325,16 @@ pub struct CodeParseError {
 ---
 
 ## 進捗記録
+
+### 2026-02-04
+
+- ✅ Phase 2: エラー型のデバッグ情報追加 (問題5) - 完了
+  - `#[track_caller]` を使用した実装に置き換え
+  - `CodeParseError` に `caller` フィールド追加（デバッグビルドのみ）
+  - `CodeParseError::new()` メソッドに `#[track_caller]` 属性を付与
+  - エラー表示に内部位置情報を追加
+  - 全ての単体テスト・統合テストがパス
+  - デバッグ実行でエラー発生箇所の正確な位置情報が表示されることを確認
 
 ### 2026-02-01
 
