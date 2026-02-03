@@ -22,7 +22,7 @@ fn res_parse_to_tokens_internal(
     }
 }
 
-fn to_iter(code: &str) -> Peekable<Enumerate<Chars>> {
+fn to_iter(code: &str) -> Peekable<Enumerate<Chars<'_>>> {
     code.chars().enumerate().peekable()
 }
 
