@@ -5,8 +5,12 @@
 ## ドキュメント一覧
 
 - [overview.md](overview.md) - 現状分析とスコープ実装の概要
-- [phase1-block-scope.md](phase1-block-scope.md) - フェーズ1: ブロックスコープ変数の最小実装
+- [phase2-identifier-resolution.md](phase2-identifier-resolution.md) - フェーズ2: 識別子の事前解決 📋 設計完了
 - [previous-implementation.md](previous-implementation.md) - 過去の実装コミット（7a83612）の分析
+
+### 完了したフェーズ
+
+- [../../done-task/scope-phase1-block-scope.md](../../done-task/scope-phase1-block-scope.md) - フェーズ1: ブロックスコープ変数の最小実装 ✅ 完了
 
 ## 関連仕様
 

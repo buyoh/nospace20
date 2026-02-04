@@ -13,6 +13,8 @@
 | [unit-test-semantic-analyzer.md](unit-test-semantic-analyzer.md) | semantic_analyzer モジュールのユニットテスト追加（11件のテスト実装、モジュール分割） | 2026-02-01 |
 | [migrate-legacy-tests.md](migrate-legacy-tests.md) | 旧テストの移行（I/Oビルトイン実装、27件のレガシーテスト移行） | 2026-02-01 |
 | [cli-improvements.md](cli-improvements.md) | CLI改善（ファイル引数、デバッグフラグ、ヘルプ・バージョン表示） | 2026-02-01 |
+| [scope-phase1-implementation.md](scope-phase1-implementation.md) | スコープ機能Phase1実装報告（ブロックスコープ、シャドウイング） | 2026-02-03 |
+| [scope-phase1-block-scope.md](scope-phase1-block-scope.md) | スコープ機能Phase1設計ドキュメント（ブロックスコープ変数の最小実装） | 2026-02-03 |
 
 ## 注意
 

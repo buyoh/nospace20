@@ -63,5 +63,5 @@
 
 ## 関連ドキュメント
 
-- [ai-docs/task/scope/phase1-block-scope.md](../task/scope/phase1-block-scope.md)
+- [ai-docs/done-task/scope-phase1-block-scope.md](scope-phase1-block-scope.md)
 - [spec.md セクション 7](../../spec.md#7-スコープ)
