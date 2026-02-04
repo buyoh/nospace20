@@ -67,19 +67,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         return ss;
     }
 
-    fn parse_to_statements_let(&mut self, start_pos: usize, is_static: bool) -> LocatedStatement {
+    fn parse_to_statements_let(&mut self, start_pos: usize) -> LocatedStatement {
         if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Let)) {
             panic!("internal error");
         }
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
-        
-        // Phase 4: static修飾子のチェック (let: static x; 構文)
-        let is_static = if let Some((Token::Keyword(Keyword::Static), _)) = self.iter.peek() {
-            self.iter.next(); // consume 'static'
-            true
-        } else {
-            is_static // 外部から渡されたフラグを使用（将来の拡張用）
-        };
         
         let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
             Ok(x) => x,
@@ -97,7 +89,34 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             .unwrap_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         return LocatedStatement {
-            statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0)), is_static),
+            statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0)), false),
+            location: SourceLocation::new(start_pos, end_pos),
+        };
+    }
+
+    fn parse_to_statements_static(&mut self, start_pos: usize) -> LocatedStatement {
+        if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Static)) {
+            panic!("internal error");
+        }
+        match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+        
+        let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+            Ok(x) => x,
+            Err(e) => {
+                return LocatedStatement {
+                    statement: Statement::Invalid(e),
+                    location: SourceLocation::from_single(start_pos),
+                };
+            }
+        };
+        let end_pos = self
+            .iter
+            .peek()
+            .map(|(_, info)| info.code_pointer)
+            .unwrap_or(start_pos);
+        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+        return LocatedStatement {
+            statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0)), true),
             location: SourceLocation::new(start_pos, end_pos),
         };
     }
@@ -203,7 +222,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             let start_pos = token.1.code_pointer;
             match &token.0 {
                 Token::Keyword(Keyword::Let) => {
-                    statements.push(self.parse_to_statements_let(start_pos, false));
+                    statements.push(self.parse_to_statements_let(start_pos));
+                    continue;
+                }
+                Token::Keyword(Keyword::Static) => {
+                    statements.push(self.parse_to_statements_static(start_pos));
                     continue;
                 }
                 Token::Keyword(Keyword::Func) => {

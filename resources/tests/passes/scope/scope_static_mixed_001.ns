@@ -1,7 +1,7 @@
 # static と非 static の混在 #
 func: test() {
   let: local;
-  let: static shared;
+  static: shared;
   local = 10;
   shared = 20;
   

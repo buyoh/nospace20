@@ -1,6 +1,6 @@
 # カウンターファクトリーパターン #
 func: counter_factory() {
-  let: static count;
+  static: count;
   count = 0;
   
   func: increment() {

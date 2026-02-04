@@ -2,7 +2,7 @@ use std::{io::Read, iter::repeat, process};
 
 use clap::Parser;
 use nospace20::{
-    interpret_func_with_env,
+    interpret_with_env,
     parse_to_tokens,
     parse_to_tree,
     syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
@@ -86,8 +86,9 @@ fn main() {
     let a = handle_parse_error(syntactic_analyze(&s), &text);
 
     // Environmentを作成して実行
+    // Phase 3: interpret_with_env を使用してグローバル変数を初期化
     let mut env = Environment::new();
-    let result = interpret_func_with_env(&mut env, &a, "main");
+    let result = interpret_with_env(&mut env, &a);
 
     if let Some(val) = result {
         println!("main returns: {}", val);

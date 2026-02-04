@@ -1,5 +1,5 @@
 # 基本的な static 変数（グローバル変数） #
-let: static x;
+static: x;
 
 func: test() {
   x = 42;

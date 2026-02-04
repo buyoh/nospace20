@@ -1,6 +1,6 @@
 # 複数変数の static 宣言 #
 func: test() {
-  let: static x, y, z;
+  static: x, y, z;
   x = 1;
   y = 2;
   z = 3;

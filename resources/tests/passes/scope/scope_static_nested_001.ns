@@ -1,6 +1,6 @@
 # ネスト関数からの static 変数への書き込み #
 func: test() {
-  let: static counter;
+  static: counter;
   counter = 0;
   
   func: inc() {
