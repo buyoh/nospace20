@@ -6,6 +6,7 @@
 
 - [overview.md](overview.md) - 現状分析とスコープ実装の概要
 - [previous-implementation.md](previous-implementation.md) - 過去の実装コミット（7a83612）の分析
+- [phase3-global-variables.md](phase3-global-variables.md) - フェーズ3: グローバル変数 📋 設計完了
 
 ### 完了したフェーズ
 
