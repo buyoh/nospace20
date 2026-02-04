@@ -20,12 +20,19 @@ use crate::{
 /// Phase 2 で導入。変数・関数の識別子を文字列ではなく、
 /// スコープ階層とローカルインデックスで管理することで、
 /// 実行時の文字列検索を排除し、O(1) アクセスを実現する。
+///
+/// Phase 3 で is_global フラグを追加。グローバル変数は Environment に保持されるため、
+/// ローカル変数とは別の参照方法が必要。
 #[derive(Debug, Clone, Copy)]
 pub struct IdentifierRef {
     /// スコープの深さ（0 = 現在のスコープ、1 = 親スコープ、...）
     pub scope_depth: usize,
     /// スコープ内でのインデックス
     pub local_index: usize,
+    /// Phase 3: グローバル変数かどうか
+    /// true の場合、Environment.global_variables でアクセス
+    /// false の場合、LocalEnvironment.scope_stack でアクセス
+    pub is_global: bool,
 }
 
 struct IdentifierInfo {
@@ -38,9 +45,17 @@ enum Identifier {
     Variable(IdentifierInfo),
 }
 
+/// 変数情報
+///
+/// Phase 3 で is_static フラグを追加。static 変数は関数スコープ境界を越えてアクセス可能。
+#[derive(Clone)]
 pub(crate) struct Variable {
     // NOTE: ここに初期化情報は置かない
     pub identifier: String, // TODO: use IdentifierInfo
+    /// Phase 3: static フラグ
+    /// true の場合、親の関数スコープからもアクセス可能
+    /// グローバル変数は暗黙的に is_static = true
+    pub is_static: bool,
 }
 
 /// ブロック（文の列とスコープ情報）
@@ -108,11 +123,11 @@ fn convert_to_exec_expression_with_resolver(
             Ok(Box::new(ExecExpression::If(
                 convert_to_exec_expression_with_resolver(cond, parent_resolver)?,
                 Block {
-                    scope: s1.build(),
+                    scope: s1.build(false, Vec::new()), // ブロックは関数スコープではなく、root_statementsは空
                     statements: es1,
                 },
                 Block {
-                    scope: s2.build(),
+                    scope: s2.build(false, Vec::new()), // ブロックは関数スコープではなく、root_statementsは空
                     statements: es2,
                 },
             )))
@@ -122,7 +137,7 @@ fn convert_to_exec_expression_with_resolver(
             Ok(Box::new(ExecExpression::While(
                 convert_to_exec_expression_with_resolver(expr, parent_resolver)?,
                 Block {
-                    scope: s.build(),
+                    scope: s.build(false, Vec::new()), // ブロックは関数スコープではなく、root_statementsは空
                     statements: es,
                 },
             )))
@@ -175,6 +190,11 @@ pub(crate) struct Function {
 /// Phase 2 で変数インデックス管理を追加。
 /// 変数名からローカルインデックスへのマッピングを保持することで、
 /// 実行時に Vec<i64> ベースの高速アクセスを可能にする。
+///
+/// Phase 3 で is_function_scope フラグを追加。関数スコープ境界を越える場合、
+/// static 変数のみアクセス可能。
+///
+/// Phase 3 でルートスコープに実行文（グローバル変数の初期化）を追加。
 pub struct Scope {
     identifier_map: BTreeMap<String, Identifier>,
     
@@ -189,6 +209,15 @@ pub struct Scope {
     pub(crate) variable_count: usize,
     
     functions: Vec<Function>,
+    
+    /// Phase 3: このスコープが関数スコープかどうか
+    /// true の場合、非 static 変数は親スコープからアクセス不可
+    /// Root スコープと Function スコープで true
+    pub(crate) is_function_scope: bool,
+    
+    /// Phase 3: ルートスコープの実行文（グローバル変数の初期化）
+    /// 関数スコープ・ブロックスコープでは空
+    pub(crate) root_statements: Vec<ExecStatement>,
 }
 
 impl Scope {
@@ -215,14 +244,30 @@ enum ScopeType {
     Block,
 }
 
+/// スコープ情報（ScopeResolver 用）
+///
+/// Phase 3 で追加。関数境界チェックのため、各スコープの追加情報を保持する。
+#[derive(Clone)]
+struct ScopeInfo<'a> {
+    /// 変数名からインデックスへのマップ
+    var_indices: &'a BTreeMap<String, usize>,
+    /// 変数情報（static フラグ確認用）
+    variables: &'a Vec<Variable>,
+    /// このスコープが関数スコープかどうか
+    is_function_scope: bool,
+}
+
 /// スコープ解決のためのコンテキスト
 ///
 /// Phase 2 で導入。2パス解析のパス2で使用され、
 /// 変数名・関数名を IdentifierRef に解決する。
+///
+/// Phase 3 で関数境界チェックを追加。親の関数スコープの非 static 変数には
+/// アクセスできないようにする。
 struct ScopeResolver<'a> {
     /// スコープスタック（末尾が現在のスコープ）
-    /// 各スコープは変数名からローカルインデックスへのマップ
-    scope_stack: Vec<&'a BTreeMap<String, usize>>,
+    /// Phase 3: スコープ情報を保持するように変更
+    scope_stack: Vec<ScopeInfo<'a>>,
 }
 
 impl<'a> ScopeResolver<'a> {
@@ -232,8 +277,17 @@ impl<'a> ScopeResolver<'a> {
         }
     }
 
-    fn enter_scope(&mut self, var_indices: &'a BTreeMap<String, usize>) {
-        self.scope_stack.push(var_indices);
+    fn enter_scope(
+        &mut self,
+        var_indices: &'a BTreeMap<String, usize>,
+        variables: &'a Vec<Variable>,
+        is_function_scope: bool,
+    ) {
+        self.scope_stack.push(ScopeInfo {
+            var_indices,
+            variables,
+            is_function_scope,
+        });
     }
 
     fn leave_scope(&mut self) {
@@ -243,13 +297,43 @@ impl<'a> ScopeResolver<'a> {
     /// 変数名を解決し、IdentifierRef を返す
     ///
     /// スコープスタックを逆順に探索し、最も近いスコープの変数を見つける。
+    /// 関数スコープ境界を越えた場合、static 変数のみアクセス可能。
     /// 見つからない場合は None を返す。
     fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
-        for (depth, scope) in self.scope_stack.iter().rev().enumerate() {
-            if let Some(&local_index) = scope.get(name) {
+        // 最初に見つけた関数スコープ（自分の関数）より外側の関数スコープを越えた場合、境界を越えたとする
+        let mut first_function_scope_depth: Option<usize> = None;
+        
+        for (depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
+            // 最初の関数スコープを記録
+            if scope_info.is_function_scope && first_function_scope_depth.is_none() {
+                first_function_scope_depth = Some(depth);
+            }
+            
+            if let Some(&local_index) = scope_info.var_indices.get(name) {
+                // 関数境界を越えたかチェック
+                // first_function_scope_depth より外側（depth が大きい）の関数スコープに変数がある場合
+                let crossed_function_boundary = if let Some(first_func_depth) = first_function_scope_depth {
+                    depth > first_func_depth && scope_info.is_function_scope
+                } else {
+                    // まだ関数スコープに入っていない（グローバルスコープのみ探索中）
+                    false
+                };
+                
+                // 関数境界を越えた場合、static 変数のみアクセス可能
+                if crossed_function_boundary && !scope_info.variables[local_index].is_static {
+                    // 非 static 変数はスキップして探索継続
+                    continue;
+                }
+                
+                // グローバル変数かどうかを判定
+                // スタックの最下層（depth == scope_stack.len() - 1）がルートスコープ
+                let is_global = depth == self.scope_stack.len() - 1 
+                    && self.scope_stack.first().map(|s| s.is_function_scope).unwrap_or(false);
+                
                 return Some(IdentifierRef {
                     scope_depth: depth,
                     local_index,
+                    is_global,
                 });
             }
         }
@@ -272,7 +356,7 @@ impl ScopeBuilder {
         }
     }
 
-    fn build(self) -> Scope {
+    fn build(self, is_function_scope: bool, root_statements: Vec<ExecStatement>) -> Scope {
         // 変数名からインデックスへのマッピングを構築
         let mut variable_indices = BTreeMap::new();
         for (idx, var) in self.variables.iter().enumerate() {
@@ -287,6 +371,8 @@ impl ScopeBuilder {
             variables: self.variables,
             variable_count,
             functions: self.functions,
+            is_function_scope,
+            root_statements,
         }
     }
 
@@ -334,12 +420,17 @@ fn analyze_internal_with_parent(
 ) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
     let mut scope = ScopeBuilder::new();
     
+    // Phase 3: グローバル変数は暗黙的に static
+    let is_static = matches!(scope_type, ScopeType::Root);
+    let is_function_scope = matches!(scope_type, ScopeType::Root | ScopeType::Function);
+    
     // 初期変数を登録（関数の引数など）
     for var_name in initial_vars {
         scope.add_variable(
             &var_name,
             Variable {
                 identifier: var_name.clone(),
+                is_static: false, // 関数引数は非 static
             },
         )?;
     }
@@ -350,18 +441,12 @@ fn analyze_internal_with_parent(
         let stat = &located_stat.statement;
         match stat {
             Statement::VariableDeclaration(name, _) => {
-                if let ScopeType::Root = scope_type {
-                    // TODO(unimplemented): グローバル変数は未実装
-                    return Err(vec![code_parse_error!(
-                        located_stat.location.start,
-                        "semantic error: global variable is not implemented".to_string()
-                    )]);
-                }
-                // 変数宣言を収集（初期化式はパス2で処理）
+                // Phase 3: グローバル変数を許可（暗黙的に static）
                 scope.add_variable(
                     name,
                     Variable {
                         identifier: name.clone(),
+                        is_static,
                     },
                 )?;
             }
@@ -378,27 +463,44 @@ fn analyze_internal_with_parent(
         }
     }
     
-    // スコープを構築して変数インデックスマップを取得
-    let built_scope = scope.build();
+    // 変数名からインデックスへのマッピングを先に構築（resolver で使用）
+    let mut variable_indices_temp = BTreeMap::new();
+    for (idx, var) in scope.variables.iter().enumerate() {
+        variable_indices_temp.insert(var.identifier.clone(), idx);
+    }
+    
+    // Variable を Clone するための一時保存（resolver が参照するため）
+    // scope.variables をそのまま使用するのではなく、Scope にまとめて後で参照
+    // 一旦 temporary_scope を作って参照を保持
+    let temporary_scope = Scope {
+        identifier_map: BTreeMap::new(), // 未使用
+        variable_indices: variable_indices_temp.clone(),
+        variables: scope.variables.clone(), // Clone が必要
+        variable_count: scope.variables.len(),
+        functions: Vec::new(), // 未使用
+        is_function_scope,
+        root_statements: Vec::new(), // 未使用
+    };
     
     // 親のresolverを継承して新しいresolverを作成
     let mut resolver = if let Some(parent) = parent_resolver {
         let mut new_resolver = ScopeResolver {
             scope_stack: parent.scope_stack.clone(),
         };
-        new_resolver.enter_scope(&built_scope.variable_indices);
+        new_resolver.enter_scope(
+            &temporary_scope.variable_indices,
+            &temporary_scope.variables,
+            is_function_scope,
+        );
         new_resolver
     } else {
         let mut new_resolver = ScopeResolver::new();
-        new_resolver.enter_scope(&built_scope.variable_indices);
+        new_resolver.enter_scope(
+            &temporary_scope.variable_indices,
+            &temporary_scope.variables,
+            is_function_scope,
+        );
         new_resolver
-    };
-    
-    // ScopeBuilder を再構築（built_scope から復元）
-    let mut scope = ScopeBuilder {
-        identifier_map: built_scope.identifier_map,
-        variables: built_scope.variables,
-        functions: built_scope.functions,
     };
     
     // パス2: 文の変換（識別子解決を伴う）
@@ -414,9 +516,9 @@ fn analyze_internal_with_parent(
                 ));
             }
             Statement::FunctionDeclaration(name, args, block) => {
-                // 関数本体を解析（引数を初期変数として渡す、親resolverは不要）
-                let (s, es) = analyze_internal_with_parent(block, ScopeType::Function, args.clone(), None)?;
-                let built_scope = s.build();
+                // Phase 3: 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
+                let (s, es) = analyze_internal_with_parent(block, ScopeType::Function, args.clone(), Some(&resolver))?;
+                let built_scope = s.build(true, Vec::new()); // 関数スコープ、root_statementsは空
                 
                 // 引数のインデックスを事前計算（Phase 2 最適化）
                 let arg_indices: Vec<usize> = args
@@ -450,12 +552,7 @@ fn analyze_internal_with_parent(
                 ));
             }
             Statement::Expression(e) => {
-                if let ScopeType::Root = scope_type {
-                    return Err(vec![code_parse_error!(
-                        loc.start,
-                        "semantic error: expression statement at root level".to_string()
-                    )]);
-                }
+                // Phase 3: ルートスコープでも式文を許可（グローバル変数の初期化式）
                 exec_statements.push(ExecStatement::Expression(
                     convert_to_exec_expression_with_resolver(e, &resolver)?,
                 ));
@@ -487,7 +584,8 @@ fn analyze_internal_with_parent(
 }
 
 pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
-    analyze_internal(root, ScopeType::Root).map(|(scope, _)| scope.build())
+    // Phase 3: ルートの実行文（グローバル変数の初期化）も返す
+    analyze_internal(root, ScopeType::Root).map(|(scope, root_stmts)| scope.build(true, root_stmts))
     // TODO: validate identifiers
 }
 
@@ -561,24 +659,15 @@ mod test {
     }
 
     #[test]
-    fn test_error_expression_at_root_level() {
+    fn test_success_expression_at_root_level() {
+        // Phase 3: グローバル変数の初期化式を許可
         let statements = vec![LocatedStatement {
             statement: Statement::Expression(Box::new(Expression::Factor(42))),
             location: SourceLocation::new(50, 55),
         }];
 
         let result = analyze(&statements);
-        assert!(result.is_err());
-
-        let errors = match result {
-            Err(e) => e,
-            Ok(_) => panic!("Expected error"),
-        };
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].code_pointer, Some(50));
-        assert!(errors[0]
-            .message
-            .contains("expression statement at root level"));
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -649,7 +738,8 @@ mod test {
     }
 
     #[test]
-    fn test_error_global_variable() {
+    fn test_success_global_variable() {
+        // Phase 3: グローバル変数を許可
         let var_decl = LocatedStatement {
             statement: Statement::VariableDeclaration(
                 "global".to_string(),
@@ -660,17 +750,12 @@ mod test {
 
         let statements = vec![var_decl];
         let result = analyze(&statements);
-        assert!(result.is_err());
-
-        let errors = match result {
-            Err(e) => e,
-            Ok(_) => panic!("Expected error"),
-        };
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].code_pointer, Some(200));
-        assert!(errors[0]
-            .message
-            .contains("global variable is not implemented"));
+        assert!(result.is_ok());
+        
+        let scope = result.unwrap();
+        // グローバル変数が登録されていることを確認
+        assert_eq!(scope.variable_count, 1);
+        assert!(scope.variables[0].is_static); // 暗黙的に static
     }
 
     #[test]

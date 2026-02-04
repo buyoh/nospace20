@@ -38,6 +38,17 @@ pub fn syntactic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<Code
     semantic_analyzer::analyze(root)
 }
 
+/// Phase 3: グローバル変数の初期化を含む interpret
+pub fn interpret(scope: &Scope) -> Option<i64> {
+    let mut env = Environment::new();
+    interpreter::interpret(&mut env, scope)
+}
+
+/// Phase 3: グローバル変数の初期化を含む interpret（env 指定版）
+pub fn interpret_with_env(env: &mut Environment, scope: &Scope) -> Option<i64> {
+    interpreter::interpret(env, scope)
+}
+
 pub fn interpret_func(scope: &Scope, func_name: &str) -> Option<i64> {
     let mut env = Environment::new();
     interpreter::interpret_func(&mut env, scope, func_name)

@@ -14,6 +14,7 @@ use crate::{
 };
 
 // Block(Vec<Statement>) の評価結果
+#[derive(Debug)]
 enum Flow {
     Proceed,
     Return(i64),
@@ -91,6 +92,9 @@ pub struct Environment {
     pub(crate) stdout: Box<dyn Write>,
     pub config: EnvironmentConfig,
     metrics: EnvironmentMetrics,
+    /// Phase 3: グローバル変数の値
+    /// ルートスコープの変数をインデックスベースで保持
+    pub(crate) global_variables: Vec<i64>,
 }
 
 impl Environment {
@@ -101,6 +105,7 @@ impl Environment {
             stdout: Box::new(std::io::stdout()),
             config: EnvironmentConfig::new(),
             metrics: EnvironmentMetrics::new(),
+            global_variables: Vec::new(),
         }
     }
 
@@ -111,6 +116,7 @@ impl Environment {
             stdout,
             config: EnvironmentConfig::new(),
             metrics: EnvironmentMetrics::new(),
+            global_variables: Vec::new(),
         }
     }
 
@@ -125,6 +131,7 @@ impl Environment {
             stdout,
             config,
             metrics: EnvironmentMetrics::new(),
+            global_variables: Vec::new(),
         }
     }
 
@@ -270,15 +277,29 @@ impl LocalEnvironment<'_, '_> {
     }
 
     /// 識別子参照から値を取得（Phase 2）
+    /// Phase 3: グローバル変数対応（is_global フラグチェック）
     fn get_variable(&self, id: &IdentifierRef) -> i64 {
-        let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
-        self.scope_stack[scope_idx][id.local_index]
+        if id.is_global {
+            // グローバル変数は Environment に保持
+            self.env.global_variables[id.local_index]
+        } else {
+            // ローカル変数は scope_stack に保持
+            let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
+            self.scope_stack[scope_idx][id.local_index]
+        }
     }
 
     /// 識別子参照に値を設定（Phase 2）
+    /// Phase 3: グローバル変数対応（is_global フラグチェック）
     fn set_variable(&mut self, id: &IdentifierRef, value: i64) {
-        let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
-        self.scope_stack[scope_idx][id.local_index] = value;
+        if id.is_global {
+            // グローバル変数は Environment に保持
+            self.env.global_variables[id.local_index] = value;
+        } else {
+            // ローカル変数は scope_stack に保持
+            let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
+            self.scope_stack[scope_idx][id.local_index] = value;
+        }
     }
 
     fn interpret_call_function(
@@ -544,4 +565,31 @@ pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> 
     } else {
         None
     }
+}
+
+/// Phase 3: グローバル変数を初期化してから main 関数を実行
+pub fn interpret(env: &mut Environment, scope: &Scope) -> Option<i64> {
+    // グローバル変数の領域を確保
+    env.global_variables = vec![0; scope.variable_count];
+    
+    // グローバル変数の初期化式を実行
+    // ルートスコープの実行文を実行（ローカルスコープなしで実行）
+    if !scope.root_statements.is_empty() {
+        let mut local_env = LocalEnvironment {
+            env,
+            root_scope: scope,
+            scope_stack: Vec::new(), // グローバル変数の初期化時はローカルスコープなし
+        };
+        
+        for statement in &scope.root_statements {
+            match local_env.interpret_statement(statement) {
+                Flow::Proceed => (),
+                // グローバル変数の初期化で return/break/continue は発生しないはず
+                other => panic!("unexpected flow in global initialization: {:?}", other),
+            }
+        }
+    }
+    
+    // main 関数を呼び出し
+    interpret_func(env, scope, "main")
 }

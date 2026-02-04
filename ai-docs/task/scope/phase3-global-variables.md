@@ -9,13 +9,23 @@
 - グローバルスコープは関数スコープと同様
 - 親スコープから子スコープの変数にはアクセス不可
 - 子スコープから親スコープの変数にアクセス可能
+- **親の関数スコープにはアクセスできない**（変数の場合）
+- **関数は static な定数として定義される**ため、親の関数スコープの関数にはアクセス可能
+- static 変数は親の関数スコープにアクセス可能
+
+### 仕様解釈
+
+グローバル変数について：
+- グローバルスコープは「関数スコープと同様」
+- したがって、関数内からグローバル変数にアクセスするには static が必要
+- **グローバル変数は暗黙的に static として扱う**（関数が暗黙的に static なのと同様）
 
 ```nospace
-let: global_counter;
+let: global_counter;    # 暗黙的に static #
 global_counter = 0;
 
 func: increment() {
-  global_counter = global_counter + 1;  # グローバル変数にアクセス #
+  global_counter = global_counter + 1;  # static なのでアクセス可能 #
 }
 
 func: main() {
@@ -30,12 +40,14 @@ func: main() {
 ### 含む
 
 - ルートスコープでの変数宣言 (`let:` at root level)
-- 関数からグローバル変数へのアクセス
+- グローバル変数への暗黙的 static フラグ付与
+- 関数からグローバル変数へのアクセス（static 経由）
 - グローバル変数の初期化式
+- Variable 構造体への `is_static` フラグ追加（Phase 4 の基盤）
 
 ### 除外
 
-- static 変数（Phase 4）
+- ローカル変数の明示的 static 宣言（Phase 4）
 - ネスト関数の可視性ルール（Phase 5）
 
 ---
@@ -74,15 +86,27 @@ struct LocalEnvironment<'a, 'aenv> {
 
 ## 設計
 
-### アプローチ: グローバルスコープを最初のスコープとして追加
+### アプローチ: static フラグによるスコープ境界の制御
 
-グローバル変数を特別扱いせず、スコープスタックの最下層として扱う。
+1. Variable 構造体に `is_static` フラグを追加
+2. グローバル変数は暗黙的に `is_static = true`
+3. 識別子解決時、関数スコープ境界を越える場合は static 変数のみ参照可能
+4. グローバル変数の値は `Environment` で保持
 
 ### 変更点
 
-#### 1. Scope 構造にグローバル変数を追加
+#### 1. Variable 構造体に is_static フラグを追加
 
-ルートスコープ（`analyze` の戻り値）に変数情報を保持。
+```rust
+pub(crate) struct Variable {
+    pub identifier: String,
+    /// Phase 3: static フラグ
+    /// true の場合、親の関数スコープからもアクセス可能
+    pub is_static: bool,
+}
+```
+
+#### 2. Scope 構造に関数スコープ境界フラグを追加
 
 ```rust
 pub struct Scope {
@@ -91,59 +115,57 @@ pub struct Scope {
     pub(crate) variables: Vec<Variable>,
     pub(crate) variable_count: usize,
     functions: Vec<Function>,
+    /// Phase 3: このスコープが関数スコープかどうか
+    /// true の場合、非 static 変数は親スコープからアクセス不可
+    pub(crate) is_function_scope: bool,
 }
 ```
 
-現状の `Scope` 構造で十分。`analyze_internal` でルートスコープにも変数を追加できるように変更するのみ。
+#### 3. ScopeResolver の変更
 
-#### 2. semantic_analyzer の変更
+識別子解決時に関数スコープ境界をチェック：
 
-ルートスコープでの変数宣言を許可:
+```rust
+fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
+    let mut crossed_function_boundary = false;
+    
+    for (depth, (scope_info, var_map)) in self.scope_stack.iter().rev().enumerate() {
+        if scope_info.is_function_scope && depth > 0 {
+            crossed_function_boundary = true;
+        }
+        
+        if let Some(&local_index) = var_map.get(name) {
+            // 関数境界を越えた場合、static 変数のみアクセス可能
+            if crossed_function_boundary && !scope_info.variables[local_index].is_static {
+                continue;  // 非 static 変数はスキップ
+            }
+            return Some(IdentifierRef { scope_depth: depth, local_index });
+        }
+    }
+    None
+}
+```
+
+#### 4. semantic_analyzer の変更
+
+ルートスコープでの変数宣言を許可し、暗黙的に static を付与：
 
 ```rust
 Statement::VariableDeclaration(name, _) => {
-    // グローバル変数も通常の変数と同様に扱う
+    let is_static = matches!(scope_type, ScopeType::Root);
     scope.add_variable(
         name,
         Variable {
             identifier: name.clone(),
+            is_static,
         },
     )?;
 }
 ```
 
-#### 3. ScopeResolver にグローバルスコープを追加
+#### 5. インタプリタの変更
 
-関数本体を解析する際、グローバルスコープの変数も参照できるようにする:
-
-```rust
-fn analyze_internal_with_parent(
-    statements: &Vec<LocatedStatement>,
-    scope_type: ScopeType,
-    initial_vars: Vec<String>,
-    parent_resolver: Option<&ScopeResolver>,  // グローバルスコープを含む
-) -> Result<...>
-```
-
-ただし、仕様では「親の関数スコープにはアクセスできない」とあるため、
-**グローバルスコープはブロックスコープと同様に扱う**のが正しい。
-
-#### 4. インタプリタの変更
-
-##### 4.1 グローバル変数の値保持
-
-`Scope` に加えて、グローバル変数の値を保持する領域が必要:
-
-```rust
-pub fn interpret_func(
-    env: &mut Environment,
-    scope: &Scope,
-    func_name: &str,
-    global_vars: &mut Vec<i64>,  // グローバル変数の値
-) -> Option<i64>
-```
-
-または、`Environment` にグローバル変数を追加:
+##### 5.1 Environment にグローバル変数を追加
 
 ```rust
 pub struct Environment {
@@ -153,35 +175,40 @@ pub struct Environment {
     pub config: EnvironmentConfig,
     metrics: EnvironmentMetrics,
     /// Phase 3: グローバル変数の値
-    pub global_variables: Vec<i64>,
+    pub(crate) global_variables: Vec<i64>,
 }
 ```
 
-##### 4.2 LocalEnvironment の変更
+##### 5.2 IdentifierRef にグローバルフラグを追加
 
 ```rust
-struct LocalEnvironment<'a, 'aenv> {
-    env: &'aenv mut Environment,
-    root_scope: &'a Scope,
-    /// グローバル変数の値への参照
-    /// scope_stack の最下層としてアクセス
-    global_vars: &'a mut Vec<i64>,
-    /// 関数・ブロックスコープスタック
-    scope_stack: Vec<Vec<i64>>,
+#[derive(Debug, Clone, Copy)]
+pub struct IdentifierRef {
+    pub scope_depth: usize,
+    pub local_index: usize,
+    /// Phase 3: グローバル変数かどうか
+    pub is_global: bool,
 }
 ```
 
-##### 4.3 変数アクセスの変更
+##### 5.3 変数アクセスの変更
 
 ```rust
 fn get_variable(&self, id: &IdentifierRef) -> i64 {
-    let total_depth = self.scope_stack.len();
-    if id.scope_depth >= total_depth {
-        // グローバル変数にアクセス
-        self.global_vars[id.local_index]
+    if id.is_global {
+        self.env.global_variables[id.local_index]
     } else {
-        let scope_idx = total_depth - 1 - id.scope_depth;
+        let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
         self.scope_stack[scope_idx][id.local_index]
+    }
+}
+
+fn set_variable(&mut self, id: &IdentifierRef, value: i64) {
+    if id.is_global {
+        self.env.global_variables[id.local_index] = value;
+    } else {
+        let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
+        self.scope_stack[scope_idx][id.local_index] = value;
     }
 }
 ```
@@ -190,84 +217,70 @@ fn get_variable(&self, id: &IdentifierRef) -> i64 {
 
 ## 詳細設計
 
-### IdentifierRef の scope_depth について
+### スコープ階層と static の関係
 
-Phase 2 で導入した `IdentifierRef` の `scope_depth` は、現在のスコープからの相対深度を表す:
-
-- 0: 現在のスコープ
-- 1: 親スコープ
-- 2: 祖父スコープ
-- ...
-
-グローバル変数は最も深い親スコープとして扱われる。
-
-### 問題: グローバル変数と関数スコープ変数の区別
-
-仕様では：
-- 「親の**関数スコープ**にはアクセスできない」
-- 「グローバルスコープは関数スコープと同様」
-
-これは、関数からグローバル変数にはアクセス**できない**という意味か？
-
-#### 仕様の解釈
-
-```nospace
-func: fn1() {
-  let: x1;
-  func: fn2() {
-    let: x2;
-    # x1 = 1;  Bad: 親の関数スコープにアクセス不可 #
-  }
-}
+```
+グローバルスコープ（関数スコープ相当）
+  └─ let: global_x (is_static = true, 暗黙的)
+  └─ func: main()
+       └─ 関数スコープ
+            └─ let: local_x (is_static = false)
+            └─ if: { ブロックスコープ
+                 └─ let: block_x (is_static = false)
+               }
 ```
 
-これは**ネスト関数**の場合。
+### 変数アクセスのルール
 
-グローバル変数は**ネスト関数ではない**ため、別のルールが適用される可能性がある。
+| 変数の位置 | アクセス元 | is_static | アクセス可否 |
+|-----------|-----------|-----------|------------|
+| グローバル | main() 内 | true（暗黙） | ✅ 可能 |
+| main() 内 | ネスト関数内 | false | ❌ 不可 |
+| main() 内 | main() 内ブロック | - | ✅ 可能（ブロックは関数境界でない） |
 
-#### 設計決定: グローバル変数はアクセス可能とする
+### IdentifierRef の is_global について
 
-多くの言語でグローバル変数は関数からアクセス可能なため、
-nospace でもグローバル変数は関数からアクセス可能とする。
+`is_global` を追加する理由：
+- グローバル変数は `Environment` に保持される
+- ローカル変数は `LocalEnvironment.scope_stack` に保持される
+- アクセス先を区別する必要がある
 
-「親の関数スコープにはアクセスできない」はネスト関数に対するルールと解釈。
+代替案: `scope_depth` に特別な値（例: `usize::MAX`）を使用してグローバルを示す
+→ 可読性のため `is_global` フラグを採用
 
 ---
 
 ## 実装計画
 
-### Step 1: semantic_analyzer の変更
+### Step 1: Variable 構造体の拡張
+
+1. `is_static` フラグを追加
+2. 既存の変数宣言は `is_static = false` で初期化
+
+### Step 2: Scope 構造の拡張
+
+1. `is_function_scope` フラグを追加
+2. ScopeBuilder で関数スコープかどうかを記録
+
+### Step 3: semantic_analyzer の変更
 
 1. ルートスコープでの変数宣言を許可
-2. 関数宣言時、関数本体の resolver にルートスコープを親として渡す
+2. グローバル変数に `is_static = true` を付与
+3. 関数本体の resolver にルートスコープを親として渡す
+4. 識別子解決時に関数境界と static をチェック
 
-### Step 2: インタプリタの変更
+### Step 4: IdentifierRef の拡張
+
+1. `is_global` フラグを追加
+2. グローバル変数解決時に `is_global = true` を設定
+
+### Step 5: インタプリタの変更
 
 1. `Environment` に `global_variables: Vec<i64>` を追加
-2. `interpret_func` 呼び出し前にグローバル変数を初期化
-3. `LocalEnvironment` でグローバル変数スコープを参照
-4. `get_variable` / `set_variable` でグローバル変数にアクセス
+2. `get_variable` / `set_variable` で `is_global` をチェック
+3. ルート初期化式の実行ロジックを追加
 
-### Step 3: ルートスコープの初期化式実行
-
-グローバル変数の初期化式を実行するタイミング:
-- `main()` 呼び出し前に実行
-
-```rust
-pub fn interpret(env: &mut Environment, scope: &Scope) -> Option<i64> {
-    // グローバル変数の初期化
-    let mut global_vars = vec![0; scope.variable_count];
-    // 初期化式を実行
-    for stmt in &scope.root_statements {
-        // ...
-    }
-    
-    // main() を呼び出し
-    interpret_func(env, scope, "main", &mut global_vars)
-}
-```
-
-### Step 4: テストケースの追加
+### Step 6: テストケースの追加
 
 - `scope_global_001.ns`: 基本的なグローバル変数
 - `scope_global_shadow_001.ns`: グローバル変数のシャドウイング
@@ -275,14 +288,26 @@ pub fn interpret(env: &mut Environment, scope: &Scope) -> Option<i64> {
 
 ---
 
-## 移行戦略
+## Phase 4 との関係
 
-### 段階的実装
+Phase 4 では以下を実装予定：
+- ローカル変数への明示的 `static` 修飾子
+- ネスト関数から親関数スコープの static 変数へのアクセス
 
-1. **Step A**: グローバル変数の宣言を許可（意味解析）
-2. **Step B**: グローバル変数を関数から参照可能にする（識別子解決）
-3. **Step C**: インタプリタでグローバル変数を実行（値の保持と初期化）
-4. **Step D**: テストケース追加
+Phase 3 で導入する `is_static` フラグと関数境界チェックの仕組みは、
+Phase 4 でそのまま活用される。
+
+```nospace
+# Phase 4 で対応予定 #
+func: outer() {
+  static let: counter;  # 明示的 static #
+  counter = 0;
+  
+  func: inner() {
+    counter = counter + 1;  # static なのでアクセス可能 #
+  }
+}
+```
 
 ---
 
@@ -291,16 +316,16 @@ pub fn interpret(env: &mut Environment, scope: &Scope) -> Option<i64> {
 ### 変更ファイル
 
 1. **`src/semantic_analyzer/mod.rs`**
+   - Variable に `is_static` 追加
+   - Scope に `is_function_scope` 追加
    - ルートスコープでの変数宣言を許可
-   - 関数の resolver にルートスコープを追加
+   - 識別子解決で関数境界と static をチェック
+   - IdentifierRef に `is_global` 追加
 
 2. **`src/interpreter/mod.rs`**
    - `Environment` に `global_variables` 追加
-   - `LocalEnvironment` の変数アクセスを拡張
-   - ルート初期化式の実行ロジック
-
-3. **`src/lib.rs`**（必要に応じて）
-   - エントリーポイントの変更
+   - 変数アクセスで `is_global` をチェック
+   - ルート初期化式の実行
 
 ### 変更しないファイル
 
@@ -365,16 +390,17 @@ func: main() {
 
 ## リスク
 
-1. **初期化順序の複雑さ**
-   - グローバル変数の初期化式が相互依存する場合
-   - 解決: 宣言順に初期化
+1. **ScopeResolver の複雑化**
+   - 関数境界チェックと static チェックの追加
+   - 解決: 明確なコメントとテストで対応
 
-2. **scope_depth の計算**
-   - グローバルスコープを含めた深度計算
-   - 解決: 関数スコープの開始時に +1 を考慮
+2. **Phase 4 との整合性**
+   - Phase 4 で static 変数を追加する際の互換性
+   - 解決: is_static フラグを汎用的に設計
 
-3. **テストの更新**
-   - 既存テストへの影響は少ないはず
+3. **既存テストへの影響**
+   - Variable 構造体の変更による影響
+   - 解決: デフォルト値 `is_static = false` で後方互換性を維持
 
 ---
 
@@ -382,9 +408,10 @@ func: main() {
 
 - 全既存テストが通過
 - グローバル変数の宣言・代入・参照が動作
-- 関数内からグローバル変数にアクセス可能
+- 関数内からグローバル変数にアクセス可能（暗黙的 static により）
 - グローバル変数のシャドウイングが動作
 - 初期化式が正しく実行される
+- Phase 4 の static 実装に向けた基盤が整備される
 
 ---
 
@@ -393,9 +420,9 @@ func: main() {
 ### Phase 2 からの継続
 
 Phase 2 で導入した以下の仕組みを拡張:
-- `IdentifierRef` によるインデックスベースのアクセス
-- `ScopeResolver` による親スコープの探索
-- `Vec<i64>` ベースの変数ストレージ
+- `IdentifierRef` によるインデックスベースのアクセス → `is_global` 追加
+- `ScopeResolver` による親スコープの探索 → 関数境界チェック追加
+- `Vec<i64>` ベースの変数ストレージ → グローバル変数用ストレージ追加
 
 ### 関連ドキュメント
 
