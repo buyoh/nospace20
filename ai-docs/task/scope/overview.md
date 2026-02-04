@@ -165,15 +165,35 @@ impl LocalEnvironment<'_, '_> {
 - ✅ ScopeResolver による親スコープ探索
 - ✅ Vec<i64> ベースのインタプリタ（O(1) アクセス）
 
-### Phase 3: グローバル変数 📋 設計完了
+### Phase 3: グローバル変数 ✅ 完了
 
 **目標**: 関数外での変数宣言をサポート
 
-**状態**: 設計完了。詳細は [phase3-global-variables.md](phase3-global-variables.md) を参照。
+**状態**: 2026-02-05 に実装完了。
 
-### Phase 4: static変数
+**実装内容**:
+- ✅ Variable.is_static フラグ（グローバル変数は暗黙的に static）
+- ✅ Scope.is_function_scope フラグ
+- ✅ IdentifierRef.is_global フラグ
+- ✅ ScopeResolver での関数境界チェック
+- ✅ Environment.global_variables でグローバル変数を管理
+- ✅ Scope.root_statements でグローバル初期化式を保持
+- ✅ interpret() でグローバル変数初期化後に main 実行
 
-**目標**: クロージャのような親関数スコープへのアクセス
+### Phase 4: static変数 📋 設計完了
+
+**目標**: 明示的な `static` 修飾子による親関数スコープへのアクセス
+
+**状態**: 設計完了。詳細は [phase4-static-variables.md](phase4-static-variables.md) を参照。
+
+**実装内容（予定）**:
+- `static let:` 構文の追加
+- Keyword::Static の追加
+- Statement::VariableDeclaration への is_static フラグ追加
+- 意味解析での is_static 伝播
+
+**注**: 実行時の基盤（関数境界チェック）は Phase 3 で完成済み。
+Phase 4 の主な作業は構文解析層。
 
 ### Phase 5: ネスト関数のスコープ制御（検討中）
 
@@ -207,8 +227,8 @@ func: fn1() {
 | 変数のシャドウイング | 1 | ✅ 完了 |
 | 関数スコープの独立性 | - | ✅ 既存 |
 | 識別子の事前解決 | 2 | ✅ 完了 |
-| グローバル変数 | 3 | 📋 設計完了 |
-| static変数（親関数スコープへのアクセス） | 4 | ⏳ 未着手 |
+| グローバル変数 | 3 | ✅ 完了 |
+| static変数（親関数スコープへのアクセス） | 4 | 📋 設計完了 |
 | ネスト関数の可視性ルール | 5 | ⏳ 検討中 |
 
 ---
