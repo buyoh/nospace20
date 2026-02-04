@@ -15,6 +15,19 @@ use crate::{
     tree_parser::{Expression, LocatedStatement, Operator1, Operator2, Statement},
 };
 
+/// 解決済み識別子への参照
+///
+/// Phase 2 で導入。変数・関数の識別子を文字列ではなく、
+/// スコープ階層とローカルインデックスで管理することで、
+/// 実行時の文字列検索を排除し、O(1) アクセスを実現する。
+#[derive(Debug, Clone, Copy)]
+pub struct IdentifierRef {
+    /// スコープの深さ（0 = 現在のスコープ、1 = 親スコープ、...）
+    pub scope_depth: usize,
+    /// スコープ内でのインデックス
+    pub local_index: usize,
+}
+
 struct IdentifierInfo {
     // name: String,
     idx: usize, // TODO: more safety
@@ -40,19 +53,22 @@ pub(crate) struct Block {
 ///
 /// `Expression` (構文解析結果) との違い:
 /// - `Invalid` バリアントを持たない (パース成功後のみ生成される)
-/// - 将来的にはスコープ解決済みの識別子情報を保持する予定
-///   (例: 変数名の文字列ではなく、スコープ内のインデックスを保持)
-///
-/// 現状は `Expression` と構造が類似しているが、意味解析の責務拡張に伴い差異が生じる想定。
+/// - スコープ解決済みの識別子情報を保持する (Phase 2 で実装)
+///   変数は IdentifierRef を使用することで、実行時の文字列検索を排除し、O(1) アクセスを実現。
+///   関数は現状組み込み関数のみのため、文字列のまま保持。
 // #[derive(Clone)] // TODO: REMOVE
 pub(crate) enum ExecExpression {
     Operation1(Operator1, Box<ExecExpression>),
     Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
     If(Box<ExecExpression>, Block, Block),
     While(Box<ExecExpression>, Block),
+    /// 関数呼び出し
+    /// Phase 2: 組み込み関数のみのため String のまま（ユーザー定義関数は Phase 3 以降）
     Function(String, Vec<Box<ExecExpression>>),
     Factor(i64),
-    Variable(String), // TODO: スコープ解決済みの IdentifierInfo に変更予定
+    /// 変数参照
+    /// Phase 2: String から IdentifierRef に変更
+    Variable(IdentifierRef),
 }
 
 /// 実行可能な文を表す。
@@ -69,24 +85,28 @@ pub(crate) enum ExecStatement {
     Expression(Box<ExecExpression>),
 }
 
-fn convert_to_exec_expression(
+/// 式を ExecExpression に変換する（識別子解決あり）
+///
+/// Phase 2 で導入。ScopeResolver を使用して変数名・関数名を IdentifierRef に解決する。
+fn convert_to_exec_expression_with_resolver(
     expr: &Box<Expression>,
+    parent_resolver: &ScopeResolver,
 ) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
     match expr.as_ref() {
         Expression::Operation1(op, x) => Ok(Box::new(ExecExpression::Operation1(
             op.to_owned(),
-            convert_to_exec_expression(&x)?,
+            convert_to_exec_expression_with_resolver(&x, parent_resolver)?,
         ))),
         Expression::Operation2(op, l, r) => Ok(Box::new(ExecExpression::Operation2(
             op.to_owned(),
-            convert_to_exec_expression(&l)?,
-            convert_to_exec_expression(&r)?,
+            convert_to_exec_expression_with_resolver(&l, parent_resolver)?,
+            convert_to_exec_expression_with_resolver(&r, parent_resolver)?,
         ))),
         Expression::If(cond, stat1, stat2) => {
-            let (s1, es1) = analyze_internal(stat1, ScopeType::Block)?;
-            let (s2, es2) = analyze_internal(stat2, ScopeType::Block)?;
+            let (s1, es1) = analyze_internal_with_parent(stat1, ScopeType::Block, Vec::new(), Some(parent_resolver))?;
+            let (s2, es2) = analyze_internal_with_parent(stat2, ScopeType::Block, Vec::new(), Some(parent_resolver))?;
             Ok(Box::new(ExecExpression::If(
-                convert_to_exec_expression(cond)?,
+                convert_to_exec_expression_with_resolver(cond, parent_resolver)?,
                 Block {
                     scope: s1.build(),
                     statements: es1,
@@ -98,9 +118,9 @@ fn convert_to_exec_expression(
             )))
         }
         Expression::While(expr, stat) => {
-            let (s, es) = analyze_internal(stat, ScopeType::Block)?;
+            let (s, es) = analyze_internal_with_parent(stat, ScopeType::Block, Vec::new(), Some(parent_resolver))?;
             Ok(Box::new(ExecExpression::While(
-                convert_to_exec_expression(expr)?,
+                convert_to_exec_expression_with_resolver(expr, parent_resolver)?,
                 Block {
                     scope: s.build(),
                     statements: es,
@@ -108,19 +128,36 @@ fn convert_to_exec_expression(
             )))
         }
         Expression::Function(f, a) => {
+            // Phase 2: 関数は組み込み関数のみなので文字列のまま保持
+            // ユーザー定義関数は Phase 3 以降で対応
             let mut args = Vec::new();
             for e in a {
-                args.push(convert_to_exec_expression(e)?);
+                args.push(convert_to_exec_expression_with_resolver(e, parent_resolver)?);
             }
-            Ok(Box::new(ExecExpression::Function(f.to_owned(), args)))
+            Ok(Box::new(ExecExpression::Function(f.clone(), args)))
         }
         Expression::Factor(v) => Ok(Box::new(ExecExpression::Factor(v.to_owned()))),
-        Expression::Variable(v) => Ok(Box::new(ExecExpression::Variable(v.to_owned()))),
+        Expression::Variable(v) => {
+            // 変数名を解決
+            let var_ref = parent_resolver
+                .resolve_variable(v)
+                .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", v))])?;
+            Ok(Box::new(ExecExpression::Variable(var_ref)))
+        }
         // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
         Expression::Invalid(_) => {
             unreachable!("Expression::Invalid should not reach semantic analysis")
         }
     }
+}
+
+fn convert_to_exec_expression(
+    expr: &Box<Expression>,
+) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
+    // Phase 2: 後方互換性のため残すが、内部的には resolver を使用
+    // TODO: この関数は削除予定（全ての呼び出しを convert_to_exec_expression_with_resolver に置き換える）
+    let resolver = ScopeResolver::new();
+    convert_to_exec_expression_with_resolver(expr, &resolver)
 }
 
 pub(crate) struct Function {
@@ -129,9 +166,24 @@ pub(crate) struct Function {
     // pub identifier: String,
 }
 
+/// スコープ情報
+///
+/// Phase 2 で変数インデックス管理を追加。
+/// 変数名からローカルインデックスへのマッピングを保持することで、
+/// 実行時に Vec<i64> ベースの高速アクセスを可能にする。
 pub struct Scope {
     identifier_map: BTreeMap<String, Identifier>,
+    
+    /// 変数名からローカルインデックスへのマップ
+    /// Phase 2 で追加: 識別子解決時に使用
+    pub(crate) variable_indices: BTreeMap<String, usize>,
+    
     pub(crate) variables: Vec<Variable>,
+    
+    /// 変数の総数
+    /// Phase 2 で追加: インタプリタが Vec<i64> を初期化する際に使用
+    pub(crate) variable_count: usize,
+    
     functions: Vec<Function>,
 }
 
@@ -159,6 +211,48 @@ enum ScopeType {
     Block,
 }
 
+/// スコープ解決のためのコンテキスト
+///
+/// Phase 2 で導入。2パス解析のパス2で使用され、
+/// 変数名・関数名を IdentifierRef に解決する。
+struct ScopeResolver<'a> {
+    /// スコープスタック（末尾が現在のスコープ）
+    /// 各スコープは変数名からローカルインデックスへのマップ
+    scope_stack: Vec<&'a BTreeMap<String, usize>>,
+}
+
+impl<'a> ScopeResolver<'a> {
+    fn new() -> Self {
+        Self {
+            scope_stack: Vec::new(),
+        }
+    }
+
+    fn enter_scope(&mut self, var_indices: &'a BTreeMap<String, usize>) {
+        self.scope_stack.push(var_indices);
+    }
+
+    fn leave_scope(&mut self) {
+        self.scope_stack.pop();
+    }
+
+    /// 変数名を解決し、IdentifierRef を返す
+    ///
+    /// スコープスタックを逆順に探索し、最も近いスコープの変数を見つける。
+    /// 見つからない場合は None を返す。
+    fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
+        for (depth, scope) in self.scope_stack.iter().rev().enumerate() {
+            if let Some(&local_index) = scope.get(name) {
+                return Some(IdentifierRef {
+                    scope_depth: depth,
+                    local_index,
+                });
+            }
+        }
+        None
+    }
+}
+
 struct ScopeBuilder {
     identifier_map: BTreeMap<String, Identifier>,
     variables: Vec<Variable>,
@@ -175,9 +269,19 @@ impl ScopeBuilder {
     }
 
     fn build(self) -> Scope {
+        // 変数名からインデックスへのマッピングを構築
+        let mut variable_indices = BTreeMap::new();
+        for (idx, var) in self.variables.iter().enumerate() {
+            variable_indices.insert(var.identifier.clone(), idx);
+        }
+        
+        let variable_count = self.variables.len();
+        
         Scope {
             identifier_map: self.identifier_map,
+            variable_indices,
             variables: self.variables,
+            variable_count,
             functions: self.functions,
         }
     }
@@ -214,47 +318,101 @@ fn analyze_internal(
     statements: &Vec<LocatedStatement>,
     scope_type: ScopeType,
 ) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
+    analyze_internal_with_parent(statements, scope_type, Vec::new(), None)
+}
+
+/// 初期変数と親のresolverを指定して解析する
+fn analyze_internal_with_parent(
+    statements: &Vec<LocatedStatement>,
+    scope_type: ScopeType,
+    initial_vars: Vec<String>,
+    parent_resolver: Option<&ScopeResolver>,
+) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
     let mut scope = ScopeBuilder::new();
-    let mut exec_statements = Vec::<ExecStatement>::new();
+    
+    // 初期変数を登録（関数の引数など）
+    for var_name in initial_vars {
+        scope.add_variable(
+            &var_name,
+            Variable {
+                identifier: var_name.clone(),
+            },
+        )?;
+    }
+    
+    // Phase 2: 2パス解析（変数のみ）
+    // パス1: 変数宣言収集（ホイスティング対応）
     for located_stat in statements {
         let stat = &located_stat.statement;
-        let loc = &located_stat.location;
         match stat {
-            Statement::VariableDeclaration(name, init) => {
+            Statement::VariableDeclaration(name, _) => {
                 if let ScopeType::Root = scope_type {
                     // TODO(unimplemented): グローバル変数は未実装
                     return Err(vec![code_parse_error!(
-                        loc.start,
+                        located_stat.location.start,
                         "semantic error: global variable is not implemented".to_string()
                     )]);
                 }
-                // ブロックスコープでも関数スコープでも変数宣言を許可
+                // 変数宣言を収集（初期化式はパス2で処理）
                 scope.add_variable(
                     name,
                     Variable {
                         identifier: name.clone(),
                     },
                 )?;
-                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(init)?));
             }
-            Statement::FunctionDeclaration(name, args, block) => {
+            Statement::FunctionDeclaration(_name, _, _) => {
                 if !matches!(scope_type, ScopeType::Root) {
                     return Err(vec![code_parse_error!(
-                        loc.start,
+                        located_stat.location.start,
                         "semantic error: nested function declaration is not supported".to_string()
                     )]);
                 }
-                let (mut s, es) = analyze_internal(block, ScopeType::Function)?;
-                // add variable definition to scope
-                for a in args {
-                    s.add_variable(
-                        a,
-                        Variable {
-                            identifier: a.clone(),
-                        },
-                    )?;
-                }
-                // store variable identifier to function
+                // 関数宣言はパス2で処理（ルートスコープのみで、ホイスティング不要）
+            }
+            _ => {}
+        }
+    }
+    
+    // スコープを構築して変数インデックスマップを取得
+    let built_scope = scope.build();
+    
+    // 親のresolverを継承して新しいresolverを作成
+    let mut resolver = if let Some(parent) = parent_resolver {
+        let mut new_resolver = ScopeResolver {
+            scope_stack: parent.scope_stack.clone(),
+        };
+        new_resolver.enter_scope(&built_scope.variable_indices);
+        new_resolver
+    } else {
+        let mut new_resolver = ScopeResolver::new();
+        new_resolver.enter_scope(&built_scope.variable_indices);
+        new_resolver
+    };
+    
+    // ScopeBuilder を再構築（built_scope から復元）
+    let mut scope = ScopeBuilder {
+        identifier_map: built_scope.identifier_map,
+        variables: built_scope.variables,
+        functions: built_scope.functions,
+    };
+    
+    // パス2: 文の変換（識別子解決を伴う）
+    let mut exec_statements = Vec::<ExecStatement>::new();
+    for located_stat in statements {
+        let stat = &located_stat.statement;
+        let loc = &located_stat.location;
+        match stat {
+            Statement::VariableDeclaration(_, init) => {
+                // 初期化式を変換（変数宣言自体はパス1で完了）
+                exec_statements.push(ExecStatement::Expression(
+                    convert_to_exec_expression_with_resolver(init, &resolver)?,
+                ));
+            }
+            Statement::FunctionDeclaration(name, args, block) => {
+                // 関数本体を解析（引数を初期変数として渡す、親resolverは不要）
+                let (s, es) = analyze_internal_with_parent(block, ScopeType::Function, args.clone(), None)?;
+                // 関数を登録
                 let func = Function {
                     args: args.clone(),
                     block: Block {
@@ -271,7 +429,9 @@ fn analyze_internal(
                         "semantic error: return statement outside of function".to_string()
                     )]);
                 }
-                exec_statements.push(ExecStatement::Return(convert_to_exec_expression(e)?));
+                exec_statements.push(ExecStatement::Return(
+                    convert_to_exec_expression_with_resolver(e, &resolver)?,
+                ));
             }
             Statement::Expression(e) => {
                 if let ScopeType::Root = scope_type {
@@ -280,7 +440,9 @@ fn analyze_internal(
                         "semantic error: expression statement at root level".to_string()
                     )]);
                 }
-                exec_statements.push(ExecStatement::Expression(convert_to_exec_expression(e)?));
+                exec_statements.push(ExecStatement::Expression(
+                    convert_to_exec_expression_with_resolver(e, &resolver)?,
+                ));
             }
             Statement::Continue => {
                 if let ScopeType::Root = scope_type {
@@ -303,6 +465,8 @@ fn analyze_internal(
             Statement::Invalid(_) => (),
         }
     }
+    
+    resolver.leave_scope();
     Ok((scope, exec_statements))
 }
 

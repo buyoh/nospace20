@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 
 use crate::{
-    semantic_analyzer::{Block, ExecExpression, ExecStatement, Function, Scope},
+    semantic_analyzer::{Block, ExecExpression, ExecStatement, Function, IdentifierRef, Scope},
     tree_parser::{Operator1, Operator2},
 };
 
@@ -212,12 +212,16 @@ impl Environment {
     }
 }
 
-// 1つのfunction scopeの`実行時インスタンス`を管理する
+/// 1つのfunction scopeの`実行時インスタンス`を管理する
+///
+/// Phase 2 で scope_stack を BTreeMap<String, i64> から Vec<i64> に変更。
+/// 変数アクセスを O(1) にするため、IdentifierRef を使用してインデックスベースでアクセスする。
 struct LocalEnvironment<'a, 'aenv> {
     env: &'aenv mut Environment,
     root_scope: &'a Scope,
-    // スコープスタック: 末尾が現在のスコープ
-    scope_stack: Vec<BTreeMap<String, i64>>,
+    /// スコープスタック: 末尾が現在のスコープ
+    /// Phase 2: BTreeMap から Vec<i64> に変更
+    scope_stack: Vec<Vec<i64>>,
 }
 
 fn bool_to_int(x: bool) -> i64 {
@@ -235,15 +239,21 @@ impl LocalEnvironment<'_, '_> {
         func: &'a Function,
         args: &Vec<i64>,
     ) -> LocalEnvironment<'a, 'aenv> {
-        let mut variables = BTreeMap::<String, i64>::new();
-        for id_eval in func.args.iter().zip(args) {
-            variables.insert(id_eval.0.clone(), *id_eval.1);
-        }
-        for v in func.block.scope.variables.iter() {
-            if !variables.contains_key(&v.identifier) {
-                variables.insert(v.identifier.clone(), 0);
+        // Phase 2: Vec<i64> ベースの変数管理
+        // 変数の数だけ領域を確保し、引数で初期化
+        let mut variables = vec![0; func.block.scope.variable_count];
+        
+        // 引数を対応する変数にセット
+        for (i, arg_val) in args.iter().enumerate() {
+            if i < func.args.len() {
+                // 引数名から変数インデックスを取得
+                let arg_name = &func.args[i];
+                if let Some(&idx) = func.block.scope.variable_indices.get(arg_name) {
+                    variables[idx] = *arg_val;
+                }
             }
         }
+        
         LocalEnvironment {
             env,
             root_scope,
@@ -253,11 +263,8 @@ impl LocalEnvironment<'_, '_> {
 
     /// ブロックに入る
     fn enter_block(&mut self, scope: &Scope) {
-        let mut block_vars = BTreeMap::new();
-        for v in scope.variables.iter() {
-            block_vars.insert(v.identifier.clone(), 0);
-        }
-        self.scope_stack.push(block_vars);
+        // Phase 2: 変数の数だけ Vec を初期化
+        self.scope_stack.push(vec![0; scope.variable_count]);
     }
 
     /// ブロックから出る
@@ -265,14 +272,16 @@ impl LocalEnvironment<'_, '_> {
         self.scope_stack.pop();
     }
 
-    /// 変数を取得（スコープスタックを上から探索）
-    fn get_variable_mut(&mut self, name: &str) -> Option<&mut i64> {
-        for scope in self.scope_stack.iter_mut().rev() {
-            if let Some(val) = scope.get_mut(name) {
-                return Some(val);
-            }
-        }
-        None
+    /// 識別子参照から値を取得（Phase 2）
+    fn get_variable(&self, id: &IdentifierRef) -> i64 {
+        let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
+        self.scope_stack[scope_idx][id.local_index]
+    }
+
+    /// 識別子参照に値を設定（Phase 2）
+    fn set_variable(&mut self, id: &IdentifierRef, value: i64) {
+        let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
+        self.scope_stack[scope_idx][id.local_index] = value;
     }
 
     fn interpret_call_function(
@@ -434,14 +443,11 @@ impl LocalEnvironment<'_, '_> {
     ) -> ExpressionFlow {
         // 代入演算子: 特別処理
         if let Operator2::Assign = op {
-            if let ExecExpression::Variable(name) = expr1.as_ref() {
+            if let ExecExpression::Variable(id_ref) = expr1.as_ref() {
                 let v = try_expr!(self.interpret_expression(expr2));
-                if let Some(var_ref) = self.get_variable_mut(name) {
-                    *var_ref = v;
-                    return ExpressionFlow::Value(v);
-                } else {
-                    panic!("syntax error: unknown variable name `{}`", name)
-                }
+                // Phase 2: IdentifierRef を使用して O(1) でアクセス
+                self.set_variable(id_ref, v);
+                return ExpressionFlow::Value(v);
             } else {
                 panic!("runtime error: left value is not variable");
             }
@@ -495,12 +501,9 @@ impl LocalEnvironment<'_, '_> {
             }
             ExecExpression::Function(id, args) => self.interpret_call_function(id, args),
             ExecExpression::Factor(v) => ExpressionFlow::Value(*v),
-            ExecExpression::Variable(name) => {
-                if let Some(val) = self.get_variable_mut(name) {
-                    ExpressionFlow::Value(*val)
-                } else {
-                    panic!("syntax error: unknown variable name")
-                }
+            ExecExpression::Variable(id_ref) => {
+                // Phase 2: IdentifierRef を使用して O(1) でアクセス
+                ExpressionFlow::Value(self.get_variable(id_ref))
             }
             ExecExpression::If(cond, then_block, else_block) => {
                 self.interpret_if(cond, then_block, else_block)
