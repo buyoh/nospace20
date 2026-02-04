@@ -1,4 +1,4 @@
-# 関数スコープ #
+# Function scope #
 func: func1() {
   __trace(1);
   let:a;

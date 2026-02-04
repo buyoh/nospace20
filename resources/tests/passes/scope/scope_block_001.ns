@@ -1,4 +1,4 @@
-# ブロックスコープ #
+# Block scope #
 func: main() {
   __trace(0);
   let:x;

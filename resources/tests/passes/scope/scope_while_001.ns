@@ -1,0 +1,14 @@
+# Scope in while block #
+func: main() {
+  let:i;
+  let:sum;
+  i = 3;
+  sum = 0;
+  while:i{
+    let:temp;
+    temp = i;
+    sum = sum + temp;
+    i = i - 1;
+  };
+  __assert(sum == 6);  # 3 + 2 + 1 = 6 #
+}

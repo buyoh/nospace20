@@ -225,12 +225,47 @@ tests:
   - name: test_scope_scope_block_001
     type: success
     path: scope/scope_block_001
-    comment: "Block scope"
+    comment: "Block scope with shadowing"
 
   - name: test_scope_scope_func_001
     type: success
     path: scope/scope_func_001
-    comment: "Function scope"
+    comment: "Function scope independence"
+
+  - name: test_scope_scope_parent_write_001
+    type: success
+    path: scope/scope_parent_write_001
+    comment: "Parent scope variable write (no shadowing)"
+
+  - name: test_scope_scope_nested_blocks_001
+    type: success
+    path: scope/scope_nested_blocks_001
+    comment: "Multi-level nested blocks"
+
+  - name: test_scope_scope_while_001
+    type: success
+    path: scope/scope_while_001
+    comment: "Scope in while block"
+
+  - name: test_scope_scope_hoisting_001
+    type: success
+    path: scope/scope_hoisting_001
+    comment: "Variable hoisting"
+
+  - name: test_scope_scope_if_else_001
+    type: success
+    path: scope/scope_if_else_001
+    comment: "Scope in if/else blocks"
+
+  - name: test_scope_scope_shadow_multi_001
+    type: success
+    path: scope/scope_shadow_multi_001
+    comment: "Multiple levels of shadowing"
+
+  - name: test_scope_disabled_scope_block_var_001
+    type: success
+    path: scope/disabled_scope_block_var_001
+    comment: "Block-scoped variable definition"
 
   # - name: test_scope_scope_nested_func_001
   #   type: success
@@ -361,11 +396,6 @@ tests:
 # - name: test_variables_disabled_var_init_001
 #   type: success
 #   path: variables/disabled_var_init_001
-
-# DISABLED: requires block-scoped variables
-# - name: test_scope_disabled_scope_block_var_001
-#   type: success
-#   path: scope/disabled_scope_block_var_001
 
 # DISABLED legacy tests (require unimplemented features)
 # - name: test_legacy_006

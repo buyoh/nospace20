@@ -1,0 +1,11 @@
+# Parent scope variable write (no shadowing) #
+func: main() {
+  let:x;
+  x = 1;
+  __assert(x == 1);
+  if:1{
+    x = 2;  # Modify parent's x (no shadowing) #
+    __assert(x == 2);
+  };
+  __assert(x == 2);  # Parent's x has been modified #
+}

@@ -1,0 +1,15 @@
+# Scope in if/else blocks #
+func: main() {
+  let:cond;
+  cond = 0;
+  if:cond{
+    let:x;
+    x = 1;
+    __assert(x == 1);
+  } else: {
+    let:x;  # Different x in else block #
+    x = 2;
+    __assert(x == 2);
+  };
+  # Neither x is accessible #
+}

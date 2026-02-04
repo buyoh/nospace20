@@ -1,0 +1,9 @@
+# Variable hoisting #
+func: main() {
+  x = 5;  # Use before declaration #
+  __assert(x == 5);
+  let:x;
+  __assert(x == 5);
+  x = 10;
+  __assert(x == 10);
+}

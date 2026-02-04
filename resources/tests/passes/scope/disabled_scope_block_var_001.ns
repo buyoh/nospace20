@@ -1,14 +1,14 @@
-# [未実装] ブロックスコープ内での変数定義 #
+# Block-scoped variable definition #
 func: main() {
   __trace(0);
   let:x;
   x = 1;
   if: 1 {
-    # ブロック内で新しい変数を定義 #
+    # Define a new variable in block #
     let:y;
     y = 2;
     x = x + y;
   };
   __assert(x == 3);
-  # __assert(y == 2);  # エラー: y はスコープ外 #
+  # y is out of scope #
 }

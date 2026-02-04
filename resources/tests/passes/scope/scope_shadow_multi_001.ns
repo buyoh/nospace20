@@ -1,0 +1,17 @@
+# Multiple levels of shadowing #
+func: main() {
+  let:x;
+  x = 1;
+  if:1{
+    let:x;
+    x = 2;
+    __assert(x == 2);
+    if:1{
+      let:x;
+      x = 3;
+      __assert(x == 3);
+    };
+    __assert(x == 2);
+  };
+  __assert(x == 1);
+}
