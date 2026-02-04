@@ -1,0 +1,24 @@
+# カウンターファクトリーパターン #
+func: counter_factory() {
+  let: static count;
+  count = 0;
+  
+  func: increment() {
+    count = count + 1;
+    return: count;
+  }
+  
+  func: get() {
+    return: count;
+  }
+  
+  __assert(get() == 0);
+  increment();
+  __assert(get() == 1);
+  increment();
+  __assert(get() == 2);
+}
+
+func: main() {
+  counter_factory();
+}

@@ -440,13 +440,15 @@ fn analyze_internal_with_parent(
     for located_stat in statements {
         let stat = &located_stat.statement;
         match stat {
-            Statement::VariableDeclaration(name, _) => {
-                // Phase 3: グローバル変数を許可（暗黙的に static）
+            Statement::VariableDeclaration(name, _, is_static_explicit) => {
+                // Phase 3: グローバル変数は暗黙的に static
+                // Phase 4: 明示的 static も考慮
+                let final_is_static = *is_static_explicit || is_static;
                 scope.add_variable(
                     name,
                     Variable {
                         identifier: name.clone(),
-                        is_static,
+                        is_static: final_is_static,
                     },
                 )?;
             }
@@ -509,7 +511,7 @@ fn analyze_internal_with_parent(
         let stat = &located_stat.statement;
         let loc = &located_stat.location;
         match stat {
-            Statement::VariableDeclaration(_, init) => {
+            Statement::VariableDeclaration(_, init, _) => {
                 // 初期化式を変換（変数宣言自体はパス1で完了）
                 exec_statements.push(ExecStatement::Expression(
                     convert_to_exec_expression_with_resolver(init, &resolver)?,
@@ -712,6 +714,7 @@ mod test {
             statement: Statement::VariableDeclaration(
                 "x".to_string(),
                 Box::new(Expression::Factor(0)),
+                false, // non-static
             ),
             location: SourceLocation::new(150, 160),
         };
@@ -744,6 +747,7 @@ mod test {
             statement: Statement::VariableDeclaration(
                 "global".to_string(),
                 Box::new(Expression::Factor(42)),
+                false, // non-static explicitly, but global is implicitly static
             ),
             location: SourceLocation::new(200, 210),
         };

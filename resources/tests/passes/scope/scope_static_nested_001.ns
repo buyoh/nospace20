@@ -1,0 +1,17 @@
+# ネスト関数からの static 変数への書き込み #
+func: test() {
+  let: static counter;
+  counter = 0;
+  
+  func: inc() {
+    counter = counter + 1;
+  }
+  
+  inc();
+  inc();
+  __assert(counter == 2);
+}
+
+func: main() {
+  test();
+}

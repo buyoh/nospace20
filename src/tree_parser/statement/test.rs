@@ -92,8 +92,9 @@ fn test_parse_let_statement() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, expr) => {
+        Statement::VariableDeclaration(name, expr, is_static) => {
             assert_eq!(name, "x");
+            assert_eq!(*is_static, false); // non-static
             match **expr {
                 Expression::Factor(0) => (), // デフォルト値は0
                 _ => panic!("Expected Factor(0)"),
@@ -304,13 +305,13 @@ fn test_parse_multiple_statements() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 2);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _) => {
+        Statement::VariableDeclaration(name, _, _) => {
             assert_eq!(name, "x");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
     match &stmts[1].statement {
-        Statement::VariableDeclaration(name, _) => {
+        Statement::VariableDeclaration(name, _, _) => {
             assert_eq!(name, "y");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),

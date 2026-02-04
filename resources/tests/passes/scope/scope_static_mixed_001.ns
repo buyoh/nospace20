@@ -1,0 +1,21 @@
+# static と非 static の混在 #
+func: test() {
+  let: local;
+  let: static shared;
+  local = 10;
+  shared = 20;
+  
+  func: inner() {
+    # local にはアクセス不可（非 static） #
+    __assert(shared == 20);  # static なのでアクセス可能 #
+    shared = 30;
+  }
+  
+  inner();
+  __assert(shared == 30);
+  __assert(local == 10);  # 変更されていない #
+}
+
+func: main() {
+  test();
+}

@@ -17,6 +17,7 @@ pub enum Keyword {
     Return,
     Break,
     Continue,
+    Static,
 }
 
 #[derive(Debug)]
@@ -148,6 +149,7 @@ fn determine_keyword_or_identifier(id: String) -> Token {
         "return" => Token::Keyword(Keyword::Return),
         "break" => Token::Keyword(Keyword::Break),
         "continue" => Token::Keyword(Keyword::Continue),
+        "static" => Token::Keyword(Keyword::Static),
         _ => Token::Identifier(id),
     }
 }

@@ -1,0 +1,13 @@
+# エラーケース: 非 static 変数への関数境界越えアクセス #
+func: test() {
+  let: local;  # 非 static #
+  local = 10;
+  
+  func: inner() {
+    local = 20;  # エラー: 非 static 変数への関数境界越えアクセス #
+  }
+}
+
+func: main() {
+  test();
+}

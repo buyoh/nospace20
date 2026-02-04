@@ -1,0 +1,11 @@
+# 基本的な static 変数（グローバル変数） #
+let: static x;
+
+func: test() {
+  x = 42;
+  __assert(x == 42);
+}
+
+func: main() {
+  test();
+}

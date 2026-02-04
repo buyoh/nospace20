@@ -12,7 +12,7 @@ use super::expression::*;
 
 #[derive(Clone)] // TODO: REMOVE
 pub enum Statement {
-    VariableDeclaration(String, Box<Expression>),
+    VariableDeclaration(String, Box<Expression>, bool), // (name, init_expr, is_static)
     FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),
     Continue,
     Break,
@@ -67,11 +67,20 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         return ss;
     }
 
-    fn parse_to_statements_let(&mut self, start_pos: usize) -> LocatedStatement {
+    fn parse_to_statements_let(&mut self, start_pos: usize, is_static: bool) -> LocatedStatement {
         if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Let)) {
             panic!("internal error");
         }
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+        
+        // Phase 4: static修飾子のチェック (let: static x; 構文)
+        let is_static = if let Some((Token::Keyword(Keyword::Static), _)) = self.iter.peek() {
+            self.iter.next(); // consume 'static'
+            true
+        } else {
+            is_static // 外部から渡されたフラグを使用（将来の拡張用）
+        };
+        
         let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
             Ok(x) => x,
             Err(e) => {
@@ -88,7 +97,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             .unwrap_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         return LocatedStatement {
-            statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0))),
+            statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0)), is_static),
             location: SourceLocation::new(start_pos, end_pos),
         };
     }
@@ -192,20 +201,20 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let mut statements = Vec::<LocatedStatement>::new();
         while let Some(token) = self.iter.peek() {
             let start_pos = token.1.code_pointer;
-            match token {
-                (Token::Keyword(Keyword::Let), _) => {
-                    statements.push(self.parse_to_statements_let(start_pos));
+            match &token.0 {
+                Token::Keyword(Keyword::Let) => {
+                    statements.push(self.parse_to_statements_let(start_pos, false));
                     continue;
                 }
-                (Token::Keyword(Keyword::Func), _) => {
+                Token::Keyword(Keyword::Func) => {
                     statements.push(self.parse_to_statements_func(start_pos));
                     continue;
                 }
-                (Token::Keyword(Keyword::Return), _) => {
+                Token::Keyword(Keyword::Return) => {
                     statements.push(self.parse_to_statements_return(start_pos));
                     continue;
                 }
-                (Token::Keyword(Keyword::Break), _) => {
+                Token::Keyword(Keyword::Break) => {
                     self.iter.next();
                     let end_pos = self
                         .iter
@@ -219,7 +228,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
                     continue;
                 }
-                (Token::Keyword(Keyword::Continue), _) => {
+                Token::Keyword(Keyword::Continue) => {
                     self.iter.next();
                     let end_pos = self
                         .iter
@@ -233,7 +242,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
                     continue;
                 }
-                (Token::BraceR, _) => {
+                Token::BraceR => {
                     // TODO: consider only BraceR
                     break;
                 }
