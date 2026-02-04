@@ -162,6 +162,10 @@ fn convert_to_exec_expression(
 
 pub(crate) struct Function {
     pub args: Vec<String>, // TODO: change string to identifier_ptr
+    /// 事前計算された引数のインデックス（Phase 2 最適化）
+    /// 関数呼び出し時の引数初期化を O(args) にするため、
+    /// 各引数の block.scope 内でのインデックスを保持
+    pub arg_indices: Vec<usize>,
     pub block: Block,
     // pub identifier: String,
 }
@@ -412,11 +416,23 @@ fn analyze_internal_with_parent(
             Statement::FunctionDeclaration(name, args, block) => {
                 // 関数本体を解析（引数を初期変数として渡す、親resolverは不要）
                 let (s, es) = analyze_internal_with_parent(block, ScopeType::Function, args.clone(), None)?;
+                let built_scope = s.build();
+                
+                // 引数のインデックスを事前計算（Phase 2 最適化）
+                let arg_indices: Vec<usize> = args
+                    .iter()
+                    .map(|arg_name| {
+                        *built_scope.variable_indices.get(arg_name)
+                            .expect("argument must be registered as variable")
+                    })
+                    .collect();
+                
                 // 関数を登録
                 let func = Function {
                     args: args.clone(),
+                    arg_indices,
                     block: Block {
-                        scope: s.build(),
+                        scope: built_scope,
                         statements: es,
                     },
                 };

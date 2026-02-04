@@ -243,14 +243,11 @@ impl LocalEnvironment<'_, '_> {
         // 変数の数だけ領域を確保し、引数で初期化
         let mut variables = vec![0; func.block.scope.variable_count];
         
-        // 引数を対応する変数にセット
+        // 引数を対応する変数にセット（Phase 2 最適化: 事前計算されたインデックスを使用）
         for (i, arg_val) in args.iter().enumerate() {
-            if i < func.args.len() {
-                // 引数名から変数インデックスを取得
-                let arg_name = &func.args[i];
-                if let Some(&idx) = func.block.scope.variable_indices.get(arg_name) {
-                    variables[idx] = *arg_val;
-                }
+            if i < func.arg_indices.len() {
+                // 事前計算されたインデックスを使用して O(1) でアクセス
+                variables[func.arg_indices[i]] = *arg_val;
             }
         }
         
