@@ -59,6 +59,11 @@ tests:
     path: literals/comment_001
     comment: "Comment handling"
 
+  - name: test_literals_comment_japanese_001
+    type: success
+    path: literals/comment_japanese_001
+    comment: "Japanese characters in comments"
+
   - name: test_literals_char_001
     type: success
     path: literals/char_001
