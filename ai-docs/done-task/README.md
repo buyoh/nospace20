@@ -15,6 +15,8 @@
 | [cli-improvements.md](cli-improvements.md) | CLI改善（ファイル引数、デバッグフラグ、ヘルプ・バージョン表示） | 2026-02-01 |
 | [scope-phase1-implementation.md](scope-phase1-implementation.md) | スコープ機能Phase1実装報告（ブロックスコープ、シャドウイング） | 2026-02-03 |
 | [scope-phase1-block-scope.md](scope-phase1-block-scope.md) | スコープ機能Phase1設計ドキュメント（ブロックスコープ変数の最小実装） | 2026-02-03 |
+| [phase2-identifier-resolution.md](phase2-identifier-resolution.md) | スコープ機能Phase2設計ドキュメント（識別子の事前解決） | 2026-02-05 |
+| [scope-phase2-identifier-resolution.md](scope-phase2-identifier-resolution.md) | スコープ機能Phase2実装報告（変数アクセスO(1)化、2パス解析） | 2026-02-05 |
 
 ## 注意
 
