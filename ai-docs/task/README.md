@@ -4,12 +4,10 @@
 
 ## ドキュメント
 
-- [unimplemented-features.md](unimplemented-features.md) - 未実装の機能・構文の一覧
-- [code-structure-refactoring.md](code-structure-refactoring.md) - ソースコード構成のリファクタリング計画
+- [unimplemented-features.md](unimplemented-features.md) - 未実装の機能・構文の一覧（継続追跡）
 - [semantic-analyzer-error-handling.md](semantic-analyzer-error-handling.md) - semantic_analyzer エラーハンドリング改善設計
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
-- [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
 - [legacy-migration-phase3.md](legacy-migration-phase3.md) - 旧テストの移行 Phase 3 (else:if構文とI/Oテスト)
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [scope/](scope/) - スコープ機能の実装計画
@@ -18,9 +16,6 @@
 
 ### アクティブ
 
-- [test-error-handling.md](test-error-handling.md) - テストのエラーハンドリング強化
-  - ✅ Phase 1-2完了
-  - ⚠️ ブロックスコープ変数の実装を解決する必要あり
 - [legacy-migration-phase3.md](legacy-migration-phase3.md) - 旧テストの移行 Phase 3
   - else:if構文のパーサー対応
   - legacy_009, 010の有効化
@@ -28,6 +23,9 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [yaml-test-generation.md](../done-task/yaml-test-generation.md) - YAMLベースのテスト自動生成 (2026-02-04完了)
+- [cli-compile-options.md](../done-task/cli-compile-options.md) - CLIコンパイルオプション設計・実装 (2026-02-04完了)
+- [code-structure-refactoring.md](../done-task/code-structure-refactoring.md) - ソースコード構成のリファクタリング (2026-02-04完了)
 - [test-categorization.md](../done-task/test-categorization.md) - テストケースのカテゴリ分け
 - [implement-new-features.md](../done-task/implement-new-features.md) - 新機能実装 (文字リテラル、論理演算子、剰余演算子)
 - [unit-test-analysis.md](../done-task/unit-test-analysis.md) - ユニットテスト分析レポート
