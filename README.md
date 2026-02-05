@@ -14,7 +14,7 @@ cargo run --release --bin nospace20
 ```
 
 ```
-A nospace language interpreter
+A nospace language interpreter and compiler
 
 Usage: nospace20 [OPTIONS] [FILE]
 
@@ -22,10 +22,32 @@ Arguments:
   [FILE]  Source file to execute (reads from stdin if not provided)
 
 Options:
-  -d, --debug    Show trace results after execution
-  -h, --help     Print help
-  -V, --version  Print version
+      --std <STD>        Language subset [default: standard] [possible values: standard, min, ws]
+      --mode <MODE>      Execution mode [default: run] [possible values: run, compile]
+      --target <TARGET>  Compile target (only with --mode=compile) [default: ws] [possible values: ws, mnemonic, ex-ws, json]
+  -o, --output <OUTPUT>  Output file (only with --mode=compile, stdout if not specified)
+  -d, --debug            Show trace results after execution
+  -h, --help             Print help
+  -V, --version          Print version
 ```
+
+- `--std`
+  - 言語のサブセットを指定するために使う。
+    - `standard` : 全ての機能が有効。デフォルト。
+    - `min` : （未対応）最小限の機能セット。
+    - `ws` : whitespace へのコンパイル時に選択。
+  - 用途は以下の通り
+    - `standard` : 全ての機能が有効。デフォルト。
+    - `min` : セルフホスティングコンパイラを構築する際に使用。
+    - `ws` : 例えば bit 演算等は whitespace では実装できないため。
+- `--mode`
+  - `run`  : インタプリタモード。直接実行する。デフォルト。
+  - `compile` : コンパイルモード。
+- `--target`
+  - `ws` : whitespace へコンパイル。`std` が `ws` の場合のみ。
+  - `mnemonic`: ニーモニック表記へコンパイル。`std` が `ws` の場合のみ。
+  - `ex-ws` : （未対応）拡張 whitespace へコンパイル。
+  - `json` : （未対応）意味解析後の中間表現へコンパイル。
 
 ## docs
 
