@@ -1,6 +1,9 @@
 //! Whitespace コンパイラの統合テスト
 
+mod common;
+
 use nospace20::{parse_to_tokens, parse_to_tree, syntactic_analyze, compile_to_whitespace, compile_to_whitespace_debug};
+use common::{wsc_available, run_whitespace};
 
 #[test]
 fn test_compile_empty_main() {
@@ -143,4 +146,138 @@ fn test_compile_no_main() {
     // main 関数がないのでエラーになるはず
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("main"));
+}
+
+// ========== wsc 統合テスト ==========
+// これらのテストは wsc (whitespacers) がインストールされている場合のみ実行されます。
+// インストール方法: ./tools/setup-wsc.sh
+
+/// wsc がない場合はスキップするマクロ
+macro_rules! require_wsc {
+    () => {
+        if !wsc_available() {
+            eprintln!("Skipping test: wsc not available");
+            eprintln!("Run: ./tools/setup-wsc.sh");
+            return;
+        }
+    };
+}
+
+#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn test_compile_and_run_puti() {
+    require_wsc!();
+
+    let source = r#"
+        func: main() {
+            __puti(42);
+            return: 0;
+        }
+    "#
+    .to_string();
+
+    let tokens = parse_to_tokens(&source).unwrap();
+    let ast = parse_to_tree(&tokens).unwrap();
+    let scope = syntactic_analyze(&ast).unwrap();
+
+    let ws_code = compile_to_whitespace(&scope).unwrap();
+    let output = run_whitespace(&ws_code, "").unwrap();
+
+    assert_eq!(output.trim(), "42");
+}
+
+#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn test_compile_and_run_putc() {
+    require_wsc!();
+
+    let source = r#"
+        func: main() {
+            __putc(65);
+            return: 0;
+        }
+    "#
+    .to_string();
+
+    let tokens = parse_to_tokens(&source).unwrap();
+    let ast = parse_to_tree(&tokens).unwrap();
+    let scope = syntactic_analyze(&ast).unwrap();
+
+    let ws_code = compile_to_whitespace(&scope).unwrap();
+    let output = run_whitespace(&ws_code, "").unwrap();
+
+    assert_eq!(output.trim(), "A");
+}
+
+#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn test_compile_and_run_arithmetic() {
+    require_wsc!();
+
+    let source = r#"
+        func: main() {
+            __puti(1 + 2 * 3);
+            return: 0;
+        }
+    "#
+    .to_string();
+
+    let tokens = parse_to_tokens(&source).unwrap();
+    let ast = parse_to_tree(&tokens).unwrap();
+    let scope = syntactic_analyze(&ast).unwrap();
+
+    let ws_code = compile_to_whitespace(&scope).unwrap();
+    let output = run_whitespace(&ws_code, "").unwrap();
+
+    assert_eq!(output.trim(), "7");
+}
+
+#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn test_compile_and_run_variable() {
+    require_wsc!();
+
+    let source = r#"
+        func: main() {
+            let: x;
+            x = 123;
+            __puti(x);
+            return: 0;
+        }
+    "#
+    .to_string();
+
+    let tokens = parse_to_tokens(&source).unwrap();
+    let ast = parse_to_tree(&tokens).unwrap();
+    let scope = syntactic_analyze(&ast).unwrap();
+
+    let ws_code = compile_to_whitespace(&scope).unwrap();
+    let output = run_whitespace(&ws_code, "").unwrap();
+
+    assert_eq!(output.trim(), "123");
+}
+
+#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn test_compile_and_run_geti() {
+    require_wsc!();
+
+    let source = r#"
+        func: main() {
+            let: x;
+            x = __geti();
+            __puti(x * 2);
+            return: 0;
+        }
+    "#
+    .to_string();
+
+    let tokens = parse_to_tokens(&source).unwrap();
+    let ast = parse_to_tree(&tokens).unwrap();
+    let scope = syntactic_analyze(&ast).unwrap();
+
+    let ws_code = compile_to_whitespace(&scope).unwrap();
+    let output = run_whitespace(&ws_code, "10\n").unwrap();
+
+    assert_eq!(output.trim(), "20");
 }
