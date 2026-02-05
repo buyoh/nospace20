@@ -53,6 +53,12 @@
 | [io.md](io.md) | 入出力関数 (`__puti`, `__putc`, `__geti`, `__getc`, `__getiv`, `__getcv`) |
 | [builtin-routines.md](builtin-routines.md) | 比較・論理演算用の組み込みサブルーチン |
 
+### テスト
+
+| ファイル | 内容 |
+|----------|------|
+| [test-strategy.md](test-strategy.md) | コンパイラテスト戦略（wsc 連携） |
+
 ## 変換の概要
 
 ### 処理フロー

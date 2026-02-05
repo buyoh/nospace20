@@ -12,6 +12,7 @@ use token_parser::PrettyToken;
 use tree_parser::LocatedStatement;
 
 mod base;
+mod compiler_ws;
 mod interpreter;
 mod logger;
 mod semantic_analyzer;
@@ -111,4 +112,18 @@ pub fn interpret_func_with_io(
     let stdout_string = String::from_utf8(stdout_vec).unwrap();
 
     (env.traced, stdout_string)
+}
+
+/// Whitespace にコンパイル
+pub fn compile_to_whitespace(scope: &Scope) -> Result<String, String> {
+    compiler_ws::compile(scope)
+        .map(|prog| prog.to_whitespace())
+        .map_err(|e| e.to_string())
+}
+
+/// Whitespace にコンパイル（デバッグ用ニーモニック）
+pub fn compile_to_whitespace_debug(scope: &Scope) -> Result<String, String> {
+    compiler_ws::compile(scope)
+        .map(|prog| prog.to_debug_string())
+        .map_err(|e| e.to_string())
 }
