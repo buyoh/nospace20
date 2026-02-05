@@ -1,25 +1,96 @@
 use std::{io::Read, iter::repeat, process};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use nospace20::{
-    interpret_with_env,
-    parse_to_tokens,
-    parse_to_tree,
-    syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
-    CodeParseError,
-    Environment,
+    compile_to_whitespace, compile_to_whitespace_debug, interpret_with_env, parse_to_tokens,
+    parse_to_tree, syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
+    CodeParseError, CompileProperty, CompileTarget, Environment, ExecutionMode, LanguageStd,
     TextCode,
 };
 use unicode_width::UnicodeWidthStr;
 
-/// nospace - A nospace language interpreter
+/// 言語サブセット
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+enum CliStd {
+    #[default]
+    Standard,
+    Min,
+    Ws,
+}
+
+impl From<CliStd> for LanguageStd {
+    fn from(cli: CliStd) -> Self {
+        match cli {
+            CliStd::Standard => LanguageStd::Standard,
+            CliStd::Min => LanguageStd::Min,
+            CliStd::Ws => LanguageStd::Ws,
+        }
+    }
+}
+
+/// 実行モード
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+enum CliMode {
+    #[default]
+    Run,
+    Compile,
+}
+
+impl From<CliMode> for ExecutionMode {
+    fn from(cli: CliMode) -> Self {
+        match cli {
+            CliMode::Run => ExecutionMode::Run,
+            CliMode::Compile => ExecutionMode::Compile,
+        }
+    }
+}
+
+/// コンパイルターゲット
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+enum CliTarget {
+    #[default]
+    Ws,
+    Mnemonic,
+    #[value(name = "ex-ws")]
+    ExWs,
+    Json,
+}
+
+impl From<CliTarget> for CompileTarget {
+    fn from(cli: CliTarget) -> Self {
+        match cli {
+            CliTarget::Ws => CompileTarget::Ws,
+            CliTarget::Mnemonic => CompileTarget::Mnemonic,
+            CliTarget::ExWs => CompileTarget::ExWs,
+            CliTarget::Json => CompileTarget::Json,
+        }
+    }
+}
+
+/// nospace - A nospace language interpreter and compiler
 #[derive(Parser, Debug)]
 #[command(name = "nospace20")]
 #[command(version = "0.1.0")]
-#[command(about = "A nospace language interpreter", long_about = None)]
+#[command(about = "A nospace language interpreter and compiler", long_about = None)]
 struct Args {
     /// Source file to execute (reads from stdin if not provided)
     file: Option<String>,
+
+    /// Language subset
+    #[arg(long, value_enum, default_value_t = CliStd::Standard)]
+    std: CliStd,
+
+    /// Execution mode
+    #[arg(long, value_enum, default_value_t = CliMode::Run)]
+    mode: CliMode,
+
+    /// Compile target (only with --mode=compile)
+    #[arg(long, value_enum, default_value_t = CliTarget::Ws)]
+    target: CliTarget,
+
+    /// Output file (only with --mode=compile, stdout if not specified)
+    #[arg(short, long)]
+    output: Option<String>,
 
     /// Show trace results after execution
     #[arg(short, long)]
@@ -63,6 +134,21 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
 fn main() {
     let args = Args::parse();
 
+    // CompileProperty を構築
+    let property = CompileProperty {
+        std: args.std.into(),
+        mode: args.mode.into(),
+        target: args.target.into(),
+        output: args.output,
+        debug: args.debug,
+    };
+
+    // バリデーション
+    if let Err(err) = property.validate() {
+        eprintln!("error: {}", err);
+        process::exit(1);
+    }
+
     // ソースコードの読み込み
     let code_raw = if let Some(file_path) = args.file {
         // ファイルから読み込み
@@ -85,22 +171,57 @@ fn main() {
     let s = handle_parse_error(parse_to_tree(&t), &text);
     let a = handle_parse_error(syntactic_analyze(&s), &text);
 
-    // Environmentを作成して実行
-    // Phase 3: interpret_with_env を使用してグローバル変数を初期化
-    let mut env = Environment::new();
-    let result = interpret_with_env(&mut env, &a);
+    // モードに応じて処理
+    match property.mode {
+        ExecutionMode::Run => {
+            // インタプリタモード
+            let mut env = Environment::new();
+            let result = interpret_with_env(&mut env, &a);
 
-    if let Some(val) = result {
-        println!("main returns: {}", val);
-    } else {
-        println!("main exited");
-    }
+            if let Some(val) = result {
+                println!("main returns: {}", val);
+            } else {
+                println!("main exited");
+            }
 
-    // デバッグフラグが有効なら、trace結果を表示
-    if args.debug && !env.traced.is_empty() {
-        println!("\n=== Trace Results ===");
-        for (key, value) in &env.traced {
-            println!("trace[{}]: {}", key, value);
+            // デバッグフラグが有効なら、trace結果を表示
+            if property.debug && !env.traced.is_empty() {
+                println!("\n=== Trace Results ===");
+                for (key, value) in &env.traced {
+                    println!("trace[{}]: {}", key, value);
+                }
+            }
+        }
+        ExecutionMode::Compile => {
+            // コンパイルモード
+            let compiled = match property.target {
+                CompileTarget::Ws => compile_to_whitespace(&a),
+                CompileTarget::Mnemonic => compile_to_whitespace_debug(&a),
+                _ => unreachable!("Unsupported target should be caught by validation"),
+            };
+
+            let output = match compiled {
+                Ok(code) => code,
+                Err(err) => {
+                    eprintln!("compilation error: {}", err);
+                    process::exit(1);
+                }
+            };
+
+            // 出力
+            if let Some(output_file) = &property.output {
+                // ファイルに出力
+                if let Err(err) = std::fs::write(output_file, &output) {
+                    eprintln!("error: failed to write to '{}': {}", output_file, err);
+                    process::exit(1);
+                }
+                if property.debug {
+                    eprintln!("Compiled to: {}", output_file);
+                }
+            } else {
+                // 標準出力に出力
+                print!("{}", output);
+            }
         }
     }
 }

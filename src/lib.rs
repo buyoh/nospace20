@@ -12,12 +12,15 @@ use token_parser::PrettyToken;
 use tree_parser::LocatedStatement;
 
 mod base;
+mod compile_property;
 mod compiler_ws;
 mod interpreter;
 mod logger;
 mod semantic_analyzer;
 mod token_parser;
 mod tree_parser;
+
+pub use compile_property::{CompileProperty, CompileTarget, ExecutionMode, LanguageStd};
 
 pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
     match token_parser::parse_to_tokens(text) {
