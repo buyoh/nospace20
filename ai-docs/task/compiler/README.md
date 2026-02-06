@@ -52,6 +52,8 @@
 |----------|------|
 | [io.md](io.md) | 入出力関数 (`__puti`, `__putc`, `__geti`, `__getc`, `__getiv`, `__getcv`) |
 | [builtin-routines.md](builtin-routines.md) | 比較・論理演算用の組み込みサブルーチン |
+| [io-builtin-design.md](io-builtin-design.md) | I/O ビルトイン関数の実装設計 |
+| [builtin-functions-todo.md](builtin-functions-todo.md) | ビルトイン関数の実装 TODO |
 
 ### テスト
 
