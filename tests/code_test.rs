@@ -1,8 +1,10 @@
 use std::{fmt::Result, fs, io};
 
+mod common;
+
 use nospace20::{
-    interpret_func_testing, interpret_func_with_io, parse_to_tokens, parse_to_tree,
-    syntactic_analyze,
+    compile_to_whitespace, interpret_func_testing, interpret_func_with_io, parse_to_tokens,
+    parse_to_tree, syntactic_analyze,
 };
 use serde::{Deserialize, Serialize};
 
@@ -186,6 +188,76 @@ fn test_syntax_error_base(test_name: &str) -> Result {
         _ => panic!("Expected parse_error test config"),
     }
     Ok(())
+}
+
+fn test_whitespace_io_base(test_name: &str) {
+    use common::{run_whitespace, wsc_available};
+
+    // wsc が利用できない場合はスキップ
+    if !wsc_available() {
+        eprintln!("Skipping test: wsc not available");
+        eprintln!("Run: ./tools/setup-wsc.sh");
+        return;
+    }
+
+    let path_base = "resources/tests/passes/".to_owned() + test_name;
+    let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
+        .expect("Something went wrong reading the file");
+
+    let check_json_value: serde_json::Value = serde_json::from_reader(io::BufReader::new(
+        fs::File::open(path_base.to_owned() + ".check.json")
+            .ok()
+            .unwrap(),
+    ))
+    .ok()
+    .unwrap();
+
+    let check_json: TestConfig = serde_json::from_value(check_json_value).ok().unwrap();
+
+    match check_json {
+        TestConfig::SuccessIo {
+            stdin,
+            stdin_file,
+            stdout,
+            stdout_file,
+        } => {
+            // stdin を取得（インラインまたはファイルから）
+            let stdin_content = if let Some(s) = stdin {
+                s
+            } else if let Some(f) = stdin_file {
+                fs::read_to_string(path_base.clone() + "." + &f).unwrap_or_default()
+            } else {
+                String::new()
+            };
+
+            // 期待される stdout を取得
+            let expected_stdout = if let Some(s) = stdout {
+                s
+            } else if let Some(f) = stdout_file {
+                fs::read_to_string(path_base.clone() + "." + &f).unwrap()
+            } else {
+                panic!("SuccessIo test must specify stdout or stdout_file");
+            };
+
+            // コンパイル
+            let t = parse_to_tokens(&ns_cnt).unwrap();
+            let s = parse_to_tree(&t).unwrap();
+            let a = syntactic_analyze(&s).unwrap();
+            let ws_code = compile_to_whitespace(&a)
+                .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+
+            // whitespace 実行
+            let actual_stdout = run_whitespace(&ws_code, &stdin_content)
+                .unwrap_or_else(|e| panic!("Whitespace execution failed: {}", e));
+
+            assert_eq!(
+                expected_stdout, actual_stdout,
+                "stdout mismatch for test: {}",
+                test_name
+            );
+        }
+        _ => panic!("Expected success_io test config"),
+    }
 }
 
 // ========================================

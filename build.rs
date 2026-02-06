@@ -17,6 +17,8 @@ struct TestCase {
     path: String,
     #[serde(default)]
     comment: Option<String>,
+    #[serde(default)]
+    targets: Option<Vec<String>>,
 }
 
 fn main() {
@@ -45,42 +47,68 @@ fn main() {
             String::new()
         };
 
+        // targets が指定されていない場合はデフォルトで interpreter のみ
+        let default_targets = vec!["interpreter".to_string()];
+        let targets = test.targets.as_ref().unwrap_or(&default_targets);
+        let has_interpreter = targets.iter().any(|t| t == "interpreter");
+        let has_whitespace = targets.iter().any(|t| t == "whitespace");
+
         match test.test_type.as_str() {
             "success" => {
-                writeln!(
-                    f,
-                    r#"{}#[test]
+                if has_interpreter {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
 fn {}() -> std::fmt::Result {{
     test_ok_coding_base("{}")
 }}
 "#,
-                    comment_line, test.name, test.path
-                )
-                .unwrap();
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
             }
             "success_io" => {
-                writeln!(
-                    f,
-                    r#"{}#[test]
+                if has_interpreter {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
 fn {}() -> std::fmt::Result {{
     test_ok_coding_io_base("{}")
 }}
 "#,
-                    comment_line, test.name, test.path
-                )
-                .unwrap();
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
+                
+                if has_whitespace {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn {}_ws() {{
+    test_whitespace_io_base("{}")
+}}
+"#,
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
             }
             "syntax_error" => {
-                writeln!(
-                    f,
-                    r#"{}#[test]
+                if has_interpreter {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
 fn {}() -> std::fmt::Result {{
     test_syntax_error_base("{}")
 }}
 "#,
-                    comment_line, test.name, test.path
-                )
-                .unwrap();
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
             }
             _ => {
                 panic!("Unknown test type: {}", test.test_type);

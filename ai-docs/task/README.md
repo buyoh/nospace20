@@ -8,6 +8,7 @@
 - [semantic-analyzer-error-handling.md](semantic-analyzer-error-handling.md) - semantic_analyzer エラーハンドリング改善設計
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
+- [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [legacy-migration-phase3.md](legacy-migration-phase3.md) - 旧テストの移行 Phase 3 (else:if構文とI/Oテスト)
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [scope/](scope/) - スコープ機能の実装計画

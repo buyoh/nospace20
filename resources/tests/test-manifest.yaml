@@ -6,6 +6,7 @@
 #   type: success | success_io | syntax_error
 #   path: テストファイルのパス（resources/tests/passes/ または fails/syntax/ からの相対パス）
 #   comment: (オプション) テストの説明
+#   targets: (オプション) テスト対象 [interpreter, whitespace] デフォルトは [interpreter]
 
 tests:
   # ========================================
@@ -394,26 +395,31 @@ tests:
     type: success_io
     path: io/puti_basic_001
     comment: "Built-in puti() function"
+    targets: [interpreter, whitespace]
 
   - name: test_io_putc_basic_001
     type: success_io
     path: io/putc_basic_001
     comment: "Built-in putc() function"
+    targets: [interpreter, whitespace]
 
   - name: test_io_geti_basic_001
     type: success_io
     path: io/geti_basic_001
     comment: "Built-in geti() function"
+    targets: [interpreter, whitespace]
 
   - name: test_io_getc_basic_001
     type: success_io
     path: io/getc_basic_001
     comment: "Built-in getc() function"
+    targets: [interpreter, whitespace]
 
   - name: test_io_combined_001
     type: success_io
     path: io/io_combined_001
     comment: "Combined I/O operations"
+    targets: [interpreter, whitespace]
 
 # ========================================
 # Disabled tests (未実装機能のテスト)
