@@ -16,6 +16,7 @@ tests:
     type: success
     path: c000
     comment: "Legacy test - basic functionality"
+    targets: [interpreter, whitespace]
 
   - name: test_ok_coding_c001
     type: success
@@ -44,6 +45,7 @@ tests:
     type: success
     path: literals/num_001
     comment: "Numeric literal parsing"
+    targets: [interpreter, whitespace]
 
   - name: test_literals_num_002
     type: success
@@ -87,6 +89,7 @@ tests:
     type: success
     path: operators/arith_001
     comment: "Basic arithmetic operations"
+    targets: [interpreter, whitespace]
 
   - name: test_operators_arith_002
     type: success
@@ -168,6 +171,7 @@ tests:
     type: success
     path: variables/var_basic_001
     comment: "Basic variable declaration and assignment"
+    targets: [interpreter, whitespace]
 
   - name: test_variables_var_hoist_001
     type: success

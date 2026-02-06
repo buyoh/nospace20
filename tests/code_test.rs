@@ -190,6 +190,36 @@ fn test_syntax_error_base(test_name: &str) -> Result {
     Ok(())
 }
 
+fn test_whitespace_base(test_name: &str) {
+    use common::{run_whitespace, wsc_available};
+
+    // wsc が利用できない場合はスキップ
+    if !wsc_available() {
+        eprintln!("Skipping test: wsc not available");
+        eprintln!("Run: ./tools/setup-wsc.sh");
+        return;
+    }
+
+    let path_base = "resources/tests/passes/".to_owned() + test_name;
+    let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
+        .expect("Something went wrong reading the file");
+
+    // コンパイル
+    let t = parse_to_tokens(&ns_cnt).unwrap();
+    let s = parse_to_tree(&t).unwrap();
+    let a = syntactic_analyze(&s).unwrap();
+    let ws_code = compile_to_whitespace(&a)
+        .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+
+    // whitespace 実行（__trace は無視され、実行が成功すればOK）
+    let result = run_whitespace(&ws_code, "");
+    
+    // 実行エラーがあればパニック
+    if let Err(e) = result {
+        panic!("Whitespace execution failed for {}: {}", test_name, e);
+    }
+}
+
 fn test_whitespace_io_base(test_name: &str) {
     use common::{run_whitespace, wsc_available};
 

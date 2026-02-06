@@ -67,6 +67,20 @@ fn {}() -> std::fmt::Result {{
                     )
                     .unwrap();
                 }
+                
+                if has_whitespace {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn {}_ws() {{
+    test_whitespace_base("{}")
+}}
+"#,
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
             }
             "success_io" => {
                 if has_interpreter {

@@ -173,21 +173,46 @@ tests/
 
 以下の whitespace テストが自動生成され、`#[ignore]` 属性が付与されています:
 
+**I/O テスト (5個)**:
 - `test_io_puti_basic_001_ws`
 - `test_io_putc_basic_001_ws`
 - `test_io_geti_basic_001_ws`
 - `test_io_getc_basic_001_ws`
 - `test_io_combined_001_ws`
 
+**通常テスト (4個)**:
+- `test_ok_coding_c000_ws`
+- `test_literals_num_001_ws`
+- `test_operators_arith_001_ws`
+- `test_variables_var_basic_001_ws`
+
 ### 既知の問題
 
-**組み込み関数の未実装**: 現在、whitespace コンパイラで `__puti`, `__putc`, `__geti`, `__getc` が未実装のため、これらの関数を使用するテストは失敗します。
+**組み込み関数の未実装**: 現在、whitespace コンパイラで以下の組み込み関数が未実装のため、これらを使用するテストは失敗します:
+
+- `__puti`, `__putc`, `__geti`, `__getc` (I/O 関数)
+- `__trace`, `__assert`, `__assert_not` (テスト用関数)
 
 ```
 Compilation failed: Undefined function: __puti
+Compilation failed: Undefined function: __trace
 ```
 
 **対応**: [compiler/builtin-functions-todo.md](compiler/builtin-functions-todo.md) を参照してください。組み込み関数の実装が完了すれば、whitespace テストが動作するようになります。
+
+**注意**: `__trace` などのテスト用関数は、whitespace では無視されるべきですが、現在はコンパイル時にエラーになります。将来的には、これらの関数を空の実装として提供することで、`success` タイプのテストも whitespace で実行できるようになります。
+
+### テスト結果
+
+```
+running 73 tests
+test result: ok. 64 passed; 0 failed; 9 ignored; 0 measured; 0 filtered out
+```
+
+- ✅ 64個のインタプリタテストがパス
+- ⏭️ 9個の whitespace テストが ignore（組み込み関数未実装のため）
+  - 5個の I/O テスト
+  - 4個の通常テスト (`success` タイプ)
 
 ### 実行方法
 
