@@ -130,37 +130,35 @@ Some((_, 'x')) => {
 
 ## 2. if/while 式の戻り値
 
-**状態**: ⚠️ 制限あり
+**状態**: ✅ 実装済み
 
-**説明**: if と while は式として使用可能だが、常に 0 を返す。将来的には評価した値を返すように改善予定。
+**説明**: if と while が式として評価した値を返すようになりました。
 
-**現状**:
+**実装済みの動作**:
 ```nospace
-x = if: cond { 5 } else: { 10 };  # x は常に 0 #
+x = if: cond { 5; } else: { 10; };  # x は cond が真なら 5、偽なら 10 #
+y = while: i - 3 { i = i + 1; i; };  # y は最後のイテレーションの最後の式の値 #
 ```
 
-**期待される動作**:
-```nospace
-x = if: cond { 5 } else: { 10 };  # x は cond が真なら 5、偽なら 10 #
-```
+**仕様**:
+- **if 式**: 実行されたブロック(then または else)の最後の式の値を返す
+- **while 式**: 
+  - 通常終了: 最後のイテレーションの最後の式の値を返す
+  - ループが一度も実行されない場合: 0 を返す
+  - break で終了した場合: 0 を返す
+  - continue: 通常のイテレーションとして処理
 
-**TODO**: 評価した値を返すようにする
+**実装箇所**: 
+- [src/interpreter/mod.rs](../../src/interpreter/mod.rs) - interpret_if, interpret_while, interpret_statements_with_value
+- [src/tree_parser/expression/mod.rs](../../src/tree_parser/expression/mod.rs) - parse_to_expression_tree_factor
 
-**実装に必要な変更**:
-
-1. **インタプリタ**:
-   - if/while の評価結果を保持
-   - ブロックの最後の式の値を返す
-   
-2. **意味解析器**:
-   - ブロックの最後の式を特定
-   - 戻り値の型チェック (将来の型システム導入時)
+**テストケース**:
+- [resources/tests/passes/control_flow/if_expr_value_001.ns](../../resources/tests/passes/control_flow/if_expr_value_001.ns)
+- [resources/tests/passes/control_flow/while_expr_value_001.ns](../../resources/tests/passes/control_flow/while_expr_value_001.ns)
 
 **参照**:
 - [spec.md](../../spec.md) セクション 6.1, 6.2
 - [ai-docs/spec/implementation-status.md](../spec/implementation-status.md)
-
-**優先度**: 中 - より表現力の高い言語のため
 
 ---
 
