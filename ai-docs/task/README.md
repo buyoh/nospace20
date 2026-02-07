@@ -13,6 +13,7 @@
 
 ### アクティブなタスク
 
+- [whitespace-interpreter/](whitespace-interpreter/) - Whitespace インタプリタ（明示的スタックマシン、中断可能実行）
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開）
 - [wasm-build/](wasm-build/) - Rust → WebAssembly ビルド（ランタイム WASM 化、CLI 同等 API 公開）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
