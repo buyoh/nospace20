@@ -314,7 +314,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
 
     // while 式の実際の解析処理
     fn parse_to_expression_tree_while_impl(&mut self) -> Box<Expression> {
-        self.iter.next();  // while キーワードを消費
+        let token = self.iter.next();  // while キーワードを消費
+        assert!(matches!(token, Some((Token::Keyword(Keyword::While), _))));
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
             return Box::new(Expression::Invalid(e));
@@ -333,7 +334,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
 
     // if 式の実際の解析処理
     fn parse_to_expression_tree_if_impl(&mut self) -> Box<Expression> {
-        self.iter.next();  // if キーワードを消費
+        let token = self.iter.next();  // if キーワードを消費
+        assert!(matches!(token, Some((Token::Keyword(Keyword::If), _))));
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
             return Box::new(Expression::Invalid(e));
