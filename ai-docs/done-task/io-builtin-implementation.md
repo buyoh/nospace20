@@ -238,7 +238,13 @@ fn generate_builtin_getc(
    - `__putc(65)` → `push 65; dup; printc; discard`
    - `__geti()` → `push 4; dup; readi; retrieve`
    - `__getc()` → `push 4; dup; readc; retrieve`
-3. **実行テスト**: wsc が未インストールのため、5つの統合テストは ignore されましたが、コンパイル自体は成功
+3. **実行テスト（wsc使用）**: 全て成功 ✅
+   - `test_compile_and_run_puti`: `__puti(42)` → "42" 出力
+   - `test_compile_and_run_putc`: `__putc(65)` → "A" 出力
+   - `test_compile_and_run_arithmetic`: `__puti(1+2*3)` → "7" 出力
+   - `test_compile_and_run_variable`: 変数経由の出力 → "123" 出力
+   - `test_compile_and_run_geti`: 入力"10"→`x*2`出力 → "20" 出力
+   - 追加検証: `__getc()` + `__putc()` でエコー動作を確認
 
 ### 変更ファイル
 
@@ -246,5 +252,4 @@ fn generate_builtin_getc(
 
 ### 今後の課題
 
-- wsc をインストールして統合テスト (`test_compile_and_run_*`) を実行し、実際の実行結果を検証
 - ユーザー定義関数の実装（現在は `UndefinedFunction` エラーを返す）
