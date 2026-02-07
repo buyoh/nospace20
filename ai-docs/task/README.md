@@ -4,7 +4,16 @@
 
 ## ドキュメント
 
-- [unimplemented-features.md](unimplemented-features.md) - 未実装の機能・構文の一覧（継続追跡）
+### 未実装機能の追跡
+
+- [unimplemented-variable-features.md](unimplemented-variable-features.md) - 未実装の変数関連機能（初期値指定、final/const変数）
+- [unimplemented-syntax-features.md](unimplemented-syntax-features.md) - 未実装の構文と式の機能（16進数、if/while戻り値、return挙動）
+- [unimplemented-type-system.md](unimplemented-type-system.md) - 未実装の型システム（int, void, function, tuple）
+- [unimplemented-compiler-features.md](unimplemented-compiler-features.md) - 未実装のコンパイラ機能（compiler, grayspace）
+- [technical-debt.md](technical-debt.md) - コード内の技術的負債（Clone derive削除、識別子管理改善）
+
+### アクティブなタスク
+
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計

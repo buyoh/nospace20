@@ -6,6 +6,8 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [block-scope-global-variables-implementation.md](block-scope-global-variables-implementation.md) | ブロックスコープ変数・グローバル変数・static変数・else if構文の実装完了 | 2026-02-07 |
+| [compile-test-refactoring.md](compile-test-refactoring.md) | compile_test.rsリファクタリング完了（13件→1件に縮小、compile_errorテスト追加） | 2026-02-07 |
 | [semantic-analyzer-error-handling-report.md](semantic-analyzer-error-handling-report.md) | Semantic Analyzerエラーハンドリング改善完了報告（panic!をResultに置換、位置情報付与） | 2026-02-07 |
 | [semantic-analyzer-error-handling.md](semantic-analyzer-error-handling.md) | Semantic Analyzerエラーハンドリング改善設計（Result型への移行、位置情報付与） | 2026-02-07 |
 | [multiple-io-test-cases-report.md](multiple-io-test-cases-report.md) | 複数の入出力テストケース対応完了報告（cases配列でIoTestCaseサポート） | 2026-02-07 |
