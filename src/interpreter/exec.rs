@@ -89,12 +89,14 @@ impl LocalEnvironment<'_, '_> {
         match id.as_str() {
             "__clog" => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
-                println!("__clog: {}", a);
+                if !self.env.config.ignore_debug {
+                    println!("__clog: {}", a);
+                }
                 ExpressionFlow::Value(a)
             }
             "__assert" => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
-                if a == 0 {
+                if !self.env.config.ignore_debug && a == 0 {
                     // TODO: 気の利いたログを出せない
                     panic!("assertion failed: {} == 0", a);
                 }
@@ -102,7 +104,7 @@ impl LocalEnvironment<'_, '_> {
             }
             "__assert_not" => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
-                if a != 0 {
+                if !self.env.config.ignore_debug && a != 0 {
                     // TODO: 気の利いたログを出せない
                     panic!("assertion failed: {} != 0", a);
                 }
@@ -111,11 +113,13 @@ impl LocalEnvironment<'_, '_> {
             "__trace" => {
                 // TODO: 未だ比較演算子を実装していないので not
                 let key = try_expr!(self.interpret_expression(args.first().unwrap()));
-                let traced = &mut self.env.traced;
-                if let Some(v) = traced.get_mut(&key) {
-                    *v += 1;
-                } else {
-                    traced.insert(key, 1);
+                if !self.env.config.ignore_debug {
+                    let traced = &mut self.env.traced;
+                    if let Some(v) = traced.get_mut(&key) {
+                        *v += 1;
+                    } else {
+                        traced.insert(key, 1);
+                    }
                 }
                 ExpressionFlow::Value(0)
             }

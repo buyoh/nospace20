@@ -5,18 +5,22 @@ use std::io::{BufRead, Read, Write};
 pub struct EnvironmentConfig {
     /// Expression評価の最大実行回数 (Noneの場合は無制限)
     pub max_expression_count: Option<usize>,
+    /// デバッグ用組み込み関数を無視する
+    pub ignore_debug: bool,
 }
 
 impl EnvironmentConfig {
     pub fn new() -> Self {
         EnvironmentConfig {
             max_expression_count: None,
+            ignore_debug: false,
         }
     }
 
     pub fn with_max_expression_count(max_count: usize) -> Self {
         EnvironmentConfig {
             max_expression_count: Some(max_count),
+            ignore_debug: false,
         }
     }
 }

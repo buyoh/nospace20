@@ -95,6 +95,10 @@ struct Args {
     /// Show trace results after execution
     #[arg(short, long)]
     debug: bool,
+
+    /// Ignore debug built-in functions (__assert, __assert_not, __trace, __clog)
+    #[arg(long)]
+    ignore_debug: bool,
 }
 
 fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -> T {
@@ -141,6 +145,7 @@ fn main() {
         target: args.target.into(),
         output: args.output,
         debug: args.debug,
+        ignore_debug: args.ignore_debug,
     };
 
     // バリデーション
@@ -175,7 +180,15 @@ fn main() {
     match property.mode {
         ExecutionMode::Run => {
             // インタプリタモード
-            let mut env = Environment::new();
+            let config = nospace20::EnvironmentConfig {
+                ignore_debug: property.ignore_debug,
+                ..Default::default()
+            };
+            let mut env = Environment::new_with_config(
+                Box::new(std::io::BufReader::new(std::io::stdin())),
+                Box::new(std::io::stdout()),
+                config,
+            );
             let result = interpret_with_env(&mut env, &a);
 
             if let Some(val) = result {

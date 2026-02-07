@@ -53,6 +53,8 @@ pub struct CompileProperty {
     pub output: Option<String>,
     /// デバッグモード
     pub debug: bool,
+    /// デバッグ用組み込み関数を無視する
+    pub ignore_debug: bool,
 }
 
 impl CompileProperty {
