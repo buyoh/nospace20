@@ -12,6 +12,7 @@
 - [legacy-migration-phase3.md](legacy-migration-phase3.md) - 旧テストの移行 Phase 3 (else:if構文とI/Oテスト)
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [scope/](scope/) - スコープ機能の実装計画
+- [compile-test-refactoring.md](compile-test-refactoring.md) - compile_test.rs のリファクタリング設計
 
 ## 現在のタスク
 
