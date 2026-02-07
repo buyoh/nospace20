@@ -19,6 +19,7 @@ mod logger;
 mod semantic_analyzer;
 mod token_parser;
 mod tree_parser;
+pub mod whitespace;
 
 pub use compile_property::{CompileProperty, CompileTarget, ExecutionMode, LanguageStd};
 

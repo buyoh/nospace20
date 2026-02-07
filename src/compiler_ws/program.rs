@@ -62,6 +62,17 @@ impl WsProgram {
     pub fn is_empty(&self) -> bool {
         self.instructions.is_empty()
     }
+    
+    /// 命令列を消費して Vec<Instruction> を返す
+    /// WhitespaceVM へ渡す際に使用
+    pub fn into_instructions(self) -> Vec<Instruction> {
+        self.instructions
+    }
+    
+    /// 命令列への参照を返す
+    pub fn instructions(&self) -> &[Instruction] {
+        &self.instructions
+    }
 }
 
 impl Default for WsProgram {

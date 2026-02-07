@@ -15,10 +15,10 @@
 //! - `expression` - 式のコード生成
 //! - `statement` - 文のコード生成
 
-mod types;
-mod instruction;
+pub mod types;
+pub mod instruction;
 mod encoder;
-mod program;
+pub mod program;
 mod memory;
 mod label;
 mod builtin;
