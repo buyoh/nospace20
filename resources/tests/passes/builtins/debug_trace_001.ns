@@ -1,0 +1,10 @@
+# デバッグ命令を含むテスト - __trace #
+func: main() {
+    let: i;
+    i = 3;
+    while: i {
+        __trace(0);  # Whitespace では無視される #
+        i = i - 1;
+    };
+    __puti(42);
+}

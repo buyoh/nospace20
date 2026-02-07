@@ -1,0 +1,8 @@
+# デバッグ命令を含むテスト - __assert, __assert_not #
+func: main() {
+    let: x;
+    x = 5;
+    __assert(x);      # x != 0 なので OK（Whitespace では無視） #
+    __assert_not(0);  # 0 なので OK（Whitespace では無視） #
+    __puti(x * 2);
+}

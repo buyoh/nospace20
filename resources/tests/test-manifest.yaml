@@ -164,6 +164,30 @@ tests:
     path: builtins/assert_001
     comment: "Built-in assert() function"
 
+  - name: test_builtins_debug_clog_001
+    type: success_io
+    path: builtins/debug_clog_001
+    comment: "Debug builtin __clog (ignored in Whitespace)"
+    targets: [interpreter, whitespace]
+
+  - name: test_builtins_debug_assert_001
+    type: success_io
+    path: builtins/debug_assert_001
+    comment: "Debug builtins __assert/__assert_not (ignored in Whitespace)"
+    targets: [interpreter, whitespace]
+
+  - name: test_builtins_debug_trace_001
+    type: success_io
+    path: builtins/debug_trace_001
+    comment: "Debug builtin __trace (ignored in Whitespace)"
+    targets: [interpreter, whitespace]
+
+  - name: test_builtins_debug_return_001
+    type: success_io
+    path: builtins/debug_return_001
+    comment: "Debug builtin return value test"
+    targets: [interpreter, whitespace]
+
   # ========================================
   # Variables
   # ========================================

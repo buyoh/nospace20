@@ -283,6 +283,11 @@ fn generate_function_call(
         "__putc" => generate_builtin_putc(ctx, args),
         "__geti" => generate_builtin_geti(ctx, args),
         "__getc" => generate_builtin_getc(ctx, args),
+        // デバッグ用組み込み関数は Whitespace では無視（引数は評価して値を返す）
+        "__clog" => generate_builtin_debug_noop(ctx, args),
+        "__trace" => generate_builtin_debug_noop(ctx, args),
+        "__assert" => generate_builtin_debug_noop(ctx, args),
+        "__assert_not" => generate_builtin_debug_noop(ctx, args),
         _ => {
             // TODO: ユーザー定義関数の実装
             Err(CompileError::UndefinedFunction(func_name.to_string()))
@@ -375,6 +380,32 @@ fn generate_builtin_getc(
     prog.push(Instruction::InputChar);
     // heap[TEMP_PTR]の値をスタックに取り出す
     prog.push(Instruction::Retrieve);
+    Ok(prog)
+}
+
+/// デバッグ用組み込み関数（Whitespace では無視）
+/// __clog, __trace, __assert, __assert_not
+/// 引数を評価して、最初の引数の値を返す（引数がない場合は 0 を返す）
+fn generate_builtin_debug_noop(
+    ctx: &mut CodeGenContext,
+    args: &[Box<ExecExpression>],
+) -> Result<WsProgram, CompileError> {
+    let mut prog = WsProgram::new();
+    
+    if args.is_empty() {
+        // 引数なしの場合は 0 を返す
+        prog.push(Instruction::Push(WsNumber(0)));
+    } else {
+        // 最初の引数を評価（戻り値として使用）
+        prog.append(generate_expression(ctx, &args[0])?);
+        
+        // 残りの引数を評価（副作用のため）して破棄
+        for arg in &args[1..] {
+            prog.append(generate_expression(ctx, arg)?);
+            prog.push(Instruction::Discard);
+        }
+    }
+    
     Ok(prog)
 }
 

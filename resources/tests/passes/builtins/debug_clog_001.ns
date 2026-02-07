@@ -1,0 +1,7 @@
+# デバッグ命令を含むテスト - __clog #
+func: main() {
+    let: x;
+    x = 10;
+    __clog(x);  # Whitespace では無視される #
+    __puti(x);
+}
