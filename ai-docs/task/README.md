@@ -13,6 +13,8 @@
 
 ### アクティブなタスク
 
+- [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開）
+- [wasm-build/](wasm-build/) - Rust → WebAssembly ビルド（ランタイム WASM 化、CLI 同等 API 公開）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
