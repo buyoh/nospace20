@@ -6,6 +6,8 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [legacy-migration-phase3-report.md](legacy-migration-phase3-report.md) | 旧テストの移行Phase3完了報告（else:if構文サポート、I/Oテスト作成） | 2026-02-07 |
+| [legacy-migration-phase3.md](legacy-migration-phase3.md) | 旧テストの移行Phase3タスク計画（else:if構文とI/Oテスト） | 2026-02-07 |
 | [yaml-test-generation.md](yaml-test-generation.md) | YAMLベースのテスト自動生成（test-manifest.yaml による自動生成機構） | 2026-02-04 |
 | [cli-compile-options.md](cli-compile-options.md) | CLIコンパイルオプション設計・実装（--std, --mode, --target オプション） | 2026-02-04 |
 | [code-structure-refactoring.md](code-structure-refactoring.md) | ソースコード構成のリファクタリング（型整理、マクロ集約、可視性統一） | 2026-02-04 |

@@ -9,7 +9,6 @@
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
-- [legacy-migration-phase3.md](legacy-migration-phase3.md) - 旧テストの移行 Phase 3 (else:if構文とI/Oテスト)
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [scope/](scope/) - スコープ機能の実装計画
 - [compile-test-refactoring.md](compile-test-refactoring.md) - compile_test.rs のリファクタリング設計
@@ -18,13 +17,14 @@
 
 ### アクティブ
 
-- [legacy-migration-phase3.md](legacy-migration-phase3.md) - 旧テストの移行 Phase 3
-  - else:if構文のパーサー対応
-  - legacy_009, 010の有効化
-  - 新しいI/Oテストケースの作成
+（現在アクティブなタスクはありません）
 
 ### 完了済み (done-task/ に移動)
 
+- [legacy-migration-phase3.md](../done-task/legacy-migration-phase3.md) - 旧テストの移行 Phase 3 (2026-02-07完了)
+  - else:if構文のパーサー対応
+  - legacy_009, 010の有効化
+  - 新しいI/Oテストケースの作成
 - [yaml-test-generation.md](../done-task/yaml-test-generation.md) - YAMLベースのテスト自動生成 (2026-02-04完了)
 - [cli-compile-options.md](../done-task/cli-compile-options.md) - CLIコンパイルオプション設計・実装 (2026-02-04完了)
 - [code-structure-refactoring.md](../done-task/code-structure-refactoring.md) - ソースコード構成のリファクタリング (2026-02-04完了)
