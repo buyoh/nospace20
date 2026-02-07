@@ -27,7 +27,7 @@
 
 ### アクティブ
 
-（現在アクティブなタスクはありません）
+- [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
 
 ### 完了済み (done-task/ に移動)
 
