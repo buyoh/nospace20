@@ -12,7 +12,6 @@
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [scope/](scope/) - スコープ機能の実装計画
 - [compile-test-refactoring.md](compile-test-refactoring.md) - compile_test.rs のリファクタリング設計
-- [multiple-io-test-cases.md](multiple-io-test-cases.md) - 複数の入出力テストケース対応設計
 
 ## 現在のタスク
 
@@ -22,6 +21,10 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [multiple-io-test-cases.md](../done-task/multiple-io-test-cases.md) - 複数の入出力テストケース対応 (2026-02-07完了)
+  - success_io テストで複数ケースをサポート
+  - 後方互換性を維持しつつ、1テストで複数パターンをテスト可能に
+  - 全70テストが成功
 - [legacy-migration-phase3.md](../done-task/legacy-migration-phase3.md) - 旧テストの移行 Phase 3 (2026-02-07完了)
   - else:if構文のパーサー対応
   - legacy_009, 010の有効化

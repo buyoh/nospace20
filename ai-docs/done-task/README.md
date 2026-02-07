@@ -6,6 +6,8 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [multiple-io-test-cases-report.md](multiple-io-test-cases-report.md) | 複数の入出力テストケース対応完了報告（cases配列でIoTestCaseサポート） | 2026-02-07 |
+| [multiple-io-test-cases.md](multiple-io-test-cases.md) | 複数の入出力テストケース対応設計（成功用の複数ケーステスト機能） | 2026-02-07 |
 | [legacy-migration-phase3-report.md](legacy-migration-phase3-report.md) | 旧テストの移行Phase3完了報告（else:if構文サポート、I/Oテスト作成） | 2026-02-07 |
 | [legacy-migration-phase3.md](legacy-migration-phase3.md) | 旧テストの移行Phase3タスク計画（else:if構文とI/Oテスト） | 2026-02-07 |
 | [yaml-test-generation.md](yaml-test-generation.md) | YAMLベースのテスト自動生成（test-manifest.yaml による自動生成機構） | 2026-02-04 |
