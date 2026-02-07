@@ -385,6 +385,7 @@ impl LocalEnvironment<'_, '_> {
     }
 
     fn interpret_while(&mut self, cond: &Box<ExecExpression>, block: &Block) -> ExpressionFlow {
+        let mut last_value = 0;
         loop {
             let cond = match self.interpret_expression(cond) {
                 ExpressionFlow::Value(e) => e,
@@ -406,11 +407,20 @@ impl LocalEnvironment<'_, '_> {
                 break;
             }
             self.enter_block(&block.scope);
-            let result = match self.interpret_statements(&block.statements) {
-                Flow::Proceed => None,
-                Flow::Return(v) => Some(ExpressionFlow::Value(v)),
-                Flow::Continue => None,
+            let (flow, value) = self.interpret_statements_with_value(&block.statements);
+            let result = match flow {
+                Flow::Proceed => {
+                    last_value = value;
+                    None
+                },
+                Flow::Return(v) => Some(ExpressionFlow::Jump(Flow::Return(v))),
+                Flow::Continue => {
+                    last_value = value;
+                    None
+                },
                 Flow::Break => {
+                    // break で抜けた場合は 0 を返す仕様とする
+                    last_value = 0;
                     self.leave_block();
                     break;
                 }
@@ -420,7 +430,7 @@ impl LocalEnvironment<'_, '_> {
                 return r;
             }
         }
-        ExpressionFlow::Value(0) // TODO: spec
+        ExpressionFlow::Value(last_value)
     }
 
     fn interpret_if(
@@ -432,8 +442,9 @@ impl LocalEnvironment<'_, '_> {
         let cond = try_expr!(self.interpret_expression(cond));
         let block = if cond != 0 { then_block } else { else_block };
         self.enter_block(&block.scope);
-        let result = match self.interpret_statements(&block.statements) {
-            Flow::Proceed => ExpressionFlow::Value(0),
+        let (flow, value) = self.interpret_statements_with_value(&block.statements);
+        let result = match flow {
+            Flow::Proceed => ExpressionFlow::Value(value),
             other => ExpressionFlow::Jump(other),
         };
         self.leave_block();
@@ -553,6 +564,27 @@ impl LocalEnvironment<'_, '_> {
             }
         }
         Flow::Proceed
+    }
+
+    /// ブロックの文を実行し、最後の式の値も返す
+    /// if/while 式の戻り値を実装するために使用
+    fn interpret_statements_with_value(&mut self, statements: &Vec<ExecStatement>) -> (Flow, i64) {
+        let mut last_value = 0;
+        for statement in statements {
+            match statement {
+                ExecStatement::Expression(expr) => match self.interpret_expression(expr) {
+                    ExpressionFlow::Value(v) => last_value = v,
+                    ExpressionFlow::Jump(j) => return (j, last_value),
+                },
+                ExecStatement::Return(expr) => match self.interpret_expression(expr) {
+                    ExpressionFlow::Value(res) => return (Flow::Return(res), res),
+                    ExpressionFlow::Jump(j) => return (j, last_value),
+                },
+                ExecStatement::Break => return (Flow::Break, last_value),
+                ExecStatement::Continue => return (Flow::Continue, last_value),
+            }
+        }
+        (Flow::Proceed, last_value)
     }
 }
 

@@ -160,6 +160,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 }
                 return e;
             }
+            // if/while を factor レベルで解析
+            Some((Token::Keyword(Keyword::If), _)) => {
+                return self.parse_to_expression_tree_if_impl();
+            }
+            Some((Token::Keyword(Keyword::While), _)) => {
+                return self.parse_to_expression_tree_while_impl();
+            }
             Some((_, token_info)) => {
                 return Box::new(Expression::Invalid(
                     self.add_parse_error(token_info, "unexpected token".to_owned()),
@@ -300,16 +307,14 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             return left;
         };
         self.iter.next();
+        // 右辺で代入を再帰的に許可（右結合）
         let right = self.parse_to_expression_tree_assign();
         Box::new(Expression::Operation2(op, left, right))
     }
 
-    fn parse_to_expression_tree_while(&mut self) -> Box<Expression> {
-        match self.iter.peek() {
-            Some((Token::Keyword(Keyword::While), _)) => (),
-            _ => return self.parse_to_expression_tree_assign(),
-        }
-        self.iter.next();
+    // while 式の実際の解析処理
+    fn parse_to_expression_tree_while_impl(&mut self) -> Box<Expression> {
+        self.iter.next();  // while キーワードを消費
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
             return Box::new(Expression::Invalid(e));
@@ -326,12 +331,9 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         Box::new(Expression::While(cond, stat))
     }
 
-    fn parse_to_expression_tree_if(&mut self) -> Box<Expression> {
-        match self.iter.peek() {
-            Some((Token::Keyword(Keyword::If), _)) => (),
-            _ => return self.parse_to_expression_tree_while(),
-        };
-        self.iter.next();
+    // if 式の実際の解析処理
+    fn parse_to_expression_tree_if_impl(&mut self) -> Box<Expression> {
+        self.iter.next();  // if キーワードを消費
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
             return Box::new(Expression::Invalid(e));
@@ -358,9 +360,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 match self.iter.peek() {
                     Some((Token::Keyword(Keyword::If), _)) => {
                         // else: if: cond {}
-                        // TODO: elsif を実装したほうが便利？
-                        // TODO: allow single expression ???
-                        let if_expr = self.parse_to_expression_tree_if();
+                        let if_expr = self.parse_to_expression_tree_if_impl();
                         let end_pos = self
                             .iter
                             .peek()
@@ -391,7 +391,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
 
     fn parse_to_expression_tree_root(&mut self) -> Box<Expression> {
         // TODO: check the expression that it has Invalid
-        self.parse_to_expression_tree_if()
+        // if/while は factor レベルで解析されるため、ここでは assign から開始
+        self.parse_to_expression_tree_assign()
     }
 }
 

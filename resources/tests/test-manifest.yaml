@@ -243,6 +243,16 @@ tests:
     path: control_flow/if_001
     comment: "If statement"
 
+  - name: test_control_flow_if_expr_value_001
+    type: success
+    path: control_flow/if_expr_value_001
+    comment: "If expression return value"
+
+  - name: test_control_flow_while_expr_value_001
+    type: success
+    path: control_flow/while_expr_value_001
+    comment: "While expression return value"
+
   # DISABLED: hangs (break/continue issue)
   # - name: test_control_flow_break_continue_001
   #   type: success
