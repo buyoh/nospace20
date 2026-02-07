@@ -556,16 +556,6 @@ impl LocalEnvironment<'_, '_> {
         }
     }
 
-    pub fn interpret_statements(&mut self, statements: &Vec<ExecStatement>) -> Flow {
-        for statement in statements {
-            match self.interpret_statement(statement) {
-                Flow::Proceed => (),
-                other => return other,
-            }
-        }
-        Flow::Proceed
-    }
-
     /// ブロックの文を実行し、最後の式の値も返す
     /// if/while 式の戻り値を実装するために使用
     fn interpret_statements_with_value(&mut self, statements: &Vec<ExecStatement>) -> (Flow, i64) {
@@ -585,6 +575,11 @@ impl LocalEnvironment<'_, '_> {
             }
         }
         (Flow::Proceed, last_value)
+    }
+
+    pub fn interpret_statements(&mut self, statements: &Vec<ExecStatement>) -> Flow {
+        let (flow, _) = self.interpret_statements_with_value(statements);
+        flow
     }
 }
 
