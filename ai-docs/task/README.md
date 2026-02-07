@@ -30,6 +30,11 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [interpreter-split.md](../done-task/interpreter-split.md) - interpreter モジュールのファイル分割（mod.rs → types/environment/exec） (2026-02-07完了)
+  - mod.rs（622行）を4ファイルに分割
+  - 責務の明確化: 型定義（types.rs）、環境管理（environment.rs）、実行ロジック（exec.rs）
+  - 全72テストが成功、外部インターフェースに影響なし
+  - 将来の拡張（ユニットテスト、suspendable interpreter）の土台を構築
 - [unimplemented-syntax-features.md](../done-task/unimplemented-syntax-features.md) - 未実装の構文と式の機能 (2026-02-07完了)
   - 16進数リテラル（数値 0xFF、文字 \xHH）を実装
   - if/while 式の戻り値は既に実装済みであることを確認

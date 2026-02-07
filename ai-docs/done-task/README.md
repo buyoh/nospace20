@@ -6,6 +6,8 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [interpreter-split-report.md](interpreter-split-report.md) | interpreterモジュールファイル分割完了報告（mod.rs→4ファイル、責務分離、全72テスト成功） | 2026-02-07 |
+| [interpreter-split.md](interpreter-split.md) | interpreterモジュールファイル分割設計（types/environment/exec、将来拡張の土台） | 2026-02-07 |
 | [hexadecimal-literals-implementation-report.md](hexadecimal-literals-implementation-report.md) | 16進数リテラル実装完了報告（数値0xFF、文字\xHH、全テスト成功） | 2026-02-07 |
 | [unimplemented-syntax-features.md](unimplemented-syntax-features.md) | 未実装機能の実装完了（16進数リテラル、if/while式戻り値、return仕様確定） | 2026-02-07 |
 | [block-scope-global-variables-implementation.md](block-scope-global-variables-implementation.md) | ブロックスコープ変数・グローバル変数・static変数・else if構文の実装完了 | 2026-02-07 |
