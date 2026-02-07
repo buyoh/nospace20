@@ -1,0 +1,6 @@
+# Multiple input test cases #
+func: main() {
+    let: x;
+    x = __geti();
+    __puti(x);
+}

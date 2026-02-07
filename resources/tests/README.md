@@ -76,6 +76,47 @@ func: main() {
 - `type`: `"success_io"` を指定
 - `stdout`: (オプション) 期待する標準出力の内容
 - `stdin`: (オプション) 標準入力として与えるデータ
+- `stdout_file`: (オプション) 期待する標準出力をファイルから読み込む
+- `stdin_file`: (オプション) 標準入力をファイルから読み込む
+- `cases`: (オプション) 複数のテストケースを定義する配列（後述）
+
+#### 複数の入出力ケース
+
+1つのテストに複数の入出力パターンを定義できます。各ケースで異なる入力を与えて、同じプログラムの動作を複数のパターンで検証できます。
+
+**例:** [passes/io/geti_multiple_cases.check.json](passes/io/geti_multiple_cases.check.json)
+
+```json
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "positive",
+      "stdin": "42\n",
+      "stdout": "42"
+    },
+    {
+      "name": "zero",
+      "stdin": "0\n",
+      "stdout": "0"
+    },
+    {
+      "name": "negative",
+      "stdin": "-100\n",
+      "stdout": "-100"
+    }
+  ]
+}
+```
+
+**`cases` 配列のフィールド:**
+- `name`: (オプション) ケースの識別名（テスト失敗時のメッセージに使用）
+- `stdin`: (オプション) 標準入力として与えるデータ
+- `stdin_file`: (オプション) 標準入力をファイルから読み込む
+- `stdout`: (オプション) 期待する標準出力の内容
+- `stdout_file`: (オプション) 期待する標準出力をファイルから読み込む
+
+**後方互換性:** `cases` を使わない従来の形式も引き続きサポートされます。
 
 ### 3. `syntax_error` テスト
 

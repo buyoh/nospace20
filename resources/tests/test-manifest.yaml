@@ -457,6 +457,12 @@ tests:
     comment: "Combined I/O operations"
     targets: [interpreter, whitespace]
 
+  - name: test_io_geti_multiple_cases
+    type: success_io
+    path: io/geti_multiple_cases
+    comment: "Multiple test cases in one test"
+    targets: [interpreter, whitespace]
+
 # ========================================
 # Disabled tests (未実装機能のテスト)
 # ========================================

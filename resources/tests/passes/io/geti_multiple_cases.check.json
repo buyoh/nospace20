@@ -1,0 +1,30 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "positive",
+      "stdin": "42\n",
+      "stdout": "42"
+    },
+    {
+      "name": "zero",
+      "stdin": "0\n",
+      "stdout": "0"
+    },
+    {
+      "name": "negative",
+      "stdin": "-100\n",
+      "stdout": "-100"
+    },
+    {
+      "name": "large_positive",
+      "stdin": "999999\n",
+      "stdout": "999999"
+    },
+    {
+      "name": "large_negative",
+      "stdin": "-999999\n",
+      "stdout": "-999999"
+    }
+  ]
+}

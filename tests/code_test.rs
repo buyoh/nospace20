@@ -8,6 +8,20 @@ use nospace20::{
 };
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct IoTestCase {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    stdin: Option<String>,
+    #[serde(default)]
+    stdin_file: Option<String>,
+    #[serde(default)]
+    stdout: Option<String>,
+    #[serde(default)]
+    stdout_file: Option<String>,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
@@ -16,12 +30,18 @@ enum TestConfig {
         trace: Vec<i64>,
     },
     SuccessIo {
+        // 後方互換性のため残す（cases が未定義の場合に使用）
         #[serde(default)]
         stdin: Option<String>,
         #[serde(default)]
         stdin_file: Option<String>,
+        #[serde(default)]
         stdout: Option<String>,
+        #[serde(default)]
         stdout_file: Option<String>,
+        // 新規追加: 複数ケースのサポート
+        #[serde(default)]
+        cases: Option<Vec<IoTestCase>>,
     },
     ParseError {
         phase: String, // "tokenize" or "tree"
@@ -49,6 +69,35 @@ impl TestConfig {
             Some(TestConfig::Success { trace })
         } else {
             None
+        }
+    }
+
+    /// SuccessIo テストから IoTestCase のリストを取得
+    /// 後方互換性のため、cases が未定義の場合は従来のフィールドから1ケースを作成
+    fn get_io_test_cases(&self) -> Vec<IoTestCase> {
+        match self {
+            TestConfig::SuccessIo {
+                stdin,
+                stdin_file,
+                stdout,
+                stdout_file,
+                cases,
+            } => {
+                if let Some(cases) = cases {
+                    // 新形式: cases が定義されている
+                    cases.clone()
+                } else {
+                    // 旧形式: cases が未定義の場合、従来のフィールドから1ケースを作成
+                    vec![IoTestCase {
+                        name: Some("default".to_string()),
+                        stdin: stdin.clone(),
+                        stdin_file: stdin_file.clone(),
+                        stdout: stdout.clone(),
+                        stdout_file: stdout_file.clone(),
+                    }]
+                }
+            }
+            _ => panic!("Not a SuccessIo test config"),
         }
     }
 }
@@ -118,42 +167,52 @@ fn test_ok_coding_io_base(test_name: &str) -> Result {
     .unwrap();
 
     let check_json: TestConfig = serde_json::from_value(check_json_value).ok().unwrap();
+    let test_cases = check_json.get_io_test_cases();
 
-    match check_json {
-        TestConfig::SuccessIo {
-            stdin,
-            stdin_file,
-            stdout,
-            stdout_file,
-        } => {
-            // stdin を取得（インラインまたはファイルから）
-            let stdin_content = if let Some(s) = stdin {
-                s
-            } else if let Some(f) = stdin_file {
-                fs::read_to_string(path_base.clone() + "." + &f).unwrap_or_default()
-            } else {
-                String::new()
-            };
+    // パース（全ケース共通）
+    let t = parse_to_tokens(&ns_cnt).unwrap();
+    let s = parse_to_tree(&t).unwrap();
+    let a = syntactic_analyze(&s).unwrap();
 
-            // 期待される stdout を取得
-            let expected_stdout = if let Some(s) = stdout {
-                s
-            } else if let Some(f) = stdout_file {
-                fs::read_to_string(path_base.clone() + "." + &f).unwrap()
-            } else {
-                panic!("SuccessIo test must specify stdout or stdout_file");
-            };
+    // 各ケースを実行
+    for (idx, case) in test_cases.iter().enumerate() {
+        let case_name = case
+            .name
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| format!("case_{}", idx));
 
-            // 実行
-            let t = parse_to_tokens(&ns_cnt).unwrap();
-            let s = parse_to_tree(&t).unwrap();
-            let a = syntactic_analyze(&s).unwrap();
-            let (_, actual_stdout) = interpret_func_with_io(&a, "main", &stdin_content);
+        // stdin を取得
+        let stdin_content = if let Some(s) = &case.stdin {
+            s.clone()
+        } else if let Some(f) = &case.stdin_file {
+            fs::read_to_string(path_base.clone() + "." + f).unwrap_or_default()
+        } else {
+            String::new()
+        };
 
-            assert_eq!(expected_stdout, actual_stdout, "stdout mismatch");
-        }
-        _ => panic!("Expected success_io test config"),
+        // 期待される stdout を取得
+        let expected_stdout = if let Some(s) = &case.stdout {
+            s.clone()
+        } else if let Some(f) = &case.stdout_file {
+            fs::read_to_string(path_base.clone() + "." + f).unwrap()
+        } else {
+            panic!(
+                "IoTestCase must specify stdout or stdout_file (test: {}, case: {})",
+                test_name, case_name
+            );
+        };
+
+        // 実行
+        let (_, actual_stdout) = interpret_func_with_io(&a, "main", &stdin_content);
+
+        assert_eq!(
+            expected_stdout, actual_stdout,
+            "stdout mismatch in test '{}', case '{}'\nExpected: {:?}\nActual: {:?}",
+            test_name, case_name, expected_stdout, actual_stdout
+        );
     }
+
     Ok(())
 }
 
@@ -298,57 +357,60 @@ fn test_whitespace_io_base(test_name: &str) {
     .unwrap();
 
     let check_json: TestConfig = serde_json::from_value(check_json_value).ok().unwrap();
+    let test_cases = check_json.get_io_test_cases();
 
-    match check_json {
-        TestConfig::SuccessIo {
-            stdin,
-            stdin_file,
-            stdout,
-            stdout_file,
-        } => {
-            // stdin を取得（インラインまたはファイルから）
-            let stdin_content = if let Some(s) = stdin {
-                s
-            } else if let Some(f) = stdin_file {
-                fs::read_to_string(path_base.clone() + "." + &f).unwrap_or_default()
-            } else {
-                String::new()
-            };
+    // コンパイル（全ケース共通）
+    let t = parse_to_tokens(&ns_cnt).unwrap();
+    let s = parse_to_tree(&t).unwrap();
+    let a = syntactic_analyze(&s).unwrap();
+    let ws_code = compile_to_whitespace(&a)
+        .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
 
-            // 期待される stdout を取得
-            let expected_stdout = if let Some(s) = stdout {
-                s
-            } else if let Some(f) = stdout_file {
-                fs::read_to_string(path_base.clone() + "." + &f).unwrap()
-            } else {
-                panic!("SuccessIo test must specify stdout or stdout_file");
-            };
+    // Whitespace コードが空白文字のみであることを確認
+    assert!(!ws_code.is_empty(), "Whitespace code is empty");
+    assert!(
+        ws_code.chars().all(|c| c == ' ' || c == '\t' || c == '\n'),
+        "Whitespace code contains non-whitespace characters"
+    );
 
-            // コンパイル
-            let t = parse_to_tokens(&ns_cnt).unwrap();
-            let s = parse_to_tree(&t).unwrap();
-            let a = syntactic_analyze(&s).unwrap();
-            let ws_code = compile_to_whitespace(&a)
-                .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+    // 各ケースを実行
+    for (idx, case) in test_cases.iter().enumerate() {
+        let case_name = case
+            .name
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| format!("case_{}", idx));
 
-            // Whitespace コードが空白文字のみであることを確認
-            assert!(!ws_code.is_empty(), "Whitespace code is empty");
-            assert!(
-                ws_code.chars().all(|c| c == ' ' || c == '\t' || c == '\n'),
-                "Whitespace code contains non-whitespace characters"
+        // stdin を取得
+        let stdin_content = if let Some(s) = &case.stdin {
+            s.clone()
+        } else if let Some(f) = &case.stdin_file {
+            fs::read_to_string(path_base.clone() + "." + f).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        // 期待される stdout を取得
+        let expected_stdout = if let Some(s) = &case.stdout {
+            s.clone()
+        } else if let Some(f) = &case.stdout_file {
+            fs::read_to_string(path_base.clone() + "." + f).unwrap()
+        } else {
+            panic!(
+                "IoTestCase must specify stdout or stdout_file (test: {}, case: {})",
+                test_name, case_name
             );
+        };
 
-            // whitespace 実行
-            let actual_stdout = run_whitespace(&ws_code, &stdin_content)
-                .unwrap_or_else(|e| panic!("Whitespace execution failed: {}", e));
+        // whitespace 実行
+        let actual_stdout = run_whitespace(&ws_code, &stdin_content)
+            .unwrap_or_else(|e| panic!("Whitespace execution failed: {}", e));
 
-            assert_eq!(
-                expected_stdout, actual_stdout,
-                "stdout mismatch for test: {}",
-                test_name
-            );
-        }
-        _ => panic!("Expected success_io test config"),
+        assert_eq!(
+            expected_stdout, actual_stdout,
+            "stdout mismatch in test '{}', case '{}'\nExpected: {:?}\nActual: {:?}",
+            test_name, case_name, expected_stdout, actual_stdout
+        );
     }
 }
 
