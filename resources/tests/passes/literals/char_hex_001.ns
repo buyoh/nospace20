@@ -1,0 +1,34 @@
+# 文字リテラル: 16進数エスケープシーケンス #
+func: main() {
+    let: a; let: nul; let: nl; let: sp; let: ff;
+    
+    # 基本的な16進数エスケープ #
+    a = '\x41';    # 'A' = 65 #
+    __trace(0); __assert(a == 65);
+    __trace(1); __assert(a == 'A');
+    
+    nul = '\x00';  # NULL = 0 #
+    __trace(2); __assert(nul == 0);
+    
+    nl = '\x0A';   # 改行 = 10 #
+    __trace(3); __assert(nl == 10);
+    __trace(4); __assert(nl == '\n');
+    
+    sp = '\x20';   # スペース = 32 #
+    __trace(5); __assert(sp == 32);
+    __trace(6); __assert(sp == '\s');
+    
+    # 大文字の16進数 #
+    ff = '\xFF';   # 255 #
+    __trace(7); __assert(ff == 255);
+    
+    # 小文字の16進数 #
+    __trace(8); __assert('\x61' == 97);  # 'a' #
+    __trace(9); __assert('\x7a' == 122); # 'z' #
+    
+    # 混在 #
+    __trace(10); __assert('\xAb' == 171);
+    __trace(11); __assert('\xaB' == 171);
+    
+    return: 0;
+}

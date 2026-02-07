@@ -1,0 +1,27 @@
+# 数値の16進数リテラル #
+func: main() {
+  # 基本的な16進数 #
+  __trace(0); __assert(0x0 == 0);
+  __trace(1); __assert(0x1 == 1);
+  __trace(2); __assert(0xF == 15);
+  __trace(3); __assert(0x10 == 16);
+  __trace(4); __assert(0xFF == 255);
+  
+  # 大文字と小文字の混在 #
+  __trace(5); __assert(0xAB == 171);
+  __trace(6); __assert(0xab == 171);
+  __trace(7); __assert(0xAb == 171);
+  __trace(8); __assert(0xaB == 171);
+  
+  # より大きい値 #
+  __trace(9); __assert(0x100 == 256);
+  __trace(10); __assert(0xFFFF == 65535);
+  __trace(11); __assert(0x1234 == 4660);
+  
+  # 演算と組み合わせ #
+  __trace(12); __assert(0x10 + 0x20 == 48);
+  __trace(13); __assert(0xFF - 0x0F == 240);
+  __trace(14); __assert(0x2 * 0x3 == 6);
+  
+  return: 0;
+}

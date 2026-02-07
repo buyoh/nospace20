@@ -18,113 +18,47 @@
 
 ### 1.1 数値の16進数リテラル
 
-**状態**: ❌ 未実装
+**状態**: ✅ 実装済み
 
-**説明**: 16進数リテラル (`0x...`) は未対応。現在は10進整数のみサポート。
+**説明**: 16進数リテラル (`0x...`) をサポート。
 
 **構文例**:
 ```nospace
-let:x = 0xFF;   # 未実装 (255になるべき) #
-let:y = 0x10;   # 未実装 (16になるべき) #
+let:x = 0xFF;   # 255 #
+let:y = 0x10;   # 16 #
 ```
 
 **実装箇所**: [src/token_parser/mod.rs](../../src/token_parser/mod.rs)
 
-**コード**:
-```rust
-// TODO: 0x
-```
+**テストケース**:
+- [resources/tests/passes/literals/hex_number_001.ns](../../resources/tests/passes/literals/hex_number_001.ns)
+- [resources/tests/fails/syntax/hex_invalid_001.ns](../../resources/tests/fails/syntax/hex_invalid_001.ns)
 
-**実装に必要な変更**:
-
-1. **トークンパーサ**:
-   - `0x` プレフィックスを検出
-   - 16進数文字列を解析
-   - i64 に変換
-
-**参照**:
-- [spec.md](../../spec.md) セクション 1.1
-
-**優先度**: 低 - 利便性向上だが、10進数で代用可能
+**実装日**: 2026-02-07
 
 ---
 
 ### 1.2 文字リテラルの16進数表記
 
-**状態**: ❌ 未実装
+**状態**: ✅ 実装済み
 
-**説明**: 文字リテラル内での16進数エスケープシーケンス (`\xHH`) は未対応。現在は `\n`, `\t`, `\s` 等の特定エスケープシーケンスのみサポート。
+**説明**: 文字リテラル内での16進数エスケープシーケンス (`\xHH`) をサポート。
 
 **構文例**:
 ```nospace
-let:x = '\x41';   # 未実装 (65, 'A' になるべき) #
-let:y = '\x0A';   # 未実装 (10, 改行 になるべき) #
-let:z = '\x20';   # 未実装 (32, スペース になるべき) #
+let:x = '\x41';   # 65, 'A' #
+let:y = '\x0A';   # 10, 改行 #
+let:z = '\x20';   # 32, スペース #
 ```
 
-**現状の代替手段**:
-```nospace
-let:x = 'A';    # 65 #
-let:y = '\n';   # 10 (改行) #
-let:z = '\s';   # 32 (スペース) #
-```
+**実装箇所**: [src/token_parser/mod.rs](../../src/token_parser/mod.rs)
 
-**実装箇所**: [src/token_parser/mod.rs](../../src/token_parser/mod.rs#85-134)
+**テストケース**:
+- [resources/tests/passes/literals/char_hex_001.ns](../../resources/tests/passes/literals/char_hex_001.ns)
+- [resources/tests/fails/syntax/char_hex_invalid_001.ns](../../resources/tests/fails/syntax/char_hex_invalid_001.ns)
+- [resources/tests/fails/syntax/char_hex_invalid_002.ns](../../resources/tests/fails/syntax/char_hex_invalid_002.ns)
 
-**現在のコード**:
-```rust
-fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
-    iter: &mut iter::Peekable<I>,
-    start_idx: usize,
-) -> Result<Token, CodeParseError> {
-    let char_value = match iter.next() {
-        Some((_, '\\')) => {
-            // エスケープシーケンス
-            match iter.next() {
-                Some((_, 'n')) => 10,  // 改行 (LF)
-                Some((_, 'r')) => 13,  // 復帰 (CR)
-                Some((_, 't')) => 9,   // タブ
-                Some((_, 's')) => 32,  // スペース
-                Some((_, '\\')) => 92, // バックスラッシュ
-                Some((_, '\'')) => 39, // シングルクォート
-                // \x はここに追加が必要
-                Some((idx, c)) => {
-                    return Err(code_parse_error!(
-                        idx,
-                        format!("unknown escape sequence: \\{}", c)
-                    ));
-                }
-                // ...
-            }
-        }
-        // ...
-    };
-}
-```
-
-**実装に必要な変更**:
-
-1. **トークンパーサ** (`parse_char_literal` 関数):
-   - `\x` を検出
-   - 次の2文字を16進数として解析 (0-9, A-F, a-f)
-   - 16進数を i64 に変換
-   - エラーハンドリング (不正な16進数文字、桁数不足など)
-
-**実装例**:
-```rust
-Some((_, 'x')) => {
-    // \xHH 形式の16進数エスケープ
-    let hex1 = iter.next().ok_or_else(|| code_parse_error!(...))?.1;
-    let hex2 = iter.next().ok_or_else(|| code_parse_error!(...))?.1;
-    let hex_str = format!("{}{}", hex1, hex2);
-    i64::from_str_radix(&hex_str, 16).map_err(|_| code_parse_error!(...))?
-}
-```
-
-**参照**:
-- [spec.md](../../spec.md) セクション 1.3 (文字リテラル)
-
-**優先度**: 低 - 利便性向上だが、既存のエスケープシーケンスや直接文字指定で代用可能
+**実装日**: 2026-02-07
 
 ---
 
