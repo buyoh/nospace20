@@ -31,23 +31,27 @@ Whitespace はフラットな命令セットのスタックマシンであるた
 
 ## フェーズ計画
 
-### Phase 1: 基本実行エンジン
+### Phase 1: 基本実行エンジン ✅ 完了
 
-- [ ] `src/whitespace/` モジュール作成
-- [ ] Instruction enum の共有方式確定（`compiler_ws` から re-export）
-- [ ] Whitespace テキスト → 命令列パーサ
-- [ ] 基本 VM 状態（スタック、ヒープ、PC、コールスタック）
-- [ ] 全標準命令の実行
-- [ ] `step(budget)` による中断可能な実行ループ
-- [ ] Unit テスト（各命令の動作確認）
+- [x] `src/whitespace/` モジュール作成
+- [x] Instruction enum の共有方式確定（`compiler_ws` から re-export）
+- [x] Whitespace テキスト → 命令列パーサ
+- [x] 基本 VM 状態（スタック、ヒープ、PC、コールスタック）
+- [x] 全標準命令の実行
+- [x] `step(budget)` による中断可能な実行ループ
+- [x] Unit テスト（各命令の動作確認）
 
-### Phase 2: CLI と拡張 API
+完了レポート: [whitespace-interpreter-phase1.md](../../done-task/whitespace-interpreter-phase1.md)
 
-- [ ] `src/bin/whitespace20.rs` CLI バイナリ作成
-- [ ] 負ヒープアドレスによる拡張 API（`__trace`, `__assert`, `__assert_not`）
-- [ ] I/O 命令の実装（stdin/stdout バッファ対応）
-- [ ] `compiler_ws` → `whitespace::interpreter` のパイプライン結合
-- [ ] `lib.rs` に公開 API 追加
+### Phase 2: CLI と拡張 API（部分完了）
+
+- [x] `src/bin/whitespace20.rs` CLI バイナリ作成
+- [x] 負ヒープアドレスによる拡張 API（`__trace`, `__assert`, `__assert_not`）
+- [x] I/O 命令の実装（stdin/stdout バッファ対応）
+- [x] `compiler_ws` → `whitespace::interpreter` のパイプライン結合
+- [x] `lib.rs` に公開 API 追加
+
+注: 拡張 API の動作確認は compiler_ws の対応が必要
 
 ### Phase 3: 統合テスト (wsc 比較)
 

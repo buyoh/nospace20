@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [whitespace-interpreter-phase1.md](whitespace-interpreter-phase1.md) | Whitespaceインタプリタ Phase 1 実装完了（パーサ、VM、CLI、全テスト成功） | 2026-02-08 |
 | [interpreter-split-report.md](interpreter-split-report.md) | interpreterモジュールファイル分割完了報告（mod.rs→4ファイル、責務分離、全72テスト成功） | 2026-02-07 |
 | [interpreter-split.md](interpreter-split.md) | interpreterモジュールファイル分割設計（types/environment/exec、将来拡張の土台） | 2026-02-07 |
 | [hexadecimal-literals-implementation-report.md](hexadecimal-literals-implementation-report.md) | 16進数リテラル実装完了報告（数値0xFF、文字\xHH、全テスト成功） | 2026-02-07 |
