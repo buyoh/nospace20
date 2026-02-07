@@ -7,7 +7,6 @@
 ### 未実装機能の追跡
 
 - [unimplemented-variable-features.md](unimplemented-variable-features.md) - 未実装の変数関連機能（初期値指定、final/const変数）
-- [unimplemented-syntax-features.md](unimplemented-syntax-features.md) - 未実装の構文と式の機能（16進数、if/while戻り値、return挙動）
 - [unimplemented-type-system.md](unimplemented-type-system.md) - 未実装の型システム（int, void, function, tuple）
 - [unimplemented-compiler-features.md](unimplemented-compiler-features.md) - 未実装のコンパイラ機能（compiler, grayspace）
 - [technical-debt.md](technical-debt.md) - コード内の技術的負債（Clone derive削除、識別子管理改善）
@@ -28,6 +27,11 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [unimplemented-syntax-features.md](../done-task/unimplemented-syntax-features.md) - 未実装の構文と式の機能 (2026-02-07完了)
+  - 16進数リテラル（数値 0xFF、文字 \xHH）を実装
+  - if/while 式の戻り値は既に実装済みであることを確認
+  - return なし関数の戻り値仕様を確定（0を返す）
+  - 全テスト成功 (88 unit tests, 72 integration tests)
 - [compile-test-refactoring.md](../done-task/compile-test-refactoring.md) - compile_test.rs のリファクタリング設計 (2026-02-07完了)
   - compile_test.rs を13件→1件に縮小 (92%削減)
   - 新規テストタイプ compile_error を追加
