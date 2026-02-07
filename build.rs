@@ -124,6 +124,20 @@ fn {}() -> std::fmt::Result {{
                     .unwrap();
                 }
             }
+            "compile_error" => {
+                if has_interpreter {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
+fn {}() -> std::fmt::Result {{
+    test_compile_error_base("{}")
+}}
+"#,
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
+            }
             _ => {
                 panic!("Unknown test type: {}", test.test_type);
             }

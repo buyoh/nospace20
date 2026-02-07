@@ -30,6 +30,10 @@ enum TestConfig {
         #[serde(skip_serializing_if = "Option::is_none")]
         contains: Option<Vec<String>>,
     },
+    CompileError {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        contains: Option<Vec<String>>,
+    },
 }
 
 // 後方互換性のため、"trace" フィールドのみの場合は Success として扱う
@@ -190,6 +194,50 @@ fn test_syntax_error_base(test_name: &str) -> Result {
     Ok(())
 }
 
+fn test_compile_error_base(test_name: &str) -> Result {
+    let path_base = "resources/tests/fails/compile/".to_owned() + test_name;
+    let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
+        .expect("Something went wrong reading the file");
+
+    let check_json_value: serde_json::Value = serde_json::from_reader(io::BufReader::new(
+        fs::File::open(path_base.to_owned() + ".check.json")
+            .ok()
+            .unwrap(),
+    ))
+    .ok()
+    .unwrap();
+
+    let check_json: TestConfig = serde_json::from_value(check_json_value).ok().unwrap();
+
+    match check_json {
+        TestConfig::CompileError { contains } => {
+            // パース
+            let t = parse_to_tokens(&ns_cnt).ok().unwrap();
+            let s = parse_to_tree(&t).ok().unwrap();
+            let a = syntactic_analyze(&s).ok().unwrap();
+
+            // コンパイル（エラーが発生するはず）
+            let result = compile_to_whitespace(&a);
+            assert!(result.is_err(), "Expected compile error but succeeded");
+
+            // contains が指定されている場合、エラーメッセージに含まれているか確認
+            if let Some(keywords) = contains {
+                let error_msg = result.unwrap_err();
+                for keyword in keywords {
+                    assert!(
+                        error_msg.contains(&keyword),
+                        "Error message does not contain '{}': {}",
+                        keyword,
+                        error_msg
+                    );
+                }
+            }
+        }
+        _ => panic!("Expected compile_error test config"),
+    }
+    Ok(())
+}
+
 fn test_whitespace_base(test_name: &str) {
     use common::{run_whitespace, wsc_available};
 
@@ -210,6 +258,13 @@ fn test_whitespace_base(test_name: &str) {
     let a = syntactic_analyze(&s).unwrap();
     let ws_code = compile_to_whitespace(&a)
         .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+
+    // Whitespace コードが空白文字のみであることを確認
+    assert!(!ws_code.is_empty(), "Whitespace code is empty");
+    assert!(
+        ws_code.chars().all(|c| c == ' ' || c == '\t' || c == '\n'),
+        "Whitespace code contains non-whitespace characters"
+    );
 
     // whitespace 実行（__trace は無視され、実行が成功すればOK）
     let result = run_whitespace(&ws_code, "");
@@ -275,6 +330,13 @@ fn test_whitespace_io_base(test_name: &str) {
             let a = syntactic_analyze(&s).unwrap();
             let ws_code = compile_to_whitespace(&a)
                 .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+
+            // Whitespace コードが空白文字のみであることを確認
+            assert!(!ws_code.is_empty(), "Whitespace code is empty");
+            assert!(
+                ws_code.chars().all(|c| c == ' ' || c == '\t' || c == '\n'),
+                "Whitespace code contains non-whitespace characters"
+            );
 
             // whitespace 実行
             let actual_stdout = run_whitespace(&ws_code, &stdin_content)

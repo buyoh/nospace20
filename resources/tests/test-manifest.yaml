@@ -340,6 +340,14 @@ tests:
     comment: "Unexpected EOF detection"
 
   # ========================================
+  # Compile Errors
+  # ========================================
+  - name: test_compile_error_no_main_001
+    type: compile_error
+    path: no_main_001
+    comment: "Error: no main function"
+
+  # ========================================
   # I/O tests (migrated from legacy tests)
   # ========================================
   - name: test_legacy_001
