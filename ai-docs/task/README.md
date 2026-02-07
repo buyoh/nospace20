@@ -10,7 +10,6 @@
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [scope/](scope/) - スコープ機能の実装計画
-- [compile-test-refactoring.md](compile-test-refactoring.md) - compile_test.rs のリファクタリング設計
 
 ## 現在のタスク
 
@@ -20,6 +19,10 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [compile-test-refactoring.md](../done-task/compile-test-refactoring.md) - compile_test.rs のリファクタリング設計 (2026-02-07完了)
+  - compile_test.rs を13件→1件に縮小 (92%削減)
+  - 新規テストタイプ compile_error を追加
+  - Whitespace テストに空白文字検証を追加
 - [semantic-analyzer-error-handling.md](../done-task/semantic-analyzer-error-handling.md) - Semantic Analyzer エラーハンドリング改善 (2026-02-07完了)
   - panic! を Result 型に変更
   - 位置情報を付与してエラーメッセージを強化
