@@ -274,12 +274,108 @@ fn generate_store_variable(
 
 /// 関数呼び出し
 fn generate_function_call(
-    _ctx: &mut CodeGenContext,
+    ctx: &mut CodeGenContext,
     func_name: &str,
-    _args: &[Box<ExecExpression>],
+    args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
-    // TODO: 組み込み関数と ユーザー定義関数の実装
-    Err(CompileError::UndefinedFunction(func_name.to_string()))
+    match func_name {
+        "__puti" => generate_builtin_puti(ctx, args),
+        "__putc" => generate_builtin_putc(ctx, args),
+        "__geti" => generate_builtin_geti(ctx, args),
+        "__getc" => generate_builtin_getc(ctx, args),
+        _ => {
+            // TODO: ユーザー定義関数の実装
+            Err(CompileError::UndefinedFunction(func_name.to_string()))
+        }
+    }
+}
+
+/// __puti(x) - 整数を10進数で出力
+fn generate_builtin_puti(
+    ctx: &mut CodeGenContext,
+    args: &[Box<ExecExpression>],
+) -> Result<WsProgram, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::InvalidOperation(
+            format!("__puti expects 1 argument, got {}", args.len())
+        ));
+    }
+    
+    let mut prog = WsProgram::new();
+    // 引数を評価
+    prog.append(generate_expression(ctx, &args[0])?);
+    // 値を複製（戻り値用）
+    prog.push(Instruction::Duplicate);
+    // 整数として出力
+    prog.push(Instruction::OutputNumber);
+    Ok(prog)
+}
+
+/// __putc(x) - 文字を出力
+fn generate_builtin_putc(
+    ctx: &mut CodeGenContext,
+    args: &[Box<ExecExpression>],
+) -> Result<WsProgram, CompileError> {
+    if args.len() != 1 {
+        return Err(CompileError::InvalidOperation(
+            format!("__putc expects 1 argument, got {}", args.len())
+        ));
+    }
+    
+    let mut prog = WsProgram::new();
+    // 引数を評価
+    prog.append(generate_expression(ctx, &args[0])?);
+    // 値を複製（戻り値用）
+    prog.push(Instruction::Duplicate);
+    // 文字として出力
+    prog.push(Instruction::OutputChar);
+    Ok(prog)
+}
+
+/// __geti() - 整数を入力
+fn generate_builtin_geti(
+    _ctx: &mut CodeGenContext,
+    args: &[Box<ExecExpression>],
+) -> Result<WsProgram, CompileError> {
+    if !args.is_empty() {
+        return Err(CompileError::InvalidOperation(
+            format!("__geti expects 0 arguments, got {}", args.len())
+        ));
+    }
+    
+    let mut prog = WsProgram::new();
+    // 一時領域のアドレスをプッシュ
+    prog.push(Instruction::Push(WsNumber(heap_layout::TEMP_PTR)));
+    // アドレスを複製（InputNumber用とRetrieve用）
+    prog.push(Instruction::Duplicate);
+    // 整数を入力してheap[TEMP_PTR]に格納
+    prog.push(Instruction::InputNumber);
+    // heap[TEMP_PTR]の値をスタックに取り出す
+    prog.push(Instruction::Retrieve);
+    Ok(prog)
+}
+
+/// __getc() - 文字を入力
+fn generate_builtin_getc(
+    _ctx: &mut CodeGenContext,
+    args: &[Box<ExecExpression>],
+) -> Result<WsProgram, CompileError> {
+    if !args.is_empty() {
+        return Err(CompileError::InvalidOperation(
+            format!("__getc expects 0 arguments, got {}", args.len())
+        ));
+    }
+    
+    let mut prog = WsProgram::new();
+    // 一時領域のアドレスをプッシュ
+    prog.push(Instruction::Push(WsNumber(heap_layout::TEMP_PTR)));
+    // アドレスを複製（InputChar用とRetrieve用）
+    prog.push(Instruction::Duplicate);
+    // 文字を入力してheap[TEMP_PTR]に格納
+    prog.push(Instruction::InputChar);
+    // heap[TEMP_PTR]の値をスタックに取り出す
+    prog.push(Instruction::Retrieve);
+    Ok(prog)
 }
 
 /// if 式

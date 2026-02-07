@@ -214,3 +214,37 @@ fn generate_builtin_getc(
 
 - `__trace`、`__assert`、`__assert_not` はヒープ経由の間接呼び出し方式で実装予定（`whitespace-runtime.md` に記載）。I/O 関数とは異なるアプローチ。
 - `__getiv`、`__getcv`（アドレス指定入力）は spec.md に記載がないため、今回のスコープ外とする。
+
+---
+
+## 実装結果 (2026-02-07)
+
+### 実装完了
+
+`src/compiler_ws/expression.rs` に以下の4つのビルトイン関数を実装しました：
+
+- `generate_builtin_puti()` - `__puti(x)` 整数出力
+- `generate_builtin_putc()` - `__putc(x)` 文字出力
+- `generate_builtin_geti()` - `__geti()` 整数入力
+- `generate_builtin_getc()` - `__getc()` 文字入力
+
+`generate_function_call()` を修正し、関数名によるマッチングで各ビルトイン関数の実装を呼び出すようにしました。
+
+### テスト結果
+
+1. **コンパイルテスト**: 全てパス (8 passed; 0 failed; 5 ignored)
+2. **生成コード検証**: ニーモニック形式での出力を確認し、設計通りのWhitespace命令が生成されることを確認
+   - `__puti(42)` → `push 42; dup; printi; discard`
+   - `__putc(65)` → `push 65; dup; printc; discard`
+   - `__geti()` → `push 4; dup; readi; retrieve`
+   - `__getc()` → `push 4; dup; readc; retrieve`
+3. **実行テスト**: wsc が未インストールのため、5つの統合テストは ignore されましたが、コンパイル自体は成功
+
+### 変更ファイル
+
+- `src/compiler_ws/expression.rs`: 約100行追加（4つの関数 + `generate_function_call` の修正）
+
+### 今後の課題
+
+- wsc をインストールして統合テスト (`test_compile_and_run_*`) を実行し、実際の実行結果を検証
+- ユーザー定義関数の実装（現在は `UndefinedFunction` エラーを返す）
