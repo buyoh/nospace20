@@ -1,8 +1,39 @@
 # compile_test.rs リファクタリング設計
 
+**ステータス**: ✅ 完了
+
 ## 背景
 
 `tests/compile_test.rs` は nospace ソースコードが Rust のテスト関数内にハードコードされており、保守性に問題がある。一方 `tests/code_test.rs` は `resources/tests/` 以下の外部ファイルと `test-manifest.yaml` による宣言的なテスト定義を採用しており、`build.rs` でテストコードを自動生成している。`compile_test.rs` もこの仕組みに統合すべきである。
+
+## 実施内容
+
+### Phase 1: WS文字検証の共通化 ✅
+- [x] `code_test.rs` の `test_whitespace_base` / `test_whitespace_io_base` に「出力が空白文字のみ」のアサーションを追加
+
+### Phase 2: compile_error テストタイプの追加 ✅
+- [x] `code_test.rs` の `TestConfig` に `CompileError` バリアントを追加
+- [x] `code_test.rs` に `test_compile_error_base()` 関数を追加
+- [x] `build.rs` に `compile_error` タイプのコード生成ロジックを追加
+- [x] `resources/tests/fails/compile/` ディレクトリ・テストファイルの作成
+- [x] `test-manifest.yaml` にエントリを追加
+
+### Phase 3: compile_test.rs のテスト削除・縮小 ✅
+- [x] wsc-run テスト 5件を削除
+- [x] compilation-only テスト 6件を削除
+- [x] compile-error テスト 1件を削除（マニフェストエントリで代替）
+- [x] debug-output テスト 1件のみ残す
+
+## 成果
+
+- compile_test.rs: 13件のテスト → 1件のテストに縮小（92%削減）
+- 新規テストタイプ `compile_error` を追加し、コンパイルエラーのテストを外部ファイル化
+- Whitespace テスト全体に空白文字検証を追加
+- すべてのテストが正常に動作することを確認
+
+## コミット
+
+- `975ea37` - refactor: compile_test.rs をマニフェストベースのテストに移行
 
 ## 現状分析
 
