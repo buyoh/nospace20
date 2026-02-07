@@ -6,6 +6,8 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [semantic-analyzer-error-handling-report.md](semantic-analyzer-error-handling-report.md) | Semantic Analyzerエラーハンドリング改善完了報告（panic!をResultに置換、位置情報付与） | 2026-02-07 |
+| [semantic-analyzer-error-handling.md](semantic-analyzer-error-handling.md) | Semantic Analyzerエラーハンドリング改善設計（Result型への移行、位置情報付与） | 2026-02-07 |
 | [multiple-io-test-cases-report.md](multiple-io-test-cases-report.md) | 複数の入出力テストケース対応完了報告（cases配列でIoTestCaseサポート） | 2026-02-07 |
 | [multiple-io-test-cases.md](multiple-io-test-cases.md) | 複数の入出力テストケース対応設計（成功用の複数ケーステスト機能） | 2026-02-07 |
 | [legacy-migration-phase3-report.md](legacy-migration-phase3-report.md) | 旧テストの移行Phase3完了報告（else:if構文サポート、I/Oテスト作成） | 2026-02-07 |

@@ -5,7 +5,6 @@
 ## ドキュメント
 
 - [unimplemented-features.md](unimplemented-features.md) - 未実装の機能・構文の一覧（継続追跡）
-- [semantic-analyzer-error-handling.md](semantic-analyzer-error-handling.md) - semantic_analyzer エラーハンドリング改善設計
 - [unit-test-interpreter.md](unit-test-interpreter.md) - interpreter ユニットテスト追加タスク
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
@@ -21,6 +20,10 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [semantic-analyzer-error-handling.md](../done-task/semantic-analyzer-error-handling.md) - Semantic Analyzer エラーハンドリング改善 (2026-02-07完了)
+  - panic! を Result 型に変更
+  - 位置情報を付与してエラーメッセージを強化
+  - Phase 1 (Result型への移行) と Phase 2 (位置情報の付与) を完了
 - [multiple-io-test-cases.md](../done-task/multiple-io-test-cases.md) - 複数の入出力テストケース対応 (2026-02-07完了)
   - success_io テストで複数ケースをサポート
   - 後方互換性を維持しつつ、1テストで複数パターンをテスト可能に
