@@ -21,6 +21,9 @@ mod token_parser;
 mod tree_parser;
 pub mod whitespace;
 
+#[cfg(feature = "wasm")]
+mod wasm_api;
+
 pub use compile_property::{CompileProperty, CompileTarget, ExecutionMode, LanguageStd};
 
 pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
