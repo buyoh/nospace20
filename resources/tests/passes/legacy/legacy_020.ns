@@ -9,10 +9,10 @@ func:check(x){
 func:main(){
     let:n,x;
     n = __geti();
-    while(n > 0){
+    while: (n > 0){
         x = __geti();
         check(x);
         n = n-1;
         __putc(';');
-    }
+    };
 }

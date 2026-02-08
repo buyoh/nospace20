@@ -3,14 +3,14 @@
 # ret: 結果を格納する変数のアドレス #
 func:fibo(x, ret){
     let:r1, r2;
-    if (x <= 1) {
+    if: (x <= 1) {
         *ret = 1;
     }
-    else {
+    else: {
         fibo(x-1, &r1);
         fibo(x-2, &r2);
         *ret = r1 + r2;
-    }
+    };
 }
 
 func:main(){

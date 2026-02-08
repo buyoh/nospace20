@@ -479,6 +479,56 @@ tests:
     path: legacy/legacy_016
     comment: "Legacy I/O test"
 
+  - name: test_legacy_006
+    type: success_io
+    path: legacy/legacy_006
+    comment: "Legacy I/O test (global variables)"
+
+  - name: test_legacy_011
+    type: success_io
+    path: legacy/legacy_011
+    comment: "Legacy I/O test (global variables)"
+
+  - name: test_legacy_012
+    type: success_io
+    path: legacy/legacy_012
+    comment: "Legacy I/O test (global variables)"
+
+  - name: test_legacy_013
+    type: success_io
+    path: legacy/legacy_013
+    comment: "Legacy I/O test (pointers)"
+
+  - name: test_legacy_014
+    type: success_io
+    path: legacy/legacy_014
+    comment: "Legacy I/O test (negative literals)"
+
+  - name: test_legacy_015
+    type: success_io
+    path: legacy/legacy_015
+    comment: "Legacy I/O test (pointers and <=)"
+
+  - name: test_legacy_018
+    type: success_io
+    path: legacy/legacy_018
+    comment: "Legacy I/O test (character literals)"
+
+  - name: test_legacy_020
+    type: success_io
+    path: legacy/legacy_020
+    comment: "Legacy I/O test (logical operators)"
+
+  - name: test_legacy_023
+    type: success_io
+    path: legacy/legacy_023
+    comment: "Legacy I/O test (compound assignments)"
+
+  - name: test_legacy_025
+    type: success_io
+    path: legacy/legacy_025
+    comment: "Legacy I/O test (character arithmetic)"
+
   # ========================================
   # I/O builtin function tests
   # ========================================
@@ -537,55 +587,15 @@ tests:
 #   path: variables/disabled_var_init_001
 
 # DISABLED legacy tests (require unimplemented features)
-  - name: test_legacy_006
-    type: success_io
-    path: legacy/legacy_006
-    comment: "DISABLED: requires global variables"
-
-  - name: test_legacy_011
-    type: success_io
-    path: legacy/legacy_011
-    comment: "DISABLED: requires global variables"
-
-  - name: test_legacy_012
-    type: success_io
-    path: legacy/legacy_012
-    comment: "DISABLED: requires global variables"
-
-  - name: test_legacy_013
-    type: success_io
-    path: legacy/legacy_013
-    comment: "DISABLED: requires pointers"
-
-# - name: test_legacy_014
-#   type: success_io
-#   path: legacy/legacy_014
-#   comment: "DISABLED: requires negative literals"
-
-# - name: test_legacy_015
-#   type: success_io
-#   path: legacy/legacy_015
-#   comment: "DISABLED: requires pointers and <="
-
 # - name: test_legacy_017
 #   type: success_io
 #   path: legacy/legacy_017
 #   comment: "DISABLED: requires pointers and <="
 
-# - name: test_legacy_018
-#   type: success_io
-#   path: legacy/legacy_018
-#   comment: "DISABLED: requires character literals"
-
 # - name: test_legacy_019
 #   type: success_io
 #   path: legacy/legacy_019
 #   comment: "DISABLED: requires arrays"
-
-# - name: test_legacy_020
-#   type: success_io
-#   path: legacy/legacy_020
-#   comment: "DISABLED: requires logical operators"
 
 # - name: test_legacy_021
 #   type: success_io
@@ -597,20 +607,10 @@ tests:
 #   path: legacy/legacy_022
 #   comment: "DISABLED: requires pointers"
 
-# - name: test_legacy_023
-#   type: success_io
-#   path: legacy/legacy_023
-#   comment: "DISABLED: requires compound assignments"
-
 # - name: test_legacy_024
 #   type: success_io
 #   path: legacy/legacy_024
 #   comment: "DISABLED: requires arrays and pointers"
-
-# - name: test_legacy_025
-#   type: success_io
-#   path: legacy/legacy_025
-#   comment: "DISABLED: requires character arithmetic"
 
 # - name: test_legacy_026
 #   type: success_io
