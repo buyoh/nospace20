@@ -10,13 +10,29 @@
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = []
-wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
+default = ["cli"]
+cli = ["dep:clap", "dep:unicode-width"]
+wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen"]
+
+# [dependencies] を修正（clap, unicode-width を optional 化）
+clap = { version = "4.0", features = ["derive"], optional = true }
+unicode-width = { version = "0.1.8", optional = true }
 
 # [dependencies] に追加
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 ```
+
+**feature フラグの設計意図:**
+
+| feature | 用途 | 有効化される依存 |
+|---------|------|------------------|
+| `cli` (default) | CLI バイナリビルド | `clap`, `unicode-width` |
+| `wasm` | WASM ライブラリビルド | `wasm-bindgen`, `serde-wasm-bindgen` |
+
+- 通常のビルド (`cargo build`) → `default = ["cli"]` により従来通り動作
+- WASM ビルド → `--no-default-features --features wasm` で CLI 向け依存を除外
+- `cli` と `wasm` は排他ではないが、同時有効化は想定しない
 
 **確認**: `cargo build` / `cargo test` が従来通り成功すること。
 
@@ -30,16 +46,43 @@ serde-wasm-bindgen = { version = "0.6", optional = true }
 
 ```bash
 rustup target add wasm32-unknown-unknown
-cargo build --target wasm32-unknown-unknown --lib --features wasm
+cargo build --target wasm32-unknown-unknown --lib --no-default-features --features wasm
 ```
 
 この時点では `wasm_api.rs` はまだ空でよい。
 ライブラリコード全体が wasm32 でコンパイルできることを確認する。
 
+`--no-default-features` により `cli` feature が無効化され、`clap` / `unicode-width` はコンパイル対象外となる。
+
 **潜在的な問題:**
 - `std::io::stdin()` / `stdout()` → wasm32-unknown-unknown では no-op 実装が提供されるため、コンパイルは通る
 - `build.rs` → ホスト側で実行されるため影響なし
-- `clap` → `bin/` ターゲットのみで使用、`--lib` では含まれない
+- `clap` / `unicode-width` → `cli` feature 無効時は依存から除外される
+
+### Step 0-4: bin ターゲットの cfg ガード
+
+`clap` と `unicode-width` を optional 化したため、`src/bin/*.rs` では `cli` feature が有効なことを前提とする。
+
+**対応方法:**
+
+Cargo.toml の `[[bin]]` セクションで `required-features` を指定する。これにより `cli` feature が無いときに bin ターゲットはビルド対象から除外される。
+
+```toml
+[[bin]]
+name = "nospace20"
+path = "src/bin/nospace20.rs"
+required-features = ["cli"]
+
+[[bin]]
+name = "whitespace20"
+path = "src/bin/whitespace20.rs"
+required-features = ["cli"]
+```
+
+**確認:**
+- `cargo build` → `default = ["cli"]` により bin がビルドされる
+- `cargo build --lib --no-default-features --features wasm` → bin はビルド対象外
+- `cargo test` → 従来通り成功
 
 ---
 
@@ -327,7 +370,7 @@ pub fn parse(source: &str) -> JsValue {
 ### Step 1-8: wasm-pack build & スモークテスト
 
 ```bash
-wasm-pack build --target nodejs --features wasm
+wasm-pack build --target nodejs --no-default-features --features wasm
 ```
 
 成功すれば `pkg/` に出力される。
@@ -665,7 +708,7 @@ document.getElementById('run-btn').onclick = () => {
 
 - [ ] Node.js でのスモークテスト（compile → VM 生成 → step 実行）
 - [ ] 既存テストケースの一部を WASM 経由で実行・結果照合
-- [ ] ブラウザでの動作確認（wasm-pack build --target web）
+- [ ] ブラウザでの動作確認（wasm-pack build --target web --no-default-features --features wasm）
 
 ---
 
@@ -974,7 +1017,7 @@ document.getElementById('run-btn').onclick = () => {
 ls -lh pkg/nospace20_bg.wasm
 
 # wasm-opt による最適化
-wasm-pack build --target nodejs --features wasm --release
+wasm-pack build --target nodejs --no-default-features --features wasm --release
 ```
 
 ### Step 3-2: 統合テスト
@@ -990,7 +1033,7 @@ wasm-pack build --target nodejs --features wasm --release
 
 | ファイル | 変更内容 | Phase |
 |---------|---------|-------|
-| `Cargo.toml` | `[lib]` セクション追加、`[features]` 追加、依存追加 | 0 |
+| `Cargo.toml` | `[lib]` セクション追加、`[features]` 追加（`cli`/`wasm`）、`clap`/`unicode-width` を optional 化、WASM 依存追加 | 0 |
 | `.gitignore` | `/pkg/` 追加 | 0 |
 | `src/lib.rs` | `#[cfg(feature = "wasm")] mod wasm_api;` 追加（1行） | 1 |
 | `src/wasm_api.rs` | **新規作成**: run, compile, parse, WasmWhitespaceVM, WasmInterpreterSession | 1, A, B |
