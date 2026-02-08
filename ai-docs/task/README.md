@@ -11,6 +11,9 @@
 - [unimplemented-compiler-features.md](unimplemented-compiler-features.md) - 未実装のコンパイラ機能（compiler, grayspace）
 - [technical-debt.md](technical-debt.md) - コード内の技術的負債（Clone derive削除、識別子管理改善）
 - [error-message-improvement.md](error-message-improvement.md) - エラーメッセージ型の改善（Cow<'static, str> 導入設計）
+- [implement-getcv-builtin.md](implement-getcv-builtin.md) - __getcv 組み込み関数の実装（変数アドレスへの入力）
+- [implement-multi-variable-declaration.md](implement-multi-variable-declaration.md) - 複数変数宣言の実装（let:a, b;）
+- [implement-compound-assignment-operators.md](implement-compound-assignment-operators.md) - 複合代入演算子の実装（+=, -=, *=, /=, %=）
 
 ### アクティブなタスク
 
