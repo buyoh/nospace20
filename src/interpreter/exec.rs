@@ -81,6 +81,58 @@ impl LocalEnvironment<'_, '_> {
         }
     }
 
+    /// IdentifierRef から絶対アドレスを計算（Phase 3）
+    fn resolve_address(&self, id: &IdentifierRef) -> i64 {
+        if id.is_global {
+            id.local_index as i64
+        } else {
+            let global_count = self.env.global_variables.len() as i64;
+            let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
+            let mut addr = global_count;
+            for i in 0..scope_idx {
+                addr += self.scope_stack[i].len() as i64;
+            }
+            addr + id.local_index as i64
+        }
+    }
+
+    /// 絶対アドレスから値を取得（Phase 3）
+    fn get_by_address(&self, addr: i64) -> i64 {
+        let addr = addr as usize;
+        let global_count = self.env.global_variables.len();
+        if addr < global_count {
+            self.env.global_variables[addr]
+        } else {
+            let mut remaining = addr - global_count;
+            for scope in &self.scope_stack {
+                if remaining < scope.len() {
+                    return scope[remaining];
+                }
+                remaining -= scope.len();
+            }
+            panic!("runtime error: invalid address {}", addr);
+        }
+    }
+
+    /// 絶対アドレスに値を設定（Phase 3）
+    fn set_by_address(&mut self, addr: i64, value: i64) {
+        let addr = addr as usize;
+        let global_count = self.env.global_variables.len();
+        if addr < global_count {
+            self.env.global_variables[addr] = value;
+        } else {
+            let mut remaining = addr - global_count;
+            for scope in &mut self.scope_stack {
+                if remaining < scope.len() {
+                    scope[remaining] = value;
+                    return;
+                }
+                remaining -= scope.len();
+            }
+            panic!("runtime error: invalid address {}", addr);
+        }
+    }
+
     fn interpret_call_function(
         &mut self,
         id: &String,
@@ -158,13 +210,26 @@ impl LocalEnvironment<'_, '_> {
         }
         let func = self.root_scope.get_function(id.as_str()).unwrap();
 
-        let mut env = LocalEnvironment::new_func(self.env, self.root_scope, &func, &arg_values);
-        match env.interpret_statements(&func.block.statements) {
+        // 新しい scope を既存の scope_stack に push
+        let mut variables = vec![0; func.block.scope.variable_count];
+        for (i, arg_val) in arg_values.iter().enumerate() {
+            if i < func.arg_indices.len() {
+                variables[func.arg_indices[i]] = *arg_val;
+            }
+        }
+        self.scope_stack.push(variables);
+
+        // 既存の LocalEnvironment 上で関数本体を実行
+        let result = match self.interpret_statements(&func.block.statements) {
             Flow::Proceed => ExpressionFlow::Value(0),
-            Flow::Return(x) => ExpressionFlow::Value(x), // 関数の return は呼び出し元の式の値となる
+            Flow::Return(x) => ExpressionFlow::Value(x),
             Flow::Continue => panic!("internal error: unexpected continue"),
             Flow::Break => panic!("internal error: unexpected break"),
-        }
+        };
+
+        // 関数スコープを pop
+        self.scope_stack.pop();
+        result
     }
 
     fn interpret_while(&mut self, cond: &Box<ExecExpression>, block: &Block) -> ExpressionFlow {
@@ -239,20 +304,31 @@ impl LocalEnvironment<'_, '_> {
         op: &Operator1,
         expr1: &Box<ExecExpression>,
     ) -> ExpressionFlow {
-        let v1 = try_expr!(self.interpret_expression(expr1));
-        let res = match op {
-            Operator1::Negative => -v1,
-            Operator1::LogicalNot => bool_to_int(v1 == 0),
+        match op {
             Operator1::Ref => {
-                // Phase 3 で実装予定
-                unimplemented!("reference operator (&) is not implemented yet")
+                // & は Variable に対してのみ（意味解析で検証済み）
+                if let ExecExpression::Variable(id_ref) = expr1.as_ref() {
+                    let addr = self.resolve_address(id_ref);
+                    ExpressionFlow::Value(addr)
+                } else {
+                    panic!("runtime error: cannot take reference of non-variable");
+                }
             }
             Operator1::Deref => {
-                // Phase 3 で実装予定
-                unimplemented!("dereference operator (*) is not implemented yet")
+                let addr = try_expr!(self.interpret_expression(expr1));
+                let value = self.get_by_address(addr);
+                ExpressionFlow::Value(value)
             }
-        };
-        ExpressionFlow::Value(res)
+            _ => {
+                let v1 = try_expr!(self.interpret_expression(expr1));
+                let res = match op {
+                    Operator1::Negative => -v1,
+                    Operator1::LogicalNot => bool_to_int(v1 == 0),
+                    _ => unreachable!(),
+                };
+                ExpressionFlow::Value(res)
+            }
+        }
     }
 
     fn interpret_operation2(
@@ -263,13 +339,23 @@ impl LocalEnvironment<'_, '_> {
     ) -> ExpressionFlow {
         // 代入演算子: 特別処理
         if let Operator2::Assign = op {
-            if let ExecExpression::Variable(id_ref) = expr1.as_ref() {
-                let v = try_expr!(self.interpret_expression(expr2));
-                // Phase 2: IdentifierRef を使用して O(1) でアクセス
-                self.set_variable(id_ref, v);
-                return ExpressionFlow::Value(v);
-            } else {
-                panic!("runtime error: left value is not variable");
+            match expr1.as_ref() {
+                ExecExpression::Variable(id_ref) => {
+                    let v = try_expr!(self.interpret_expression(expr2));
+                    // Phase 2: IdentifierRef を使用して O(1) でアクセス
+                    self.set_variable(id_ref, v);
+                    return ExpressionFlow::Value(v);
+                }
+                ExecExpression::Operation1(Operator1::Deref, inner) => {
+                    // *ptr = value のケース (Phase 3)
+                    let addr = try_expr!(self.interpret_expression(inner));
+                    let v = try_expr!(self.interpret_expression(expr2));
+                    self.set_by_address(addr, v);
+                    return ExpressionFlow::Value(v);
+                }
+                _ => {
+                    panic!("runtime error: left value is not assignable");
+                }
             }
         }
         // 論理AND: 短絡評価 (左辺が0なら右辺を評価せず0を返す)
@@ -371,5 +457,124 @@ impl LocalEnvironment<'_, '_> {
             ExecStatement::Break => Flow::Break,
             ExecStatement::Continue => Flow::Continue,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse_to_tokens;
+    use crate::parse_to_tree;
+    use crate::semantic_analyzer::analyze;
+    use crate::EnvironmentConfig;
+    use std::io::Cursor;
+
+    fn create_test_env() -> Environment {
+        let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(Vec::<u8>::new())));
+        let stdout_buf: Box<dyn std::io::Write> = Box::new(Vec::<u8>::new());
+        Environment::new_with_config(stdin_cursor, stdout_buf, EnvironmentConfig::new())
+    }
+
+    fn parse_and_analyze(code: &str) -> Scope {
+        let code_string = code.to_string();
+        let tokens = parse_to_tokens(&code_string).expect("Failed to parse tokens");
+        let tree = parse_to_tree(&tokens).expect("Failed to parse tree");
+        analyze(&tree).expect("Failed to analyze")
+    }
+
+    #[test]
+    fn test_resolve_address_local_variables() {
+        let code = r#"
+func: main() {
+    let: x; let: p;
+    x = 42;
+    p = 0;
+    return: 0;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        env.global_variables = vec![0; scope.variable_count];
+        
+        let func = scope.get_function("main").unwrap();
+        let local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
+
+        // main 関数のローカル変数 x (local_index=0), p (local_index=1)
+        let id_x = IdentifierRef {
+            is_global: false,
+            scope_depth: 0,
+            local_index: 0,
+        };
+        let addr_x = local_env.resolve_address(&id_x);
+        assert_eq!(addr_x, 0, "x should be at address 0");
+
+        let id_p = IdentifierRef {
+            is_global: false,
+            scope_depth: 0,
+            local_index: 1,
+        };
+        let addr_p = local_env.resolve_address(&id_p);
+        assert_eq!(addr_p, 1, "p should be at address 1");
+    }
+
+    #[test]
+    fn test_get_set_by_address() {
+        let code = r#"
+func: main() {
+    let: x; let: p;
+    return: 0;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        env.global_variables = vec![0; scope.variable_count];
+        
+        let func = scope.get_function("main").unwrap();
+        let mut local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
+
+        // アドレス 0 に値を設定
+        local_env.set_by_address(0, 42);
+        let val = local_env.get_by_address(0);
+        assert_eq!(val, 42, "get_by_address should return the value set by set_by_address");
+
+        // アドレス 1 に値を設定
+        local_env.set_by_address(1, 99);
+        let val = local_env.get_by_address(1);
+        assert_eq!(val, 99, "get_by_address should return 99");
+    }
+
+    #[test]
+    fn test_ref_and_deref_integration() {
+        let code = r#"
+func: main() {
+    let: x; let: p;
+    x = 42;
+    p = &x;
+    return: *p;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        
+        let result = crate::interpreter::interpret(&mut env, &scope);
+        assert_eq!(result, Some(42), "should return the value of *p which is 42");
+    }
+
+    #[test]
+    fn test_deref_assign_integration() {
+        let code = r#"
+func: main() {
+    let: x; let: p;
+    x = 10;
+    p = &x;
+    *p = 20;
+    return: x;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        
+        let result = crate::interpreter::interpret(&mut env, &scope);
+        assert_eq!(result, Some(20), "x should be modified to 20 via *p = 20");
     }
 }

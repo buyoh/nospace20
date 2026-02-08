@@ -77,7 +77,14 @@ pub fn interpret_func_testing(scope: &Scope, func_name: &str) -> BTreeMap<i64, i
     let stdout_buf: Box<dyn std::io::Write> = Box::new(Vec::<u8>::new());
     let config = EnvironmentConfig::with_max_expression_count(100000);
     let mut env = Environment::new_with_config(stdin_cursor, stdout_buf, config);
-    interpreter::interpret_func(&mut env, scope, func_name);
+    
+    // Phase 3: グローバル変数の初期化を含む interpreter::interpret を呼び出す
+    // ただし、func_name が "main" の場合のみ
+    if func_name == "main" {
+        interpreter::interpret(&mut env, scope);
+    } else {
+        interpreter::interpret_func(&mut env, scope, func_name);
+    }
     env.traced
 }
 

@@ -1,0 +1,18 @@
+# ポインタを使ったスワップ関数 #
+func: swap(a, b) {
+    let: tmp;
+    tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+func: main() {
+    let: x; let: y;
+    x = 10;
+    y = 20;
+    swap(&x, &y);
+    __assert(x == 20);
+    __assert(y == 10);
+    __trace(0);
+    return: 0;
+}

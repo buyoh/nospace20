@@ -1,0 +1,10 @@
+# デリファレンスを使った代入 #
+func: main() {
+    let: x; let: p;
+    x = 10;
+    p = &x;
+    *p = 20;
+    __assert(x == 20);
+    __trace(0);
+    return: 0;
+}

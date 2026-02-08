@@ -1,0 +1,9 @@
+# 基本的な参照とデリファレンス #
+func: main() {
+    let: x; let: p;
+    x = 42;
+    p = &x;
+    __assert(*p == 42);
+    __trace(0);
+    return: 0;
+}

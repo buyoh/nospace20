@@ -1,0 +1,10 @@
+# 二重ポインタのテスト #
+func: main() {
+    let: x; let: p; let: pp;
+    x = 99;
+    p = &x;
+    pp = &p;
+    __assert(**pp == 99);
+    __trace(0);
+    return: 0;
+}

@@ -151,6 +151,36 @@ tests:
     path: operators/modulo_002
     comment: "Modulo operator (various cases)"
 
+  - name: test_operators_ref_basic_001
+    type: success
+    path: operators/ref_basic_001
+    comment: "Reference and dereference operators"
+    targets: [interpreter]
+
+  - name: test_operators_ref_deref_assign_001
+    type: success
+    path: operators/ref_deref_assign_001
+    comment: "Dereference assignment (*ptr = value)"
+    targets: [interpreter]
+
+  - name: test_operators_ref_func_arg_001
+    type: success
+    path: operators/ref_func_arg_001
+    comment: "Passing pointers to functions"
+    targets: [interpreter]
+
+  - name: test_operators_ref_swap_001
+    type: success
+    path: operators/ref_swap_001
+    comment: "Swapping values using pointers"
+    targets: [interpreter]
+
+  - name: test_operators_ref_double_001
+    type: success
+    path: operators/ref_double_001
+    comment: "Double pointer (pointer to pointer)"
+    targets: [interpreter]
+
   # ========================================
   # Builtins
   # ========================================

@@ -1,0 +1,13 @@
+# 関数引数としてのポインタ渡し #
+func: set_value(ptr, val) {
+    *ptr = val;
+}
+
+func: main() {
+    let: x;
+    x = 0;
+    set_value(&x, 100);
+    __assert(x == 100);
+    __trace(0);
+    return: 0;
+}
