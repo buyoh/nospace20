@@ -6,7 +6,7 @@ Nospace is a toy programming language that allows arbitrary spaces, newlines, an
 
 Nospace とは、改行、タブ・半角スペース等の空白に影響を受けることなく記述できるプログラミング言語です。esolang である whitespace と対になる言語を目指しています。Nospace20 は interpreter として動作する他、~~whitespace へのコンパイルも可能です~~。
 
-## run
+## CLI Usage
 
 ```
 cargo run --bin nospace20
@@ -48,6 +48,16 @@ Options:
   - `mnemonic`: ニーモニック表記へコンパイル。`std` が `ws` の場合のみ。
   - `ex-ws` : （未対応）拡張 whitespace へコンパイル。
   - `json` : （未対応）意味解析後の中間表現へコンパイル。
+
+## Other Features
+
+### Whitespace20
+
+TODO:
+
+### WebAssembly Build
+
+TODO:
 
 ## docs
 
