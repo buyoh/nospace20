@@ -14,6 +14,7 @@
 
 ### アクティブなタスク
 
+- [error-specification/](error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討
 - [reference-dereference/](reference-dereference/) - 参照(`&`)・デリファレンス(`*`)演算子の実装（spec.md 2.7）
 - [whitespace-interpreter/](whitespace-interpreter/) - Whitespace インタプリタ（明示的スタックマシン、中断可能実行）
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開）
