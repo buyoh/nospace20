@@ -46,15 +46,15 @@ pub fn syntactic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<Code
     semantic_analyzer::analyze(root)
 }
 
-/// Phase 3: グローバル変数の初期化を含む interpret
+/// グローバル変数の初期化を含む interpret
 pub fn interpret(scope: &Scope) -> Option<i64> {
     let mut env = Environment::new();
-    interpreter::interpret(&mut env, scope)
+    interpreter::interpret_all(&mut env, scope)
 }
 
-/// Phase 3: グローバル変数の初期化を含む interpret（env 指定版）
+/// グローバル変数の初期化を含む interpret（env 指定版）
 pub fn interpret_with_env(env: &mut Environment, scope: &Scope) -> Option<i64> {
-    interpreter::interpret(env, scope)
+    interpreter::interpret_all(env, scope)
 }
 
 pub fn interpret_func(scope: &Scope, func_name: &str) -> Option<i64> {
@@ -78,13 +78,9 @@ pub fn interpret_func_testing(scope: &Scope, func_name: &str) -> BTreeMap<i64, i
     let config = EnvironmentConfig::with_max_expression_count(100000);
     let mut env = Environment::new_with_config(stdin_cursor, stdout_buf, config);
     
-    // Phase 3: グローバル変数の初期化を含む interpreter::interpret を呼び出す
-    // ただし、func_name が "main" の場合のみ
-    if func_name == "main" {
-        interpreter::interpret(&mut env, scope);
-    } else {
-        interpreter::interpret_func(&mut env, scope, func_name);
-    }
+    // グローバル変数を初期化してから関数を実行
+    interpreter::interpret_global(&mut env, scope);
+    interpreter::interpret_func(&mut env, scope, func_name);
     env.traced
 }
 
@@ -119,6 +115,8 @@ pub fn interpret_func_with_io(
     let config = EnvironmentConfig::with_max_expression_count(100000);
     let mut env = Environment::new_with_config(stdin_cursor, stdout_writer, config);
 
+    // グローバル変数を初期化してから関数を実行
+    interpreter::interpret_global(&mut env, scope);
     interpreter::interpret_func(&mut env, scope, func_name);
     env.flush();
 

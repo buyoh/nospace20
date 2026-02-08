@@ -26,8 +26,8 @@ pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> 
     }
 }
 
-/// Phase 3: グローバル変数を初期化してから main 関数を実行
-pub fn interpret(env: &mut Environment, scope: &Scope) -> Option<i64> {
+/// グローバル変数の領域確保と初期化式の実行
+pub fn interpret_global(env: &mut Environment, scope: &Scope) {
     // グローバル変数の領域を確保
     env.global_variables = vec![0; scope.variable_count];
 
@@ -48,7 +48,10 @@ pub fn interpret(env: &mut Environment, scope: &Scope) -> Option<i64> {
             }
         }
     }
+}
 
-    // main 関数を呼び出し
+/// グローバル変数を初期化してから main 関数を実行
+pub fn interpret_all(env: &mut Environment, scope: &Scope) -> Option<i64> {
+    interpret_global(env, scope);
     interpret_func(env, scope, "main")
 }

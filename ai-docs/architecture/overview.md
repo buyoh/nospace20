@@ -29,8 +29,10 @@ nospace20/
 | `parse_to_tokens` | `&String` | `Result<Vec<PrettyToken>, Vec<CodeParseError>>` | 字句解析 |
 | `parse_to_tree` | `&Vec<PrettyToken>` | `Result<Vec<Statement>, Vec<CodeParseError>>` | 構文解析 |
 | `syntactic_analyze` | `&Vec<Statement>` | `Scope` | 意味解析 |
-| `interpret_func` | `&Scope, &str` | `Option<i64>` | 関数実行 |
+| `interpret` | `&Scope` | `Option<i64>` | グローバル変数初期化 + main 実行 |
+| `interpret_func` | `&Scope, &str` | `Option<i64>` | 関数実行（グローバル変数初期化なし） |
 | `interpret_func_testing` | `&Scope, &str` | `BTreeMap<i64, i64>` | テスト用関数実行 (トレース情報付き) |
+| `interpret_func_with_io` | `&Scope, &str, &str` | `(BTreeMap<i64, i64>, String)` | I/O付きテスト用関数実行 |
 
 ## 処理パイプライン詳細
 

@@ -556,7 +556,7 @@ func: main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         
-        let result = crate::interpreter::interpret(&mut env, &scope);
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
         assert_eq!(result, Some(42), "should return the value of *p which is 42");
     }
 
@@ -574,7 +574,7 @@ func: main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         
-        let result = crate::interpreter::interpret(&mut env, &scope);
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
         assert_eq!(result, Some(20), "x should be modified to 20 via *p = 20");
     }
 }
