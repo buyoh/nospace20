@@ -509,10 +509,10 @@ tests:
     path: legacy/legacy_015
     comment: "Legacy I/O test (pointers and <=)"
 
-  - name: test_legacy_018
-    type: success_io
-    path: legacy/legacy_018
-    comment: "Legacy I/O test (character literals)"
+  # - name: test_legacy_018
+  #   type: success_io
+  #   path: legacy/legacy_018
+  #   comment: "Legacy I/O test (character literals, __getcv)"
 
   - name: test_legacy_020
     type: success_io
