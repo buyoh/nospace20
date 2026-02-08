@@ -6,30 +6,6 @@ Nospace is a toy programming language that allows arbitrary spaces, newlines, an
 
 Nospace とは、改行、タブ・半角スペース等の空白に影響を受けることなく記述できるプログラミング言語です。esolang である whitespace と対になる言語を目指しています。Nospace20 は interpreter として動作する他、~~whitespace へのコンパイルも可能です~~。
 
-## Build
-
-### Standard Build (CLI)
-
-```bash
-cargo build
-cargo build --release
-```
-
-### WebAssembly Build
-
-```bash
-# Add wasm32 target (first time only)
-rustup target add wasm32-unknown-unknown
-
-# Build for WebAssembly
-cargo build --target wasm32-unknown-unknown --lib --no-default-features --features wasm
-```
-
-### Feature Flags
-
-- `cli` (default): Enable CLI binary build with `clap` and `unicode-width` dependencies
-- `wasm`: Enable WebAssembly build with `wasm-bindgen` and `serde-wasm-bindgen` dependencies
-
 ## CLI Usage
 
 ```bash
@@ -73,19 +49,35 @@ Options:
   - `ex-ws` : （未対応）拡張 whitespace へコンパイル。
   - `json` : （未対応）意味解析後の中間表現へコンパイル。
 
+## Build
+
+### Standard Build (CLI)
+
+```bash
+cargo build
+cargo build --release
+```
+
+### WebAssembly Build
+
+```bash
+# Add wasm32 target (first time only)
+rustup target add wasm32-unknown-unknown
+
+# Build for WebAssembly
+cargo build --target wasm32-unknown-unknown --lib --no-default-features --features wasm
+```
+
+### Feature Flags
+
+- `cli` (default): Enable CLI binary build with `clap` and `unicode-width` dependencies
+- `wasm`: Enable WebAssembly build with `wasm-bindgen` and `serde-wasm-bindgen` dependencies
+
 ## Other Features
 
 ### Whitespace20
 
 TODO:
-
-### WebAssembly Build
-
-Nospace20 can be compiled to WebAssembly for use in web browsers and JavaScript environments.
-
-See the [Build](#build) section for build instructions.
-
-API documentation: TODO
 
 ## docs
 
