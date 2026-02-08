@@ -108,6 +108,25 @@ fn convert_to_exec_expression_with_resolver(
     parent_resolver: &ScopeResolver,
 ) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
     match expr.as_ref() {
+        Expression::Operation1(Operator1::Ref, inner) => {
+            // & は変数に対してのみ使用可能
+            match inner.as_ref() {
+                Expression::Variable(name) => {
+                    let id_ref = parent_resolver
+                        .resolve_variable(name)
+                        .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", name))])?;
+                    Ok(Box::new(ExecExpression::Operation1(
+                        Operator1::Ref,
+                        Box::new(ExecExpression::Variable(id_ref)),
+                    )))
+                }
+                _ => {
+                    Err(vec![code_parse_error!(
+                        "reference operator (&) can only be applied to variables"
+                    )])
+                }
+            }
+        }
         Expression::Operation1(op, x) => Ok(Box::new(ExecExpression::Operation1(
             op.to_owned(),
             convert_to_exec_expression_with_resolver(&x, parent_resolver)?,
@@ -777,6 +796,175 @@ mod test {
                 vec![return_stmt],
             ),
             location: SourceLocation::new(0, 35),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_success_ref_variable() {
+        // func: main() { let: x; &x; return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "x".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let ref_expr = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::Operation1(
+                Operator1::Ref,
+                Box::new(Expression::Variable("x".to_string())),
+            ))),
+            location: SourceLocation::new(35, 40),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(45, 55),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, ref_expr, return_stmt],
+            ),
+            location: SourceLocation::new(0, 60),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_error_ref_literal() {
+        // func: main() { &5; return:0; }
+        let ref_expr = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::Operation1(
+                Operator1::Ref,
+                Box::new(Expression::Factor(5)),
+            ))),
+            location: SourceLocation::new(20, 25),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(30, 40),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![ref_expr, return_stmt],
+            ),
+            location: SourceLocation::new(0, 45),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0]
+            .message
+            .contains("reference operator (&) can only be applied to variables"));
+    }
+
+    #[test]
+    fn test_error_ref_expression() {
+        // func: main() { let: x; &(x + 1); return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "x".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let ref_expr = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::Operation1(
+                Operator1::Ref,
+                Box::new(Expression::Operation2(
+                    Operator2::Plus,
+                    Box::new(Expression::Variable("x".to_string())),
+                    Box::new(Expression::Factor(1)),
+                )),
+            ))),
+            location: SourceLocation::new(35, 45),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(50, 60),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, ref_expr, return_stmt],
+            ),
+            location: SourceLocation::new(0, 65),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0]
+            .message
+            .contains("reference operator (&) can only be applied to variables"));
+    }
+
+    #[test]
+    fn test_success_deref_variable() {
+        // func: main() { let: p; *p; return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "p".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let deref_expr = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::Operation1(
+                Operator1::Deref,
+                Box::new(Expression::Variable("p".to_string())),
+            ))),
+            location: SourceLocation::new(35, 40),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(45, 55),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, deref_expr, return_stmt],
+            ),
+            location: SourceLocation::new(0, 60),
         };
 
         let statements = vec![func];
