@@ -273,7 +273,32 @@ fn test_compile_error_base(test_name: &str) -> Result {
             // パース
             let t = parse_to_tokens(&ns_cnt).ok().unwrap();
             let s = parse_to_tree(&t).ok().unwrap();
-            let a = syntactic_analyze(&s).ok().unwrap();
+
+            // セマンティック分析（エラーが発生する可能性がある）
+            let a = match syntactic_analyze(&s) {
+                Ok(a) => a,
+                Err(errors) => {
+                    // セマンティック分析でエラーが発生した場合もチェック
+                    if let Some(keywords) = &contains {
+                        // すべてのエラーメッセージを結合
+                        let error_messages: Vec<String> = errors
+                            .iter()
+                            .map(|e| e.message.to_string())
+                            .collect();
+                        let combined_errors = error_messages.join("\n");
+                        
+                        for keyword in keywords {
+                            assert!(
+                                combined_errors.contains(keyword),
+                                "Semantic error message does not contain '{}': {}",
+                                keyword,
+                                combined_errors
+                            );
+                        }
+                    }
+                    return Ok(());
+                }
+            };
 
             // コンパイル（エラーが発生するはず）
             let result = compile_to_whitespace(&a);

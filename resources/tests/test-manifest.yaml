@@ -381,6 +381,21 @@ tests:
     path: no_main_001
     comment: "Error: no main function"
 
+  - name: test_compile_error_scope_undefined_001
+    type: compile_error
+    path: scope_undefined_001
+    comment: "Error: undefined variable reference"
+
+  - name: test_compile_error_scope_duplicate_001
+    type: compile_error
+    path: scope_duplicate_001
+    comment: "Error: duplicate variable definition"
+
+  - name: test_compile_error_scope_out_of_scope_001
+    type: compile_error
+    path: scope_out_of_scope_001
+    comment: "Error: variable out of scope"
+
   # ========================================
   # I/O tests (migrated from legacy tests)
   # ========================================
