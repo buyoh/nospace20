@@ -16,20 +16,11 @@ JavaScript / ブラウザ / Node.js から CLI と同等の機能を呼び出せ
 
 ## ドキュメント
 
-### 基盤設計
-
 | ファイル | 内容 |
 |---------|------|
 | [build-config.md](build-config.md) | Cargo.toml・ビルド設定の変更 |
 | [api-design.md](api-design.md) | WASM 公開 API の設計（run / compile） |
-| [implementation.md](implementation.md) | 実装手順・コード変更詳細 |
-
-### ステップ実行 API 設計
-
-| ファイル | 内容 |
-|---------|------|
-| [phase-a-design.md](phase-a-design.md) | Phase A: Whitespace コンパイル + WS VM ステップ実行 |
-| [phase-b-design.md](phase-b-design.md) | Phase B: nospace ステップ実行インタプリタ |
+| [implementation.md](implementation.md) | 実装手順（Phase 0/1/A/B/3 全て含む統合ドキュメント） |
 
 ## 全体フェーズ計画
 
@@ -48,7 +39,7 @@ JavaScript / ブラウザ / Node.js から CLI と同等の機能を呼び出せ
 - [ ] エラー情報の JS 向けシリアライズ
 - [ ] `wasm-pack build` で `.wasm` + JS グルーコード生成を確認
 
-### Phase A: Whitespace コンパイル + ステップ実行 → [phase-a-design.md](phase-a-design.md)
+### Phase A: Whitespace コンパイル + ステップ実行 → [implementation.md](implementation.md#phase-a-whitespace-コンパイル--ステップ実行-api)
 
 nospace → Whitespace コンパイル + Whitespace VM ステップ実行の WASM API。
 既存の `compiler_ws` + `whitespace::interpreter` を活用。
@@ -58,7 +49,7 @@ nospace → Whitespace コンパイル + Whitespace VM ステップ実行の WAS
 - [ ] `WasmWhitespaceVM` ステートフルラッパー実装
 - [ ] Node.js / ブラウザでのスモークテスト
 
-### Phase B: nospace ステップ実行インタプリタ → [phase-b-design.md](phase-b-design.md)
+### Phase B: nospace ステップ実行インタプリタ → [implementation.md](implementation.md#phase-b-nospace-ステップ実行インタプリタ-api)
 
 nospace を直接ステップ実行する中断可能インタプリタの WASM API。
 `suspendable-interpreter` タスクの完了が前提条件。
