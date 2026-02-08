@@ -116,17 +116,11 @@ struct IdentifierInfo {
 
 ## 4. エラーメッセージ型の改善
 
-**状態**: ⚠️ 検討中
+**状態**: ⚠️ 設計中
 
 **説明**: `CodeParseError.message` を `Cow<'static, str>` に変更することを検討中。
 
-**メリット**:
-- 静的な文字列の場合、メモリ割り当てを回避
-- 動的な文字列の場合、柔軟に対応
-
-**影響**:
-- エラーハンドリングのパフォーマンス向上
-- API の変更が必要
+**詳細**: [error-message-improvement.md](./error-message-improvement.md) を参照
 
 **優先度**: 低 - パフォーマンス最適化
 

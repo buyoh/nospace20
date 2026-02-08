@@ -10,6 +10,7 @@
 - [unimplemented-type-system.md](unimplemented-type-system.md) - 未実装の型システム（int, void, function, tuple）
 - [unimplemented-compiler-features.md](unimplemented-compiler-features.md) - 未実装のコンパイラ機能（compiler, grayspace）
 - [technical-debt.md](technical-debt.md) - コード内の技術的負債（Clone derive削除、識別子管理改善）
+- [error-message-improvement.md](error-message-improvement.md) - エラーメッセージ型の改善（Cow<'static, str> 導入設計）
 
 ### アクティブなタスク
 
