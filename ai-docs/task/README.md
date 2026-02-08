@@ -14,6 +14,7 @@
 
 ### アクティブなタスク
 
+- [reference-dereference/](reference-dereference/) - 参照(`&`)・デリファレンス(`*`)演算子の実装（spec.md 2.7）
 - [whitespace-interpreter/](whitespace-interpreter/) - Whitespace インタプリタ（明示的スタックマシン、中断可能実行）
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開）
 - [wasm-build/](wasm-build/) - Rust → WebAssembly ビルド（ランタイム WASM 化、Phase A: WS ステップ実行、Phase B: nospace ステップ実行）
