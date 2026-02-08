@@ -3,3 +3,4 @@
 /tmp
 /tools/wsc-install
 !/tools/wsc-install/README.md
+/pkg/
