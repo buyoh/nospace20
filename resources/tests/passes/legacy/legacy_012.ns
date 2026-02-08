@@ -2,32 +2,32 @@ let:x;
 
 func:test(){
     __puti(0);
-    if (x == 5){
+    if: (x == 5){
         __puti(1);
-    }
-    if (x != 5){
+    };
+    if: (x != 5){
         __puti(2);
-    }
-    if (x < 5){
+    };
+    if: (x < 5){
         __puti(3);
-    }
-    if (x <= 5){
+    };
+    if: (x <= 5){
         __puti(4);
-    }
-    if (x > 5){
+    };
+    if: (x > 5){
         __puti(5);
-    }
-    if (x >= 5){
+    };
+    if: (x >= 5){
         __puti(6);
-    }
+    };
 }
 
 func:main(){
     let:n;
     n = __geti();
-    while(n){
+    while:(n){
         x = __geti();
         test();
         n = n-1;
-    }
+    };
 }

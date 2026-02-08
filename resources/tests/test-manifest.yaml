@@ -537,25 +537,25 @@ tests:
 #   path: variables/disabled_var_init_001
 
 # DISABLED legacy tests (require unimplemented features)
-# - name: test_legacy_006
-#   type: success_io
-#   path: legacy/legacy_006
-#   comment: "DISABLED: requires global variables"
+  - name: test_legacy_006
+    type: success_io
+    path: legacy/legacy_006
+    comment: "DISABLED: requires global variables"
 
-# - name: test_legacy_011
-#   type: success_io
-#   path: legacy/legacy_011
-#   comment: "DISABLED: requires global variables"
+  - name: test_legacy_011
+    type: success_io
+    path: legacy/legacy_011
+    comment: "DISABLED: requires global variables"
 
-# - name: test_legacy_012
-#   type: success_io
-#   path: legacy/legacy_012
-#   comment: "DISABLED: requires global variables"
+  - name: test_legacy_012
+    type: success_io
+    path: legacy/legacy_012
+    comment: "DISABLED: requires global variables"
 
-# - name: test_legacy_013
-#   type: success_io
-#   path: legacy/legacy_013
-#   comment: "DISABLED: requires pointers"
+  - name: test_legacy_013
+    type: success_io
+    path: legacy/legacy_013
+    comment: "DISABLED: requires pointers"
 
 # - name: test_legacy_014
 #   type: success_io
