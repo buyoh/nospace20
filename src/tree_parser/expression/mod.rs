@@ -75,16 +75,16 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         (e, b.code_parse_error)
     }
 
-    fn add_parse_error(&mut self, token_info: &TokenInfo, msg: String) -> usize {
+    fn add_parse_error(&mut self, token_info: &TokenInfo, msg: impl Into<std::borrow::Cow<'static, str>>) -> usize {
         let i = self.code_parse_error.len();
         self.code_parse_error
-            .push(code_parse_error!(token_info.code_pointer, msg.to_string()));
+            .push(code_parse_error!(token_info.code_pointer, msg));
         i
     }
-    fn add_end_error(&mut self, msg: String) -> usize {
+    fn add_end_error(&mut self, msg: impl Into<std::borrow::Cow<'static, str>>) -> usize {
         let i = self.code_parse_error.len();
         self.code_parse_error
-            .push(code_parse_error!(msg.to_string()));
+            .push(code_parse_error!(msg));
         i
     }
 
@@ -105,7 +105,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 Some((Token::ParenthesisR, token_info)) => {
                     if let State::Comma = state {
                         // weak syntax error and proceed parsing
-                        self.add_parse_error(token_info, "unexpected comma".to_owned());
+                        self.add_parse_error(token_info, "unexpected comma");
                     }
                     self.iter.next();
                     return Box::new(Expression::Function(name.clone(), args));
@@ -115,14 +115,14 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                         state = State::Comma;
                     } else {
                         // weak syntax error and proceed parsing
-                        self.add_parse_error(token_info, "unexpected comma".to_owned());
+                        self.add_parse_error(token_info, "unexpected comma");
                     }
                     self.iter.next();
                 }
                 Some((_, token_info)) => {
                     if let State::Eval = state {
                         // weak syntax error and proceed parsing
-                        self.add_parse_error(token_info, "missing comma".to_owned());
+                        self.add_parse_error(token_info, "missing comma");
                     }
                     let e = self.parse_to_expression_tree_root();
                     args.push(e);
@@ -130,7 +130,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 }
                 None => {
                     return Box::new(Expression::Invalid(
-                        self.add_end_error("unexpected end of input".to_owned()),
+                        self.add_end_error("unexpected end of input"),
                     ))
                 }
             }
@@ -169,12 +169,12 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             }
             Some((_, token_info)) => {
                 return Box::new(Expression::Invalid(
-                    self.add_parse_error(token_info, "unexpected token".to_owned()),
+                    self.add_parse_error(token_info, "unexpected token"),
                 ));
             }
             _ => {
                 return Box::new(Expression::Invalid(
-                    self.add_end_error("unexpected end of input".to_owned()),
+                    self.add_end_error("unexpected end of input"),
                 ));
             }
         }

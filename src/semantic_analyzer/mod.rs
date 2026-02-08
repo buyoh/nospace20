@@ -456,7 +456,7 @@ fn analyze_internal_with_parent(
                 if !matches!(scope_type, ScopeType::Root) {
                     return Err(vec![code_parse_error!(
                         located_stat.location.start,
-                        "semantic error: nested function declaration is not supported".to_string()
+                        "semantic error: nested function declaration is not supported"
                     )]);
                 }
                 // 関数宣言はパス2で処理（ルートスコープのみで、ホイスティング不要）
@@ -546,7 +546,7 @@ fn analyze_internal_with_parent(
                 if let ScopeType::Root = scope_type {
                     return Err(vec![code_parse_error!(
                         loc.start,
-                        "semantic error: return statement outside of function".to_string()
+                        "semantic error: return statement outside of function"
                     )]);
                 }
                 exec_statements.push(ExecStatement::Return(
@@ -563,7 +563,7 @@ fn analyze_internal_with_parent(
                 if let ScopeType::Root = scope_type {
                     return Err(vec![code_parse_error!(
                         loc.start,
-                        "semantic error: continue statement outside of function".to_string()
+                        "semantic error: continue statement outside of function"
                     )]);
                 }
                 exec_statements.push(ExecStatement::Continue);
@@ -572,7 +572,7 @@ fn analyze_internal_with_parent(
                 if let ScopeType::Root = scope_type {
                     return Err(vec![code_parse_error!(
                         loc.start,
-                        "semantic error: break statement outside of function".to_string()
+                        "semantic error: break statement outside of function"
                     )]);
                 }
                 exec_statements.push(ExecStatement::Break);

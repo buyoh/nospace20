@@ -53,7 +53,7 @@ fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
             (None, None)
         };
         WasmError {
-            message: e.message.clone(),
+            message: e.message.to_string(),
             line,
             column,
         }

@@ -47,16 +47,16 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         (e, b.code_parse_error)
     }
 
-    fn add_parse_error(&mut self, token_info: &TokenInfo, msg: String) -> usize {
+    fn add_parse_error(&mut self, token_info: &TokenInfo, msg: impl Into<std::borrow::Cow<'static, str>>) -> usize {
         let i = self.code_parse_error.len();
         self.code_parse_error
-            .push(code_parse_error!(token_info.code_pointer, msg.to_string()));
+            .push(code_parse_error!(token_info.code_pointer, msg));
         i
     }
-    fn add_end_error(&mut self, msg: String) -> usize {
+    fn add_end_error(&mut self, msg: impl Into<std::borrow::Cow<'static, str>>) -> usize {
         let i = self.code_parse_error.len();
         self.code_parse_error
-            .push(code_parse_error!(msg.to_string()));
+            .push(code_parse_error!(msg));
         i
     }
 
@@ -148,7 +148,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 Some((Token::Identifier(name), token_info)) => {
                     if let State::Var = state {
                         // note: 引数のparseに失敗するなら続行するべきではないと思う
-                        self.add_parse_error(token_info, "expected ','".to_owned());
+                        self.add_parse_error(token_info, "expected ','");
                     }
                     args.push(name.clone());
                     state = State::Var;
@@ -157,22 +157,22 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     if let State::Var = state {
                         state = State::Comma;
                     } else {
-                        self.add_parse_error(token_info, "unexpected ','".to_owned());
+                        self.add_parse_error(token_info, "unexpected ','");
                     }
                 }
                 Some((Token::ParenthesisR, token_info)) => {
                     if let State::Comma = state {
-                        self.add_parse_error(token_info, "unexpected ','".to_owned());
+                        self.add_parse_error(token_info, "unexpected ','");
                     } else {
                         break;
                     }
                 }
                 Some((_, token_info)) => {
-                    self.add_parse_error(token_info, "unexpected token".to_owned());
+                    self.add_parse_error(token_info, "unexpected token");
                     break;
                 }
                 None => {
-                    self.add_end_error("unexpected end of input".to_owned());
+                    self.add_end_error("unexpected end of input");
                     break;
                 }
             }

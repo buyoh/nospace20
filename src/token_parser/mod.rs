@@ -96,7 +96,7 @@ fn parse_number<I: Iterator<Item = (usize, char)>>(
             if !has_digit {
                 return Err(code_parse_error!(
                     hex_idx,
-                    "invalid hexadecimal literal: expected at least one hex digit after '0x'".to_string()
+                    "invalid hexadecimal literal: expected at least one hex digit after '0x'"
                 ));
             }
             
@@ -141,7 +141,7 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
                     let hex1 = iter.next().ok_or_else(|| {
                         code_parse_error!(
                             hex1_idx,
-                            "incomplete hex escape sequence: expected 2 hex digits after '\\x'".to_string()
+                            "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
                         )
                     })?.1;
                     
@@ -149,7 +149,7 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
                     let hex2 = iter.next().ok_or_else(|| {
                         code_parse_error!(
                             hex2_idx,
-                            "incomplete hex escape sequence: expected 2 hex digits after '\\x'".to_string()
+                            "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
                         )
                     })?.1;
                     
@@ -173,7 +173,7 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
                 None => {
                     return Err(code_parse_error!(
                         start_idx,
-                        "unexpected end of input in character literal".to_string()
+                        "unexpected end of input in character literal"
                     ));
                 }
             }
@@ -181,14 +181,14 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
         Some((_, '\'')) => {
             return Err(code_parse_error!(
                 start_idx,
-                "empty character literal".to_string()
+                "empty character literal"
             ));
         }
         Some((_, c)) => c as i64,
         None => {
             return Err(code_parse_error!(
                 start_idx,
-                "unexpected end of input in character literal".to_string()
+                "unexpected end of input in character literal"
             ));
         }
     };
@@ -202,7 +202,7 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
         )),
         None => Err(code_parse_error!(
             start_idx,
-            "unclosed character literal".to_string()
+            "unclosed character literal"
         )),
     }
 }
@@ -335,7 +335,7 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                             // 単独の & は未実装（参照演算子）
                             parse_errors.push(code_parse_error!(
                                 info.code_pointer,
-                                "single '&' is not supported yet".to_string()
+                                "single '&' is not supported yet"
                             ));
                             continue;
                         }
@@ -349,7 +349,7 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                             // 単独の | は未実装
                             parse_errors.push(code_parse_error!(
                                 info.code_pointer,
-                                "single '|' is not supported".to_string()
+                                "single '|' is not supported"
                             ));
                             continue;
                         }

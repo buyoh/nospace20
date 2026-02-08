@@ -19,7 +19,7 @@ macro_rules! match_expect_token {
                 token_info,
                 format!("unexpected token: expected {}", stringify!($pat)),
             )),
-            None => Err($self.add_end_error("unexpected end of input".to_owned())),
+            None => Err($self.add_end_error("unexpected end of input")),
         }
     };
     ($self: expr, $v: expr, $pat: pat if $cond:expr) => {
@@ -29,7 +29,7 @@ macro_rules! match_expect_token {
                 token_info,
                 format!("unexpected token: expected {}", stringify!($pat)),
             )),
-            None => Err($self.add_end_error("unexpected end of input".to_owned())),
+            None => Err($self.add_end_error("unexpected end of input")),
         }
     };
     ($self: expr, $v: expr, $pat: pat => $res: expr) => {
@@ -39,7 +39,7 @@ macro_rules! match_expect_token {
                 token_info,
                 format!("unexpected token: expected {}", stringify!($pat)),
             )),
-            None => Err($self.add_end_error("unexpected end of input".to_owned())),
+            None => Err($self.add_end_error("unexpected end of input")),
         }
     };
 }
