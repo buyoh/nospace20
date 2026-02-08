@@ -23,7 +23,7 @@ struct LocalEnvironment<'a> {
 
 // environment.rs
 struct Environment {
-    global_variables: Vec<i64>,   // グローバル変数
+    global_variables: Vec<i64>,   // グローバル変数（現在は Vec）
     // ...
 }
 ```
@@ -40,6 +40,10 @@ fn get_variable(&self, id: &IdentifierRef) -> i64 {
     }
 }
 ```
+
+### global_variables の現状の問題
+
+`global_variables` は現在 `Vec<i64>` だが、参照のアドレス解決を行う場合に内部実装に直接依存するとパフォーマンスチューニング時に修正が波及する。変数ストレージを抽象化し、実装を切り替え可能にすべき。
 
 ### Operation1 評価
 
@@ -70,9 +74,84 @@ if let Operator2::Assign = op {
 
 ## 変更内容
 
-### 1. アドレス空間の設計
+### 1. 変数ストレージの抽象化
+
+`global_variables` は map 型（`BTreeMap<usize, i64>` 等）に変更してよい。ただしパフォーマンスの観点から、後から `Vec<i64>` やその他の実装に自由に切り替えられるよう、変数ストレージへのアクセスを `VariableStorage` トレイトで抽象化する。
+
+```rust
+/// 変数ストレージの抽象インターフェース
+/// 
+/// グローバル変数・ローカル変数のアクセス方法を統一し、
+/// 内部実装（Vec, BTreeMap 等）を隠蔽する。
+pub trait VariableStorage {
+    fn get(&self, index: usize) -> i64;
+    fn set(&mut self, index: usize, value: i64);
+    fn len(&self) -> usize;
+}
+```
+
+#### 初期実装: BTreeMap ベース
+
+```rust
+pub struct MapVariableStorage {
+    data: BTreeMap<usize, i64>,
+    len: usize,
+}
+
+impl VariableStorage for MapVariableStorage {
+    fn get(&self, index: usize) -> i64 {
+        *self.data.get(&index).unwrap_or(&0)
+    }
+    fn set(&mut self, index: usize, value: i64) {
+        self.data.insert(index, value);
+    }
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+```
+
+#### 将来の最適化: Vec ベース
+
+```rust
+pub struct VecVariableStorage {
+    data: Vec<i64>,
+}
+
+impl VariableStorage for VecVariableStorage {
+    fn get(&self, index: usize) -> i64 {
+        self.data[index]
+    }
+    fn set(&mut self, index: usize, value: i64) {
+        self.data[index] = value;
+    }
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+}
+```
+
+#### Environment への適用
+
+```rust
+pub struct Environment {
+    // 変更前: global_variables: Vec<i64>,
+    // 変更後: トレイトオブジェクトまたはジェネリクスで抽象化
+    pub(crate) global_variables: Box<dyn VariableStorage>,
+    // ...
+}
+```
+
+注意: トレイトオブジェクト (`Box<dyn VariableStorage>`) とジェネリクス (`Environment<S: VariableStorage>`) のどちらで実装するかは、呼び出し側への影響を考慮して判断する。トレイトオブジェクトのほうが既存コードへの影響が小さい。
+
+#### ローカル変数への適用
+
+ローカル変数 (`scope_stack: Vec<Vec<i64>>`) にも同トレイトを適用してよいが、ローカル変数は生存期間が短く頻繁にアクセスされるため、`Vec<i64>` のままでもよい。ローカル変数にまで抽象化を適用するかは実装時に判断する。
+
+### 2. アドレス空間の設計
 
 全変数をフラットなアドレス空間にマッピングする。
+`VariableStorage::len()` を使い、内部実装に依存せずアドレスを計算する。
 
 ```
 アドレス空間レイアウト:
@@ -93,10 +172,12 @@ if let Operator2::Assign = op {
   c  → address 4
 ```
 
-### 2. アドレス計算メソッド
+### 3. アドレス計算メソッド
+
+アドレス計算は `VariableStorage` トレイトの `len()` を使い、内部実装に依存しない。
 
 ```rust
-impl LocalEnvironment<'_> {
+impl LocalEnvironment<'_, '_> {
     /// IdentifierRef から絶対アドレスを計算
     fn resolve_address(&self, id: &IdentifierRef) -> i64 {
         if id.is_global {
@@ -117,7 +198,7 @@ impl LocalEnvironment<'_> {
         let addr = addr as usize;
         let global_count = self.env.global_variables.len();
         if addr < global_count {
-            self.env.global_variables[addr]
+            self.env.global_variables.get(addr)
         } else {
             let mut remaining = addr - global_count;
             for scope in &self.scope_stack {
@@ -135,7 +216,7 @@ impl LocalEnvironment<'_> {
         let addr = addr as usize;
         let global_count = self.env.global_variables.len();
         if addr < global_count {
-            self.env.global_variables[addr] = value;
+            self.env.global_variables.set(addr, value);
         } else {
             let mut remaining = addr - global_count;
             for scope in &mut self.scope_stack {
@@ -151,7 +232,7 @@ impl LocalEnvironment<'_> {
 }
 ```
 
-### 3. Operation1 の拡張
+### 4. Operation1 の拡張
 
 ```rust
 fn interpret_operation1(&mut self, op: &Operator1, expr1: &Box<ExecExpression>) -> ExpressionFlow {
@@ -183,7 +264,7 @@ fn interpret_operation1(&mut self, op: &Operator1, expr1: &Box<ExecExpression>) 
 }
 ```
 
-### 4. 代入の左辺拡張
+### 5. 代入の左辺拡張
 
 ```rust
 if let Operator2::Assign = op {
@@ -220,6 +301,8 @@ if let Operator2::Assign = op {
 ### パフォーマンス
 
 `get_by_address` / `set_by_address` はスコープスタックを線形探索する（O(n)、nはスコープの深さ）。頻繁なデリファレンスがある場合のパフォーマンスへの影響に留意。最適化として、スコープごとのオフセットをキャッシュする方法がある。
+
+`VariableStorage` トレイトにより、グローバル変数のストレージ実装を `BTreeMap` から `Vec` に切り替えたり、ローカル変数にも同トレイトを適用するなど、プロファイリング結果に基づく最適化が容易に行える。
 
 ## テスト
 
