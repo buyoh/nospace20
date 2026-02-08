@@ -165,4 +165,17 @@ fn test_empty_input() {
     assert_eq!(tokens.len(), 0);
 }
 
-// TODO: add tokeninfo
+// Reference operator tests
+test_ok_parse_single!(test_ampersand_single, "&", Token::Ampersand);
+
+test_ok_parse!(test_ampersand_and_identifier, "&x", it => {
+    assert_matches!(it.next(), Some(Token::Ampersand));
+    assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "x");
+    assert_matches!(it.next(), None);
+});
+
+test_ok_parse!(test_double_ampersand, "&&", it => {
+    assert_matches!(it.next(), Some(Token::DoubleAmpersand));
+    assert_matches!(it.next(), None);
+});
+

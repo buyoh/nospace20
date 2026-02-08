@@ -35,6 +35,8 @@ pub enum Operator2 {
 pub enum Operator1 {
     Negative,
     LogicalNot,
+    Ref,         // &
+    Deref,       // *
 }
 
 #[derive(Clone)] // TODO: REMOVE
@@ -189,6 +191,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 match token {
                     (Token::Minus, _) => op_stack.push(Operator1::Negative),
                     (Token::Exclamation, _) => op_stack.push(Operator1::LogicalNot),
+                    (Token::Ampersand, _) => op_stack.push(Operator1::Ref),
+                    (Token::Asterisk, _) => op_stack.push(Operator1::Deref),
                     _ => break,
                 }
             } else {

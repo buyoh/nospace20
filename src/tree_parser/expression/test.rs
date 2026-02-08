@@ -551,3 +551,85 @@ fn test_parse_complex_precedence() {
         _ => panic!("Expected top-level LogicalAnd"),
     }
 }
+// テストヘルパー: 参照・デリファレンス演算子
+fn token_op_ampersand() -> PrettyToken {
+    (Token::Ampersand, TokenInfo { code_pointer: 0 })
+}
+
+// 参照演算子のテスト
+#[test]
+fn test_parse_reference_operator() {
+    let tokens = vec![token_op_ampersand(), token_ident("x")];
+    let (expr, errs) = parse_expr(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    match *expr {
+        Expression::Operation1(Operator1::Ref, inner) => match *inner {
+            Expression::Variable(_) => (),
+            _ => panic!("Expected inner expression to be Variable"),
+        },
+        _ => panic!("Expected Expression::Operation1 with Operator1::Ref"),
+    }
+}
+
+// デリファレンス演算子のテスト
+#[test]
+fn test_parse_dereference_operator() {
+    let tokens = vec![token_op_asterisk(), token_ident("p")];
+    let (expr, errs) = parse_expr(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    match *expr {
+        Expression::Operation1(Operator1::Deref, inner) => match *inner {
+            Expression::Variable(_) => (),
+            _ => panic!("Expected inner expression to be Variable"),
+        },
+        _ => panic!("Expected Expression::Operation1 with Operator1::Deref"),
+    }
+}
+
+// ダブルデリファレンスのテスト: **p
+#[test]
+fn test_parse_double_dereference() {
+    let tokens = vec![
+        token_op_asterisk(),
+        token_op_asterisk(),
+        token_ident("p"),
+    ];
+    let (expr, errs) = parse_expr(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    match *expr {
+        Expression::Operation1(Operator1::Deref, inner) => match *inner {
+            Expression::Operation1(Operator1::Deref, inner2) => match *inner2 {
+                Expression::Variable(_) => (),
+                _ => panic!("Expected innermost expression to be Variable"),
+            },
+            _ => panic!("Expected inner expression to be Deref"),
+        },
+        _ => panic!("Expected Expression::Operation1 with Operator1::Deref"),
+    }
+}
+
+// * が単項と二項で正しく区別されることを確認: a * *p
+#[test]
+fn test_parse_multiply_and_dereference() {
+    let tokens = vec![
+        token_ident("a"),
+        token_op_asterisk(),
+        token_op_asterisk(),
+        token_ident("p"),
+    ];
+    let (expr, errs) = parse_expr(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    match *expr {
+        Expression::Operation2(Operator2::Multiply, left, right) => {
+            match *left {
+                Expression::Variable(_) => (),
+                _ => panic!("Expected left to be Variable"),
+            }
+            match *right {
+                Expression::Operation1(Operator1::Deref, _) => (),
+                _ => panic!("Expected right to be Deref"),
+            }
+        },
+        _ => panic!("Expected Expression::Operation2 with Operator2::Multiply"),
+    }
+}

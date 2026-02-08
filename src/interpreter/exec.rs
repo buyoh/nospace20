@@ -243,6 +243,14 @@ impl LocalEnvironment<'_, '_> {
         let res = match op {
             Operator1::Negative => -v1,
             Operator1::LogicalNot => bool_to_int(v1 == 0),
+            Operator1::Ref => {
+                // Phase 3 で実装予定
+                unimplemented!("reference operator (&) is not implemented yet")
+            }
+            Operator1::Deref => {
+                // Phase 3 で実装予定
+                unimplemented!("dereference operator (*) is not implemented yet")
+            }
         };
         ExpressionFlow::Value(res)
     }

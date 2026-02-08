@@ -109,6 +109,14 @@ fn generate_unary_op(
             prog.append(generate_expression(ctx, inner)?);
             prog.push(Instruction::Call(reserved_labels::COMPARATOR_ZERO));
         }
+        Operator1::Ref => {
+            // Phase 4 で実装予定
+            unimplemented!("reference operator (&) is not implemented yet")
+        }
+        Operator1::Deref => {
+            // Phase 4 で実装予定
+            unimplemented!("dereference operator (*) is not implemented yet")
+        }
     }
     
     Ok(prog)

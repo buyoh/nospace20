@@ -40,6 +40,7 @@ pub enum Token {
     GreaterEqual,
     DoubleAmpersand, // &&
     DoublePipe,      // ||
+    Ampersand,       // &
     ParenthesisL,    // (
     ParenthesisR,    // )
     BracketL,        // [
@@ -332,11 +333,8 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                     match iter.peek() {
                         Some((_, c)) if *c == '&' => Token::DoubleAmpersand,
                         _ => {
-                            // 単独の & は未実装（参照演算子）
-                            parse_errors.push(code_parse_error!(
-                                info.code_pointer,
-                                "single '&' is not supported yet"
-                            ));
+                            // 単独の & は参照演算子
+                            tokens.push((Token::Ampersand, info));
                             continue;
                         }
                     }
