@@ -5,9 +5,9 @@
 //! 他のモジュールを設計しなければなりません。
 //!
 
-mod types;
 mod environment;
 mod exec;
+mod types;
 
 pub use environment::{Environment, EnvironmentConfig, EnvironmentMetrics};
 

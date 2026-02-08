@@ -39,7 +39,7 @@ pub enum CompileTarget {
 }
 
 /// コンパイルプロパティ
-/// 
+///
 /// CLI 引数から構築され、各処理段階に渡される設定情報。
 #[derive(Debug, Clone, Default)]
 pub struct CompileProperty {
@@ -64,7 +64,7 @@ impl CompileProperty {
         if self.std == LanguageStd::Min {
             return Err("--std=min is not yet implemented".to_string());
         }
-        
+
         // コンパイルモードの場合
         if self.mode == ExecutionMode::Compile {
             // target=ws/mnemonic の場合、std=ws が必須
@@ -76,7 +76,7 @@ impl CompileProperty {
                     ));
                 }
             }
-            
+
             // 未対応のターゲット
             match self.target {
                 CompileTarget::ExWs => {
@@ -88,7 +88,7 @@ impl CompileProperty {
                 _ => {}
             }
         }
-        
+
         Ok(())
     }
 }

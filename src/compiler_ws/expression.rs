@@ -1,14 +1,8 @@
 //! 式のコード生成
 
 use crate::compiler_ws::{
-    context::CodeGenContext,
-    instruction::Instruction,
-    label::reserved_labels,
-    memory::heap_layout,
-    program::WsProgram,
-    types::WsNumber,
-    CompileError,
-    context::VarScope,
+    context::CodeGenContext, context::VarScope, instruction::Instruction, label::reserved_labels,
+    memory::heap_layout, program::WsProgram, types::WsNumber, CompileError,
 };
 use crate::semantic_analyzer::ExecExpression;
 use crate::tree_parser::{Operator1, Operator2};
@@ -26,36 +20,26 @@ pub fn generate_expression(
             prog.push(Instruction::Push(WsNumber(*value)));
             Ok(prog)
         }
-        
+
         // 変数参照
-        ExecExpression::Variable(var_ref) => {
-            generate_load_variable(ctx, var_ref)
-        }
-        
+        ExecExpression::Variable(var_ref) => generate_load_variable(ctx, var_ref),
+
         // 単項演算
-        ExecExpression::Operation1(op, inner) => {
-            generate_unary_op(ctx, op, inner)
-        }
-        
+        ExecExpression::Operation1(op, inner) => generate_unary_op(ctx, op, inner),
+
         // 二項演算
-        ExecExpression::Operation2(op, left, right) => {
-            generate_binary_op(ctx, op, left, right)
-        }
-        
+        ExecExpression::Operation2(op, left, right) => generate_binary_op(ctx, op, left, right),
+
         // 関数呼び出し
-        ExecExpression::Function(func_name, args) => {
-            generate_function_call(ctx, func_name, args)
-        }
-        
+        ExecExpression::Function(func_name, args) => generate_function_call(ctx, func_name, args),
+
         // if 式
         ExecExpression::If(cond, then_block, else_block) => {
             generate_if_expression(ctx, cond, then_block, else_block)
         }
-        
+
         // while 式
-        ExecExpression::While(cond, body) => {
-            generate_while_expression(ctx, cond, body)
-        }
+        ExecExpression::While(cond, body) => generate_while_expression(ctx, cond, body),
     }
 }
 
@@ -66,7 +50,7 @@ fn generate_load_variable(
 ) -> Result<WsProgram, CompileError> {
     let var_info = ctx.get_var_info(var_ref);
     let mut prog = WsProgram::new();
-    
+
     match var_info.scope {
         VarScope::Global => {
             // グローバル: GlobalPtr + offset
@@ -83,7 +67,7 @@ fn generate_load_variable(
             prog.push(Instruction::Retrieve);
         }
     }
-    
+
     Ok(prog)
 }
 
@@ -94,7 +78,7 @@ fn generate_unary_op(
     inner: &ExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
-    
+
     match op {
         Operator1::Negative => {
             // 0 - value
@@ -118,7 +102,7 @@ fn generate_unary_op(
             unimplemented!("dereference operator (*) is not implemented yet")
         }
     }
-    
+
     Ok(prog)
 }
 
@@ -130,7 +114,7 @@ fn generate_binary_op(
     right: &ExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
-    
+
     match op {
         // 算術演算
         Operator2::Plus => {
@@ -158,7 +142,7 @@ fn generate_binary_op(
             prog.append(generate_expression(ctx, right)?);
             prog.push(Instruction::Mod);
         }
-        
+
         // 比較演算
         Operator2::Equal => {
             prog.push(Instruction::Push(WsNumber(1))); // zero → true
@@ -211,7 +195,7 @@ fn generate_binary_op(
             prog.push(Instruction::Sub);
             prog.push(Instruction::Call(reserved_labels::COMPARATOR_NEGATIVE));
         }
-        
+
         // 論理演算
         Operator2::LogicalAnd => {
             prog.append(generate_expression(ctx, left)?);
@@ -223,7 +207,7 @@ fn generate_binary_op(
             prog.append(generate_expression(ctx, right)?);
             prog.push(Instruction::Call(reserved_labels::COMPARATOR_OR));
         }
-        
+
         // 代入
         Operator2::Assign => {
             // 左辺は変数参照である必要がある
@@ -231,12 +215,12 @@ fn generate_binary_op(
                 prog.append(generate_store_variable(ctx, var_ref, right)?);
             } else {
                 return Err(CompileError::InvalidOperation(
-                    "Left-hand side of assignment must be a variable".to_string()
+                    "Left-hand side of assignment must be a variable".to_string(),
                 ));
             }
         }
     }
-    
+
     Ok(prog)
 }
 
@@ -248,7 +232,7 @@ fn generate_store_variable(
 ) -> Result<WsProgram, CompileError> {
     let var_info = ctx.get_var_info(var_ref);
     let mut prog = WsProgram::new();
-    
+
     match var_info.scope {
         VarScope::Global => {
             // グローバル: heap[GlobalPtr + offset] = value
@@ -276,7 +260,7 @@ fn generate_store_variable(
             prog.push(Instruction::Retrieve);
         }
     }
-    
+
     Ok(prog)
 }
 
@@ -309,11 +293,12 @@ fn generate_builtin_puti(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if args.len() != 1 {
-        return Err(CompileError::InvalidOperation(
-            format!("__puti expects 1 argument, got {}", args.len())
-        ));
+        return Err(CompileError::InvalidOperation(format!(
+            "__puti expects 1 argument, got {}",
+            args.len()
+        )));
     }
-    
+
     let mut prog = WsProgram::new();
     // 引数を評価
     prog.append(generate_expression(ctx, &args[0])?);
@@ -330,11 +315,12 @@ fn generate_builtin_putc(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if args.len() != 1 {
-        return Err(CompileError::InvalidOperation(
-            format!("__putc expects 1 argument, got {}", args.len())
-        ));
+        return Err(CompileError::InvalidOperation(format!(
+            "__putc expects 1 argument, got {}",
+            args.len()
+        )));
     }
-    
+
     let mut prog = WsProgram::new();
     // 引数を評価
     prog.append(generate_expression(ctx, &args[0])?);
@@ -351,11 +337,12 @@ fn generate_builtin_geti(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !args.is_empty() {
-        return Err(CompileError::InvalidOperation(
-            format!("__geti expects 0 arguments, got {}", args.len())
-        ));
+        return Err(CompileError::InvalidOperation(format!(
+            "__geti expects 0 arguments, got {}",
+            args.len()
+        )));
     }
-    
+
     let mut prog = WsProgram::new();
     // 一時領域のアドレスをプッシュ
     prog.push(Instruction::Push(WsNumber(heap_layout::TEMP_PTR)));
@@ -374,11 +361,12 @@ fn generate_builtin_getc(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !args.is_empty() {
-        return Err(CompileError::InvalidOperation(
-            format!("__getc expects 0 arguments, got {}", args.len())
-        ));
+        return Err(CompileError::InvalidOperation(format!(
+            "__getc expects 0 arguments, got {}",
+            args.len()
+        )));
     }
-    
+
     let mut prog = WsProgram::new();
     // 一時領域のアドレスをプッシュ
     prog.push(Instruction::Push(WsNumber(heap_layout::TEMP_PTR)));
@@ -399,21 +387,21 @@ fn generate_builtin_debug_noop(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
-    
+
     if args.is_empty() {
         // 引数なしの場合は 0 を返す
         prog.push(Instruction::Push(WsNumber(0)));
     } else {
         // 最初の引数を評価（戻り値として使用）
         prog.append(generate_expression(ctx, &args[0])?);
-        
+
         // 残りの引数を評価（副作用のため）して破棄
         for arg in &args[1..] {
             prog.append(generate_expression(ctx, arg)?);
             prog.push(Instruction::Discard);
         }
     }
-    
+
     Ok(prog)
 }
 
@@ -425,27 +413,27 @@ fn generate_if_expression(
     else_block: &crate::semantic_analyzer::Block,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
-    
+
     let else_label = ctx.new_label();
     let end_label = ctx.new_label();
-    
+
     // 条件評価
     prog.append(generate_expression(ctx, cond)?);
-    
+
     // ゼロ（偽）なら else へジャンプ
     prog.push(Instruction::JumpIfZero(else_label));
-    
+
     // then ブロック
     prog.append(super::statement::generate_block(ctx, then_block)?);
     prog.push(Instruction::Jump(end_label));
-    
+
     // else ブロック
     prog.push(Instruction::Label(else_label));
     prog.append(super::statement::generate_block(ctx, else_block)?);
-    
+
     // 終了ラベル
     prog.push(Instruction::Label(end_label));
-    
+
     Ok(prog)
 }
 
@@ -456,30 +444,30 @@ fn generate_while_expression(
     body: &crate::semantic_analyzer::Block,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
-    
+
     let loop_start = ctx.new_label();
     let loop_end = ctx.new_label();
-    
+
     // ループ開始ラベル
     prog.push(Instruction::Label(loop_start));
-    
+
     // 条件評価
     prog.append(generate_expression(ctx, cond)?);
-    
+
     // ゼロ（偽）ならループ終了へジャンプ
     prog.push(Instruction::JumpIfZero(loop_end));
-    
+
     // ループ本体
     prog.append(super::statement::generate_block(ctx, body)?);
-    
+
     // ループ開始へジャンプ
     prog.push(Instruction::Jump(loop_start));
-    
+
     // ループ終了ラベル
     prog.push(Instruction::Label(loop_end));
-    
+
     // while式の値として0を返す
     prog.push(Instruction::Push(WsNumber(0)));
-    
+
     Ok(prog)
 }

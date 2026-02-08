@@ -35,8 +35,8 @@ pub enum Operator2 {
 pub enum Operator1 {
     Negative,
     LogicalNot,
-    Ref,         // &
-    Deref,       // *
+    Ref,   // &
+    Deref, // *
 }
 
 #[derive(Clone)] // TODO: REMOVE
@@ -77,7 +77,11 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         (e, b.code_parse_error)
     }
 
-    fn add_parse_error(&mut self, token_info: &TokenInfo, msg: impl Into<std::borrow::Cow<'static, str>>) -> usize {
+    fn add_parse_error(
+        &mut self,
+        token_info: &TokenInfo,
+        msg: impl Into<std::borrow::Cow<'static, str>>,
+    ) -> usize {
         let i = self.code_parse_error.len();
         self.code_parse_error
             .push(code_parse_error!(token_info.code_pointer, msg));
@@ -85,8 +89,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     }
     fn add_end_error(&mut self, msg: impl Into<std::borrow::Cow<'static, str>>) -> usize {
         let i = self.code_parse_error.len();
-        self.code_parse_error
-            .push(code_parse_error!(msg));
+        self.code_parse_error.push(code_parse_error!(msg));
         i
     }
 
@@ -318,7 +321,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
 
     // while 式の実際の解析処理
     fn parse_to_expression_tree_while_impl(&mut self) -> Box<Expression> {
-        let token = self.iter.next();  // while キーワードを消費
+        let token = self.iter.next(); // while キーワードを消費
         assert!(matches!(token, Some((Token::Keyword(Keyword::While), _))));
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
@@ -338,7 +341,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
 
     // if 式の実際の解析処理
     fn parse_to_expression_tree_if_impl(&mut self) -> Box<Expression> {
-        let token = self.iter.next();  // if キーワードを消費
+        let token = self.iter.next(); // if キーワードを消費
         assert!(matches!(token, Some((Token::Keyword(Keyword::If), _))));
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {

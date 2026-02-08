@@ -70,17 +70,17 @@ fn parse_number<I: Iterator<Item = (usize, char)>>(
     iter: &mut iter::Peekable<I>,
 ) -> Result<Token, CodeParseError> {
     // token レベルでは負の数を扱うことはできない
-    
+
     // 最初の文字をチェック
     let first_char = iter.peek();
     if let Some((idx, '0')) = first_char {
         let hex_idx = *idx;
         iter.next(); // '0' を消費
-        
+
         // 次の文字が 'x' または 'X' なら16進数
         if let Some((_, 'x')) | Some((_, 'X')) = iter.peek() {
             iter.next(); // 'x' または 'X' を消費
-            
+
             // 16進数をパース
             let mut value = 0i64;
             let mut has_digit = false;
@@ -93,20 +93,20 @@ fn parse_number<I: Iterator<Item = (usize, char)>>(
                     break;
                 }
             }
-            
+
             if !has_digit {
                 return Err(code_parse_error!(
                     hex_idx,
                     "invalid hexadecimal literal: expected at least one hex digit after '0x'"
                 ));
             }
-            
+
             return Ok(Token::Number(value));
         }
         // '0' の後に 'x' がない場合は '0' として開始し、後続の10進数を処理
         // value は既に 0 なので、そのまま10進数パースに進む
     }
-    
+
     // 10進数をパース
     let mut value = 0i64;
     while let Some((_, c)) = iter.peek() {
@@ -139,24 +139,30 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
                 Some((idx, 'x')) => {
                     // 16進数エスケープシーケンス \xHH
                     let hex1_idx = idx;
-                    let hex1 = iter.next().ok_or_else(|| {
-                        code_parse_error!(
-                            hex1_idx,
-                            "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
-                        )
-                    })?.1;
-                    
+                    let hex1 = iter
+                        .next()
+                        .ok_or_else(|| {
+                            code_parse_error!(
+                                hex1_idx,
+                                "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
+                            )
+                        })?
+                        .1;
+
                     let hex2_idx = hex1_idx + 1;
-                    let hex2 = iter.next().ok_or_else(|| {
-                        code_parse_error!(
-                            hex2_idx,
-                            "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
-                        )
-                    })?.1;
-                    
+                    let hex2 = iter
+                        .next()
+                        .ok_or_else(|| {
+                            code_parse_error!(
+                                hex2_idx,
+                                "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
+                            )
+                        })?
+                        .1;
+
                     // 16進数文字列を構築
                     let hex_str = format!("{}{}", hex1, hex2);
-                    
+
                     // 16進数を i64 に変換
                     i64::from_str_radix(&hex_str, 16).map_err(|_| {
                         code_parse_error!(
@@ -180,10 +186,7 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
             }
         }
         Some((_, '\'')) => {
-            return Err(code_parse_error!(
-                start_idx,
-                "empty character literal"
-            ));
+            return Err(code_parse_error!(start_idx, "empty character literal"));
         }
         Some((_, c)) => c as i64,
         None => {
@@ -201,10 +204,7 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
             idx,
             format!("expected closing quote, found: {}", c)
         )),
-        None => Err(code_parse_error!(
-            start_idx,
-            "unclosed character literal"
-        )),
+        None => Err(code_parse_error!(start_idx, "unclosed character literal")),
     }
 }
 

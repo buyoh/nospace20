@@ -178,4 +178,3 @@ test_ok_parse!(test_double_ampersand, "&&", it => {
     assert_matches!(it.next(), Some(Token::DoubleAmpersand));
     assert_matches!(it.next(), None);
 });
-

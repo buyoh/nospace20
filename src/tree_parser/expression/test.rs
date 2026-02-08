@@ -589,11 +589,7 @@ fn test_parse_dereference_operator() {
 // ダブルデリファレンスのテスト: **p
 #[test]
 fn test_parse_double_dereference() {
-    let tokens = vec![
-        token_op_asterisk(),
-        token_op_asterisk(),
-        token_ident("p"),
-    ];
+    let tokens = vec![token_op_asterisk(), token_op_asterisk(), token_ident("p")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match *expr {
@@ -629,7 +625,7 @@ fn test_parse_multiply_and_dereference() {
                 Expression::Operation1(Operator1::Deref, _) => (),
                 _ => panic!("Expected right to be Deref"),
             }
-        },
+        }
         _ => panic!("Expected Expression::Operation2 with Operator2::Multiply"),
     }
 }

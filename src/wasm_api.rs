@@ -7,15 +7,13 @@ use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    compile_to_whitespace, compile_to_whitespace_debug,
-    interpret_func_with_io, parse_to_tokens, parse_to_tree,
-    syntactic_analyze, CodeParseError, CompileTarget, LanguageStd,
-    TextCode,
+    compile_to_whitespace, compile_to_whitespace_debug, interpret_func_with_io, parse_to_tokens,
+    parse_to_tree, syntactic_analyze, CodeParseError, CompileTarget, LanguageStd, TextCode,
 };
 
 #[derive(Serialize)]
 struct RunResultOk {
-    success: bool,           // always true
+    success: bool, // always true
     #[serde(rename = "returnValue")]
     return_value: Option<i64>,
     stdout: String,
@@ -25,13 +23,13 @@ struct RunResultOk {
 
 #[derive(Serialize)]
 struct ResultErr {
-    success: bool,           // always false
+    success: bool, // always false
     errors: Vec<WasmError>,
 }
 
 #[derive(Serialize)]
 struct CompileResultOk {
-    success: bool,           // always true
+    success: bool, // always true
     output: String,
 }
 
@@ -45,19 +43,22 @@ struct WasmError {
 }
 
 fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
-    let wasm_errors: Vec<WasmError> = errors.iter().map(|e| {
-        let (line, column) = if let Some(p) = e.code_pointer {
-            let (l, c) = text.char_index_to_line(p);
-            (Some(l), Some(c))
-        } else {
-            (None, None)
-        };
-        WasmError {
-            message: e.message.to_string(),
-            line,
-            column,
-        }
-    }).collect();
+    let wasm_errors: Vec<WasmError> = errors
+        .iter()
+        .map(|e| {
+            let (line, column) = if let Some(p) = e.code_pointer {
+                let (l, c) = text.char_index_to_line(p);
+                (Some(l), Some(c))
+            } else {
+                (None, None)
+            };
+            WasmError {
+                message: e.message.to_string(),
+                line,
+                column,
+            }
+        })
+        .collect();
 
     let result = ResultErr {
         success: false,
@@ -96,7 +97,12 @@ pub fn run(source: &str, stdin: &str, debug: bool) -> JsValue {
 
     // trace を String キーに変換 (JSON 互換)
     let trace = if debug {
-        Some(traced.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect())
+        Some(
+            traced
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        )
     } else {
         None
     };
@@ -159,10 +165,7 @@ pub fn compile(source: &str, target: &str, lang_std: &str) -> JsValue {
         let result = ResultErr {
             success: false,
             errors: vec![WasmError {
-                message: format!(
-                    "target='{}' requires std='ws'",
-                    target
-                ),
+                message: format!("target='{}' requires std='ws'", target),
                 line: None,
                 column: None,
             }],

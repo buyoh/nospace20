@@ -3,7 +3,7 @@
 //! Whitespace テキスト（Space / Tab / LF のシーケンス）を `Vec<Instruction>` にパースする
 
 use crate::compiler_ws::instruction::Instruction;
-use crate::compiler_ws::types::{WsChar, WsNumber, LabelId};
+use crate::compiler_ws::types::{LabelId, WsChar, WsNumber};
 
 /// パースエラー
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -355,14 +355,14 @@ mod tests {
     fn test_roundtrip() {
         // compiler_ws でエンコード → parser でデコード → 一致確認
         use crate::compiler_ws::program::WsProgram;
-        
+
         let original = vec![
             Instruction::Push(WsNumber(42)),
             Instruction::Push(WsNumber(10)),
             Instruction::Add,
             Instruction::Exit,
         ];
-        
+
         let mut prog = WsProgram::new();
         for inst in &original {
             prog.push(inst.clone());
@@ -372,4 +372,3 @@ mod tests {
         assert_eq!(parsed, original);
     }
 }
-

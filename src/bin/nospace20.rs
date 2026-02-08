@@ -2,9 +2,18 @@ use std::{io::Read, iter::repeat, process};
 
 use clap::{Parser, ValueEnum};
 use nospace20::{
-    compile_to_whitespace, compile_to_whitespace_debug, interpret_with_env, parse_to_tokens,
-    parse_to_tree, syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
-    CodeParseError, CompileProperty, CompileTarget, Environment, ExecutionMode, LanguageStd,
+    compile_to_whitespace,
+    compile_to_whitespace_debug,
+    interpret_with_env,
+    parse_to_tokens,
+    parse_to_tree,
+    syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
+    CodeParseError,
+    CompileProperty,
+    CompileTarget,
+    Environment,
+    ExecutionMode,
+    LanguageStd,
     TextCode,
 };
 use unicode_width::UnicodeWidthStr;
@@ -109,13 +118,17 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
 
     for error in errors.iter().take(3) {
         println!("error: {}", error.message);
-        
+
         // デバッグビルド時は内部位置情報を表示
         #[cfg(debug_assertions)]
         {
-            println!("  (internal: {}:{})", error.caller.file(), error.caller.line());
+            println!(
+                "  (internal: {}:{})",
+                error.caller.file(),
+                error.caller.line()
+            );
         }
-        
+
         if let Some(code_pointer) = error.code_pointer {
             let (line_no, column) = text.char_index_to_line(code_pointer);
             let line_str = text.line(line_no);

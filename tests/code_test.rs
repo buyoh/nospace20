@@ -281,12 +281,10 @@ fn test_compile_error_base(test_name: &str) -> Result {
                     // セマンティック分析でエラーが発生した場合もチェック
                     if let Some(keywords) = &contains {
                         // すべてのエラーメッセージを結合
-                        let error_messages: Vec<String> = errors
-                            .iter()
-                            .map(|e| e.message.to_string())
-                            .collect();
+                        let error_messages: Vec<String> =
+                            errors.iter().map(|e| e.message.to_string()).collect();
                         let combined_errors = error_messages.join("\n");
-                        
+
                         for keyword in keywords {
                             assert!(
                                 combined_errors.contains(keyword),
@@ -340,8 +338,7 @@ fn test_whitespace_base(test_name: &str) {
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace(&a)
-        .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -352,7 +349,7 @@ fn test_whitespace_base(test_name: &str) {
 
     // whitespace 実行（__trace は無視され、実行が成功すればOK）
     let result = run_whitespace(&ws_code, "");
-    
+
     // 実行エラーがあればパニック
     if let Err(e) = result {
         panic!("Whitespace execution failed for {}: {}", test_name, e);
@@ -388,8 +385,7 @@ fn test_whitespace_io_base(test_name: &str) {
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace(&a)
-        .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");

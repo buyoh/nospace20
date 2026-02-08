@@ -3,9 +3,9 @@
 /// Whitespace の基本文字
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WsChar {
-    Space,  // SP (0x20)
-    Tab,    // TB (0x09)
-    Lf,     // LF (0x0A)
+    Space, // SP (0x20)
+    Tab,   // TB (0x09)
+    Lf,    // LF (0x0A)
 }
 
 impl WsChar {
@@ -26,16 +26,16 @@ impl WsNumber {
     /// Whitespace 形式にエンコード
     pub fn encode(&self) -> Vec<WsChar> {
         use WsChar::*;
-        
+
         let mut result = Vec::new();
-        
+
         // 符号
         if self.0 < 0 {
             result.push(Tab);
         } else {
             result.push(Space);
         }
-        
+
         // 絶対値をビット列に (MSB first)
         let abs_val = self.0.unsigned_abs();
         if abs_val == 0 {
@@ -50,7 +50,7 @@ impl WsNumber {
                 }
             }
         }
-        
+
         // 終端
         result.push(Lf);
         result
@@ -66,7 +66,7 @@ impl LabelId {
     pub fn to_ws_value(&self) -> i64 {
         self.0 as i64
     }
-    
+
     /// オフセットを加算
     pub fn offset(&self, n: u32) -> LabelId {
         LabelId(self.0 + n)
@@ -74,7 +74,7 @@ impl LabelId {
 }
 
 /// ヒープアドレス
-/// 
+///
 /// Whitespace のヒープ上のアドレスを表す。
 /// Debug 出力で実際の数値も確認可能。
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -84,12 +84,12 @@ impl HeapAddress {
     pub const fn new(addr: i64) -> Self {
         Self(addr)
     }
-    
+
     /// アドレス値を取得（Whitespace 命令生成用）
     pub fn value(&self) -> i64 {
         self.0
     }
-    
+
     /// オフセットを加算した新しいアドレスを返す
     pub fn offset(&self, n: i64) -> Self {
         Self(self.0 + n)
@@ -119,10 +119,16 @@ mod tests {
         // [Space (positive), Tab, Space, Tab, Lf]
         assert_eq!(
             n.encode(),
-            vec![WsChar::Space, WsChar::Tab, WsChar::Space, WsChar::Tab, WsChar::Lf]
+            vec![
+                WsChar::Space,
+                WsChar::Tab,
+                WsChar::Space,
+                WsChar::Tab,
+                WsChar::Lf
+            ]
         );
     }
-    
+
     #[test]
     fn test_encode_number_zero() {
         let n = WsNumber(0);

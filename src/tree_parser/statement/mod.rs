@@ -47,7 +47,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         (e, b.code_parse_error)
     }
 
-    fn add_parse_error(&mut self, token_info: &TokenInfo, msg: impl Into<std::borrow::Cow<'static, str>>) -> usize {
+    fn add_parse_error(
+        &mut self,
+        token_info: &TokenInfo,
+        msg: impl Into<std::borrow::Cow<'static, str>>,
+    ) -> usize {
         let i = self.code_parse_error.len();
         self.code_parse_error
             .push(code_parse_error!(token_info.code_pointer, msg));
@@ -55,8 +59,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     }
     fn add_end_error(&mut self, msg: impl Into<std::borrow::Cow<'static, str>>) -> usize {
         let i = self.code_parse_error.len();
-        self.code_parse_error
-            .push(code_parse_error!(msg));
+        self.code_parse_error.push(code_parse_error!(msg));
         i
     }
 
@@ -72,7 +75,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             panic!("internal error");
         }
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
-        
+
         let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
             Ok(x) => x,
             Err(e) => {
@@ -89,17 +92,22 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             .unwrap_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         return LocatedStatement {
-            statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0)), false),
+            statement: Statement::VariableDeclaration(
+                id.clone(),
+                Box::new(Expression::Factor(0)),
+                false,
+            ),
             location: SourceLocation::new(start_pos, end_pos),
         };
     }
 
     fn parse_to_statements_static(&mut self, start_pos: usize) -> LocatedStatement {
-        if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Static)) {
+        if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Static))
+        {
             panic!("internal error");
         }
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
-        
+
         let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
             Ok(x) => x,
             Err(e) => {
@@ -116,7 +124,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             .unwrap_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         return LocatedStatement {
-            statement: Statement::VariableDeclaration(id.clone(), Box::new(Expression::Factor(0)), true),
+            statement: Statement::VariableDeclaration(
+                id.clone(),
+                Box::new(Expression::Factor(0)),
+                true,
+            ),
             location: SourceLocation::new(start_pos, end_pos),
         };
     }

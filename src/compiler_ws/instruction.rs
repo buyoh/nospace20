@@ -1,49 +1,49 @@
 //! Whitespace 命令定義
 
-use crate::compiler_ws::types::{WsChar, WsNumber, LabelId};
+use crate::compiler_ws::types::{LabelId, WsChar, WsNumber};
 
 /// Whitespace 命令
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     // === スタック操作 (IMP: SP) ===
-    Push(WsNumber),      // SP SP <number>
-    Duplicate,           // SP LF SP
-    Copy(WsNumber),      // SP TB SP <n>
-    Swap,                // SP LF TB
-    Discard,             // SP LF LF
-    
+    Push(WsNumber), // SP SP <number>
+    Duplicate,      // SP LF SP
+    Copy(WsNumber), // SP TB SP <n>
+    Swap,           // SP LF TB
+    Discard,        // SP LF LF
+
     // === 算術演算 (IMP: TB SP) ===
-    Add,                 // TB SP SP SP
-    Sub,                 // TB SP SP TB
-    Mul,                 // TB SP SP LF
-    Div,                 // TB SP TB SP
-    Mod,                 // TB SP TB TB
-    
+    Add, // TB SP SP SP
+    Sub, // TB SP SP TB
+    Mul, // TB SP SP LF
+    Div, // TB SP TB SP
+    Mod, // TB SP TB TB
+
     // === ヒープアクセス (IMP: TB TB) ===
-    Store,               // TB TB SP
-    Retrieve,            // TB TB TB
-    
+    Store,    // TB TB SP
+    Retrieve, // TB TB TB
+
     // === フロー制御 (IMP: LF) ===
-    Label(LabelId),      // LF SP SP <label>
-    Call(LabelId),       // LF SP TB <label>
-    Jump(LabelId),       // LF SP LF <label>
-    JumpIfZero(LabelId), // LF TB SP <label>
+    Label(LabelId),          // LF SP SP <label>
+    Call(LabelId),           // LF SP TB <label>
+    Jump(LabelId),           // LF SP LF <label>
+    JumpIfZero(LabelId),     // LF TB SP <label>
     JumpIfNegative(LabelId), // LF TB TB <label>
-    Return,              // LF TB LF
-    Exit,                // LF LF LF
-    
+    Return,                  // LF TB LF
+    Exit,                    // LF LF LF
+
     // === I/O (IMP: TB LF) ===
-    OutputChar,          // TB LF SP SP
-    OutputNumber,        // TB LF SP TB
-    InputChar,           // TB LF TB SP
-    InputNumber,         // TB LF TB TB
+    OutputChar,   // TB LF SP SP
+    OutputNumber, // TB LF SP TB
+    InputChar,    // TB LF TB SP
+    InputNumber,  // TB LF TB TB
 }
 
 impl Instruction {
     pub fn encode(&self) -> Vec<WsChar> {
-        use WsChar::*;
         use Instruction::*;
-        
+        use WsChar::*;
+
         match self {
             // スタック操作
             Push(n) => {
@@ -59,18 +59,18 @@ impl Instruction {
             }
             Swap => vec![Space, Lf, Tab],
             Discard => vec![Space, Lf, Lf],
-            
+
             // 算術演算
             Add => vec![Tab, Space, Space, Space],
             Sub => vec![Tab, Space, Space, Tab],
             Mul => vec![Tab, Space, Space, Lf],
             Div => vec![Tab, Space, Tab, Space],
             Mod => vec![Tab, Space, Tab, Tab],
-            
+
             // ヒープアクセス
             Store => vec![Tab, Tab, Space],
             Retrieve => vec![Tab, Tab, Tab],
-            
+
             // フロー制御
             Label(id) => {
                 let mut v = vec![Lf, Space, Space];
@@ -99,7 +99,7 @@ impl Instruction {
             }
             Return => vec![Lf, Tab, Lf],
             Exit => vec![Lf, Lf, Lf],
-            
+
             // I/O
             OutputChar => vec![Tab, Lf, Space, Space],
             OutputNumber => vec![Tab, Lf, Space, Tab],
@@ -107,7 +107,7 @@ impl Instruction {
             InputNumber => vec![Tab, Lf, Tab, Tab],
         }
     }
-    
+
     /// デバッグ用のニーモニック表現
     pub fn to_mnemonic(&self) -> String {
         use Instruction::*;
@@ -151,7 +151,7 @@ mod tests {
         assert_eq!(encoded[0], WsChar::Space);
         assert_eq!(encoded[1], WsChar::Space);
     }
-    
+
     #[test]
     fn test_encode_add() {
         let inst = Instruction::Add;

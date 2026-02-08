@@ -112,19 +112,17 @@ fn convert_to_exec_expression_with_resolver(
             // & は変数に対してのみ使用可能
             match inner.as_ref() {
                 Expression::Variable(name) => {
-                    let id_ref = parent_resolver
-                        .resolve_variable(name)
-                        .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", name))])?;
+                    let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
+                        vec![code_parse_error!(format!("undefined variable: {}", name))]
+                    })?;
                     Ok(Box::new(ExecExpression::Operation1(
                         Operator1::Ref,
                         Box::new(ExecExpression::Variable(id_ref)),
                     )))
                 }
-                _ => {
-                    Err(vec![code_parse_error!(
-                        "reference operator (&) can only be applied to variables"
-                    )])
-                }
+                _ => Err(vec![code_parse_error!(
+                    "reference operator (&) can only be applied to variables"
+                )]),
             }
         }
         Expression::Operation1(op, x) => Ok(Box::new(ExecExpression::Operation1(
@@ -137,8 +135,18 @@ fn convert_to_exec_expression_with_resolver(
             convert_to_exec_expression_with_resolver(&r, parent_resolver)?,
         ))),
         Expression::If(cond, stat1, stat2) => {
-            let (s1, es1) = analyze_internal_with_parent(stat1, ScopeType::Block, Vec::new(), Some(parent_resolver))?;
-            let (s2, es2) = analyze_internal_with_parent(stat2, ScopeType::Block, Vec::new(), Some(parent_resolver))?;
+            let (s1, es1) = analyze_internal_with_parent(
+                stat1,
+                ScopeType::Block,
+                Vec::new(),
+                Some(parent_resolver),
+            )?;
+            let (s2, es2) = analyze_internal_with_parent(
+                stat2,
+                ScopeType::Block,
+                Vec::new(),
+                Some(parent_resolver),
+            )?;
             Ok(Box::new(ExecExpression::If(
                 convert_to_exec_expression_with_resolver(cond, parent_resolver)?,
                 Block {
@@ -152,7 +160,12 @@ fn convert_to_exec_expression_with_resolver(
             )))
         }
         Expression::While(expr, stat) => {
-            let (s, es) = analyze_internal_with_parent(stat, ScopeType::Block, Vec::new(), Some(parent_resolver))?;
+            let (s, es) = analyze_internal_with_parent(
+                stat,
+                ScopeType::Block,
+                Vec::new(),
+                Some(parent_resolver),
+            )?;
             Ok(Box::new(ExecExpression::While(
                 convert_to_exec_expression_with_resolver(expr, parent_resolver)?,
                 Block {
@@ -166,7 +179,10 @@ fn convert_to_exec_expression_with_resolver(
             // ユーザー定義関数は Phase 3 以降で対応
             let mut args = Vec::new();
             for e in a {
-                args.push(convert_to_exec_expression_with_resolver(e, parent_resolver)?);
+                args.push(convert_to_exec_expression_with_resolver(
+                    e,
+                    parent_resolver,
+                )?);
             }
             Ok(Box::new(ExecExpression::Function(f.clone(), args)))
         }
@@ -216,24 +232,24 @@ pub(crate) struct Function {
 /// Phase 3 でルートスコープに実行文（グローバル変数の初期化）を追加。
 pub struct Scope {
     identifier_map: BTreeMap<String, Identifier>,
-    
+
     /// 変数名からローカルインデックスへのマップ
     /// Phase 2 で追加: 識別子解決時に使用
     pub(crate) variable_indices: BTreeMap<String, usize>,
-    
+
     pub(crate) variables: Vec<Variable>,
-    
+
     /// 変数の総数
     /// Phase 2 で追加: インタプリタが Vec<i64> を初期化する際に使用
     pub(crate) variable_count: usize,
-    
+
     functions: Vec<Function>,
-    
+
     /// Phase 3: このスコープが関数スコープかどうか
     /// true の場合、非 static 変数は親スコープからアクセス不可
     /// Root スコープと Function スコープで true
     pub(crate) is_function_scope: bool,
-    
+
     /// Phase 3: ルートスコープの実行文（グローバル変数の初期化）
     /// 関数スコープ・ブロックスコープでは空
     pub(crate) root_statements: Vec<ExecStatement>,
@@ -321,34 +337,39 @@ impl<'a> ScopeResolver<'a> {
     fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
         // 最初に見つけた関数スコープ（自分の関数）より外側の関数スコープを越えた場合、境界を越えたとする
         let mut first_function_scope_depth: Option<usize> = None;
-        
+
         for (depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
             // 最初の関数スコープを記録
             if scope_info.is_function_scope && first_function_scope_depth.is_none() {
                 first_function_scope_depth = Some(depth);
             }
-            
+
             if let Some(&local_index) = scope_info.var_indices.get(name) {
                 // 関数境界を越えたかチェック
                 // first_function_scope_depth より外側（depth が大きい）の関数スコープに変数がある場合
-                let crossed_function_boundary = if let Some(first_func_depth) = first_function_scope_depth {
-                    depth > first_func_depth && scope_info.is_function_scope
-                } else {
-                    // まだ関数スコープに入っていない（グローバルスコープのみ探索中）
-                    false
-                };
-                
+                let crossed_function_boundary =
+                    if let Some(first_func_depth) = first_function_scope_depth {
+                        depth > first_func_depth && scope_info.is_function_scope
+                    } else {
+                        // まだ関数スコープに入っていない（グローバルスコープのみ探索中）
+                        false
+                    };
+
                 // 関数境界を越えた場合、static 変数のみアクセス可能
                 if crossed_function_boundary && !scope_info.variables[local_index].is_static {
                     // 非 static 変数はスキップして探索継続
                     continue;
                 }
-                
+
                 // グローバル変数かどうかを判定
                 // スタックの最下層（depth == scope_stack.len() - 1）がルートスコープ
-                let is_global = depth == self.scope_stack.len() - 1 
-                    && self.scope_stack.first().map(|s| s.is_function_scope).unwrap_or(false);
-                
+                let is_global = depth == self.scope_stack.len() - 1
+                    && self
+                        .scope_stack
+                        .first()
+                        .map(|s| s.is_function_scope)
+                        .unwrap_or(false);
+
                 return Some(IdentifierRef {
                     scope_depth: depth,
                     local_index,
@@ -381,9 +402,9 @@ impl ScopeBuilder {
         for (idx, var) in self.variables.iter().enumerate() {
             variable_indices.insert(var.identifier.clone(), idx);
         }
-        
+
         let variable_count = self.variables.len();
-        
+
         Scope {
             identifier_map: self.identifier_map,
             variable_indices,
@@ -438,11 +459,11 @@ fn analyze_internal_with_parent(
     parent_resolver: Option<&ScopeResolver>,
 ) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
     let mut scope = ScopeBuilder::new();
-    
+
     // Phase 3: グローバル変数は暗黙的に static
     let is_static = matches!(scope_type, ScopeType::Root);
     let is_function_scope = matches!(scope_type, ScopeType::Root | ScopeType::Function);
-    
+
     // 初期変数を登録（関数の引数など）
     for var_name in initial_vars {
         scope.add_variable(
@@ -453,7 +474,7 @@ fn analyze_internal_with_parent(
             },
         )?;
     }
-    
+
     // Phase 2: 2パス解析（変数のみ）
     // パス1: 変数宣言収集（ホイスティング対応）
     for located_stat in statements {
@@ -483,13 +504,13 @@ fn analyze_internal_with_parent(
             _ => {}
         }
     }
-    
+
     // 変数名からインデックスへのマッピングを先に構築（resolver で使用）
     let mut variable_indices_temp = BTreeMap::new();
     for (idx, var) in scope.variables.iter().enumerate() {
         variable_indices_temp.insert(var.identifier.clone(), idx);
     }
-    
+
     // Variable を Clone するための一時保存（resolver が参照するため）
     // scope.variables をそのまま使用するのではなく、Scope にまとめて後で参照
     // 一旦 temporary_scope を作って参照を保持
@@ -502,7 +523,7 @@ fn analyze_internal_with_parent(
         is_function_scope,
         root_statements: Vec::new(), // 未使用
     };
-    
+
     // 親のresolverを継承して新しいresolverを作成
     let mut resolver = if let Some(parent) = parent_resolver {
         let mut new_resolver = ScopeResolver {
@@ -523,7 +544,7 @@ fn analyze_internal_with_parent(
         );
         new_resolver
     };
-    
+
     // パス2: 文の変換（識別子解決を伴う）
     let mut exec_statements = Vec::<ExecStatement>::new();
     for located_stat in statements {
@@ -538,18 +559,25 @@ fn analyze_internal_with_parent(
             }
             Statement::FunctionDeclaration(name, args, block) => {
                 // Phase 3: 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
-                let (s, es) = analyze_internal_with_parent(block, ScopeType::Function, args.clone(), Some(&resolver))?;
+                let (s, es) = analyze_internal_with_parent(
+                    block,
+                    ScopeType::Function,
+                    args.clone(),
+                    Some(&resolver),
+                )?;
                 let built_scope = s.build(true, Vec::new()); // 関数スコープ、root_statementsは空
-                
+
                 // 引数のインデックスを事前計算（Phase 2 最適化）
                 let arg_indices: Vec<usize> = args
                     .iter()
                     .map(|arg_name| {
-                        *built_scope.variable_indices.get(arg_name)
+                        *built_scope
+                            .variable_indices
+                            .get(arg_name)
                             .expect("argument must be registered as variable")
                     })
                     .collect();
-                
+
                 // 関数を登録
                 let func = Function {
                     args: args.clone(),
@@ -599,7 +627,7 @@ fn analyze_internal_with_parent(
             Statement::Invalid(_) => (),
         }
     }
-    
+
     resolver.leave_scope();
     Ok((scope, exec_statements))
 }
@@ -774,7 +802,7 @@ mod test {
         let statements = vec![var_decl];
         let result = analyze(&statements);
         assert!(result.is_ok());
-        
+
         let scope = result.unwrap();
         // グローバル変数が登録されていることを確認
         assert_eq!(scope.variable_count, 1);

@@ -15,19 +15,19 @@
 //! - `expression` - 式のコード生成
 //! - `statement` - 文のコード生成
 
-pub mod types;
-pub mod instruction;
-mod encoder;
-pub mod program;
-mod memory;
-mod label;
 mod builtin;
 mod context;
+mod encoder;
 mod expression;
+pub mod instruction;
+mod label;
+mod memory;
+pub mod program;
 mod statement;
+pub mod types;
 
 pub use program::WsProgram;
-pub use types::{WsNumber, LabelId, HeapAddress};
+pub use types::{HeapAddress, LabelId, WsNumber};
 
 use crate::semantic_analyzer::Scope;
 use context::CodeGenContext;
@@ -58,15 +58,15 @@ impl std::error::Error for CompileError {}
 pub fn compile(scope: &Scope) -> Result<WsProgram, CompileError> {
     let mut ctx = CodeGenContext::new(scope);
     let mut program = WsProgram::new();
-    
+
     // 1. ヘッダー（初期化・組み込みルーチン）を生成
     program.append(builtin::generate_header(&ctx)?);
-    
+
     // 2. グローバルスコープのコードを生成
     program.append(statement::generate_scope(&mut ctx, scope)?);
-    
+
     // 3. フッター（main呼び出し・終了）を生成
     program.append(builtin::generate_footer(&ctx)?);
-    
+
     Ok(program)
 }

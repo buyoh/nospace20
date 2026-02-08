@@ -495,7 +495,7 @@ func: main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         env.global_variables = vec![0; scope.variable_count];
-        
+
         let func = scope.get_function("main").unwrap();
         let local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
 
@@ -528,14 +528,17 @@ func: main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         env.global_variables = vec![0; scope.variable_count];
-        
+
         let func = scope.get_function("main").unwrap();
         let mut local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
 
         // アドレス 0 に値を設定
         local_env.set_by_address(0, 42);
         let val = local_env.get_by_address(0);
-        assert_eq!(val, 42, "get_by_address should return the value set by set_by_address");
+        assert_eq!(
+            val, 42,
+            "get_by_address should return the value set by set_by_address"
+        );
 
         // アドレス 1 に値を設定
         local_env.set_by_address(1, 99);
@@ -555,9 +558,13 @@ func: main() {
 "#;
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
-        
+
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(42), "should return the value of *p which is 42");
+        assert_eq!(
+            result,
+            Some(42),
+            "should return the value of *p which is 42"
+        );
     }
 
     #[test]
@@ -573,7 +580,7 @@ func: main() {
 "#;
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
-        
+
         let result = crate::interpreter::interpret_all(&mut env, &scope);
         assert_eq!(result, Some(20), "x should be modified to 20 via *p = 20");
     }

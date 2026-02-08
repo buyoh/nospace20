@@ -67,7 +67,7 @@ fn {}() -> std::fmt::Result {{
                     )
                     .unwrap();
                 }
-                
+
                 if has_whitespace {
                     writeln!(
                         f,
@@ -95,7 +95,7 @@ fn {}() -> std::fmt::Result {{
                     )
                     .unwrap();
                 }
-                
+
                 if has_whitespace {
                     writeln!(
                         f,

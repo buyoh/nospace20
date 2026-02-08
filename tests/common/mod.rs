@@ -65,12 +65,12 @@ pub fn wsc_available() -> bool {
 
 /// Whitespace コードを実行して結果を取得
 pub fn run_whitespace(ws_code: &str, stdin_input: &str) -> Result<String, String> {
-    let wsc_path = find_wsc()
-        .ok_or_else(|| "wsc not found. Run: ./tools/setup-wsc.sh".to_string())?;
+    let wsc_path =
+        find_wsc().ok_or_else(|| "wsc not found. Run: ./tools/setup-wsc.sh".to_string())?;
 
     // 一時ファイルに Whitespace コードを書き出し
-    let mut file = NamedTempFile::new()
-        .map_err(|e| format!("Failed to create temp file: {}", e))?;
+    let mut file =
+        NamedTempFile::new().map_err(|e| format!("Failed to create temp file: {}", e))?;
     file.write_all(ws_code.as_bytes())
         .map_err(|e| format!("Failed to write temp file: {}", e))?;
 
