@@ -185,6 +185,30 @@ impl WhitespaceVM {
         self.total_steps
     }
 
+    /// 現在のプログラムカウンタ（次に実行する命令のインデックス）
+    pub fn pc(&self) -> usize {
+        self.pc
+    }
+
+    /// コールスタックの深さ
+    pub fn call_stack_depth(&self) -> usize {
+        self.call_stack.len()
+    }
+
+    /// 現在の命令のニーモニック表現を取得（デバッグ用）
+    pub fn current_instruction(&self) -> Option<String> {
+        if self.pc >= self.instructions.len() {
+            None
+        } else {
+            Some(format!("{:?}", self.instructions[self.pc]))
+        }
+    }
+
+    /// 命令列全体のニーモニック表現を取得
+    pub fn disassemble(&self) -> Vec<String> {
+        self.instructions.iter().map(|inst| format!("{:?}", inst)).collect()
+    }
+
     /// stdout の内容をフラッシュ
     pub fn flush(&mut self) {
         let _ = self.stdout.flush();

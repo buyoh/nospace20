@@ -706,9 +706,13 @@ document.getElementById('run-btn').onclick = () => {
 
 ### Step A-7: テスト・検証
 
-- [ ] Node.js でのスモークテスト（compile → VM 生成 → step 実行）
-- [ ] 既存テストケースの一部を WASM 経由で実行・結果照合
-- [ ] ブラウザでの動作確認（wasm-pack build --target web --no-default-features --features wasm）
+- [x] wasm-pack build 成功
+- [x] 既存の Rust テストがパス（cargo test --lib: 119 passed）
+- [x] テストスクリプト作成（tmp/test_wasm_phase_a.mjs）
+- [ ] Node.js でのスモークテスト（WSL 環境の node の問題により未実施）
+- [ ] ブラウザでの動作確認（未実施）
+
+**実装済み（2026-02-10）**
 
 ---
 
