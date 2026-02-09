@@ -1,0 +1,7 @@
+# 単一変数の初期化 #
+func: main() {
+  __trace(0);
+  let: x(5);
+  __assert_not(x - 5);
+  __trace(1);
+}

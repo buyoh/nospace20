@@ -1,0 +1,9 @@
+# 初期化式での計算 #
+func: main() {
+  __trace(0);
+  let: x(2 + 3);
+  __assert_not(x - 5);
+  let: y(x * 2);
+  __assert_not(y - 10);
+  __trace(1);
+}

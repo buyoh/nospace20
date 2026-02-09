@@ -1,0 +1,10 @@
+# ホイスティングと初期化の組み合わせ #
+func: main() {
+  __trace(0);
+  __assert_not(a);  # ホイスティングで0初期化 #
+  a = 5;            # 代入 #
+  __assert_not(a - 5);
+  let: a(3);        # 宣言位置で初期化式を実行 #
+  __assert_not(a - 3);
+  __trace(1);
+}

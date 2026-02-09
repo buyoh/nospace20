@@ -67,10 +67,9 @@ func ::=
 let ::=
     | "let" ":" let_decl ("," let_decl)* ";"
 
-# 未実装: 配列宣言、初期値指定
-let_decl ::= ident
+# 配列宣言は未実装
+let_decl ::= ident ("(" expr ")")?
 # let_decl ::= ident ("[" integer "]")?           # 未実装: 配列
-# let_decl ::= ident ("(" (expr ("," expr)*)? ")")? # 未実装: 初期値
 
 stmt ::=
     | if_stmt

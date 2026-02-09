@@ -70,67 +70,98 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         return ss;
     }
 
-    fn parse_to_statements_let(&mut self, start_pos: usize) -> LocatedStatement {
+    fn parse_to_statements_let(&mut self, start_pos: usize) -> Vec<LocatedStatement> {
         if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Let)) {
             panic!("internal error");
         }
-        match_expect_token_unused!(self, self.iter.next(), Token::Colon);
-
-        let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
-            Ok(x) => x,
-            Err(e) => {
-                return LocatedStatement {
-                    statement: Statement::Invalid(e),
-                    location: SourceLocation::from_single(start_pos),
-                };
-            }
-        };
-        let end_pos = self
-            .iter
-            .peek()
-            .map(|(_, info)| info.code_pointer)
-            .unwrap_or(start_pos);
-        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
-        return LocatedStatement {
-            statement: Statement::VariableDeclaration(
-                id.clone(),
-                Box::new(Expression::Factor(0)),
-                false,
-            ),
-            location: SourceLocation::new(start_pos, end_pos),
-        };
+        self.parse_variable_declarations(start_pos, false)
     }
 
-    fn parse_to_statements_static(&mut self, start_pos: usize) -> LocatedStatement {
+    fn parse_to_statements_static(&mut self, start_pos: usize) -> Vec<LocatedStatement> {
         if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Keyword(Keyword::Static))
         {
             panic!("internal error");
         }
+        self.parse_variable_declarations(start_pos, true)
+    }
+
+    fn parse_variable_declarations(
+        &mut self,
+        start_pos: usize,
+        is_static: bool,
+    ) -> Vec<LocatedStatement> {
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
 
-        let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
-            Ok(x) => x,
-            Err(e) => {
-                return LocatedStatement {
-                    statement: Statement::Invalid(e),
-                    location: SourceLocation::from_single(start_pos),
-                };
+        let mut results = Vec::<LocatedStatement>::new();
+
+        loop {
+            // 識別子を取得
+            let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id)
+            {
+                Ok(x) => x,
+                Err(e) => {
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(e),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    // エラーが発生したら残りをスキップしてセミコロンまで進む
+                    while let Some((token, _)) = self.iter.peek() {
+                        if matches!(token, Token::Semicolon) {
+                            break;
+                        }
+                        self.iter.next();
+                    }
+                    break;
+                }
+            };
+
+            // 初期化式のチェック
+            let init_expr = if let Some((Token::ParenthesisL, _)) = self.iter.peek() {
+                // "(" を消費
+                self.iter.next();
+
+                // 初期化式をパース
+                let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+                self.code_parse_error.append(&mut errs);
+
+                // ")" を消費
+                match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
+
+                // 代入式を構築: id = expr
+                Box::new(Expression::Operation2(
+                    Operator2::Assign,
+                    Box::new(Expression::Variable(id.clone())),
+                    expr,
+                ))
+            } else {
+                // 初期化式なし: デフォルトで 0
+                Box::new(Expression::Factor(0))
+            };
+
+            let end_pos = self
+                .iter
+                .peek()
+                .map(|(_, info)| info.code_pointer)
+                .unwrap_or(start_pos);
+
+            results.push(LocatedStatement {
+                statement: Statement::VariableDeclaration(id.clone(), init_expr, is_static),
+                location: SourceLocation::new(start_pos, end_pos),
+            });
+
+            // 次がカンマか確認
+            if let Some((Token::Comma, _)) = self.iter.peek() {
+                self.iter.next(); // カンマを消費
+                continue; // 次の変数宣言へ
+            } else {
+                break; // カンマがなければループ終了
             }
-        };
-        let end_pos = self
-            .iter
-            .peek()
-            .map(|(_, info)| info.code_pointer)
-            .unwrap_or(start_pos);
+        }
+
+        // セミコロンを消費
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
-        return LocatedStatement {
-            statement: Statement::VariableDeclaration(
-                id.clone(),
-                Box::new(Expression::Factor(0)),
-                true,
-            ),
-            location: SourceLocation::new(start_pos, end_pos),
-        };
+
+        results
     }
 
     fn parse_to_statements_func(&mut self, start_pos: usize) -> LocatedStatement {
@@ -234,11 +265,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             let start_pos = token.1.code_pointer;
             match &token.0 {
                 Token::Keyword(Keyword::Let) => {
-                    statements.push(self.parse_to_statements_let(start_pos));
+                    statements.extend(self.parse_to_statements_let(start_pos));
                     continue;
                 }
                 Token::Keyword(Keyword::Static) => {
-                    statements.push(self.parse_to_statements_static(start_pos));
+                    statements.extend(self.parse_to_statements_static(start_pos));
                     continue;
                 }
                 Token::Keyword(Keyword::Func) => {

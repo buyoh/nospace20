@@ -232,6 +232,26 @@ tests:
     path: variables/var_hoist_001
     comment: "Variable hoisting"
 
+  - name: test_variables_var_init_single
+    type: success
+    path: variables/var_init_single
+    comment: "Single variable initialization with let: x(5);"
+
+  - name: test_variables_var_init_multiple
+    type: success
+    path: variables/var_init_multiple
+    comment: "Multiple variable initialization with let: a(1), b(2);"
+
+  - name: test_variables_var_init_hoisting
+    type: success
+    path: variables/var_init_hoisting
+    comment: "Hoisting with initialization"
+
+  - name: test_variables_var_init_expr
+    type: success
+    path: variables/var_init_expr
+    comment: "Variable initialization with expression"
+
   # ========================================
   # Functions
   # ========================================
