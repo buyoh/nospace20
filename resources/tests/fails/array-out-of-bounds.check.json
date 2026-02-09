@@ -1,4 +1,0 @@
-{
-  "type": "runtime_error",
-  "message_contains": "array index out of bounds"
-}

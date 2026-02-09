@@ -672,16 +672,3 @@ tests:
     path: array-static
     comment: "Static array operations"
     targets: [interpreter]
-
-  # TODO: Runtime error tests not yet supported
-  # - name: test_array_out_of_bounds
-  #   type: runtime_error
-  #   path: fails/array-out-of-bounds
-  #   comment: "Array index out of bounds error"
-  #   targets: [interpreter]
-
-  # - name: test_array_negative_index
-  #   type: runtime_error
-  #   path: fails/array-negative-index
-  #   comment: "Array negative index error"
-  #   targets: [interpreter]

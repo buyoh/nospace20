@@ -311,17 +311,10 @@ impl LocalEnvironment<'_, '_> {
                         let addr = self.resolve_address(id_ref);
                         ExpressionFlow::Value(addr)
                     }
-                    ExecExpression::ArrayAccess(id_ref, index_expr, array_size) => {
+                    ExecExpression::ArrayAccess(id_ref, index_expr, _array_size) => {
                         let index = try_expr!(self.interpret_expression(index_expr));
 
-                        // 境界チェック
-                        if index < 0 || index >= *array_size as i64 {
-                            panic!(
-                                "runtime error: array index out of bounds: index {} but size {}",
-                                index, array_size
-                            );
-                        }
-
+                        // p[i] は *(&p + i) と同義なので境界チェックは行わない
                         let base_addr = self.resolve_address(id_ref);
                         ExpressionFlow::Value(base_addr + index)
                     }
@@ -362,21 +355,14 @@ impl LocalEnvironment<'_, '_> {
                     self.set_variable(id_ref, v);
                     return ExpressionFlow::Value(v);
                 }
-                ExecExpression::ArrayAccess(id_ref, index_expr, array_size) => {
+                ExecExpression::ArrayAccess(id_ref, index_expr, _array_size) => {
                     // 配列要素への代入: arr[i] = val
+                    // p[i] は *(&p + i) と同義なので境界チェックは行わない
                     let index = try_expr!(self.interpret_expression(index_expr));
                     let v = try_expr!(self.interpret_expression(expr2));
 
-                    // 境界チェック
-                    if index < 0 || index >= *array_size as i64 {
-                        panic!(
-                            "runtime error: array index out of bounds: index {} but size {}",
-                            index, array_size
-                        );
-                    }
-
                     let mut adjusted_ref = *id_ref;
-                    adjusted_ref.local_index += index as usize;
+                    adjusted_ref.local_index = (adjusted_ref.local_index as i64 + index) as usize;
                     self.set_variable(&adjusted_ref, v);
                     return ExpressionFlow::Value(v);
                 }
@@ -450,20 +436,13 @@ impl LocalEnvironment<'_, '_> {
                 // Phase 2: IdentifierRef を使用して O(1) でアクセス
                 ExpressionFlow::Value(self.get_variable(id_ref))
             }
-            ExecExpression::ArrayAccess(id_ref, index_expr, array_size) => {
+            ExecExpression::ArrayAccess(id_ref, index_expr, _array_size) => {
                 let index = try_expr!(self.interpret_expression(index_expr));
 
-                // 境界チェック
-                if index < 0 || index >= *array_size as i64 {
-                    panic!(
-                        "runtime error: array index out of bounds: index {} but size {}",
-                        index, array_size
-                    );
-                }
-
                 // ベースアドレス + オフセット でアクセス
+                // p[i] は *(&p + i) と同義なので境界チェックは行わない
                 let mut adjusted_ref = *id_ref;
-                adjusted_ref.local_index += index as usize;
+                adjusted_ref.local_index = (adjusted_ref.local_index as i64 + index) as usize;
                 ExpressionFlow::Value(self.get_variable(&adjusted_ref))
             }
             ExecExpression::If(cond, then_block, else_block) => {

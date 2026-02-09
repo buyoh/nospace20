@@ -617,11 +617,14 @@ fn analyze_internal_with_parent(
     }
 
     // 変数名からインデックスへのマッピングを先に構築（resolver で使用）
+    // 配列サイズを考慮したスロットインデックスを使用
     let mut variable_indices_temp = BTreeMap::new();
     let mut variable_name_to_var_index_temp = BTreeMap::new();
+    let mut slot_index = 0;
     for (idx, var) in scope.variables.iter().enumerate() {
-        variable_indices_temp.insert(var.identifier.clone(), idx);
+        variable_indices_temp.insert(var.identifier.clone(), slot_index);
         variable_name_to_var_index_temp.insert(var.identifier.clone(), idx);
+        slot_index += var.array_size.unwrap_or(1);
     }
 
     // Variable を Clone するための一時保存（resolver が参照するため）
@@ -632,7 +635,7 @@ fn analyze_internal_with_parent(
         variable_indices: variable_indices_temp.clone(),
         variable_name_to_var_index: variable_name_to_var_index_temp.clone(),
         variables: scope.variables.clone(), // Clone が必要
-        variable_count: scope.variables.len(),
+        variable_count: slot_index,
         functions: Vec::new(), // 未使用
         is_function_scope,
         root_statements: Vec::new(), // 未使用
