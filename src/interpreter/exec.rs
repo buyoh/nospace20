@@ -416,6 +416,10 @@ impl LocalEnvironment<'_, '_> {
                 // Phase 2: IdentifierRef を使用して O(1) でアクセス
                 ExpressionFlow::Value(self.get_variable(id_ref))
             }
+            ExecExpression::ArrayAccess(_, _, _) => {
+                // Phase 3 で実装予定
+                panic!("array access is not yet supported in interpreter")
+            }
             ExecExpression::If(cond, then_block, else_block) => {
                 self.interpret_if(cond, then_block, else_block)
             }

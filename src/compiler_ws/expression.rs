@@ -24,6 +24,13 @@ pub fn generate_expression(
         // 変数参照
         ExecExpression::Variable(var_ref) => generate_load_variable(ctx, var_ref),
 
+        // 配列アクセス (Phase 4 で実装予定)
+        ExecExpression::ArrayAccess(_, _, _) => {
+            Err(CompileError::InvalidOperation(
+                "array access is not yet supported in compiler".to_string(),
+            ))
+        }
+
         // 単項演算
         ExecExpression::Operation1(op, inner) => generate_unary_op(ctx, op, inner),
 

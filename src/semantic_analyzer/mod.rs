@@ -56,6 +56,8 @@ pub(crate) struct Variable {
     /// true の場合、親の関数スコープからもアクセス可能
     /// グローバル変数は暗黙的に is_static = true
     pub is_static: bool,
+    /// 配列サイズ。None なら通常変数（1スロット）、Some(n) なら n スロットの配列。
+    pub array_size: Option<usize>,
 }
 
 /// ブロック（文の列とスコープ情報）
@@ -84,6 +86,9 @@ pub(crate) enum ExecExpression {
     /// 変数参照
     /// Phase 2: String から IdentifierRef に変更
     Variable(IdentifierRef),
+    /// 配列アクセス: (変数参照, インデックス式, 配列サイズ)
+    /// 配列サイズは境界チェックに使用
+    ArrayAccess(IdentifierRef, Box<ExecExpression>, usize),
 }
 
 /// 実行可能な文を表す。
@@ -109,7 +114,7 @@ fn convert_to_exec_expression_with_resolver(
 ) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
     match expr.as_ref() {
         Expression::Operation1(Operator1::Ref, inner) => {
-            // & は変数に対してのみ使用可能
+            // & は変数または配列要素に対してのみ使用可能
             match inner.as_ref() {
                 Expression::Variable(name) => {
                     let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
@@ -120,8 +125,30 @@ fn convert_to_exec_expression_with_resolver(
                         Box::new(ExecExpression::Variable(id_ref)),
                     )))
                 }
+                Expression::ArrayAccess(name, index_expr) => {
+                    let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
+                        vec![code_parse_error!(format!("undefined variable: {}", name))]
+                    })?;
+
+                    // 配列変数であることを確認
+                    let array_size = parent_resolver
+                        .get_array_size(name)
+                        .ok_or_else(|| {
+                            vec![code_parse_error!(format!("undefined variable: {}", name))]
+                        })?
+                        .ok_or_else(|| {
+                            vec![code_parse_error!(format!("'{}' is not an array", name))]
+                        })?;
+
+                    let exec_index = convert_to_exec_expression_with_resolver(index_expr, parent_resolver)?;
+
+                    Ok(Box::new(ExecExpression::Operation1(
+                        Operator1::Ref,
+                        Box::new(ExecExpression::ArrayAccess(id_ref, exec_index, array_size)),
+                    )))
+                }
                 _ => Err(vec![code_parse_error!(
-                    "reference operator (&) can only be applied to variables"
+                    "reference operator (&) can only be applied to variables or array elements"
                 )]),
             }
         }
@@ -226,9 +253,20 @@ fn convert_to_exec_expression_with_resolver(
                 .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", v))])?;
             Ok(Box::new(ExecExpression::Variable(var_ref)))
         }
-        Expression::ArrayAccess(_, _) => {
-            // Phase 1: 配列アクセスの意味解析は未実装
-            Err(vec![code_parse_error!("array access is not yet supported in semantic analysis")])
+        Expression::ArrayAccess(name, index_expr) => {
+            let id_ref = parent_resolver
+                .resolve_variable(name)
+                .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", name))])?;
+
+            // 配列変数であることを確認
+            let array_size = parent_resolver
+                .get_array_size(name)
+                .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", name))])?
+                .ok_or_else(|| vec![code_parse_error!(format!("'{}' is not an array", name))])?;
+
+            let exec_index = convert_to_exec_expression_with_resolver(index_expr, parent_resolver)?;
+
+            Ok(Box::new(ExecExpression::ArrayAccess(id_ref, exec_index, array_size)))
         }
         // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
         Expression::Invalid(_) => {
@@ -269,13 +307,18 @@ pub(crate) struct Function {
 pub struct Scope {
     identifier_map: BTreeMap<String, Identifier>,
 
-    /// 変数名からローカルインデックスへのマップ
+    /// 変数名からスロットインデックスへのマップ
     /// Phase 2 で追加: 識別子解決時に使用
+    /// 配列の場合、配列の開始スロットインデックスを指す
     pub(crate) variable_indices: BTreeMap<String, usize>,
+
+    /// 変数名から variables ベクタのインデックスへのマップ
+    /// 配列対応のため追加: 配列情報を取得する際に使用
+    pub(crate) variable_name_to_var_index: BTreeMap<String, usize>,
 
     pub(crate) variables: Vec<Variable>,
 
-    /// 変数の総数
+    /// 変数のスロット総数（配列サイズを考慮）
     /// Phase 2 で追加: インタプリタが Vec<i64> を初期化する際に使用
     pub(crate) variable_count: usize,
 
@@ -325,9 +368,11 @@ enum ScopeType {
 /// Phase 3 で追加。関数境界チェックのため、各スコープの追加情報を保持する。
 #[derive(Clone)]
 struct ScopeInfo<'a> {
-    /// 変数名からインデックスへのマップ
+    /// 変数名からスロットインデックスへのマップ
     var_indices: &'a BTreeMap<String, usize>,
-    /// 変数情報（static フラグ確認用）
+    /// 変数名から variables ベクタのインデックスへのマップ
+    var_name_to_var_index: &'a BTreeMap<String, usize>,
+    /// 変数情報（static フラグ、配列サイズ確認用）
     variables: &'a Vec<Variable>,
     /// このスコープが関数スコープかどうか
     is_function_scope: bool,
@@ -356,11 +401,13 @@ impl<'a> ScopeResolver<'a> {
     fn enter_scope(
         &mut self,
         var_indices: &'a BTreeMap<String, usize>,
+        var_name_to_var_index: &'a BTreeMap<String, usize>,
         variables: &'a Vec<Variable>,
         is_function_scope: bool,
     ) {
         self.scope_stack.push(ScopeInfo {
             var_indices,
+            var_name_to_var_index,
             variables,
             is_function_scope,
         });
@@ -386,6 +433,10 @@ impl<'a> ScopeResolver<'a> {
             }
 
             if let Some(&local_index) = scope_info.var_indices.get(name) {
+                // 変数情報を取得（var_name_to_var_index 経由）
+                let var_idx = scope_info.var_name_to_var_index.get(name)?;
+                let var = &scope_info.variables[*var_idx];
+
                 // 関数境界を越えたかチェック
                 // first_function_scope_depth より外側（depth が大きい）の関数スコープに変数がある場合
                 let crossed_function_boundary =
@@ -397,7 +448,7 @@ impl<'a> ScopeResolver<'a> {
                     };
 
                 // 関数境界を越えた場合、static 変数のみアクセス可能
-                if crossed_function_boundary && !scope_info.variables[local_index].is_static {
+                if crossed_function_boundary && !var.is_static {
                     // 非 static 変数はスキップして探索継続
                     continue;
                 }
@@ -420,6 +471,20 @@ impl<'a> ScopeResolver<'a> {
         }
         None
     }
+
+    /// 変数の配列サイズを取得
+    ///
+    /// None の場合、変数が見つからない
+    /// Some(None) の場合、通常変数（配列ではない）
+    /// Some(Some(n)) の場合、サイズ n の配列
+    fn get_array_size(&self, name: &str) -> Option<Option<usize>> {
+        for scope_info in self.scope_stack.iter().rev() {
+            if let Some(&var_idx) = scope_info.var_name_to_var_index.get(name) {
+                return Some(scope_info.variables[var_idx].array_size);
+            }
+        }
+        None
+    }
 }
 
 struct ScopeBuilder {
@@ -438,17 +503,22 @@ impl ScopeBuilder {
     }
 
     fn build(self, is_function_scope: bool, root_statements: Vec<ExecStatement>) -> Scope {
-        // 変数名からインデックスへのマッピングを構築
+        // 変数名からスロットインデックスへのマッピングを構築
+        // 配列の場合、変数の開始スロットインデックスを記録
         let mut variable_indices = BTreeMap::new();
-        for (idx, var) in self.variables.iter().enumerate() {
-            variable_indices.insert(var.identifier.clone(), idx);
+        let mut variable_name_to_var_index = BTreeMap::new();
+        let mut slot_index = 0;
+        for (var_idx, var) in self.variables.iter().enumerate() {
+            variable_indices.insert(var.identifier.clone(), slot_index);
+            variable_name_to_var_index.insert(var.identifier.clone(), var_idx);
+            slot_index += var.array_size.unwrap_or(1);
         }
-
-        let variable_count = self.variables.len();
+        let variable_count = slot_index;
 
         Scope {
             identifier_map: self.identifier_map,
             variable_indices,
+            variable_name_to_var_index,
             variables: self.variables,
             variable_count,
             functions: self.functions,
@@ -512,6 +582,7 @@ fn analyze_internal_with_parent(
             Variable {
                 identifier: var_name.clone(),
                 is_static: false, // 関数引数は非 static
+                array_size: None, // 関数引数は配列ではない
             },
         )?;
     }
@@ -522,13 +593,6 @@ fn analyze_internal_with_parent(
         let stat = &located_stat.statement;
         match stat {
             Statement::VariableDeclaration(name, _, is_static_explicit, array_size) => {
-                // Phase 1: 配列宣言はまだサポートしていない
-                if array_size.is_some() {
-                    return Err(vec![code_parse_error!(
-                        located_stat.location.start,
-                        "semantic error: array declaration is not yet supported in semantic analysis"
-                    )]);
-                }
                 // Phase 3: グローバル変数は暗黙的に static
                 // Phase 4: 明示的 static も考慮
                 let final_is_static = *is_static_explicit || is_static;
@@ -537,6 +601,7 @@ fn analyze_internal_with_parent(
                     Variable {
                         identifier: name.clone(),
                         is_static: final_is_static,
+                        array_size: array_size.map(|n| n as usize),
                     },
                 )?;
             }
@@ -555,8 +620,10 @@ fn analyze_internal_with_parent(
 
     // 変数名からインデックスへのマッピングを先に構築（resolver で使用）
     let mut variable_indices_temp = BTreeMap::new();
+    let mut variable_name_to_var_index_temp = BTreeMap::new();
     for (idx, var) in scope.variables.iter().enumerate() {
         variable_indices_temp.insert(var.identifier.clone(), idx);
+        variable_name_to_var_index_temp.insert(var.identifier.clone(), idx);
     }
 
     // Variable を Clone するための一時保存（resolver が参照するため）
@@ -565,6 +632,7 @@ fn analyze_internal_with_parent(
     let temporary_scope = Scope {
         identifier_map: BTreeMap::new(), // 未使用
         variable_indices: variable_indices_temp.clone(),
+        variable_name_to_var_index: variable_name_to_var_index_temp.clone(),
         variables: scope.variables.clone(), // Clone が必要
         variable_count: scope.variables.len(),
         functions: Vec::new(), // 未使用
@@ -579,6 +647,7 @@ fn analyze_internal_with_parent(
         };
         new_resolver.enter_scope(
             &temporary_scope.variable_indices,
+            &temporary_scope.variable_name_to_var_index,
             &temporary_scope.variables,
             is_function_scope,
         );
@@ -587,6 +656,7 @@ fn analyze_internal_with_parent(
         let mut new_resolver = ScopeResolver::new();
         new_resolver.enter_scope(
             &temporary_scope.variable_indices,
+            &temporary_scope.variable_name_to_var_index,
             &temporary_scope.variables,
             is_function_scope,
         );
@@ -1051,5 +1121,350 @@ mod test {
         let statements = vec![func];
         let result = analyze(&statements);
         assert!(result.is_ok());
+    }
+
+    // === Array Tests ===
+
+    #[test]
+    fn test_success_array_declaration() {
+        // func: main() { let: arr[3]; return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "arr".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+                Some(3), // array size
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(35, 45),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, return_stmt],
+            ),
+            location: SourceLocation::new(0, 50),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+
+        let scope = result.unwrap();
+        let func = scope.get_function("main").unwrap();
+        assert_eq!(func.block.scope.variable_count, 3); // 配列は3スロット占有
+        assert_eq!(func.block.scope.variables.len(), 1); // 変数自体は1つ
+        assert_eq!(func.block.scope.variables[0].array_size, Some(3));
+    }
+
+    #[test]
+    fn test_success_multiple_variables_with_array() {
+        // func: main() { let: a; let: arr[3]; let: b; return:0; }
+        let var_a = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "a".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+                None,
+            ),
+            location: SourceLocation::new(20, 25),
+        };
+
+        let var_arr = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "arr".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+                Some(3),
+            ),
+            location: SourceLocation::new(30, 40),
+        };
+
+        let var_b = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "b".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+                None,
+            ),
+            location: SourceLocation::new(45, 50),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(55, 65),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_a, var_arr, var_b, return_stmt],
+            ),
+            location: SourceLocation::new(0, 70),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+
+        let scope = result.unwrap();
+        let func = scope.get_function("main").unwrap();
+        assert_eq!(func.block.scope.variable_count, 5); // a(1) + arr(3) + b(1) = 5
+        assert_eq!(*func.block.scope.variable_indices.get("a").unwrap(), 0);
+        assert_eq!(*func.block.scope.variable_indices.get("arr").unwrap(), 1);
+        assert_eq!(*func.block.scope.variable_indices.get("b").unwrap(), 4);
+    }
+
+    #[test]
+    fn test_success_array_access() {
+        // func: main() { let: arr[3]; arr[0]; return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "arr".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+                Some(3),
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let array_access = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::ArrayAccess(
+                "arr".to_string(),
+                Box::new(Expression::Factor(0)),
+            ))),
+            location: SourceLocation::new(35, 45),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(50, 60),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, array_access, return_stmt],
+            ),
+            location: SourceLocation::new(0, 65),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_success_array_assignment() {
+        // func: main() { let: arr[3]; arr[0] = 5; return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "arr".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+                Some(3),
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let array_assign = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::Operation2(
+                Operator2::Assign,
+                Box::new(Expression::ArrayAccess(
+                    "arr".to_string(),
+                    Box::new(Expression::Factor(0)),
+                )),
+                Box::new(Expression::Factor(5)),
+            ))),
+            location: SourceLocation::new(35, 50),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(55, 65),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, array_assign, return_stmt],
+            ),
+            location: SourceLocation::new(0, 70),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_error_array_access_non_array() {
+        // func: main() { let: x; x[0]; return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "x".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+                None, // not an array
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let array_access = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::ArrayAccess(
+                "x".to_string(),
+                Box::new(Expression::Factor(0)),
+            ))),
+            location: SourceLocation::new(35, 45),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(50, 60),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, array_access, return_stmt],
+            ),
+            location: SourceLocation::new(0, 65),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert!(errors[0].message.contains("is not an array"));
+    }
+
+    #[test]
+    fn test_error_array_access_undefined() {
+        // func: main() { undeclared[0]; return:0; }
+        let array_access = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::ArrayAccess(
+                "undeclared".to_string(),
+                Box::new(Expression::Factor(0)),
+            ))),
+            location: SourceLocation::new(20, 35),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(40, 50),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![array_access, return_stmt],
+            ),
+            location: SourceLocation::new(0, 55),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_err());
+
+        let errors = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        assert!(errors[0].message.contains("undefined variable"));
+    }
+
+    #[test]
+    fn test_success_ref_array_element() {
+        // func: main() { let: arr[3]; &arr[0]; return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "arr".to_string(),
+                Box::new(Expression::Factor(0)),
+                false,
+                Some(3),
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let ref_expr = LocatedStatement {
+            statement: Statement::Expression(Box::new(Expression::Operation1(
+                Operator1::Ref,
+                Box::new(Expression::ArrayAccess(
+                    "arr".to_string(),
+                    Box::new(Expression::Factor(0)),
+                )),
+            ))),
+            location: SourceLocation::new(35, 45),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(50, 60),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, ref_expr, return_stmt],
+            ),
+            location: SourceLocation::new(0, 65),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_success_static_array() {
+        // func: main() { static: arr[3]; return:0; }
+        let var_decl = LocatedStatement {
+            statement: Statement::VariableDeclaration(
+                "arr".to_string(),
+                Box::new(Expression::Factor(0)),
+                true, // static
+                Some(3),
+            ),
+            location: SourceLocation::new(20, 30),
+        };
+
+        let return_stmt = LocatedStatement {
+            statement: Statement::Return(Box::new(Expression::Factor(0))),
+            location: SourceLocation::new(35, 45),
+        };
+
+        let func = LocatedStatement {
+            statement: Statement::FunctionDeclaration(
+                "main".to_string(),
+                vec![],
+                vec![var_decl, return_stmt],
+            ),
+            location: SourceLocation::new(0, 50),
+        };
+
+        let statements = vec![func];
+        let result = analyze(&statements);
+        assert!(result.is_ok());
+
+        let scope = result.unwrap();
+        let func = scope.get_function("main").unwrap();
+        assert!(func.block.scope.variables[0].is_static);
+        assert_eq!(func.block.scope.variables[0].array_size, Some(3));
     }
 }
