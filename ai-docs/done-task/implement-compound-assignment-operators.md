@@ -1,8 +1,46 @@
-# TODO: 複合代入演算子の実装
+# DONE: 複合代入演算子の実装
 
 ## 概要
 
 `test_legacy_023` が失敗している。`+=`, `-=`, `*=`, `/=`, `%=` という複合代入演算子がパーサーでサポートされていないため。
+
+## 実装完了
+
+### 実装内容
+
+1. **トークナイザー** (`src/token_parser/mod.rs`)
+   - 新しいトークン型を追加: `PlusEqual`, `MinusEqual`, `AsteriskEqual`, `SlashEqual`, `PercentEqual`
+   - `+`, `-`, `*`, `/`, `%` のパース処理を修正し、後続に `=` があるかチェック
+
+2. **パーサー** (`src/tree_parser/expression/mod.rs`)
+   - `Operator2` enum に複合代入演算子を追加: `PlusAssign`, `MinusAssign`, `MultiplyAssign`, `DivideAssign`, `ModuloAssign`
+   - `parse_to_expression_tree_assign` で複合代入トークンを認識
+
+3. **セマンティック解析** (`src/semantic_analyzer/mod.rs`)
+   - `convert_to_exec_expression_with_resolver` で複合代入演算子を `a = a + b` 形式に展開
+   - 例: `a += b` → `a = a + b`
+
+4. **インタプリタ** (`src/interpreter/exec.rs`)
+   - 複合代入演算子のパターンマッチに `unreachable!()` を追加（セマンティック解析で展開されるため）
+
+5. **コンパイラ** (`src/compiler_ws/expression.rs`)
+   - 複合代入演算子のパターンマッチに `unreachable!()` を追加（セマンティック解析で展開されるため）
+
+### テスト結果
+
+- `test_legacy_023`: ✅ 成功
+- 全テスト: ✅ 93 passed; 0 failed; 14 ignored
+
+### コミット
+
+- コミットID: 0397e73
+- メッセージ: "feat: implement compound assignment operators (+=, -=, *=, /=, %=)"
+
+## 仕様との整合性
+
+✅ 複合代入演算子は式として値を返す（代入後の値）
+✅ 右結合 (`x += y += 3` は `y += 3; x += y;` と等価)
+✅ spec.md の記載通りに動作
 
 ## 問題の詳細
 
