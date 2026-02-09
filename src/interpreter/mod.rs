@@ -16,7 +16,13 @@ use exec::LocalEnvironment;
 use types::Flow;
 
 pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> Option<i64> {
-    let func = scope.get_function(func_name).unwrap();
+    let func = match scope.get_function(func_name) {
+        Some(f) => f,
+        None => {
+            eprintln!("error: function '{}' not found", func_name);
+            return None;
+        }
+    };
     let mut e = LocalEnvironment::new_func(env, scope, &func, &Vec::<i64>::new());
     let res = e.interpret_statements(&func.block.statements);
     if let Flow::Return(x) = res {

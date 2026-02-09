@@ -192,6 +192,12 @@ fn main() {
     // モードに応じて処理
     match property.mode {
         ExecutionMode::Run => {
+            // main 関数の存在チェック
+            if !a.has_function("main") {
+                eprintln!("error: function 'main' not found");
+                process::exit(1);
+            }
+            
             // インタプリタモード
             let config = nospace20::EnvironmentConfig {
                 ignore_debug: property.ignore_debug,

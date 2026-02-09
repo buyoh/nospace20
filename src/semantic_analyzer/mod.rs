@@ -303,6 +303,11 @@ impl Scope {
             None
         }
     }
+    
+    /// 指定した名前の関数が存在するかチェックする
+    pub fn has_function(&self, id: &str) -> bool {
+        self.get_function(id).is_some()
+    }
 }
 
 enum ScopeType {

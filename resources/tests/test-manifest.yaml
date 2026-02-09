@@ -423,6 +423,16 @@ tests:
     path: unexpected_eof_001
     comment: "Unexpected EOF detection"
 
+  - name: test_syntax_error_only_closing_brace_001
+    type: syntax_error
+    path: only_closing_brace_001
+    comment: "Only closing brace detection"
+
+  - name: test_syntax_error_extra_closing_braces_001
+    type: syntax_error
+    path: extra_closing_braces_001
+    comment: "Extra closing braces detection"
+
   # ========================================
   # Compile Errors
   # ========================================
