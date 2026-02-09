@@ -475,7 +475,6 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     continue;
                 }
                 Token::BraceR => {
-                    // TODO: consider only BraceR
                     break;
                 }
                 _ => {}
@@ -494,7 +493,6 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         }
         return statements;
-        // panic!("syntax error: terminal");
     }
 }
 
