@@ -226,6 +226,10 @@ fn convert_to_exec_expression_with_resolver(
                 .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", v))])?;
             Ok(Box::new(ExecExpression::Variable(var_ref)))
         }
+        Expression::ArrayAccess(_, _) => {
+            // Phase 1: 配列アクセスの意味解析は未実装
+            Err(vec![code_parse_error!("array access is not yet supported in semantic analysis")])
+        }
         // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
         Expression::Invalid(_) => {
             unreachable!("Expression::Invalid should not reach semantic analysis")
@@ -517,7 +521,14 @@ fn analyze_internal_with_parent(
     for located_stat in statements {
         let stat = &located_stat.statement;
         match stat {
-            Statement::VariableDeclaration(name, _, is_static_explicit) => {
+            Statement::VariableDeclaration(name, _, is_static_explicit, array_size) => {
+                // Phase 1: 配列宣言はまだサポートしていない
+                if array_size.is_some() {
+                    return Err(vec![code_parse_error!(
+                        located_stat.location.start,
+                        "semantic error: array declaration is not yet supported in semantic analysis"
+                    )]);
+                }
                 // Phase 3: グローバル変数は暗黙的に static
                 // Phase 4: 明示的 static も考慮
                 let final_is_static = *is_static_explicit || is_static;
@@ -588,7 +599,7 @@ fn analyze_internal_with_parent(
         let stat = &located_stat.statement;
         let loc = &located_stat.location;
         match stat {
-            Statement::VariableDeclaration(_, init, _) => {
+            Statement::VariableDeclaration(_, init, _, _) => {
                 // 初期化式を変換（変数宣言自体はパス1で完了）
                 exec_statements.push(ExecStatement::Expression(
                     convert_to_exec_expression_with_resolver(init, &resolver)?,
@@ -799,6 +810,7 @@ mod test {
                 "x".to_string(),
                 Box::new(Expression::Factor(0)),
                 false, // non-static
+                None,  // not an array
             ),
             location: SourceLocation::new(150, 160),
         };
@@ -832,6 +844,7 @@ mod test {
                 "global".to_string(),
                 Box::new(Expression::Factor(42)),
                 false, // non-static explicitly, but global is implicitly static
+                None,  // not an array
             ),
             location: SourceLocation::new(200, 210),
         };
@@ -876,6 +889,7 @@ mod test {
                 "x".to_string(),
                 Box::new(Expression::Factor(0)),
                 false,
+                None,
             ),
             location: SourceLocation::new(20, 30),
         };
@@ -954,6 +968,7 @@ mod test {
                 "x".to_string(),
                 Box::new(Expression::Factor(0)),
                 false,
+                None,
             ),
             location: SourceLocation::new(20, 30),
         };
@@ -1006,6 +1021,7 @@ mod test {
                 "p".to_string(),
                 Box::new(Expression::Factor(0)),
                 false,
+                None,
             ),
             location: SourceLocation::new(20, 30),
         };

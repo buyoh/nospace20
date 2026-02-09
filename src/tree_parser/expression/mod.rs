@@ -13,7 +13,7 @@ use super::{LocatedStatement, Statement};
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
-#[derive(Clone)] // TODO: REMOVE
+#[derive(Clone, Debug)] // TODO: REMOVE
 pub enum Operator2 {
     Plus,
     Minus,
@@ -36,7 +36,7 @@ pub enum Operator2 {
     LogicalOr,
 }
 
-#[derive(Clone)] // TODO: REMOVE
+#[derive(Clone, Debug)] // TODO: REMOVE
 pub enum Operator1 {
     Negative,
     LogicalNot,
@@ -44,7 +44,7 @@ pub enum Operator1 {
     Deref, // *
 }
 
-#[derive(Clone)] // TODO: REMOVE
+#[derive(Clone, Debug)] // TODO: REMOVE
 pub enum Expression {
     Operation1(Operator1, Box<Expression>),
     Operation2(Operator2, Box<Expression>, Box<Expression>),
@@ -57,6 +57,7 @@ pub enum Expression {
     Function(String, Vec<Box<Expression>>),
     Factor(i64),
     Variable(String),
+    ArrayAccess(String, Box<Expression>), // 配列アクセス: arr[expr]
     Invalid(usize), // NOTE: CodeParseError に関連する情報を入れる。今は CodeParseError の
                     // インデックスを利用。 本来は ExpressionBuilder 単位ではなく、全体で独立した
                     // インデックスを利用するべき。
@@ -158,6 +159,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 self.iter.next();
                 if let Some((Token::ParenthesisL, _)) = self.iter.peek() {
                     return self.parse_to_expression_tree_function(id);
+                }
+                // 配列アクセス: arr[expr]
+                if let Some((Token::BracketL, _)) = self.iter.peek() {
+                    self.iter.next(); // '[' を消費
+                    let index_expr = self.parse_to_expression_tree_root();
+                    match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
+                    return Box::new(Expression::ArrayAccess(id.clone(), index_expr));
                 }
                 return Box::new(Expression::Variable(id.clone()));
             }

@@ -70,6 +70,14 @@ fn token_comma() -> PrettyToken {
     (Token::Comma, TokenInfo { code_pointer: 0 })
 }
 
+fn token_bracket_l() -> PrettyToken {
+    (Token::BracketL, TokenInfo { code_pointer: 0 })
+}
+
+fn token_bracket_r() -> PrettyToken {
+    (Token::BracketR, TokenInfo { code_pointer: 0 })
+}
+
 fn token_op_single_equal() -> PrettyToken {
     (Token::SingleEqual, TokenInfo { code_pointer: 0 })
 }
@@ -92,9 +100,10 @@ fn test_parse_let_statement() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, expr, is_static) => {
+        Statement::VariableDeclaration(name, expr, is_static, array_size) => {
             assert_eq!(name, "x");
             assert_eq!(*is_static, false); // non-static
+            assert_eq!(*array_size, None); // not an array
             match **expr {
                 Expression::Factor(0) => (), // デフォルト値は0
                 _ => panic!("Expected Factor(0)"),
@@ -305,17 +314,127 @@ fn test_parse_multiple_statements() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 2);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, _) => {
+        Statement::VariableDeclaration(name, _, _, _) => {
             assert_eq!(name, "x");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
     match &stmts[1].statement {
-        Statement::VariableDeclaration(name, _, _) => {
+        Statement::VariableDeclaration(name, _, _, _) => {
             assert_eq!(name, "y");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
+}
+
+// 配列宣言: let: arr[4];
+#[test]
+fn test_parse_array_declaration() {
+    let tokens = vec![
+        token_keyword_let(),
+        token_colon(),
+        token_ident("arr"),
+        token_bracket_l(),
+        token_number(4),
+        token_bracket_r(),
+        token_semicolon(),
+    ];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].statement {
+        Statement::VariableDeclaration(name, expr, is_static, array_size) => {
+            assert_eq!(name, "arr");
+            assert_eq!(*is_static, false);
+            assert_eq!(*array_size, Some(4));
+            match **expr {
+                Expression::Factor(0) => (), // デフォルト初期化
+                _ => panic!("Expected Factor(0)"),
+            }
+        }
+        _ => panic!("Expected Statement::VariableDeclaration, got: {:?}", stmts[0].statement),
+    }
+}
+
+// 配列宣言（初期化あり）: let: arr[3](10, 20, 30);
+#[test]
+fn test_parse_array_declaration_with_init() {
+    let tokens = vec![
+        token_keyword_let(),
+        token_colon(),
+        token_ident("arr"),
+        token_bracket_l(),
+        token_number(3),
+        token_bracket_r(),
+        token_paren_l(),
+        token_number(10),
+        token_comma(),
+        token_number(20),
+        token_comma(),
+        token_number(30),
+        token_paren_r(),
+        token_semicolon(),
+    ];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
+    // 宣言 + 初期化式3つ = 4文
+    assert_eq!(stmts.len(), 4, "Expected 4 statements (1 declaration + 3 assignments)");
+    
+    // 1つ目: 配列宣言
+    match &stmts[0].statement {
+        Statement::VariableDeclaration(name, _, is_static, array_size) => {
+            assert_eq!(name, "arr");
+            assert_eq!(*is_static, false);
+            assert_eq!(*array_size, Some(3));
+        }
+        _ => panic!("Expected Statement::VariableDeclaration"),
+    }
+    
+    // 2-4つ目: 各要素への代入 arr[0]=10, arr[1]=20, arr[2]=30
+    for (i, expected_val) in [10, 20, 30].iter().enumerate() {
+        match &stmts[i + 1].statement {
+            Statement::Expression(expr) => match &**expr {
+                Expression::Operation2(Operator2::Assign, left, right) => {
+                    match &**left {
+                        Expression::ArrayAccess(name, index) => {
+                            assert_eq!(name, "arr");
+                            match &**index {
+                                Expression::Factor(idx) => {
+                                    assert_eq!(*idx, i as i64);
+                                }
+                                _ => panic!("Expected Factor as index"),
+                            }
+                        }
+                        _ => panic!("Expected ArrayAccess on left side"),
+                    }
+                    match &**right {
+                        Expression::Factor(val) => {
+                            assert_eq!(*val, *expected_val);
+                        }
+                        _ => panic!("Expected Factor on right side"),
+                    }
+                }
+                _ => panic!("Expected Operation2(Assign)"),
+            },
+            _ => panic!("Expected Statement::Expression"),
+        }
+    }
+}
+
+// 配列サイズが0以下の場合はエラー
+#[test]
+fn test_parse_array_declaration_invalid_size() {
+    let tokens = vec![
+        token_keyword_let(),
+        token_colon(),
+        token_ident("arr"),
+        token_bracket_l(),
+        token_number(0),
+        token_bracket_r(),
+        token_semicolon(),
+    ];
+    let (_stmts, errs) = parse_stmts(tokens);
+    assert!(!errs.is_empty(), "Expected error for zero-size array");
 }
 
 #[test]

@@ -84,6 +84,14 @@ fn token_comma() -> PrettyToken {
     (Token::Comma, TokenInfo { code_pointer: 0 })
 }
 
+fn token_bracket_l() -> PrettyToken {
+    (Token::BracketL, TokenInfo { code_pointer: 0 })
+}
+
+fn token_bracket_r() -> PrettyToken {
+    (Token::BracketR, TokenInfo { code_pointer: 0 })
+}
+
 // ヘルパー: パース実行
 fn parse_expr(tokens: Vec<PrettyToken>) -> (Box<Expression>, Vec<CodeParseError>) {
     parse_to_expression_tree_root(&mut tokens.iter().peekable())
@@ -627,5 +635,94 @@ fn test_parse_multiply_and_dereference() {
             }
         }
         _ => panic!("Expected Expression::Operation2 with Operator2::Multiply"),
+    }
+}
+
+// 配列アクセス: arr[0]
+#[test]
+fn test_parse_array_access_literal_index() {
+    let tokens = vec![
+        token_ident("arr"),
+        token_bracket_l(),
+        token_number(0),
+        token_bracket_r(),
+    ];
+    let (expr, errs) = parse_expr(tokens);
+    assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
+    match *expr {
+        Expression::ArrayAccess(name, index) => {
+            assert_eq!(name, "arr");
+            match *index {
+                Expression::Factor(0) => (),
+                _ => panic!("Expected Factor(0) as index"),
+            }
+        }
+        _ => panic!("Expected Expression::ArrayAccess, got: {:?}", expr),
+    }
+}
+
+// 配列アクセス: arr[i+1]
+#[test]
+fn test_parse_array_access_expr_index() {
+    let tokens = vec![
+        token_ident("arr"),
+        token_bracket_l(),
+        token_ident("i"),
+        token_op_plus(),
+        token_number(1),
+        token_bracket_r(),
+    ];
+    let (expr, errs) = parse_expr(tokens);
+    assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
+    match *expr {
+        Expression::ArrayAccess(name, index) => {
+            assert_eq!(name, "arr");
+            match *index {
+                Expression::Operation2(Operator2::Plus, left, right) => {
+                    match (*left, *right) {
+                        (Expression::Variable(v), Expression::Factor(1)) => {
+                            assert_eq!(v, "i");
+                        }
+                        _ => panic!("Expected Variable(i) + Factor(1)"),
+                    }
+                }
+                _ => panic!("Expected Operation2(Plus) as index"),
+            }
+        }
+        _ => panic!("Expected Expression::ArrayAccess"),
+    }
+}
+
+// 配列アクセスを含む代入: arr[0] = 5
+#[test]
+fn test_parse_array_assign() {
+    let tokens = vec![
+        token_ident("arr"),
+        token_bracket_l(),
+        token_number(0),
+        token_bracket_r(),
+        token_op_single_equal(),
+        token_number(5),
+    ];
+    let (expr, errs) = parse_expr(tokens);
+    assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
+    match *expr {
+        Expression::Operation2(Operator2::Assign, left, right) => {
+            match *left {
+                Expression::ArrayAccess(name, index) => {
+                    assert_eq!(name, "arr");
+                    match *index {
+                        Expression::Factor(0) => (),
+                        _ => panic!("Expected Factor(0)"),
+                    }
+                }
+                _ => panic!("Expected ArrayAccess on left side"),
+            }
+            match *right {
+                Expression::Factor(5) => (),
+                _ => panic!("Expected Factor(5) on right side"),
+            }
+        }
+        _ => panic!("Expected Expression::Operation2(Assign)"),
     }
 }
