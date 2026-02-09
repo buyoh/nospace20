@@ -2,65 +2,21 @@
 
 このドキュメントは nospace プログラミング言語における未実装の変数関連機能をまとめたものです。
 
-最終更新日: 2026-02-07
+最終更新日: 2026-02-10
 
 ## 目次
 
-1. [変数初期値指定](#1-変数初期値指定)
-2. [final / const 変数](#2-final--const-変数)
+1. [final / const 変数](#1-final--const-変数)
 
 ---
 
-## 1. 変数初期値指定
-
-**状態**: ❌ 未実装
-
-**説明**: 変数定義時に初期値を指定する機能は未実装。現在は全ての変数が 0 で初期化される。
-
-**構文例**:
-```nospace
-func: main() {
-  let:x = 10;      # 初期値 10 #
-  let:y = x * 2;   # 初期値は式でも可 #
-}
-```
-
-**現状の動作**:
-```nospace
-func: main() {
-  let:x;    # 0 で初期化 #
-  x = 10;   # 代入文で値を設定 #
-}
-```
-
-**課題**: 
-- グローバルスコープに記述された初期値はいつ実行されるか？ (TODO)
-- 構文解析の時点で対応が必要 (`let:x = 式;` の形式を受け入れる)
-
-**エラーメッセージ**:
-```
-error: unexpected token: expected Token::Semicolon
-  (internal: src/tree_parser/statement/mod.rs:53)
-line:3 column:8
-  let:x = 10;
-        ^
-```
-
-**参照**:
-- [spec.md](../../spec.md) セクション 4
-- テスト: [disabled_var_init_001.ns](../../resources/tests/passes/variables/disabled_var_init_001.ns)
-
-**優先度**: 中 - 基本的な利便性向上
-
----
-
-## 2. final / const 変数
+## 1. final / const 変数
 
 **状態**: ❌ 未実装
 
 **説明**: 再代入不可の変数を定義する機能は未実装。
 
-### 2.1 final 変数
+### 1.1 final 変数
 
 **説明**: 一度だけ代入可能で、その後は再代入不可の変数。
 
@@ -73,7 +29,7 @@ func: main() {
 }
 ```
 
-### 2.2 const 変数
+### 1.2 const 変数
 
 **説明**: リテラルのみ代入可能かつ再代入不可の変数（定数）。
 
@@ -109,8 +65,7 @@ func: main() {
 
 ## 実装の優先順位
 
-1. **変数初期値指定** - より直感的なコードを書けるようになる
-2. **final / const 変数** - 安全性とコードの意図を明確にする
+1. **final / const 変数** - 安全性とコードの意図を明確にする
 
 ---
 
@@ -118,10 +73,12 @@ func: main() {
 
 - [spec.md](../../spec.md) - 言語仕様
 - [ai-docs/done-task/block-scope-global-variables-implementation.md](../done-task/block-scope-global-variables-implementation.md) - 実装済みの変数機能
+- [ai-docs/done-task/implement-multi-variable-declaration.md](../done-task/implement-multi-variable-declaration.md) - 実装済みの変数初期化機能
 - [ai-docs/spec/implementation-status.md](../spec/implementation-status.md) - 実装状況の詳細
 
 ---
 
 ## 更新履歴
 
+- 2026-02-10: 変数初期化機能が実装済みのため、該当セクションを削除
 - 2026-02-07: unimplemented-features.md から分離して作成
