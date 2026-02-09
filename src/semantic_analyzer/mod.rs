@@ -73,7 +73,6 @@ pub(crate) struct Block {
 /// - スコープ解決済みの識別子情報を保持する (Phase 2 で実装)
 ///   変数は IdentifierRef を使用することで、実行時の文字列検索を排除し、O(1) アクセスを実現。
 ///   関数は現状組み込み関数のみのため、文字列のまま保持。
-// #[derive(Clone)] // TODO: REMOVE
 pub(crate) enum ExecExpression {
     Operation1(Operator1, Box<ExecExpression>),
     Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
@@ -97,7 +96,6 @@ pub(crate) enum ExecExpression {
 /// - `Invalid` バリアントを持たない
 /// - 宣言文 (VariableDeclaration, FunctionDeclaration) を持たない
 ///   (宣言は `Scope` 構造に変換される)
-// #[derive(Clone)] // TODO: REMOVE
 pub(crate) enum ExecStatement {
     Return(Box<ExecExpression>),
     Break,

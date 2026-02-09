@@ -38,28 +38,20 @@ Expression::Invalid(_) => {
 
 ## 2. Clone derive の削除 (最適化)
 
-**状態**: ⚠️ TODO
+**状態**: ✅ 完了 (2026-02-10)
 
 **場所**: [src/semantic_analyzer/mod.rs](../../src/semantic_analyzer/mod.rs)
 
-**コード**:
-```rust
-// #[derive(Clone)] // TODO: REMOVE
-pub(crate) enum ExecExpression { ... }
-
-// #[derive(Clone)] // TODO: REMOVE
-pub(crate) enum ExecStatement { ... }
-```
-
 **説明**: 
-- パフォーマンス最適化のため、不要な `Clone` derive を削除予定
-- 現在はコメントアウトされているが、完全に削除すべきか検証が必要
+- ExecExpression と ExecStatement から Clone derive のコメント行を削除
+- コードベース全体で clone() 呼び出しが存在しないことを確認済み
+- 既存のテストがすべてパスすることを確認
 
 **影響**:
-- メモリ使用量の削減
-- コンパイル時間の短縮
+- コードの可読性向上
+- 不要なコメントの削除
 
-**優先度**: 低 - パフォーマンス最適化
+**優先度**: なし (完了)
 
 ---
 
@@ -116,13 +108,24 @@ struct IdentifierInfo {
 
 ## 4. エラーメッセージ型の改善
 
-**状態**: ⚠️ 設計中
+**状態**: ✅ 完了済み
 
-**説明**: `CodeParseError.message` を `Cow<'static, str>` に変更することを検討中。
+**説明**: `CodeParseError.message` は既に `Cow<'static, str>` を使用しています。
 
-**詳細**: [error-message-improvement.md](./error-message-improvement.md) を参照
+**場所**: [src/base/mod.rs](../../src/base/mod.rs#L5)
 
-**優先度**: 低 - パフォーマンス最適化
+**実装**:
+```rust
+pub struct CodeParseError {
+    pub code_pointer: Option<usize>,
+    pub message: Cow<'static, str>,
+    // ...
+}
+```
+
+この改善は既に実装されており、追加の作業は不要です。
+
+**優先度**: なし (完了済み)
 
 ---
 
@@ -166,9 +169,9 @@ struct IdentifierInfo {
 ## 実装の優先順位
 
 1. **変数/関数の識別子管理の改善** - 型安全性とパフォーマンス向上
-2. **Clone derive の削除** - パフォーマンス最適化
+2. ~~**Clone derive の削除**~~ - ✅ 完了 (2026-02-10)
 3. **未使用の関数とフィールドの整理** - コードの可読性向上
-4. **エラーメッセージ型の改善** - パフォーマンス最適化
+4. ~~**エラーメッセージ型の改善**~~ - ✅ 完了済み
 
 ---
 
@@ -182,4 +185,5 @@ struct IdentifierInfo {
 
 ## 更新履歴
 
+- 2026-02-10: Clone derive の削除を完了、エラーメッセージ型が既に完了済みであることを確認
 - 2026-02-07: unimplemented-features.md から分離して作成
