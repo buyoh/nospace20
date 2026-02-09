@@ -17,6 +17,7 @@
 
 ### アクティブなタスク
 
+- [block-scope-expression.md](block-scope-expression.md) - ブロックスコープ式 `{ ... }` の実装（独立したスコープ機能）
 - [error-specification/](error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討
 - [reference-dereference/](reference-dereference/) - 参照(`&`)・デリファレンス(`*`)演算子の実装（spec.md 2.7）
 - [whitespace-interpreter/](whitespace-interpreter/) - Whitespace インタプリタ（明示的スタックマシン、中断可能実行）
