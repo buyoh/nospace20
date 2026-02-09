@@ -219,6 +219,15 @@ fn generate_binary_op(
                 ));
             }
         }
+        
+        // 複合代入演算子はセマンティック解析で展開されるため、ここに到達することはない
+        Operator2::PlusAssign
+        | Operator2::MinusAssign
+        | Operator2::MultiplyAssign
+        | Operator2::DivideAssign
+        | Operator2::ModuloAssign => {
+            unreachable!("compound assignment operators should be expanded in semantic analysis")
+        }
     }
 
     Ok(prog)

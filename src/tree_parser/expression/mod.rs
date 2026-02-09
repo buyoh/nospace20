@@ -21,6 +21,11 @@ pub enum Operator2 {
     Divide,
     Modulo,
     Assign,
+    PlusAssign,     // +=
+    MinusAssign,    // -=
+    MultiplyAssign, // *=
+    DivideAssign,   // /=
+    ModuloAssign,   // %=
     Equal,
     NotEqual,
     Less,
@@ -308,6 +313,11 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         let op = if let Some(token) = self.iter.peek() {
             match token {
                 (Token::SingleEqual, _) => Operator2::Assign,
+                (Token::PlusEqual, _) => Operator2::PlusAssign,
+                (Token::MinusEqual, _) => Operator2::MinusAssign,
+                (Token::AsteriskEqual, _) => Operator2::MultiplyAssign,
+                (Token::SlashEqual, _) => Operator2::DivideAssign,
+                (Token::PercentEqual, _) => Operator2::ModuloAssign,
                 _ => return left,
             }
         } else {

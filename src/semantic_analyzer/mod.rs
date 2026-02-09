@@ -129,11 +129,43 @@ fn convert_to_exec_expression_with_resolver(
             op.to_owned(),
             convert_to_exec_expression_with_resolver(&x, parent_resolver)?,
         ))),
-        Expression::Operation2(op, l, r) => Ok(Box::new(ExecExpression::Operation2(
-            op.to_owned(),
-            convert_to_exec_expression_with_resolver(&l, parent_resolver)?,
-            convert_to_exec_expression_with_resolver(&r, parent_resolver)?,
-        ))),
+        Expression::Operation2(op, l, r) => {
+            // 複合代入演算子 (+=, -=, *=, /=, %=) を a = a + b の形式に展開
+            let (actual_op, actual_l, actual_r) = match op {
+                Operator2::PlusAssign => (
+                    Operator2::Assign,
+                    l,
+                    &Box::new(Expression::Operation2(Operator2::Plus, l.clone(), r.clone())),
+                ),
+                Operator2::MinusAssign => (
+                    Operator2::Assign,
+                    l,
+                    &Box::new(Expression::Operation2(Operator2::Minus, l.clone(), r.clone())),
+                ),
+                Operator2::MultiplyAssign => (
+                    Operator2::Assign,
+                    l,
+                    &Box::new(Expression::Operation2(Operator2::Multiply, l.clone(), r.clone())),
+                ),
+                Operator2::DivideAssign => (
+                    Operator2::Assign,
+                    l,
+                    &Box::new(Expression::Operation2(Operator2::Divide, l.clone(), r.clone())),
+                ),
+                Operator2::ModuloAssign => (
+                    Operator2::Assign,
+                    l,
+                    &Box::new(Expression::Operation2(Operator2::Modulo, l.clone(), r.clone())),
+                ),
+                _ => (op.to_owned(), l, r),
+            };
+            
+            Ok(Box::new(ExecExpression::Operation2(
+                actual_op,
+                convert_to_exec_expression_with_resolver(&actual_l, parent_resolver)?,
+                convert_to_exec_expression_with_resolver(&actual_r, parent_resolver)?,
+            )))
+        }
         Expression::If(cond, stat1, stat2) => {
             let (s1, es1) = analyze_internal_with_parent(
                 stat1,

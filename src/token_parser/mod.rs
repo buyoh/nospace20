@@ -38,6 +38,11 @@ pub enum Token {
     Greater,
     LessEqual,
     GreaterEqual,
+    PlusEqual,    // +=
+    MinusEqual,   // -=
+    AsteriskEqual, // *=
+    SlashEqual,   // /=
+    PercentEqual, // %=
     DoubleAmpersand, // &&
     DoublePipe,      // ||
     Ampersand,       // &
@@ -353,11 +358,56 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                         }
                     }
                 }
-                '+' => Token::Plus,
-                '-' => Token::Minus,
-                '*' => Token::Asterisk,
-                '/' => Token::Slash,
-                '%' => Token::Percent,
+                '+' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::PlusEqual,
+                        _ => {
+                            tokens.push((Token::Plus, info));
+                            continue;
+                        }
+                    }
+                }
+                '-' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::MinusEqual,
+                        _ => {
+                            tokens.push((Token::Minus, info));
+                            continue;
+                        }
+                    }
+                }
+                '*' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::AsteriskEqual,
+                        _ => {
+                            tokens.push((Token::Asterisk, info));
+                            continue;
+                        }
+                    }
+                }
+                '/' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::SlashEqual,
+                        _ => {
+                            tokens.push((Token::Slash, info));
+                            continue;
+                        }
+                    }
+                }
+                '%' => {
+                    iter.next();
+                    match iter.peek() {
+                        Some((_, c)) if *c == '=' => Token::PercentEqual,
+                        _ => {
+                            tokens.push((Token::Percent, info));
+                            continue;
+                        }
+                    }
+                }
                 '(' => Token::ParenthesisL,
                 ')' => Token::ParenthesisR,
                 '[' => Token::BracketL,
