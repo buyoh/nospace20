@@ -306,12 +306,28 @@ impl LocalEnvironment<'_, '_> {
     ) -> ExpressionFlow {
         match op {
             Operator1::Ref => {
-                // & は Variable に対してのみ（意味解析で検証済み）
-                if let ExecExpression::Variable(id_ref) = expr1.as_ref() {
-                    let addr = self.resolve_address(id_ref);
-                    ExpressionFlow::Value(addr)
-                } else {
-                    panic!("runtime error: cannot take reference of non-variable");
+                match expr1.as_ref() {
+                    ExecExpression::Variable(id_ref) => {
+                        let addr = self.resolve_address(id_ref);
+                        ExpressionFlow::Value(addr)
+                    }
+                    ExecExpression::ArrayAccess(id_ref, index_expr, array_size) => {
+                        let index = try_expr!(self.interpret_expression(index_expr));
+
+                        // 境界チェック
+                        if index < 0 || index >= *array_size as i64 {
+                            panic!(
+                                "runtime error: array index out of bounds: index {} but size {}",
+                                index, array_size
+                            );
+                        }
+
+                        let base_addr = self.resolve_address(id_ref);
+                        ExpressionFlow::Value(base_addr + index)
+                    }
+                    _ => {
+                        panic!("runtime error: cannot take reference of non-variable");
+                    }
                 }
             }
             Operator1::Deref => {
@@ -344,6 +360,24 @@ impl LocalEnvironment<'_, '_> {
                     let v = try_expr!(self.interpret_expression(expr2));
                     // Phase 2: IdentifierRef を使用して O(1) でアクセス
                     self.set_variable(id_ref, v);
+                    return ExpressionFlow::Value(v);
+                }
+                ExecExpression::ArrayAccess(id_ref, index_expr, array_size) => {
+                    // 配列要素への代入: arr[i] = val
+                    let index = try_expr!(self.interpret_expression(index_expr));
+                    let v = try_expr!(self.interpret_expression(expr2));
+
+                    // 境界チェック
+                    if index < 0 || index >= *array_size as i64 {
+                        panic!(
+                            "runtime error: array index out of bounds: index {} but size {}",
+                            index, array_size
+                        );
+                    }
+
+                    let mut adjusted_ref = *id_ref;
+                    adjusted_ref.local_index += index as usize;
+                    self.set_variable(&adjusted_ref, v);
                     return ExpressionFlow::Value(v);
                 }
                 ExecExpression::Operation1(Operator1::Deref, inner) => {
@@ -416,9 +450,21 @@ impl LocalEnvironment<'_, '_> {
                 // Phase 2: IdentifierRef を使用して O(1) でアクセス
                 ExpressionFlow::Value(self.get_variable(id_ref))
             }
-            ExecExpression::ArrayAccess(_, _, _) => {
-                // Phase 3 で実装予定
-                panic!("array access is not yet supported in interpreter")
+            ExecExpression::ArrayAccess(id_ref, index_expr, array_size) => {
+                let index = try_expr!(self.interpret_expression(index_expr));
+
+                // 境界チェック
+                if index < 0 || index >= *array_size as i64 {
+                    panic!(
+                        "runtime error: array index out of bounds: index {} but size {}",
+                        index, array_size
+                    );
+                }
+
+                // ベースアドレス + オフセット でアクセス
+                let mut adjusted_ref = *id_ref;
+                adjusted_ref.local_index += index as usize;
+                ExpressionFlow::Value(self.get_variable(&adjusted_ref))
             }
             ExecExpression::If(cond, then_block, else_block) => {
                 self.interpret_if(cond, then_block, else_block)

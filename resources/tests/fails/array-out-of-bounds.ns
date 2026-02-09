@@ -1,0 +1,4 @@
+// Array index out of bounds test
+
+let: arr[3];
+arr[3] = 1;  // Should panic: index 3 is out of bounds for size 3

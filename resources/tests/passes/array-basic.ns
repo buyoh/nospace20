@@ -1,0 +1,41 @@
+func: main() {
+    let: arr[3];
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    __puti(arr[0]);
+    __putc(10);
+    __puti(arr[1]);
+    __putc(10);
+    __puti(arr[2]);
+    __putc(10);
+
+    let: arr2[3](100, 200, 300);
+    __puti(arr2[0]);
+    __putc(10);
+    __puti(arr2[1]);
+    __putc(10);
+    __puti(arr2[2]);
+    __putc(10);
+
+    let: arr3[3];
+    arr3 = 42;
+    __puti(arr3);
+    __putc(10);
+    __puti(arr3[0]);
+    __putc(10);
+
+    let: arr4[5];
+    let: i;
+    i = 0;
+    while: i < 5 {
+        arr4[i] = i * 10;
+        i = i + 1;
+    };
+    __puti(arr4[0]);
+    __putc(10);
+    __puti(arr4[2]);
+    __putc(10);
+    __puti(arr4[4]);
+    __putc(10);
+}

@@ -1,0 +1,4 @@
+// Array negative index test
+
+let: arr[3];
+arr[-1] = 1;  // Should panic: negative index
