@@ -21,7 +21,7 @@
 
 - [block-scope-expression.md](block-scope-expression.md) - ブロックスコープ式 `{ ... }` の実装（独立したスコープ機能）
 - [error-specification/](error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討
-- [reference-dereference/](reference-dereference/) - 参照(`&`)・デリファレンス(`*`)演算子の実装（spec.md 2.7）
+- [reference-dereference-compiler-ws.md](reference-dereference-compiler-ws.md) - 参照(`&`)・デリファレンス(`*`)のWhitespaceコンパイラ実装（Phase 4、インタプリタは完了済み）
 - [whitespace-interpreter/](whitespace-interpreter/) - Whitespace インタプリタ（明示的スタックマシン、中断可能実行）
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開）
 - [wasm-build/](wasm-build/) - Rust → WebAssembly ビルド（ランタイム WASM 化、Phase A: WS ステップ実行、Phase B: nospace ステップ実行）
@@ -41,6 +41,7 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [reference-dereference-interpreter-implementation.md](../done-task/reference-dereference-interpreter-implementation.md) - 参照(`&`)・デリファレンス(`*`)の実装完了（Phase 1-3: token_parser, tree_parser, semantic_analyzer, interpreter）(2026-02-10完了)
 - [unit-test-interpreter.md](../done-task/unit-test-interpreter.md) - interpreter ユニットテスト追加（組み込み関数・演算子・制御フロー、25件追加） (2026-02-10完了)
 - [interpreter-split.md](../done-task/interpreter-split.md) - interpreter モジュールのファイル分割（mod.rs → types/environment/exec） (2026-02-07完了)
   - mod.rs（622行）を4ファイルに分割
