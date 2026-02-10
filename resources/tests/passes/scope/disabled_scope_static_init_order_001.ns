@@ -1,0 +1,10 @@
+# static 変数は非 static グローバル変数より先に初期化される #
+# static s が先に初期化 (s=10) されてから、let g(s+1) が実行される (g=11) #
+let: g(s + 1);
+static: s(10);
+
+func: main() {
+  __assert(s == 10);
+  __assert(g == 11);
+  __trace(0);
+}

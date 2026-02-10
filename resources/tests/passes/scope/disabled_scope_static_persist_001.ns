@@ -1,0 +1,15 @@
+# 関数内の static 変数が main 前に初期化され、関数呼び出し時に再初期化されない #
+func: counter() {
+  static: count;
+  count = count + 1;
+  return: count;
+}
+
+func: main() {
+  # count は main 前に 0 で初期化されている #
+  # counter() を呼ぶたびに +1 されて値が保持される #
+  __assert(counter() == 1);
+  __assert(counter() == 2);
+  __assert(counter() == 3);
+  __trace(0);
+}

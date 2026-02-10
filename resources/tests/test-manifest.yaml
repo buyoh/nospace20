@@ -397,6 +397,23 @@ tests:
     path: scope/scope_static_error_001
     comment: "Error: non-static variable access across function boundary"
 
+  - name: test_scope_scope_static_init_001
+    type: success
+    path: scope/scope_static_init_001
+    comment: "Root-level static variable initialized before main"
+
+  # DISABLED: requires static-before-global initialization order (unimplemented)
+  # - name: test_scope_disabled_scope_static_init_order_001
+  #   type: success
+  #   path: scope/disabled_scope_static_init_order_001
+  #   comment: "Static variables initialized before non-static global variables"
+
+  # DISABLED: requires function-local static variable persistence (unimplemented)
+  # - name: test_scope_disabled_scope_static_persist_001
+  #   type: success
+  #   path: scope/disabled_scope_static_persist_001
+  #   comment: "Function-local static variable persists across calls"
+
   # ========================================
   # Integration
   # ========================================
