@@ -57,12 +57,20 @@ pub struct Scope {
 
     pub(super) functions: Vec<Function>,
 
+    /// 関数名のリスト（関数のイテレーションに使用）
+    pub(crate) function_names: Vec<String>,
+
     /// Phase 3: このスコープが関数スコープかどうか
     /// true の場合、非 static 変数は親スコープからアクセス不可
     /// Root スコープと Function スコープで true
     pub(crate) is_function_scope: bool,
 
-    /// Phase 3: ルートスコープの実行文（グローバル変数の初期化）
+    /// Phase 4: static 変数の初期化文
+    /// 関数スコープの場合: 関数内の static 変数の初期化式
+    /// ルートスコープの場合: ルートレベルの static 変数の初期化式（非 static より先に実行）
+    pub(crate) static_init_statements: Vec<ExecStatement>,
+
+    /// Phase 3: ルートスコープの実行文（非 static グローバル変数の初期化）
     /// 関数スコープ・ブロックスコープでは空
     pub(crate) root_statements: Vec<ExecStatement>,
 }
@@ -228,6 +236,9 @@ pub(super) struct ScopeBuilder {
     pub identifier_map: BTreeMap<String, Identifier>,
     pub variables: Vec<Variable>,
     pub functions: Vec<Function>,
+    pub function_names: Vec<String>,
+    /// Phase 4: static 変数の初期化文を一時的に保持
+    pub static_init_statements: Vec<ExecStatement>,
 }
 
 impl ScopeBuilder {
@@ -236,6 +247,8 @@ impl ScopeBuilder {
             identifier_map: BTreeMap::new(),
             variables: vec![],
             functions: vec![],
+            function_names: vec![],
+            static_init_statements: vec![],
         }
     }
 
@@ -259,7 +272,9 @@ impl ScopeBuilder {
             variables: self.variables,
             variable_count,
             functions: self.functions,
+            function_names: self.function_names,
             is_function_scope,
+            static_init_statements: self.static_init_statements,
             root_statements,
         }
     }
@@ -287,6 +302,7 @@ impl ScopeBuilder {
 
     pub fn add_function(&mut self, name: &str, func: Function) -> Result<(), Vec<CodeParseError>> {
         let fi = self.functions.len();
+        self.function_names.push(name.to_string());
         self.functions.push(func);
         self.add_identifier(name, Identifier::Function(IdentifierInfo { idx: fi }))
     }

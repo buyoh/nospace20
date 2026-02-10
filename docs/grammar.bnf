@@ -59,6 +59,7 @@ expr_val ::=
 # グローバルスコープで許可される文
 global_stmt ::=
     | let
+    | static
     | expr ";"
 
 func ::=
@@ -66,6 +67,9 @@ func ::=
 
 let ::=
     | "let" ":" let_decl ("," let_decl)* ";"
+
+static ::=
+    | "static" ":" let_decl ("," let_decl)* ";"
 
 # 配列宣言は未実装
 let_decl ::= ident ("(" expr ")")?
@@ -78,6 +82,7 @@ stmt ::=
     | break_stmt
     | continue_stmt
     | let
+    | static
     | func                                    # ネストした関数定義
     | expr ";"
 

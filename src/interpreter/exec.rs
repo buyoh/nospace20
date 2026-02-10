@@ -210,8 +210,27 @@ impl LocalEnvironment<'_, '_> {
         }
         let func = self.root_scope.get_function(id.as_str()).unwrap();
 
+        // Phase 4: static 変数の永続化対応
+        let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
+
         // 新しい scope を既存の scope_stack に push
         let mut variables = vec![0; func.block.scope.variable_count];
+
+        // static 変数があり、永続ストレージが存在する場合は値を復元
+        if has_static {
+            if let Some(storage) = self.env.function_static_storage.get(id.as_str()) {
+                for var in &func.block.scope.variables {
+                    if var.is_static {
+                        let slot_idx = func.block.scope.variable_indices[&var.identifier];
+                        let slot_count = var.array_size.unwrap_or(1);
+                        for i in 0..slot_count {
+                            variables[slot_idx + i] = storage[slot_idx + i];
+                        }
+                    }
+                }
+            }
+        }
+
         for (i, arg_val) in arg_values.iter().enumerate() {
             if i < func.arg_indices.len() {
                 variables[func.arg_indices[i]] = *arg_val;
@@ -226,6 +245,14 @@ impl LocalEnvironment<'_, '_> {
             Flow::Continue => panic!("internal error: unexpected continue"),
             Flow::Break => panic!("internal error: unexpected break"),
         };
+
+        // Phase 4: static 変数の値を永続ストレージに保存
+        if has_static {
+            let scope_data = self.scope_stack.last().unwrap().clone();
+            self.env
+                .function_static_storage
+                .insert(id.clone(), scope_data);
+        }
 
         // 関数スコープを pop
         self.scope_stack.pop();

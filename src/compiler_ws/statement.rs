@@ -10,6 +10,11 @@ use crate::semantic_analyzer::{Block, ExecStatement, Scope};
 pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
+    // Phase 4: static 変数の初期化を先に実行
+    for stmt in &scope.static_init_statements {
+        prog.append(generate_statement(ctx, stmt)?);
+    }
+
     // グローバル変数の初期化（root_statements）
     for stmt in &scope.root_statements {
         prog.append(generate_statement(ctx, stmt)?);

@@ -5,7 +5,7 @@
 ## ドキュメント一覧
 
 - [overview.md](overview.md) - 現状分析とスコープ実装の概要
-- [phase4-static-variables.md](phase4-static-variables.md) - フェーズ4: static 変数 📋 設計完了
+- [phase4-static-variables.md](phase4-static-variables.md) - フェーズ4: static 変数 ✅ 実装完了
 - [test-coverage-review.md](test-coverage-review.md) - スコープ機能のテストカバレッジレビュー
 
 ### 完了したフェーズ
@@ -13,6 +13,7 @@
 - [../../done-task/scope-phase1-block-scope.md](../../done-task/scope-phase1-block-scope.md) - フェーズ1: ブロックスコープ変数の最小実装 ✅ 完了
 - [../../done-task/scope-phase2-identifier-resolution.md](../../done-task/scope-phase2-identifier-resolution.md) - フェーズ2: 識別子の事前解決 ✅ 完了
 - [../../done-task/scope-phase3-global-variables.md](../../done-task/scope-phase3-global-variables.md) - フェーズ3: グローバル変数 ✅ 完了
+- [../../done-task/scope-phase4-static-variables.md](../../done-task/scope-phase4-static-variables.md) - フェーズ4: static 変数 ✅ 完了
 - [../../done-task/scope-previous-implementation.md](../../done-task/scope-previous-implementation.md) - 過去の実装コミット（7a83612）の分析 ✅ アーカイブ
 
 ## 関連仕様

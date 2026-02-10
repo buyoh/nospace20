@@ -287,7 +287,9 @@ fn analyze_internal_with_parent(
         variables: scope.variables.clone(), // Clone が必要
         variable_count: slot_index,
         functions: Vec::new(), // 未使用
+        function_names: Vec::new(), // 未使用
         is_function_scope,
+        static_init_statements: Vec::new(), // 未使用
         root_statements: Vec::new(), // 未使用
     };
 
@@ -320,11 +322,19 @@ fn analyze_internal_with_parent(
         let stat = &located_stat.statement;
         let loc = &located_stat.location;
         match stat {
-            Statement::VariableDeclaration(_, init, _, _) => {
+            Statement::VariableDeclaration(_, init, is_static_explicit, _) => {
                 // 初期化式を変換（変数宣言自体はパス1で完了）
-                exec_statements.push(ExecStatement::Expression(
+                let exec = ExecStatement::Expression(
                     convert_to_exec_expression_with_resolver(init, &resolver)?,
-                ));
+                );
+                // Phase 4: static 変数の初期化式は分離する
+                // - ルートスコープ: static 変数の初期化は非 static より先に実行
+                // - 関数スコープ: static 変数の初期化は main 前に1回だけ実行
+                if *is_static_explicit {
+                    scope.static_init_statements.push(exec);
+                } else {
+                    exec_statements.push(exec);
+                }
             }
             Statement::FunctionDeclaration(name, args, block) => {
                 // Phase 3: 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
