@@ -241,27 +241,23 @@ impl<'a> ScopeResolver<'a> {
     /// 関数名を解決し、IdentifierRef を返す
     ///
     /// Phase 5 で追加：ネスト関数の可視性チェック
+    /// Phase 5 修正：全関数はグローバルに格納されるため、常に is_global=true を返す
     ///
     /// スコープスタックを逆順に探索し、最も近いスコープの関数を見つける。
     /// 子スコープの関数は見えないため、探索は現在のスコープから親に向かってのみ行う。
     /// 見つからない場合は None を返す。
+    ///
+    /// local_index はグローバル関数リストのインデックスを指す。
     pub fn resolve_function(&self, name: &str) -> Option<IdentifierRef> {
-        for (depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
+        for (_depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
             if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
-                // 関数はグローバルまたはスコープローカルなので、
-                // scope_depth と local_index を設定
-                // is_global は、ルートスコープ（depth == scope_stack.len() - 1）かどうか
-                let is_global = depth == self.scope_stack.len() - 1
-                    && self
-                        .scope_stack
-                        .first()
-                        .map(|s| s.is_function_scope)
-                        .unwrap_or(false);
-
+                // Phase 5: 全関数はルートスコープにフラット化されているため、
+                // 常に is_global=true、scope_depth=0 を返す
+                // local_index はグローバルインデックス
                 return Some(IdentifierRef {
-                    scope_depth: depth,
+                    scope_depth: 0,
                     local_index: info.idx,
-                    is_global,
+                    is_global: true,
                 });
             }
         }
@@ -272,11 +268,10 @@ impl<'a> ScopeResolver<'a> {
 /// スコープビルダー
 ///
 /// スコープ構築時に使用する内部構造
+/// Phase 5: functions と function_names を削除（グローバル管理に移行）
 pub(super) struct ScopeBuilder {
     pub identifier_map: BTreeMap<String, Identifier>,
     pub variables: Vec<Variable>,
-    pub functions: Vec<Function>,
-    pub function_names: Vec<String>,
     /// static 変数の初期化文を一時的に保持
     pub static_init_statements: Vec<ExecStatement>,
 }
@@ -286,13 +281,20 @@ impl ScopeBuilder {
         Self {
             identifier_map: BTreeMap::new(),
             variables: vec![],
-            functions: vec![],
-            function_names: vec![],
             static_init_statements: vec![],
         }
     }
 
-    pub fn build(self, is_function_scope: bool, root_statements: Vec<ExecStatement>) -> Scope {
+    /// スコープをビルドする
+    /// Phase 5: functions と function_names を引数として受け取る
+    /// ルートスコープの場合のみ有効な値を渡し、それ以外は空の Vec を渡す
+    pub fn build(
+        self,
+        is_function_scope: bool,
+        root_statements: Vec<ExecStatement>,
+        functions: Vec<Function>,
+        function_names: Vec<String>,
+    ) -> Scope {
         // 変数名からスロットインデックスへのマッピングを構築
         // 配列の場合、変数の開始スロットインデックスを記録
         let mut variable_indices = BTreeMap::new();
@@ -311,8 +313,8 @@ impl ScopeBuilder {
             variable_name_to_var_index,
             variables: self.variables,
             variable_count,
-            functions: self.functions,
-            function_names: self.function_names,
+            functions,
+            function_names,
             is_function_scope,
             static_init_statements: self.static_init_statements,
             root_statements,
@@ -338,12 +340,5 @@ impl ScopeBuilder {
         let vi = self.variables.len();
         self.variables.push(var);
         self.add_identifier(name, Identifier::Variable(IdentifierInfo { idx: vi }))
-    }
-
-    pub fn add_function(&mut self, name: &str, func: Function) -> Result<(), Vec<CodeParseError>> {
-        let fi = self.functions.len();
-        self.function_names.push(name.to_string());
-        self.functions.push(func);
-        self.add_identifier(name, Identifier::Function(IdentifierInfo { idx: fi }))
     }
 }

@@ -268,19 +268,9 @@ impl LocalEnvironment<'_, '_> {
         }
 
         // IdentifierRef から関数を取得
-        // func_ref.scope_depth は 0 = 現在のスコープ、1 = 親スコープ、...
-        // ルートスコープ（グローバル関数）は root_scope から取得
-        let func = if func_ref.is_global {
-            &self.root_scope.functions[func_ref.local_index]
-        } else {
-            // ネスト関数: スコープスタックから取得
-            // scope_depth が 0 なら現在のスコープ、1 なら親のスコープ
-            // しかし、関数は Scope に定義されているため、
-            // 実際には root_scope.functions からアクセスする必要がある
-            // Phase 5 では、全ての関数は root_scope に登録されている想定
-            // （ネスト関数もグローバルに登録される）
-            &self.root_scope.functions[func_ref.local_index]
-        };
+        // Phase 5: 全関数は root_scope にフラット化されているため、
+        // 常に root_scope.functions から取得する
+        let func = &self.root_scope.functions[func_ref.local_index];
 
         // Phase 4: static 変数の永続化対応
         let has_static = func.block.scope.variables.iter().any(|v| v.is_static);

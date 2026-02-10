@@ -79,41 +79,10 @@ fn test_success_expression_at_root_level() {
     assert!(result.is_ok());
 }
 
-#[test]
-fn test_error_nested_function_declaration() {
-    // func: outer() { func: inner() {} }
-    let inner_func = LocatedStatement {
-        statement: Statement::FunctionDeclaration(
-            "inner".to_string(),
-            vec![],
-            vec![], // empty body
-        ),
-        location: SourceLocation::new(100, 120),
-    };
-
-    let outer_func = LocatedStatement {
-        statement: Statement::FunctionDeclaration(
-            "outer".to_string(),
-            vec![],
-            vec![inner_func],
-        ),
-        location: SourceLocation::new(80, 130),
-    };
-
-    let statements = vec![outer_func];
-    let result = analyze(&statements);
-    assert!(result.is_err());
-
-    let errors = match result {
-        Err(e) => e,
-        Ok(_) => panic!("Expected error"),
-    };
-    assert_eq!(errors.len(), 1);
-    assert_eq!(errors[0].code_pointer, Some(100));
-    assert!(errors[0]
-        .message
-        .contains("nested function declaration is not supported"));
-}
+// Phase 5: ネスト関数がサポートされたため、以下のテストは削除
+// test_error_nested_function_declaration はネスト関数がエラーになることを期待していたが、
+// Phase 5 でネスト関数が正式にサポートされたため、このテストは不要になった
+// 統合テスト resources/tests/passes/scope/scope_nested_func_001.ns でカバーされている
 
 #[test]
 fn test_success_block_scoped_variable() {
