@@ -196,3 +196,28 @@ SymbolTable を別構造体で持つ設計についての詳細な考察は、�
 - 2026-02-10: シンボルテーブル考察を symbol-table-design.md に分離
 - 2026-02-10: デバッグ用シンボルテーブルによる識別子名管理の検討を追加
 - 2026-02-10: 初版作成
+
+---
+
+## 完了記録
+
+実装完了日: 2026-02-10
+
+### 実施内容
+
+案Aを採用し、`Function` 構造体から `args` フィールドを削除。
+
+### 変更ファイル
+
+1. `src/semantic_analyzer/scope.rs`: `Function` から `pub args: Vec<String>` を削除
+2. `src/semantic_analyzer/mod.rs`: `Function` 構築時の `args: args.clone()` を削除
+3. `src/compiler_ws/statement.rs`: `func.args.len()` を `func.arg_indices.len()` に変更
+
+### テスト結果
+
+全テストがパス（102 passed, 0 failed, 14 ignored）。
+
+### Git コミット
+
+コミットID: 09c3bda
+メッセージ: "Remove args field from Function struct"
