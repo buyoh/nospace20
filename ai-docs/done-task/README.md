@@ -7,6 +7,9 @@
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
 | [scope-phase4-static-variables.md](scope-phase4-static-variables.md) | static変数の永続化・初期化順序の実装（Phase 4完了） | 2026-02-10 |
+| [scope-phase4-design.md](scope-phase4-design.md) | static変数実装の設計ドキュメント（Phase 4設計） | 2026-02-10 |
+| [scope-analysis.md](scope-analysis.md) | スコープ機能全体の分析（Phase 1-4 概要） | 2026-02-10 |
+| [scope-test-coverage-review.md](scope-test-coverage-review.md) | スコープ機能のテストカバレッジレビュー | 2026-02-10 |
 | [fix-single-brace-panic.md](fix-single-brace-panic.md) | `}` だけのソースコードでのパニック修正（余剰トークンチェック、main関数事前チェック、エラーハンドリング改善） | 2026-02-10 |
 | [whitespace-interpreter-phase1.md](whitespace-interpreter-phase1.md) | Whitespaceインタプリタ Phase 1 実装完了（パーサ、VM、CLI、全テスト成功） | 2026-02-08 |
 | [interpreter-split-report.md](interpreter-split-report.md) | interpreterモジュールファイル分割完了報告（mod.rs→4ファイル、責務分離、全72テスト成功） | 2026-02-07 |

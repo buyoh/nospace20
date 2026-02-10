@@ -2,11 +2,9 @@
 
 このディレクトリには、スコープ機能の実装に関する設計・検討ドキュメントが含まれます。
 
-## ドキュメント一覧
+## 現在のタスク: Phase 5
 
-- [overview.md](overview.md) - 現状分析とスコープ実装の概要
-- [phase4-static-variables.md](phase4-static-variables.md) - フェーズ4: static 変数 ✅ 実装完了
-- [test-coverage-review.md](test-coverage-review.md) - スコープ機能のテストカバレッジレビュー
+- [phase5-nested-functions.md](phase5-nested-functions.md) - フェーズ5: ネスト関数のスコープ制御
 
 ### 完了したフェーズ
 
@@ -14,6 +12,9 @@
 - [../../done-task/scope-phase2-identifier-resolution.md](../../done-task/scope-phase2-identifier-resolution.md) - フェーズ2: 識別子の事前解決 ✅ 完了
 - [../../done-task/scope-phase3-global-variables.md](../../done-task/scope-phase3-global-variables.md) - フェーズ3: グローバル変数 ✅ 完了
 - [../../done-task/scope-phase4-static-variables.md](../../done-task/scope-phase4-static-variables.md) - フェーズ4: static 変数 ✅ 完了
+- [../../done-task/scope-phase4-design.md](../../done-task/scope-phase4-design.md) - フェーズ4: 設計ドキュメント
+- [../../done-task/scope-analysis.md](../../done-task/scope-analysis.md) - Phase 1-4 の全体分析
+- [../../done-task/scope-test-coverage-review.md](../../done-task/scope-test-coverage-review.md) - テストカバレッジレビュー
 - [../../done-task/scope-previous-implementation.md](../../done-task/scope-previous-implementation.md) - 過去の実装コミット（7a83612）の分析 ✅ アーカイブ
 
 ## 関連仕様
