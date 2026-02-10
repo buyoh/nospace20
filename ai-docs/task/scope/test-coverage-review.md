@@ -283,6 +283,34 @@ func: main() {
 
 ---
 
+## Phase 4: static 変数のテストケース
+
+Phase 4 で `static:` 構文が実装された際に追加すべきテストケース。
+
+構文は `static: a;`（`let:` と同様の独立キーワード形式）。
+
+### 初期化タイミング
+
+- static 変数は main が呼び出される前に初期化される（グローバル変数と同じタイミング）
+- 初期化には変数と定数以外は使用できない
+- static 変数は、static でないグローバル変数より先に初期化される
+- 関数が呼び出されても static 変数は再初期化されない
+
+### 追加すべきテスト
+
+| テスト名 | 内容 | 優先度 |
+|---------|------|--------|
+| `scope_static_001` | 基本的な `static:` 宣言とネスト関数からのアクセス | 🔴 高 |
+| `scope_static_persist_001` | 関数呼び出し間での値保持 | 🔴 高 |
+| `scope_static_nested_001` | ネスト関数からの static 変数への書き込み | 🔴 高 |
+| `scope_static_mixed_001` | static と非 static の混在 | 🟡 中 |
+| `scope_static_init_order_001` | 初期化順序（static → global） | 🟡 中 |
+| `scope_static_error_001` | 非 static 変数への関数境界越えアクセス（エラー） | 🔴 高 |
+
+詳細は [phase4-static-variables.md](phase4-static-variables.md) を参照。
+
+---
+
 ## 備考
 
 - `scope_nested_func_001` は Phase 5 まで無効化のままとする

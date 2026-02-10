@@ -17,81 +17,42 @@
 3. **関数**: 暗黙的に static（Phase 3 で実装済み）
 4. **グローバル変数**: 暗黙的に static（Phase 3 で実装済み）
 
+### 構文
+
+`static:` は `let:` や `func:` と同様のキーワード構文を使用する。
+
+```nospace
+static: a;
+static: x, y;   # x, y 両方が static #
+```
+
+**注意**: `static let:` ではない。`static:` 単体がキーワードである。
+
+### 初期化タイミング
+
+- static 変数は **main が呼び出される前** に初期化される（グローバル変数と同じタイミング）
+- static 変数が定義された関数が呼び出されても **再初期化されない**
+- 初期化には **変数と定数以外は使用できない**（リテラルや定数のみ）
+- **static 変数は、static でないグローバル変数より先に初期化される**
+
 ### ユースケース
 
 ```nospace
-func: outer() {
-  static let: counter;    # 明示的 static #
-  counter = 0;
-  
-  func: inner() {
-    counter = counter + 1;  # static なのでアクセス可能 #
-  }
-  
-  inner();
-  inner();
-  __assert(counter == 2);
+let: global_var;  # グローバル変数 #
+
+func: setter() {
+  static: static_var;  # static変数 #
+  static_var += 1;
+  __clog(static_var);  # 呼び出される度に 1, 2, 3, ... と増加 #
+  global_var = static_var;  # グローバル変数に代入 #
 }
 
 func: main() {
-  outer();
+  setter();
+  __assert(global_var == 1);
+  setter();
+  __assert(global_var == 2);
 }
-```
-
----
-
-## 構文設計
-
-### 選択肢
-
-#### A: 修飾子を let の前に置く
-
-```nospace
-static let: x;
-static let: y, z;   # y, z 両方が static #
-```
-
-**メリット**:
-- 他言語（C, Rust など）に近い
-- 修飾子が明確に宣言全体にかかる
-
-**デメリット**:
-- 新しいキーワードパターンが必要
-
-#### B: 修飾子を let の後に置く
-
-```nospace
-let: static x;
-let: static y, z;   # y のみ static? 両方? #
-```
-
-**メリット**:
-- let: の後に続く形式で一貫性がある
-
-**デメリット**:
-- 複数変数宣言時の適用範囲が曖昧
-
-#### C: 別のキーワードを使う
-
-```nospace
-staticlet: x;
-slet: x;
-```
-
-**メリット**:
-- 既存の構文に影響なし
-
-**デメリット**:
-- 新しいキーワードが増える
-- 一般的な言語と異なる
-
-### 決定: 選択肢 A を採用
-
-`static let:` 構文を採用する。
-
-```nospace
-static let: x;
-static let: y, z;   # y, z 両方が static #
 ```
 
 ---
@@ -103,10 +64,12 @@ static let: y, z;   # y, z 両方が static #
 let ::=
     | "let" ":" let_decl ("," let_decl)* ";"
 
-# 変更後
-let ::=
-    | "static"? "let" ":" let_decl ("," let_decl)* ";"
+# 追加
+static ::=
+    | "static" ":" let_decl ("," let_decl)* ";"
 ```
+
+`static:` は `let:` と同じ形式の宣言構文であり、`let` の修飾子ではなく独立したキーワードである。
 
 ---
 
@@ -128,10 +91,11 @@ let ::=
 
 ### 必要な変更
 
-1. **token_parser**: `static` キーワードの追加
-2. **tree_parser**: `static let:` 構文の解析
+1. **token_parser**: `static` キーワードの追加（`let` と同様の位置づけ）
+2. **tree_parser**: `static:` 構文の解析（`let:` と同様の形式）
 3. **Statement**: `VariableDeclaration` に static フラグを追加
 4. **semantic_analyzer**: static フラグの伝播
+5. **interpreter / compiler**: static 変数の初期化順序の実装
 
 ---
 
@@ -184,19 +148,9 @@ pub enum Statement {
 }
 ```
 
-#### 2.2 parse_to_statements_let の変更
+#### 2.2 `static:` の解析
 
-```rust
-fn parse_to_statements_let(&mut self, start_pos: usize, is_static: bool) -> LocatedStatement {
-    // ...
-    LocatedStatement {
-        statement: Statement::VariableDeclaration(id, init_expr, is_static),
-        location: SourceLocation::new(start_pos, end_pos),
-    }
-}
-```
-
-#### 2.3 static let: の解析
+`static:` は `let:` と同じ形式で解析する。独立したキーワードとして扱い、コロンの後に変数名リストが続く。
 
 ```rust
 fn parse_to_statement(&mut self) -> Option<LocatedStatement> {
@@ -206,17 +160,14 @@ fn parse_to_statement(&mut self) -> Option<LocatedStatement> {
     match &token.token {
         Token::Keyword(Keyword::Static) => {
             self.iter.next(); // consume 'static'
-            // 次が 'let' であることを確認
-            if let Some(next) = self.iter.peek() {
-                if matches!(next.token, Token::Keyword(Keyword::Let)) {
-                    return Some(self.parse_to_statements_let(start_pos, true));
-                }
-            }
-            // エラー: static の後に let がない
-            // ...
+            // ':' を消費（let: と同様）
+            self.expect_colon();
+            return Some(self.parse_to_statements_let_like(start_pos, /* is_static = */ true));
         }
         Token::Keyword(Keyword::Let) => {
-            Some(self.parse_to_statements_let(start_pos, false))
+            self.iter.next();
+            self.expect_colon();
+            Some(self.parse_to_statements_let_like(start_pos, /* is_static = */ false))
         }
         // ...
     }
@@ -242,6 +193,27 @@ Statement::VariableDeclaration(name, _, is_static) => {
 }
 ```
 
+### 4. 初期化順序の実装
+
+static 変数は main 呼び出し前に初期化される必要がある。
+
+#### 初期化の順序
+
+1. **static 変数** の初期化（変数と定数のみで初期化可能）
+2. **グローバル変数** の初期化
+3. **main()** の呼び出し
+
+#### interpreter での実装
+
+- プログラム開始時に AST を走査し、全関数内の `static:` 宣言を収集
+- static 変数を先に初期化
+- その後、通常のグローバル変数を初期化
+- main() を呼び出す
+
+#### compiler での実装
+
+- コンパイル時に static 変数の初期化コードをグローバル変数より前に配置
+
 ---
 
 ## ネスト関数での static 変数
@@ -250,18 +222,19 @@ Statement::VariableDeclaration(name, _, is_static) => {
 
 ```nospace
 func: counter_factory() {
-  static let: count;
-  count = 0;
-  
+  static: count;
+  # count は main 前に 0 で初期化済み。
+  # 関数呼び出し時に再初期化されない。
+
   func: increment() {
     count = count + 1;  # static なのでアクセス可能 #
     return: count;
   }
-  
+
   func: get() {
     return: count;  # static なのでアクセス可能 #
   }
-  
+
   __assert(get() == 0);
   increment();
   __assert(get() == 1);
@@ -276,11 +249,10 @@ func: main() {
 
 ### 注意点
 
-1. **static 変数の寿命**
-   - static 変数はスタックではなく、別の領域に保持する必要がある？
-   - いいえ、nospace の現在の設計では、ネスト関数はその場で即時実行される
-   - 関数オブジェクトとして外部に渡すことはできない（クロージャではない）
-   - したがって、static 変数もスコープスタック内で管理可能
+1. **static 変数の寿命と初期化**
+   - static 変数は main 前に初期化されるため、関数呼び出し時には再初期化されない
+   - 関数が複数回呼ばれても値は保持される
+   - 初期化には定数・リテラルのみ使用可能
 
 2. **スコープスタックの参照**
    - Phase 2 で実装した `scope_depth` による参照がそのまま使える
@@ -320,7 +292,7 @@ fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
 }
 ```
 
-この実装は Phase 3 で完成しており、Phase 4 では構文解析と `is_static` フラグの伝播のみが必要。
+この実装は Phase 3 で完成しており、Phase 4 では構文解析と `is_static` フラグの伝播、および初期化順序の実装が必要。
 
 ---
 
@@ -333,8 +305,8 @@ fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
 
 ### Step 2: tree_parser の変更
 
-1. Statement::VariableDeclaration に is_static フラグを追加
-2. `static let:` 構文の解析を実装
+1. `static:` 構文の解析を実装（`let:` と同様の独立キーワード形式）
+2. Statement に is_static フラグを追加
 3. 既存のテストを更新
 
 ### Step 3: semantic_analyzer の変更
@@ -342,13 +314,21 @@ fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
 1. VariableDeclaration のパターンマッチを更新
 2. is_static フラグを Variable に伝播
 
-### Step 4: テストケースの追加
+### Step 4: 初期化順序の実装
+
+1. static 変数を main 前に初期化するロジック
+2. static 変数 → グローバル変数 の順序を実装
+3. 初期化に定数・リテラル以外を使用した場合のエラー処理
+
+### Step 5: テストケースの追加
 
 - `scope_static_001.ns`: 基本的な static 変数
+- `scope_static_persist_001.ns`: 関数呼び出し間での値保持
 - `scope_static_nested_001.ns`: ネスト関数からの static 変数アクセス
+- `scope_static_init_order_001.ns`: 初期化順序の確認
 - `scope_static_error_001.ns`: 非 static 変数への関数境界越えアクセス（エラー）
 
-### Step 5: ドキュメント更新
+### Step 6: ドキュメント更新
 
 - BNF (docs/grammar.bnf) の更新
 - spec.md の未実装フラグを削除
@@ -364,21 +344,27 @@ fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
    - キーワード認識
 
 2. **`src/tree_parser/statement/mod.rs`**
-   - Statement::VariableDeclaration の変更
-   - static let: 構文解析
+   - `static:` 構文解析（`let:` と同様の独立キーワード）
 
 3. **`src/semantic_analyzer/mod.rs`**
    - VariableDeclaration のパターンマッチ更新
 
-4. **`docs/grammar.bnf`**
-   - let の BNF 更新
+4. **`src/interpreter/mod.rs`**
+   - static 変数の main 前初期化ロジック
+   - 初期化順序（static → global）
 
-5. **`spec.md`**
+5. **`src/compiler_ws/`** (該当する場合)
+   - static 変数の初期化コード生成
+
+6. **`docs/grammar.bnf`**
+   - `static:` の BNF 追加
+
+7. **`spec.md`**
    - 未実装フラグの削除
 
 ### 変更しないファイル
 
-- `src/interpreter/mod.rs` - 変更不要（Phase 3 で基盤完成）
+- スコープ解決のランタイムロジック（Phase 3 で完成済み）
 
 ---
 
@@ -389,13 +375,13 @@ fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
 ```nospace
 # scope_static_001.ns #
 func: test() {
-  static let: x;
+  static: x;
   x = 42;
-  
+
   func: inner() {
     __assert(x == 42);  # static なのでアクセス可能 #
   }
-  
+
   inner();
 }
 
@@ -404,18 +390,34 @@ func: main() {
 }
 ```
 
+### static 変数の値保持（関数呼び出し間）
+
+```nospace
+# scope_static_persist_001.ns #
+func: counter() {
+  static: count;
+  count = count + 1;
+  return: count;
+}
+
+func: main() {
+  __assert(counter() == 1);
+  __assert(counter() == 2);
+  __assert(counter() == 3);
+}
+```
+
 ### ネスト関数からの static 変数への書き込み
 
 ```nospace
 # scope_static_nested_001.ns #
 func: test() {
-  static let: counter;
-  counter = 0;
-  
+  static: counter;
+
   func: inc() {
     counter = counter + 1;
   }
-  
+
   inc();
   inc();
   __assert(counter == 2);
@@ -432,16 +434,16 @@ func: main() {
 # scope_static_mixed_001.ns #
 func: test() {
   let: local;
-  static let: shared;
+  static: shared;
   local = 10;
   shared = 20;
-  
+
   func: inner() {
     # local にはアクセス不可（非 static） #
     __assert(shared == 20);  # static なのでアクセス可能 #
     shared = 30;
   }
-  
+
   inner();
   __assert(shared == 30);
   __assert(local == 10);  # 変更されていない #
@@ -452,6 +454,22 @@ func: main() {
 }
 ```
 
+### 初期化順序
+
+```nospace
+# scope_static_init_order_001.ns #
+let: g;
+
+func: f() {
+  static: s;
+  # s は g より先に 0 で初期化されている #
+}
+
+func: main() {
+  f();
+}
+```
+
 ### エラーケース: 非 static 変数への関数境界越えアクセス
 
 ```nospace
@@ -459,7 +477,7 @@ func: main() {
 func: test() {
   let: local;  # 非 static #
   local = 10;
-  
+
   func: inner() {
     local = 20;  # エラー: 非 static 変数への関数境界越えアクセス #
   }
@@ -474,15 +492,20 @@ func: main() {
 
 ## リスク
 
-1. **構文解析の複雑化**
-   - `static let:` という2トークンの組み合わせ
-   - 解決: peek を使って先読み
+1. **初期化順序の実装**
+   - static 変数を main 前に初期化する仕組みが必要
+   - AST 走査で全関数内の static 宣言を収集する必要がある
+   - 解決: プログラム開始時のパスで static 宣言を収集・初期化
 
-2. **既存テストへの影響**
-   - Statement::VariableDeclaration の変更による影響
+2. **初期化制約**
+   - static 変数は変数と定数以外で初期化できない
+   - 解決: semantic_analyzer で初期化式のバリデーション
+
+3. **既存テストへの影響**
+   - Statement の変更による影響
    - 解決: 既存のテストを更新
 
-3. **Phase 5 との関係**
+4. **Phase 5 との関係**
    - ネスト関数の可視性ルールとの整合性
    - 解決: static 変数は関数より先に解決される
 
@@ -491,7 +514,10 @@ func: main() {
 ## 成功基準
 
 - 全既存テストが通過
-- `static let:` 構文が動作
+- `static:` 構文が動作
+- static 変数が main 前に初期化される
+- static 変数が非 static グローバル変数より先に初期化される
+- 関数呼び出し間で static 変数の値が保持される
 - ネスト関数から static 変数にアクセス可能
 - 非 static 変数への関数境界越えアクセスがエラー
 - BNF と spec.md が更新済み
@@ -505,7 +531,11 @@ Phase 3 で実装した以下の基盤をそのまま活用:
 - `ScopeResolver` の関数境界チェック
 - `is_static` による条件分岐
 
-Phase 4 の主な作業は構文解析層であり、実行時の動作は Phase 3 で完成している。
+Phase 4 の主な作業は:
+1. `static:` 構文の解析（独立キーワード、`let:` と同様の形式）
+2. is_static フラグの伝播
+3. 初期化順序の実装（static → global → main）
+4. 初期化式の制約チェック
 
 ---
 
