@@ -361,10 +361,11 @@ tests:
     path: scope/disabled_scope_block_var_001
     comment: "Block-scoped variable definition"
 
-  # - name: test_scope_scope_nested_func_001
-  #   type: success
-  #   path: scope/scope_nested_func_001
-  #   comment: "Nested function scope (unimplemented)"
+  # Phase 5: nested function support
+  - name: test_scope_scope_nested_func_001
+    type: success
+    path: scope/scope_nested_func_001
+    comment: "Nested function scope"
 
   # Phase 4: static variables
   - name: test_scope_scope_static_001
@@ -372,35 +373,41 @@ tests:
     path: scope/scope_static_001
     comment: "Basic static variable"
 
-  # DISABLED: requires nested function support (Phase 5)
-  # - name: test_scope_scope_static_nested_001
-  #   type: success
-  #   path: scope/scope_static_nested_001
-  #   comment: "Static variable access from nested function"
+  # Phase 5: nested function support enabled
+  - name: test_scope_scope_static_nested_001
+    type: success
+    path: scope/scope_static_nested_001
+    comment: "Static variable access from nested function"
 
-  # DISABLED: requires nested function support (Phase 5)
-  # - name: test_scope_scope_static_mixed_001
-  #   type: success
-  #   path: scope/scope_static_mixed_001
-  #   comment: "Mixed static and non-static variables"
+  # Phase 5: nested function support enabled
+  - name: test_scope_scope_static_mixed_001
+    type: success
+    path: scope/scope_static_mixed_001
+    comment: "Mixed static and non-static variables"
 
-  # DISABLED: requires nested function support (Phase 5)
-  # - name: test_scope_scope_static_multi_decl_001
-  #   type: success
-  #   path: scope/scope_static_multi_decl_001
-  #   comment: "Multiple static variable declarations"
+  # Phase 5: nested function support enabled
+  - name: test_scope_scope_static_multi_decl_001
+    type: success
+    path: scope/scope_static_multi_decl_001
+    comment: "Multiple static variable declarations"
 
-  # DISABLED: requires nested function support (Phase 5)
-  # - name: test_scope_scope_static_counter_factory_001
-  #   type: success
-  #   path: scope/scope_static_counter_factory_001
-  #   comment: "Counter factory pattern with static variable"
+  # Phase 5: nested function support enabled
+  - name: test_scope_scope_static_counter_factory_001
+    type: success
+    path: scope/scope_static_counter_factory_001
+    comment: "Counter factory pattern with static variable"
 
-  # DISABLED: requires nested function support (Phase 5)
-  # - name: test_scope_scope_static_error_001
-  #   type: compile_error
-  #   path: scope/scope_static_error_001
-  #   comment: "Error: non-static variable access across function boundary"
+  # Phase 5: nested function support enabled
+  - name: test_scope_scope_static_error_001
+    type: compile_error
+    path: scope/scope_static_error_001
+    comment: "Error: non-static variable access across function boundary"
+
+  # Phase 5: child scope function access error
+  - name: test_scope_scope_nested_func_child_access_error_001
+    type: compile_error
+    path: scope/scope_nested_func_child_access_error_001
+    comment: "Error: child scope function access"
 
   - name: test_scope_scope_static_init_001
     type: success

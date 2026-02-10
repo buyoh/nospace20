@@ -37,8 +37,17 @@ pub fn generate_expression(
         // 二項演算
         ExecExpression::Operation2(op, left, right) => generate_binary_op(ctx, op, left, right),
 
-        // 関数呼び出し
-        ExecExpression::Function(func_name, args) => generate_function_call(ctx, func_name, args),
+        // 組み込み関数呼び出し
+        ExecExpression::BuiltinFunction(func_name, args) => {
+            generate_function_call(ctx, func_name, args)
+        }
+
+        // Phase 5: ユーザー定義関数呼び出し
+        ExecExpression::UserFunction(_func_ref, _args) => {
+            return Err(CompileError::InvalidOperation(
+                "user-defined function calls are not yet supported in compiler".to_string(),
+            ))
+        }
 
         // if 式
         ExecExpression::If(cond, then_block, else_block) => {

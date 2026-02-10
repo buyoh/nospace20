@@ -153,8 +153,7 @@ fn convert_to_exec_expression_with_resolver(
             )))
         }
         Expression::Function(f, a) => {
-            // 関数は組み込み関数のみなので文字列のまま保持
-            // 注: ユーザー定義関数は未実装
+            // Phase 5: 組み込み関数とユーザー定義関数を区別
             let mut args = Vec::new();
             for e in a {
                 args.push(convert_to_exec_expression_with_resolver(
@@ -162,7 +161,23 @@ fn convert_to_exec_expression_with_resolver(
                     parent_resolver,
                 )?);
             }
-            Ok(Box::new(ExecExpression::Function(f.clone(), args)))
+
+            // 組み込み関数のリスト（__ で始まる）
+            const BUILTIN_FUNCTIONS: &[&str] = &[
+                "__clog", "__assert", "__assert_not", "__trace",
+                "__puti", "__putc", "__geti", "__getc",
+            ];
+
+            if BUILTIN_FUNCTIONS.contains(&f.as_str()) {
+                // 組み込み関数
+                Ok(Box::new(ExecExpression::BuiltinFunction(f.clone(), args)))
+            } else {
+                // ユーザー定義関数：resolve する
+                let func_ref = parent_resolver.resolve_function(f).ok_or_else(|| {
+                    vec![code_parse_error!(format!("undefined function: {}", f))]
+                })?;
+                Ok(Box::new(ExecExpression::UserFunction(func_ref, args)))
+            }
         }
         Expression::Factor(v) => Ok(Box::new(ExecExpression::Factor(v.to_owned()))),
         Expression::Variable(v) => {
@@ -234,8 +249,46 @@ fn analyze_internal_with_parent(
         )?;
     }
 
-    // 2パス解析（変数のみ）
-    // パス1: 変数宣言収集（ホイスティング対応）
+    // 3パス解析
+    // パス1a: 関数宣言を先にスキャンして登録（ホイスティング対応）
+    // Phase 5: ネスト関数のサポート
+    for located_stat in statements {
+        let stat = &located_stat.statement;
+        match stat {
+            Statement::FunctionDeclaration(name, _, _) => {
+                // 関数を仮登録（本体は後で解析）
+                // とりあえず空の関数をプレースホルダーとして登録
+                let func_idx = scope.functions.len();
+                scope.function_names.push(name.clone());
+                scope.functions.push(Function {
+                    arg_indices: Vec::new(),
+                    block: Block {
+                        scope: Scope {
+                            identifier_map: BTreeMap::new(),
+                            variable_indices: BTreeMap::new(),
+                            variable_name_to_var_index: BTreeMap::new(),
+                            variables: Vec::new(),
+                            variable_count: 0,
+                            functions: Vec::new(),
+                            function_names: Vec::new(),
+                            is_function_scope: true,
+                            static_init_statements: Vec::new(),
+                            root_statements: Vec::new(),
+                        },
+                        statements: Vec::new(),
+                    },
+                    scope_depth: 0, // 後で更新
+                });
+                scope.identifier_map.insert(
+                    name.clone(),
+                    Identifier::Function(IdentifierInfo { idx: func_idx }),
+                );
+            }
+            _ => {}
+        }
+    }
+
+    // パス1b: 変数宣言収集（ホイスティング対応）
     for located_stat in statements {
         let stat = &located_stat.statement;
         match stat {
@@ -252,13 +305,7 @@ fn analyze_internal_with_parent(
                 )?;
             }
             Statement::FunctionDeclaration(_name, _, _) => {
-                if !matches!(scope_type, ScopeType::Root) {
-                    return Err(vec![code_parse_error!(
-                        located_stat.location.start,
-                        "semantic error: nested function declaration is not supported"
-                    )]);
-                }
-                // 関数宣言はパス2で処理（ルートスコープのみで、ホイスティング不要）
+                // パス1aで処理済み
             }
             _ => {}
         }
@@ -278,8 +325,9 @@ fn analyze_internal_with_parent(
     // Variable を Clone するための一時保存（resolver が参照するため）
     // scope.variables をそのまま使用するのではなく、Scope にまとめて後で参照
     // 一旦 temporary_scope を作って参照を保持
+    // Phase 5: identifier_map も保持して関数解決に使用
     let temporary_scope = Scope {
-        identifier_map: BTreeMap::new(), // 未使用
+        identifier_map: scope.identifier_map.clone(), // Phase 5: 関数解決に必要
         variable_indices: variable_indices_temp.clone(),
         variable_name_to_var_index: variable_name_to_var_index_temp.clone(),
         variables: scope.variables.clone(), // Clone が必要
@@ -292,6 +340,7 @@ fn analyze_internal_with_parent(
     };
 
     // 親のresolverを継承して新しいresolverを作成
+    // Phase 5: func_map を追加
     let mut resolver = if let Some(parent) = parent_resolver {
         let mut new_resolver = ScopeResolver {
             scope_stack: parent.scope_stack.clone(),
@@ -300,6 +349,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.variable_indices,
             &temporary_scope.variable_name_to_var_index,
             &temporary_scope.variables,
+            &temporary_scope.identifier_map,
             is_function_scope,
         );
         new_resolver
@@ -309,6 +359,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.variable_indices,
             &temporary_scope.variable_name_to_var_index,
             &temporary_scope.variables,
+            &temporary_scope.identifier_map,
             is_function_scope,
         );
         new_resolver
@@ -355,15 +406,29 @@ fn analyze_internal_with_parent(
                     })
                     .collect();
 
-                // 関数を登録
-                let func = Function {
+                // Phase 5: 関数のスコープ深度を記録
+                // 現在のスコープ = resolver.scope_stack.len() - 1 (0-indexed)
+                let current_scope_depth = if resolver.scope_stack.is_empty() {
+                    0
+                } else {
+                    resolver.scope_stack.len() - 1
+                };
+
+                // Phase 5: パス1aで登録済みの関数を更新
+                let func_idx = if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
+                    info.idx
+                } else {
+                    panic!("internal error: function should be pre-registered in pass 1a");
+                };
+
+                scope.functions[func_idx] = Function {
                     arg_indices,
                     block: Block {
                         scope: built_scope,
                         statements: es,
                     },
+                    scope_depth: current_scope_depth,
                 };
-                scope.add_function(name, func)?;
             }
             Statement::Return(e) => {
                 if let ScopeType::Root = scope_type {

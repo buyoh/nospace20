@@ -1,0 +1,19 @@
+# エラーケース: 子スコープの関数にアクセス #
+func: outer() {
+  func: inner() {
+    func: innermost() {
+      __trace(1);
+    }
+  }
+
+  func: sibling() {
+    inner();  # ok: 同一スコープの関数 #
+    innermost();  # エラー: 子スコープの関数にアクセス不可 #
+  }
+
+  sibling();
+}
+
+func: main() {
+  outer();
+}

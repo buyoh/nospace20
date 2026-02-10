@@ -6,11 +6,13 @@ use crate::{base::CodeParseError, code_parse_error};
 
 use super::types::{Block, ExecStatement, IdentifierRef, Variable};
 
+#[derive(Clone)]
 pub(super) struct IdentifierInfo {
     // name: String,
     pub idx: usize,
 }
 
+#[derive(Clone)]
 pub(super) enum Identifier {
     Function(IdentifierInfo),
     Variable(IdentifierInfo),
@@ -23,6 +25,9 @@ pub struct Function {
     /// 各引数の block.scope 内でのインデックスを保持
     pub arg_indices: Vec<usize>,
     pub block: Block,
+    /// この関数が定義されたスコープの深度
+    /// Phase 5 で追加：関数の可視性チェックに使用
+    pub scope_depth: usize,
     // pub identifier: String,
 }
 
@@ -54,7 +59,8 @@ pub struct Scope {
     /// インタプリタが Vec<i64> を初期化する際に使用
     pub(crate) variable_count: usize,
 
-    pub(super) functions: Vec<Function>,
+    /// Phase 5: 関数リストを pub(crate) に変更（interpreter からアクセスするため）
+    pub(crate) functions: Vec<Function>,
 
     /// 関数名のリスト（関数のイテレーションに使用）
     pub(crate) function_names: Vec<String>,
@@ -107,6 +113,7 @@ pub(super) enum ScopeType {
 /// スコープ情報（ScopeResolver 用）
 ///
 /// 関数境界チェックのため、各スコープの追加情報を保持する。
+/// Phase 5: 関数の可視性チェックのため、関数マップも保持。
 #[derive(Clone)]
 pub(super) struct ScopeInfo<'a> {
     /// 変数名からスロットインデックスへのマップ
@@ -115,6 +122,9 @@ pub(super) struct ScopeInfo<'a> {
     pub var_name_to_var_index: &'a BTreeMap<String, usize>,
     /// 変数情報（static フラグ、配列サイズ確認用）
     pub variables: &'a Vec<Variable>,
+    /// 関数名からマップへの参照（関数可視性チェック用）
+    /// Phase 5 で追加
+    pub func_map: &'a BTreeMap<String, Identifier>,
     /// このスコープが関数スコープかどうか
     pub is_function_scope: bool,
 }
@@ -143,12 +153,14 @@ impl<'a> ScopeResolver<'a> {
         var_indices: &'a BTreeMap<String, usize>,
         var_name_to_var_index: &'a BTreeMap<String, usize>,
         variables: &'a Vec<Variable>,
+        func_map: &'a BTreeMap<String, Identifier>,
         is_function_scope: bool,
     ) {
         self.scope_stack.push(ScopeInfo {
             var_indices,
             var_name_to_var_index,
             variables,
+            func_map,
             is_function_scope,
         });
     }
@@ -221,6 +233,36 @@ impl<'a> ScopeResolver<'a> {
         for scope_info in self.scope_stack.iter().rev() {
             if let Some(&var_idx) = scope_info.var_name_to_var_index.get(name) {
                 return Some(scope_info.variables[var_idx].array_size);
+            }
+        }
+        None
+    }
+
+    /// 関数名を解決し、IdentifierRef を返す
+    ///
+    /// Phase 5 で追加：ネスト関数の可視性チェック
+    ///
+    /// スコープスタックを逆順に探索し、最も近いスコープの関数を見つける。
+    /// 子スコープの関数は見えないため、探索は現在のスコープから親に向かってのみ行う。
+    /// 見つからない場合は None を返す。
+    pub fn resolve_function(&self, name: &str) -> Option<IdentifierRef> {
+        for (depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
+            if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
+                // 関数はグローバルまたはスコープローカルなので、
+                // scope_depth と local_index を設定
+                // is_global は、ルートスコープ（depth == scope_stack.len() - 1）かどうか
+                let is_global = depth == self.scope_stack.len() - 1
+                    && self
+                        .scope_stack
+                        .first()
+                        .map(|s| s.is_function_scope)
+                        .unwrap_or(false);
+
+                return Some(IdentifierRef {
+                    scope_depth: depth,
+                    local_index: info.idx,
+                    is_global,
+                });
             }
         }
         None

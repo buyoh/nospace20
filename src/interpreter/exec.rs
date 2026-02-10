@@ -255,6 +255,85 @@ impl LocalEnvironment<'_, '_> {
         result
     }
 
+    /// Phase 5: IdentifierRef を使用してユーザー定義関数を呼び出す
+    fn interpret_call_user_function_by_ref(
+        &mut self,
+        func_ref: &IdentifierRef,
+        args: &Vec<Box<ExecExpression>>,
+    ) -> ExpressionFlow {
+        let mut arg_values = Vec::new();
+        arg_values.reserve(args.len());
+        for a in args {
+            arg_values.push(try_expr!(self.interpret_expression(a)));
+        }
+
+        // IdentifierRef から関数を取得
+        // func_ref.scope_depth は 0 = 現在のスコープ、1 = 親スコープ、...
+        // ルートスコープ（グローバル関数）は root_scope から取得
+        let func = if func_ref.is_global {
+            &self.root_scope.functions[func_ref.local_index]
+        } else {
+            // ネスト関数: スコープスタックから取得
+            // scope_depth が 0 なら現在のスコープ、1 なら親のスコープ
+            // しかし、関数は Scope に定義されているため、
+            // 実際には root_scope.functions からアクセスする必要がある
+            // Phase 5 では、全ての関数は root_scope に登録されている想定
+            // （ネスト関数もグローバルに登録される）
+            &self.root_scope.functions[func_ref.local_index]
+        };
+
+        // Phase 4: static 変数の永続化対応
+        let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
+
+        // 新しい scope を既存の scope_stack に push
+        let mut variables = vec![0; func.block.scope.variable_count];
+
+        // static 変数があり、永続ストレージが存在する場合は値を復元
+        // 注: 関数名がないため、func_ref を使ってストレージのキーを生成する
+        // 簡易実装として、関数のインデックスを使用
+        let func_key = format!("__func_{}_{}", func_ref.scope_depth, func_ref.local_index);
+        if has_static {
+            if let Some(storage) = self.env.function_static_storage.get(&func_key) {
+                for var in &func.block.scope.variables {
+                    if var.is_static {
+                        let slot_idx = func.block.scope.variable_indices[&var.identifier];
+                        let slot_count = var.array_size.unwrap_or(1);
+                        for i in 0..slot_count {
+                            variables[slot_idx + i] = storage[slot_idx + i];
+                        }
+                    }
+                }
+            }
+        }
+
+        for (i, arg_val) in arg_values.iter().enumerate() {
+            if i < func.arg_indices.len() {
+                variables[func.arg_indices[i]] = *arg_val;
+            }
+        }
+        self.scope_stack.push(variables);
+
+        // 既存の LocalEnvironment 上で関数本体を実行
+        let result = match self.interpret_statements(&func.block.statements) {
+            Flow::Proceed => ExpressionFlow::Value(0),
+            Flow::Return(x) => ExpressionFlow::Value(x),
+            Flow::Continue => panic!("internal error: unexpected continue"),
+            Flow::Break => panic!("internal error: unexpected break"),
+        };
+
+        // Phase 4: static 変数の値を永続ストレージに保存
+        if has_static {
+            let scope_data = self.scope_stack.last().unwrap().clone();
+            self.env
+                .function_static_storage
+                .insert(func_key, scope_data);
+        }
+
+        // 関数スコープを pop
+        self.scope_stack.pop();
+        result
+    }
+
     fn interpret_while(&mut self, cond: &Box<ExecExpression>, block: &Block) -> ExpressionFlow {
         let mut last_value = 0;
         loop {
@@ -452,7 +531,11 @@ impl LocalEnvironment<'_, '_> {
             ExecExpression::Operation2(op, expr1, expr2) => {
                 self.interpret_operation2(op, expr1, expr2)
             }
-            ExecExpression::Function(id, args) => self.interpret_call_function(id, args),
+            // Phase 5: BuiltinFunction と UserFunction に分離
+            ExecExpression::BuiltinFunction(id, args) => self.interpret_call_function(id, args),
+            ExecExpression::UserFunction(func_ref, args) => {
+                self.interpret_call_user_function_by_ref(func_ref, args)
+            }
             ExecExpression::Factor(v) => ExpressionFlow::Value(*v),
             ExecExpression::Variable(id_ref) => {
                 // IdentifierRef を使用して O(1) でアクセス

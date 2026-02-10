@@ -43,15 +43,18 @@ pub(crate) struct Variable {
 /// - `Invalid` バリアントを持たない (パース成功後のみ生成される)
 /// - スコープ解決済みの識別子情報を保持する
 ///   変数は IdentifierRef を使用することで、実行時の文字列検索を排除し、O(1) アクセスを実現。
-///   関数は現状組み込み関数のみのため、文字列のまま保持。
+///   関数も IdentifierRef を使用し、スコープ解決を行う（Phase 5 で実装）。
 pub(crate) enum ExecExpression {
     Operation1(Operator1, Box<ExecExpression>),
     Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
     If(Box<ExecExpression>, Block, Block),
     While(Box<ExecExpression>, Block),
-    /// 関数呼び出し
-    /// 組み込み関数のみのため String のまま（ユーザー定義関数は未実装）
-    Function(String, Vec<Box<ExecExpression>>),
+    /// 組み込み関数呼び出し
+    /// 組み込み関数は文字列のまま保持
+    BuiltinFunction(String, Vec<Box<ExecExpression>>),
+    /// ユーザー定義関数呼び出し
+    /// Phase 5 で追加：スコープ解決済みの関数参照を保持
+    UserFunction(IdentifierRef, Vec<Box<ExecExpression>>),
     Factor(i64),
     /// 変数参照
     Variable(IdentifierRef),
