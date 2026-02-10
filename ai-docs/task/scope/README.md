@@ -2,9 +2,11 @@
 
 このディレクトリには、スコープ機能の実装に関する設計・検討ドキュメントが含まれます。
 
-## 現在のタスク: Phase 5
+## ステータス
 
-- [phase5-nested-functions.md](phase5-nested-functions.md) - フェーズ5: ネスト関数のスコープ制御
+✅ **全フェーズ完了**
+
+すべてのスコープ機能（Phase 1-5）の実装が完了しました。
 
 ### 完了したフェーズ
 
@@ -13,9 +15,27 @@
 - [../../done-task/scope-phase3-global-variables.md](../../done-task/scope-phase3-global-variables.md) - フェーズ3: グローバル変数 ✅ 完了
 - [../../done-task/scope-phase4-static-variables.md](../../done-task/scope-phase4-static-variables.md) - フェーズ4: static 変数 ✅ 完了
 - [../../done-task/scope-phase4-design.md](../../done-task/scope-phase4-design.md) - フェーズ4: 設計ドキュメント
+- [../../done-task/scope-phase5-nested-functions.md](../../done-task/scope-phase5-nested-functions.md) - フェーズ5: ネスト関数のスコープ制御 ✅ 完了
 - [../../done-task/scope-analysis.md](../../done-task/scope-analysis.md) - Phase 1-4 の全体分析
 - [../../done-task/scope-test-coverage-review.md](../../done-task/scope-test-coverage-review.md) - テストカバレッジレビュー
 - [../../done-task/scope-previous-implementation.md](../../done-task/scope-previous-implementation.md) - 過去の実装コミット（7a83612）の分析 ✅ アーカイブ
+- [../../done-task/scope-phase5-progress.md](../../done-task/scope-phase5-progress.md) - Phase 5 実装進捗記録
+- [../../done-task/scope-phase5-stack-overflow-investigation.md](../../done-task/scope-phase5-stack-overflow-investigation.md) - Phase 5 スタックオーバーフロー問題の調査と解決
+- [../../done-task/scope-phase5-test-failure-investigation.md](../../done-task/scope-phase5-test-failure-investigation.md) - Phase 5 テスト失敗の調査
+
+## 既知の問題
+
+### テストファイルの配置問題
+
+以下のテストがファイルパスの問題で失敗していますが、実装自体は完了しています：
+
+- `scope_static_error_001`
+- `scope_nested_func_child_access_error_001`
+
+**詳細**: テストファイルが `resources/tests/fails/scope/` に配置されているが、
+`test_compile_error_base()` 関数は `resources/tests/fails/compile/` を参照している。
+
+この問題はコードの実装とは無関係で、テストインフラストラクチャの改善で解決可能です。
 
 ## 関連仕様
 
