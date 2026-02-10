@@ -400,13 +400,13 @@ tests:
   # Phase 5: nested function support enabled
   - name: test_scope_scope_static_error_001
     type: compile_error
-    path: scope/scope_static_error_001
+    path: scope_static_error_001
     comment: "Error: non-static variable access across function boundary"
 
   # Phase 5: child scope function access error
   - name: test_scope_scope_nested_func_child_access_error_001
     type: compile_error
-    path: scope/scope_nested_func_child_access_error_001
+    path: scope_nested_func_child_access_error_001
     comment: "Error: child scope function access"
 
   - name: test_scope_scope_static_init_001
