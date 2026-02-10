@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [unit-test-interpreter.md](unit-test-interpreter.md) | interpreter ユニットテスト追加完了（組み込み関数・演算子・制御フロー、計25件追加） | 2026-02-10 |
 | [builtin-functions-implementation.md](builtin-functions-implementation.md) | Whitespace コンパイラ ビルトイン関数の実装完了（__puti, __putc, __geti, __getc, __trace, __assert, __assert_not） | 2026-02-10 |
 | [static_variable_initialization_limitation.md](static_variable_initialization_limitation.md) | static変数の未実装問題 → 調査の結果、既に正しく動作していることを確認（Phase 4で解決済み） | 2026-02-10 |
 | [scope-phase4-static-variables.md](scope-phase4-static-variables.md) | static変数の永続化・初期化順序の実装（Phase 4完了） | 2026-02-10 |

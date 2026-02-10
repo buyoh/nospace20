@@ -640,4 +640,346 @@ func: main() {
         let result = crate::interpreter::interpret_all(&mut env, &scope);
         assert_eq!(result, Some(20), "x should be modified to 20 via *p = 20");
     }
+
+    // --- T1: 組み込み関数テスト ---
+
+    fn create_test_env_with_stdin(stdin_data: &str) -> Environment {
+        let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(
+            stdin_data.as_bytes().to_vec(),
+        )));
+        let stdout_buf: Box<dyn std::io::Write> = Box::new(Vec::<u8>::new());
+        Environment::new_with_config(stdin_cursor, stdout_buf, EnvironmentConfig::new())
+    }
+
+    fn get_stdout(env: &mut Environment) -> String {
+        env.flush();
+        let stdout = &env.stdout;
+        // stdout は Box<dyn Write> なので、Vec<u8> にダウンキャストはできない。
+        // interpret_func_with_io と同様の方法で取得する代わりに、
+        // 共有バッファを使う方法を採用する。
+        // ここでは unsafe でダウンキャストする。
+        let ptr = &**stdout as *const dyn std::io::Write as *const Vec<u8>;
+        let vec = unsafe { &*ptr };
+        String::from_utf8(vec.clone()).unwrap()
+    }
+
+    #[test]
+    fn test_builtin_trace() {
+        let code = r#"
+func: main() {
+    __trace(1);
+    __trace(1);
+    __trace(2);
+    return: 0;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(env.traced.get(&1), Some(&2), "__trace(1) should be called twice");
+        assert_eq!(env.traced.get(&2), Some(&1), "__trace(2) should be called once");
+    }
+
+    #[test]
+    fn test_builtin_assert_pass() {
+        let code = r#"
+func: main() {
+    __assert(1);
+    __assert(42);
+    return: 0;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(0), "__assert with non-zero should not panic");
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed")]
+    fn test_builtin_assert_fail() {
+        let code = r#"
+func: main() {
+    __assert(0);
+    return: 0;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        crate::interpreter::interpret_all(&mut env, &scope);
+    }
+
+    #[test]
+    fn test_builtin_puti() {
+        let code = r#"
+func: main() {
+    __puti(42);
+    return: 0;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        crate::interpreter::interpret_all(&mut env, &scope);
+        let output = get_stdout(&mut env);
+        assert_eq!(output, "42", "__puti(42) should write '42' to stdout");
+    }
+
+    #[test]
+    fn test_builtin_putc() {
+        let code = r#"
+func: main() {
+    __putc(65);
+    return: 0;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        crate::interpreter::interpret_all(&mut env, &scope);
+        let output = get_stdout(&mut env);
+        assert_eq!(output, "A", "__putc(65) should write 'A' to stdout");
+    }
+
+    #[test]
+    fn test_builtin_geti() {
+        let code = r#"
+func: main() {
+    return: __geti();
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env_with_stdin("42\n");
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(42), "__geti() should read 42 from stdin");
+    }
+
+    #[test]
+    fn test_builtin_getc() {
+        let code = r#"
+func: main() {
+    return: __getc();
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env_with_stdin("A");
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(65), "__getc() should read 'A' (65) from stdin");
+    }
+
+    // --- T2: 二項演算子テスト ---
+
+    #[test]
+    fn test_binary_add() {
+        let code = "func: main() { return: 1 + 2; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(3));
+    }
+
+    #[test]
+    fn test_binary_sub() {
+        let code = "func: main() { return: 5 - 3; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(2));
+    }
+
+    #[test]
+    fn test_binary_mul() {
+        let code = "func: main() { return: 3 * 4; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(12));
+    }
+
+    #[test]
+    fn test_binary_div() {
+        let code = "func: main() { return: 10 / 3; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(3));
+    }
+
+    #[test]
+    fn test_binary_mod() {
+        let code = "func: main() { return: 10 % 3; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(1));
+    }
+
+    #[test]
+    fn test_binary_equal() {
+        let code = "func: main() { return: (3 == 3) + (3 == 4) * 10; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(1), "3==3 is 1, 3==4 is 0");
+    }
+
+    #[test]
+    fn test_binary_not_equal() {
+        let code = "func: main() { return: (3 != 4) + (3 != 3) * 10; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(1), "3!=4 is 1, 3!=3 is 0");
+    }
+
+    #[test]
+    fn test_binary_less() {
+        let code = "func: main() { return: (1 < 2) + (2 < 2) * 10 + (3 < 2) * 100; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(1), "1<2 is 1, 2<2 is 0, 3<2 is 0");
+    }
+
+    #[test]
+    fn test_binary_less_equal() {
+        let code = "func: main() { return: (1 <= 2) + (2 <= 2) * 10 + (3 <= 2) * 100; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(11), "1<=2 is 1, 2<=2 is 1, 3<=2 is 0");
+    }
+
+    #[test]
+    fn test_binary_greater() {
+        let code = "func: main() { return: (3 > 2) + (2 > 2) * 10 + (1 > 2) * 100; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(1), "3>2 is 1, 2>2 is 0, 1>2 is 0");
+    }
+
+    #[test]
+    fn test_binary_greater_equal() {
+        let code = "func: main() { return: (3 >= 2) + (2 >= 2) * 10 + (1 >= 2) * 100; }";
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(11), "3>=2 is 1, 2>=2 is 1, 1>=2 is 0");
+    }
+
+    #[test]
+    fn test_binary_logical_and() {
+        let code = r#"
+func: main() {
+    return: (1 && 1) + (1 && 0) * 10 + (0 && 1) * 100 + (0 && 0) * 1000;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(1), "1&&1=1, 1&&0=0, 0&&1=0, 0&&0=0");
+    }
+
+    #[test]
+    fn test_binary_logical_or() {
+        let code = r#"
+func: main() {
+    return: (1 || 1) + (1 || 0) * 10 + (0 || 1) * 100 + (0 || 0) * 1000;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(111), "1||1=1, 1||0=1, 0||1=1, 0||0=0");
+    }
+
+    // --- T3: 制御フローテスト ---
+
+    #[test]
+    fn test_if_else() {
+        let code = r#"
+func: main() {
+    let: x;
+    x = if:(1) { 10; } else: { 20; };
+    let: y;
+    y = if:(0) { 10; } else: { 20; };
+    return: x + y * 100;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(2010), "if true -> 10, if false -> 20");
+    }
+
+    #[test]
+    fn test_while_loop() {
+        let code = r#"
+func: main() {
+    let: i; let: sum;
+    i = 0; sum = 0;
+    while:(i < 5) {
+        sum = sum + i;
+        i = i + 1;
+    };
+    return: sum;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(10), "sum of 0..4 = 10");
+    }
+
+    #[test]
+    fn test_return_early() {
+        let code = r#"
+func: main() {
+    return: 42;
+    return: 99;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(42), "early return should return 42");
+    }
+
+    #[test]
+    fn test_break_in_while() {
+        let code = r#"
+func: main() {
+    let: i;
+    i = 0;
+    while:(1) {
+        if:(i == 3) { break; } else: {};
+        i = i + 1;
+    };
+    return: i;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(3), "break at i==3");
+    }
+
+    #[test]
+    fn test_continue_in_while() {
+        let code = r#"
+func: main() {
+    let: i; let: sum;
+    i = 0; sum = 0;
+    while:(i < 6) {
+        i = i + 1;
+        if:(i % 2 == 0) { continue; } else: {};
+        sum = sum + i;
+    };
+    return: sum;
+}
+"#;
+        let scope = parse_and_analyze(code);
+        let mut env = create_test_env();
+        let result = crate::interpreter::interpret_all(&mut env, &scope);
+        assert_eq!(result, Some(9), "sum of odd numbers 1+3+5 = 9");
+    }
 }
