@@ -10,7 +10,7 @@ use crate::semantic_analyzer::{Block, ExecStatement, Scope};
 pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
-    // Phase 4: static 変数の初期化を先に実行
+    // static 変数の初期化を先に実行
     for stmt in &scope.static_init_statements {
         prog.append(generate_statement(ctx, stmt)?);
     }
@@ -20,7 +20,7 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
         prog.append(generate_statement(ctx, stmt)?);
     }
 
-    // TODO: 全ての関数を生成する仕組みが必要
+    // 注: 現在は main 関数のみを明示的に生成
     // 現在は main 関数のみを明示的に生成
     if let Some(main_func) = scope.get_function("main") {
         prog.append(generate_function_definition(ctx, "main", main_func)?);

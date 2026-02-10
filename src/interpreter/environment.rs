@@ -60,10 +60,10 @@ pub struct Environment {
     pub(crate) stdout: Box<dyn Write>,
     pub config: EnvironmentConfig,
     metrics: EnvironmentMetrics,
-    /// Phase 3: グローバル変数の値
+    /// グローバル変数の値
     /// ルートスコープの変数をインデックスベースで保持
     pub(crate) global_variables: Vec<i64>,
-    /// Phase 4: 関数内 static 変数の永続化ストレージ
+    /// 関数内 static 変数の永続化ストレージ
     /// 関数名 → 関数スコープの変数配列（static 変数の値が保持される）
     pub(crate) function_static_storage: BTreeMap<String, Vec<i64>>,
 }

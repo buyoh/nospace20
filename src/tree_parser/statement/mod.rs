@@ -10,7 +10,7 @@ use super::expression::*;
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
-#[derive(Clone, Debug)] // TODO: REMOVE
+#[derive(Clone, Debug)]
 pub enum Statement {
     VariableDeclaration(String, Box<Expression>, bool, Option<i64>), // (name, init_expr, is_static, array_size)
     FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),

@@ -28,6 +28,7 @@
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
+- [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [scope/](scope/) - スコープ機能の実装計画
 - [array-implementation/](array-implementation/) - 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装設計（5フェーズ: 構文解析→意味解析→インタプリタ→WSコンパイラ→文字列）
 

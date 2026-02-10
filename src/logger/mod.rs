@@ -3,8 +3,6 @@ pub struct TextCode<'a> {
     lines: Vec<&'a str>,
     line_indices: Vec<usize>,
 }
-
-// TODO: add a function that convert from char based index to byte based index.
 impl<'a> TextCode<'a> {
     pub fn new(source: &'a str) -> Self {
         // NOTE: do not use lines().
@@ -20,7 +18,6 @@ impl<'a> TextCode<'a> {
                 t
             })
             .collect();
-        // TODO: indexize
         Self {
             // source,
             lines,

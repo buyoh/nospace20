@@ -8,7 +8,7 @@ use super::types::{Block, ExecStatement, IdentifierRef, Variable};
 
 pub(super) struct IdentifierInfo {
     // name: String,
-    pub idx: usize, // TODO: more safety
+    pub idx: usize,
 }
 
 pub(super) enum Identifier {
@@ -18,8 +18,8 @@ pub(super) enum Identifier {
 
 /// 関数情報
 pub struct Function {
-    pub args: Vec<String>, // TODO: change string to identifier_ptr
-    /// 事前計算された引数のインデックス（Phase 2 最適化）
+    pub args: Vec<String>,
+    /// 事前計算された引数のインデックス（最適化）
     /// 関数呼び出し時の引数初期化を O(args) にするため、
     /// 各引数の block.scope 内でのインデックスを保持
     pub arg_indices: Vec<usize>,
@@ -29,19 +29,19 @@ pub struct Function {
 
 /// スコープ情報
 ///
-/// Phase 2 で変数インデックス管理を追加。
+/// 変数インデックス管理を含む。
 /// 変数名からローカルインデックスへのマッピングを保持することで、
 /// 実行時に Vec<i64> ベースの高速アクセスを可能にする。
 ///
-/// Phase 3 で is_function_scope フラグを追加。関数スコープ境界を越える場合、
+/// is_function_scope フラグも保持。関数スコープ境界を越える場合、
 /// static 変数のみアクセス可能。
 ///
-/// Phase 3 でルートスコープに実行文（グローバル変数の初期化）を追加。
+/// ルートスコープには実行文（グローバル変数の初期化）も追加。
 pub struct Scope {
     pub(super) identifier_map: BTreeMap<String, Identifier>,
 
     /// 変数名からスロットインデックスへのマップ
-    /// Phase 2 で追加: 識別子解決時に使用
+    /// 識別子解決時に使用
     /// 配列の場合、配列の開始スロットインデックスを指す
     pub(crate) variable_indices: BTreeMap<String, usize>,
 
@@ -52,7 +52,7 @@ pub struct Scope {
     pub(crate) variables: Vec<Variable>,
 
     /// 変数のスロット総数（配列サイズを考慮）
-    /// Phase 2 で追加: インタプリタが Vec<i64> を初期化する際に使用
+    /// インタプリタが Vec<i64> を初期化する際に使用
     pub(crate) variable_count: usize,
 
     pub(super) functions: Vec<Function>,
@@ -60,17 +60,17 @@ pub struct Scope {
     /// 関数名のリスト（関数のイテレーションに使用）
     pub(crate) function_names: Vec<String>,
 
-    /// Phase 3: このスコープが関数スコープかどうか
+    /// このスコープが関数スコープかどうか
     /// true の場合、非 static 変数は親スコープからアクセス不可
     /// Root スコープと Function スコープで true
     pub(crate) is_function_scope: bool,
 
-    /// Phase 4: static 変数の初期化文
+    /// static 変数の初期化文
     /// 関数スコープの場合: 関数内の static 変数の初期化式
     /// ルートスコープの場合: ルートレベルの static 変数の初期化式（非 static より先に実行）
     pub(crate) static_init_statements: Vec<ExecStatement>,
 
-    /// Phase 3: ルートスコープの実行文（非 static グローバル変数の初期化）
+    /// ルートスコープの実行文（非 static グローバル変数の初期化）
     /// 関数スコープ・ブロックスコープでは空
     pub(crate) root_statements: Vec<ExecStatement>,
 }
@@ -107,7 +107,7 @@ pub(super) enum ScopeType {
 
 /// スコープ情報（ScopeResolver 用）
 ///
-/// Phase 3 で追加。関数境界チェックのため、各スコープの追加情報を保持する。
+/// 関数境界チェックのため、各スコープの追加情報を保持する。
 #[derive(Clone)]
 pub(super) struct ScopeInfo<'a> {
     /// 変数名からスロットインデックスへのマップ
@@ -122,14 +122,13 @@ pub(super) struct ScopeInfo<'a> {
 
 /// スコープ解決のためのコンテキスト
 ///
-/// Phase 2 で導入。2パス解析のパス2で使用され、
+/// 2パス解析のパス2で使用され、
 /// 変数名・関数名を IdentifierRef に解決する。
 ///
-/// Phase 3 で関数境界チェックを追加。親の関数スコープの非 static 変数には
+/// 関数境界チェックも実装。親の関数スコープの非 static 変数には
 /// アクセスできないようにする。
 pub(super) struct ScopeResolver<'a> {
     /// スコープスタック（末尾が現在のスコープ）
-    /// Phase 3: スコープ情報を保持するように変更
     pub scope_stack: Vec<ScopeInfo<'a>>,
 }
 
@@ -237,7 +236,7 @@ pub(super) struct ScopeBuilder {
     pub variables: Vec<Variable>,
     pub functions: Vec<Function>,
     pub function_names: Vec<String>,
-    /// Phase 4: static 変数の初期化文を一時的に保持
+    /// static 変数の初期化文を一時的に保持
     pub static_init_statements: Vec<ExecStatement>,
 }
 

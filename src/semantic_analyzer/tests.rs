@@ -69,7 +69,7 @@ fn test_error_continue_outside_function() {
 
 #[test]
 fn test_success_expression_at_root_level() {
-    // Phase 3: グローバル変数の初期化式を許可
+    // グローバル変数の初期化式を許可
     let statements = vec![LocatedStatement {
         statement: Statement::Expression(Box::new(Expression::Factor(42))),
         location: SourceLocation::new(50, 55),
@@ -150,7 +150,7 @@ fn test_success_block_scoped_variable() {
 
 #[test]
 fn test_success_global_variable() {
-    // Phase 3: グローバル変数を許可
+    // グローバル変数を許可
     let var_decl = LocatedStatement {
         statement: Statement::VariableDeclaration(
             "global".to_string(),

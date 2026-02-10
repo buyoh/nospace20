@@ -34,7 +34,7 @@ pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> 
 
 /// グローバル変数の領域確保と初期化式の実行
 ///
-/// Phase 4: 初期化順序を実装
+/// 初期化順序:
 /// 1. static 変数の初期化式を実行（ルートレベル）
 /// 2. 関数内 static 変数の初期化式を実行
 /// 3. 非 static グローバル変数の初期化式を実行
@@ -42,7 +42,7 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) {
     // グローバル変数の領域を確保
     env.global_variables = vec![0; scope.variable_count];
 
-    // Phase 4: ルートレベル static 変数の初期化式を先に実行
+    // ルートレベル static 変数の初期化式を先に実行
     if !scope.static_init_statements.is_empty() {
         let mut local_env = LocalEnvironment {
             env,
@@ -57,7 +57,7 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) {
         }
     }
 
-    // Phase 4: 関数内 static 変数の初期化
+    // 関数内 static 変数の初期化
     initialize_function_statics(env, scope);
 
     // 非 static グローバル変数の初期化式を実行

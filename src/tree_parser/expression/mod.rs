@@ -13,7 +13,7 @@ use super::{LocatedStatement, Statement};
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
-#[derive(Clone, Debug)] // TODO: REMOVE
+#[derive(Clone, Debug)]
 pub enum Operator2 {
     Plus,
     Minus,
@@ -36,7 +36,7 @@ pub enum Operator2 {
     LogicalOr,
 }
 
-#[derive(Clone, Debug)] // TODO: REMOVE
+#[derive(Clone, Debug)]
 pub enum Operator1 {
     Negative,
     LogicalNot,
@@ -44,7 +44,7 @@ pub enum Operator1 {
     Deref, // *
 }
 
-#[derive(Clone, Debug)] // TODO: REMOVE
+#[derive(Clone, Debug)]
 pub enum Expression {
     Operation1(Operator1, Box<Expression>),
     Operation2(Operator2, Box<Expression>, Box<Expression>),
@@ -417,7 +417,6 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     }
 
     fn parse_to_expression_tree_root(&mut self) -> Box<Expression> {
-        // TODO: check the expression that it has Invalid
         // if/while は factor レベルで解析されるため、ここでは assign から開始
         self.parse_to_expression_tree_assign()
     }

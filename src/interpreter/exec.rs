@@ -8,13 +8,12 @@ use super::types::{bool_to_int, try_expr, ExpressionFlow, Flow};
 
 /// 1つのfunction scopeの`実行時インスタンス`を管理する
 ///
-/// Phase 2 で scope_stack を BTreeMap<String, i64> から Vec<i64> に変更。
+/// scope_stack を BTreeMap<String, i64> から Vec<i64> に変更。
 /// 変数アクセスを O(1) にするため、IdentifierRef を使用してインデックスベースでアクセスする。
 pub(super) struct LocalEnvironment<'a, 'aenv> {
     pub(super) env: &'aenv mut Environment,
     pub(super) root_scope: &'a Scope,
     /// スコープスタック: 末尾が現在のスコープ
-    /// Phase 2: BTreeMap から Vec<i64> に変更
     pub(super) scope_stack: Vec<Vec<i64>>,
 }
 
@@ -25,11 +24,11 @@ impl LocalEnvironment<'_, '_> {
         func: &'a Function,
         args: &Vec<i64>,
     ) -> LocalEnvironment<'a, 'aenv> {
-        // Phase 2: Vec<i64> ベースの変数管理
+        // Vec<i64> ベースの変数管理
         // 変数の数だけ領域を確保し、引数で初期化
         let mut variables = vec![0; func.block.scope.variable_count];
 
-        // 引数を対応する変数にセット（Phase 2 最適化: 事前計算されたインデックスを使用）
+        // 引数を対応する変数にセット（最適化: 事前計算されたインデックスを使用）
         for (i, arg_val) in args.iter().enumerate() {
             if i < func.arg_indices.len() {
                 // 事前計算されたインデックスを使用して O(1) でアクセス
@@ -46,7 +45,7 @@ impl LocalEnvironment<'_, '_> {
 
     /// ブロックに入る
     fn enter_block(&mut self, scope: &Scope) {
-        // Phase 2: 変数の数だけ Vec を初期化
+        // 変数の数だけ Vec を初期化
         self.scope_stack.push(vec![0; scope.variable_count]);
     }
 
@@ -55,8 +54,8 @@ impl LocalEnvironment<'_, '_> {
         self.scope_stack.pop();
     }
 
-    /// 識別子参照から値を取得（Phase 2）
-    /// Phase 3: グローバル変数対応（is_global フラグチェック）
+    /// 識別子参照から値を取得
+    /// グローバル変数対応（is_global フラグチェック）
     fn get_variable(&self, id: &IdentifierRef) -> i64 {
         if id.is_global {
             // グローバル変数は Environment に保持
@@ -68,8 +67,8 @@ impl LocalEnvironment<'_, '_> {
         }
     }
 
-    /// 識別子参照に値を設定（Phase 2）
-    /// Phase 3: グローバル変数対応（is_global フラグチェック）
+    /// 識別子参照に値を設定
+    /// グローバル変数対応（is_global フラグチェック）
     fn set_variable(&mut self, id: &IdentifierRef, value: i64) {
         if id.is_global {
             // グローバル変数は Environment に保持
@@ -81,7 +80,7 @@ impl LocalEnvironment<'_, '_> {
         }
     }
 
-    /// IdentifierRef から絶対アドレスを計算（Phase 3）
+    /// IdentifierRef から絶対アドレスを計算
     fn resolve_address(&self, id: &IdentifierRef) -> i64 {
         if id.is_global {
             id.local_index as i64
@@ -96,7 +95,7 @@ impl LocalEnvironment<'_, '_> {
         }
     }
 
-    /// 絶対アドレスから値を取得（Phase 3）
+    /// 絶対アドレスから値を取得
     fn get_by_address(&self, addr: i64) -> i64 {
         let addr = addr as usize;
         let global_count = self.env.global_variables.len();
@@ -114,7 +113,7 @@ impl LocalEnvironment<'_, '_> {
         }
     }
 
-    /// 絶対アドレスに値を設定（Phase 3）
+    /// 絶対アドレスに値を設定
     fn set_by_address(&mut self, addr: i64, value: i64) {
         let addr = addr as usize;
         let global_count = self.env.global_variables.len();
@@ -149,7 +148,6 @@ impl LocalEnvironment<'_, '_> {
             "__assert" => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                 if !self.env.config.ignore_debug && a == 0 {
-                    // TODO: 気の利いたログを出せない
                     panic!("assertion failed: {} == 0", a);
                 }
                 ExpressionFlow::Value(a)
@@ -157,13 +155,11 @@ impl LocalEnvironment<'_, '_> {
             "__assert_not" => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                 if !self.env.config.ignore_debug && a != 0 {
-                    // TODO: 気の利いたログを出せない
                     panic!("assertion failed: {} != 0", a);
                 }
                 ExpressionFlow::Value(a)
             }
             "__trace" => {
-                // TODO: 未だ比較演算子を実装していないので not
                 let key = try_expr!(self.interpret_expression(args.first().unwrap()));
                 if !self.env.config.ignore_debug {
                     let traced = &mut self.env.traced;
@@ -267,7 +263,6 @@ impl LocalEnvironment<'_, '_> {
                 ExpressionFlow::Jump(Flow::Return(x)) => {
                     return ExpressionFlow::Jump(Flow::Return(x))
                 }
-                // TODO: exclude on comile-time.
                 ExpressionFlow::Jump(Flow::Continue) => panic!(
                     "internal error: unexpected continue: Don't call continue in `while` condition"
                 ),
@@ -394,7 +389,7 @@ impl LocalEnvironment<'_, '_> {
                     return ExpressionFlow::Value(v);
                 }
                 ExecExpression::Operation1(Operator1::Deref, inner) => {
-                    // *ptr = value のケース (Phase 3)
+                    // *ptr = value のケース
                     let addr = try_expr!(self.interpret_expression(inner));
                     let v = try_expr!(self.interpret_expression(expr2));
                     self.set_by_address(addr, v);
@@ -460,7 +455,7 @@ impl LocalEnvironment<'_, '_> {
             ExecExpression::Function(id, args) => self.interpret_call_function(id, args),
             ExecExpression::Factor(v) => ExpressionFlow::Value(*v),
             ExecExpression::Variable(id_ref) => {
-                // Phase 2: IdentifierRef を使用して O(1) でアクセス
+                // IdentifierRef を使用して O(1) でアクセス
                 ExpressionFlow::Value(self.get_variable(id_ref))
             }
             ExecExpression::ArrayAccess(id_ref, index_expr, _array_size) => {

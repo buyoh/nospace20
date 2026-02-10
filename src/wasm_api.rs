@@ -112,8 +112,7 @@ pub fn run(source: &str, stdin: &str, debug: bool) -> JsValue {
         None
     };
 
-    // interpret_func_with_io は戻り値を返さないため None とする
-    // TODO: interpret_with_io で戻り値も取得できるようにする
+
     let result = RunResultOk {
         success: true,
         return_value: None,
@@ -242,7 +241,7 @@ pub fn parse(source: &str) -> JsValue {
             let result = serde_json::json!({ "success": true });
 
 // ========================================
-// Phase A: Whitespace VM のステップ実行 API
+// Whitespace VM のステップ実行 API
 // ========================================
 
 /// Whitespace VM の実行結果型

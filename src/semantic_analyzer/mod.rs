@@ -26,7 +26,7 @@ pub(crate) use types::{Block, ExecExpression, ExecStatement, Variable};
 
 /// 式を ExecExpression に変換する（識別子解決あり）
 ///
-/// Phase 2 で導入。ScopeResolver を使用して変数名・関数名を IdentifierRef に解決する。
+/// ScopeResolver を使用して変数名・関数名を IdentifierRef に解決する。
 fn convert_to_exec_expression_with_resolver(
     expr: &Box<Expression>,
     parent_resolver: &ScopeResolver,
@@ -153,8 +153,8 @@ fn convert_to_exec_expression_with_resolver(
             )))
         }
         Expression::Function(f, a) => {
-            // Phase 2: 関数は組み込み関数のみなので文字列のまま保持
-            // ユーザー定義関数は Phase 3 以降で対応
+            // 関数は組み込み関数のみなので文字列のまま保持
+            // 注: ユーザー定義関数は未実装
             let mut args = Vec::new();
             for e in a {
                 args.push(convert_to_exec_expression_with_resolver(
@@ -197,8 +197,7 @@ fn convert_to_exec_expression_with_resolver(
 fn convert_to_exec_expression(
     expr: &Box<Expression>,
 ) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
-    // Phase 2: 後方互換性のため残すが、内部的には resolver を使用
-    // TODO: この関数は削除予定（全ての呼び出しを convert_to_exec_expression_with_resolver に置き換える）
+    // 後方互換性のため残すが、内部的には空の resolver を使用
     let resolver = ScopeResolver::new();
     convert_to_exec_expression_with_resolver(expr, &resolver)
 }
@@ -219,7 +218,7 @@ fn analyze_internal_with_parent(
 ) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
     let mut scope = ScopeBuilder::new();
 
-    // Phase 3: グローバル変数は暗黙的に static
+    // グローバル変数は暗黙的に static
     let is_static = matches!(scope_type, ScopeType::Root);
     let is_function_scope = matches!(scope_type, ScopeType::Root | ScopeType::Function);
 
@@ -235,14 +234,13 @@ fn analyze_internal_with_parent(
         )?;
     }
 
-    // Phase 2: 2パス解析（変数のみ）
+    // 2パス解析（変数のみ）
     // パス1: 変数宣言収集（ホイスティング対応）
     for located_stat in statements {
         let stat = &located_stat.statement;
         match stat {
             Statement::VariableDeclaration(name, _, is_static_explicit, array_size) => {
-                // Phase 3: グローバル変数は暗黙的に static
-                // Phase 4: 明示的 static も考慮
+                // グローバル変数は暗黙的に static、明示的 static も考慮
                 let final_is_static = *is_static_explicit || is_static;
                 scope.add_variable(
                     name,
@@ -327,7 +325,7 @@ fn analyze_internal_with_parent(
                 let exec = ExecStatement::Expression(
                     convert_to_exec_expression_with_resolver(init, &resolver)?,
                 );
-                // Phase 4: static 変数の初期化式は分離する
+                // static 変数の初期化式は分離する
                 // - ルートスコープ: static 変数の初期化は非 static より先に実行
                 // - 関数スコープ: static 変数の初期化は main 前に1回だけ実行
                 if *is_static_explicit {
@@ -337,7 +335,7 @@ fn analyze_internal_with_parent(
                 }
             }
             Statement::FunctionDeclaration(name, args, block) => {
-                // Phase 3: 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
+                // 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
                 let (s, es) = analyze_internal_with_parent(
                     block,
                     ScopeType::Function,
@@ -346,7 +344,7 @@ fn analyze_internal_with_parent(
                 )?;
                 let built_scope = s.build(true, Vec::new()); // 関数スコープ、root_statementsは空
 
-                // 引数のインデックスを事前計算（Phase 2 最適化）
+                // 引数のインデックスを事前計算（最適化）
                 let arg_indices: Vec<usize> = args
                     .iter()
                     .map(|arg_name| {
@@ -380,7 +378,7 @@ fn analyze_internal_with_parent(
                 ));
             }
             Statement::Expression(e) => {
-                // Phase 3: ルートスコープでも式文を許可（グローバル変数の初期化式）
+                // ルートスコープでも式文を許可（グローバル変数の初期化式）
                 exec_statements.push(ExecStatement::Expression(
                     convert_to_exec_expression_with_resolver(e, &resolver)?,
                 ));
@@ -412,9 +410,8 @@ fn analyze_internal_with_parent(
 }
 
 pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
-    // Phase 3: ルートの実行文（グローバル変数の初期化）も返す
+    // ルートの実行文（グローバル変数の初期化）も返す
     analyze_internal(root, ScopeType::Root).map(|(scope, root_stmts)| scope.build(true, root_stmts))
-    // TODO: validate identifiers
 }
 
 #[cfg(test)]

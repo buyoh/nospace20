@@ -24,7 +24,7 @@ pub fn generate_expression(
         // 変数参照
         ExecExpression::Variable(var_ref) => generate_load_variable(ctx, var_ref),
 
-        // 配列アクセス (Phase 4 で実装予定)
+        // 配列アデスセ (未実装)
         ExecExpression::ArrayAccess(_, _, _) => {
             Err(CompileError::InvalidOperation(
                 "array access is not yet supported in compiler".to_string(),
@@ -101,11 +101,11 @@ fn generate_unary_op(
             prog.push(Instruction::Call(reserved_labels::COMPARATOR_ZERO));
         }
         Operator1::Ref => {
-            // Phase 4 で実装予定
+            // 未実装
             unimplemented!("reference operator (&) is not implemented yet")
         }
         Operator1::Deref => {
-            // Phase 4 で実装予定
+            // 未実装
             unimplemented!("dereference operator (*) is not implemented yet")
         }
     }
@@ -297,7 +297,7 @@ fn generate_function_call(
         "__assert" => generate_builtin_debug_noop(ctx, args),
         "__assert_not" => generate_builtin_debug_noop(ctx, args),
         _ => {
-            // TODO: ユーザー定義関数の実装
+            // ユーザー定義関数は未実装
             Err(CompileError::UndefinedFunction(func_name.to_string()))
         }
     }
