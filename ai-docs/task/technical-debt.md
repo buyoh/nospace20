@@ -77,18 +77,11 @@ pub(crate) struct Variable {
 
 ### 3.2 Function の args フィールド
 
-**コード**:
-```rust
-pub(crate) struct Function {
-    pub args: Vec<String>, // TODO: change string to identifier_ptr
-    pub arg_indices: Vec<usize>,
-    pub block: Block,
-}
-```
+**状態**: 考察済み → 別ドキュメントに分離
 
-**説明**:
-- 引数名を文字列から識別子ポインタに変更予定
-- より型安全な実装
+**詳細**: [function-args-identifier-resolution.md](./function-args-identifier-resolution.md)
+
+**結論**: `args: Vec<String>` フィールドは削除可能。`arg_indices: Vec<usize>` が既に完全な識別子解決結果を保持しており、全ての消費者（interpreter, compiler_ws）が `arg_indices` のみで動作できる。変更量は小（3ファイル数行）。
 
 ### 3.3 IdentifierInfo の idx フィールド
 
