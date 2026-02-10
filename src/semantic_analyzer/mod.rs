@@ -357,7 +357,6 @@ fn analyze_internal_with_parent(
 
                 // 関数を登録
                 let func = Function {
-                    args: args.clone(),
                     arg_indices,
                     block: Block {
                         scope: built_scope,

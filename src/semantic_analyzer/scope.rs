@@ -18,7 +18,6 @@ pub(super) enum Identifier {
 
 /// 関数情報
 pub struct Function {
-    pub args: Vec<String>,
     /// 事前計算された引数のインデックス（最適化）
     /// 関数呼び出し時の引数初期化を O(args) にするため、
     /// 各引数の block.scope 内でのインデックスを保持
