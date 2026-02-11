@@ -63,52 +63,27 @@ Expression::Invalid(_) => {
 
 ### 3.1 Variable の identifier フィールド
 
-**状態**: ⚠️ TODO (コメント無し)
+**状態**: ⚠️ TODO → 別ドキュメントに分離
 
-**場所**: [src/semantic_analyzer/types.rs](../../src/semantic_analyzer/types.rs#L31)
+**詳細**: [identifier-management-improvement.md](./identifier-management-improvement.md) §1
 
-**コード**:
-```rust
-pub(crate) struct Variable {
-    pub identifier: String,
-    pub is_static: bool,
-}
-```
-
-**説明**: 
-- 文字列ベースの識別子管理を `IdentifierInfo` ベースに変更予定
-- より効率的な識別子管理
-- TODO コメントは既に削除されているが、実装は未完了
+**概要**: `Variable.identifier: String` を削除し、`slot_index: usize` に置き換える。interpreter での名前ベース lookup が不要になる。変更量: 小（4ファイル）。
 
 ### 3.2 Function の args フィールド
 
 **状態**: ✅ 完了 (2026-02-11)
 
-**詳細**: [function-args-identifier-resolution.md](./function-args-identifier-resolution.md)
-
 **説明**:
 - `args: Vec<String>` フィールドは既にコードから削除済み
-- コメントアウトされた行のみ残存: `// pub identifier: String,`
 - `arg_indices: Vec<usize>` のみで完全に動作
 
-### 3.3 IdentifierInfo の構造
+### 3.3 IdentifierInfo の型安全化
 
-**状態**: ⚠️ TODO (コメント無し)
+**状態**: ⚠️ TODO → 別ドキュメントに分離
 
-**場所**: [src/semantic_analyzer/scope.rs](../../src/semantic_analyzer/scope.rs#L10-L12)
+**詳細**: [identifier-management-improvement.md](./identifier-management-improvement.md) §2
 
-**コード**:
-```rust
-struct IdentifierInfo {
-    // name: String,
-    pub idx: usize,
-}
-```
-
-**説明**:
-- `name` フィールドは既にコメントアウト済み
-- `idx` フィールドをより安全な型に変更予定 (newtype パターン等)
-- TODO コメントは既に削除されているが、型安全性の改善は未実施
+**概要**: `IdentifierInfo` を `FunctionIndex` / `VariableIndex` の newtype に分離。関数・変数インデックスの混同を型レベルで防止。変更量: 小（2ファイル）。
 
 **優先度**: 中 - 型安全性とパフォーマンス向上
 
@@ -223,6 +198,7 @@ pub struct CodeParseError {
 
 ## 更新履歴
 
+- 2026-02-11: §3.1, §3.3 の設計を identifier-management-improvement.md に分離
 - 2026-02-11: 実装状況を再確認し、最新の警告情報に更新。Function の args フィールド削除を完了としてマーク
 - 2026-02-10: Clone derive の削除を完了、エラーメッセージ型が既に完了済みであることを確認
 - 2026-02-07: unimplemented-features.md から分離して作成
