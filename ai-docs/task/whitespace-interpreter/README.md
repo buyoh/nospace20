@@ -58,7 +58,6 @@ Whitespace はフラットな命令セットのスタックマシンであるた
 - [ ] 既存 large テストの Whitespace VM 経由実行
 - [ ] wsc と whitespace20 の出力比較テスト
 - [ ] `test-manifest.yaml` に `whitespace_vm` ターゲット追加
-- [ ] パフォーマンス測定
 
 ## 関連タスク
 
