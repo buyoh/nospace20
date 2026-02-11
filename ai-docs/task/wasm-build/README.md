@@ -21,6 +21,7 @@ JavaScript / ブラウザ / Node.js から CLI と同等の機能を呼び出せ
 | [build-config.md](build-config.md) | Cargo.toml・ビルド設定の変更 |
 | [api-design.md](api-design.md) | WASM 公開 API の設計（run / compile） |
 | [implementation.md](implementation.md) | 実装手順（Phase 0/1/A/B/3 全て含む統合ドキュメント） |
+| [nodejs-test.md](nodejs-test.md) | Node.js WASM テスト設計（Phase 3） |
 
 ## 全体フェーズ計画
 
@@ -62,11 +63,15 @@ nospace を直接ステップ実行する中断可能インタプリタの WASM 
 - [ ] デバッグ情報 API（変数・コールスタック）
 - [ ] テスト・検証
 
-### Phase 3: テスト・統合
+### Phase 3: テスト・統合 → [nodejs-test.md](nodejs-test.md)
 
-- [ ] Node.js でのスモークテスト（`run` / `compile` / ステップ実行の動作確認）
-- [ ] 既存テストケースの一部を WASM 経由で実行し結果照合
-- [ ] Phase A と Phase B の結果一致確認
+Node.js でのスモークテスト・既存テストケースの WASM 経由実行。
+
+- [ ] テスト環境構築（`tests/wasm/` ディレクトリ、package.json）
+- [ ] Node.js でのスモークテスト（`run` / `compile` / `parse` 関数）
+- [ ] WasmWhitespaceVM ステップ実行テスト
+- [ ] エラーケーステスト
+- [ ] README.md にテスト実行方法を追記
 - [ ] サイズ最適化（`wasm-opt`、不要機能の除外）
 
 ## 実装順序の推奨
