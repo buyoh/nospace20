@@ -9,7 +9,7 @@
 - [unimplemented-variable-features.md](unimplemented-variable-features.md) - 未実装の変数関連機能（初期値指定、final/const変数）
 - [unimplemented-type-system.md](unimplemented-type-system.md) - 未実装の型システム（int, void, function, tuple）
 - [unimplemented-compiler-features.md](unimplemented-compiler-features.md) - 未実装のコンパイラ機能（compiler, grayspace）
-- [technical-debt.md](technical-debt.md) - コード内の技術的負債（Clone derive削除、識別子管理改善）
+- [unused-code-cleanup.md](unused-code-cleanup.md) - 未使用コードの整理（17件の警告調査・分類済み、Phase 1-3 の対処方針）
 - [identifier-management-improvement.md](identifier-management-improvement.md) - 識別子管理改善設計（Variable.identifier 削除、IdentifierInfo 型安全化）
 - [symbol-table-design.md](symbol-table-design.md) - デバッグ用シンボルテーブル設計（識別子のインデックス化・文字列分離）
 - [error-message-improvement.md](error-message-improvement.md) - エラーメッセージ型の改善（Cow<'static, str> 導入設計）

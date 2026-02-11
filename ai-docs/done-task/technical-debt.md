@@ -114,74 +114,26 @@ pub struct CodeParseError {
 
 ## 5. 未使用の関数とフィールド
 
-**状態**: ⚠️ 要確認
+**状態**: ⚠️ TODO → 別ドキュメントに分離
 
-**説明**: コンパイル時に多数の未使用警告が出力されています。
+**詳細**: [unused-code-cleanup.md](./unused-code-cleanup.md)
 
-### 5.1 未使用の関数
+**概要**: `cargo build` で出力される 17 件の未使用警告を調査・分類済み。
+- semantic_analyzer: 完全デッドコード 4 件 → 削除
+- compiler_ws: 部分実装による未使用 → `#[allow(dead_code)]` / 不要 import 除去
+- interpreter: `EnvironmentMetrics` re-export → `#[allow(dead_code)]`
 
-**現在の警告** (2026-02-11 時点):
-
-1. `convert_to_exec_expression` (semantic_analyzer/mod.rs:220)
-   - 後方互換性のため残されているが、実際には未使用
-   - 全ての呼び出しは `convert_to_exec_expression_with_resolver` を使用
-   - **推奨**: 削除可能
-
-### 5.2 未使用のフィールド
-
-**現在の警告** (2026-02-11 時点):
-
-1. `IdentifierInfo.0` - フィールドが読み込まれていない
-   - 場所: semantic_analyzer/scope.rs:10
-   - 実際には `idx` という名前のフィールド
-   - **原因**: 使用箇所はあるが、コンパイラが検出できていない可能性
-
-2. `Function.scope_depth` - 書き込みのみで読み込みなし
-   - 場所: semantic_analyzer/scope.rs:30
-   - **推奨**: 将来の関数可視性チェックで使用予定なら保持、そうでなければ削除
-
-3. `Scope.is_function_scope` - 未読み込み
-   - 場所: semantic_analyzer/scope.rs
-   - **推奨**: 関数境界チェック実装時に使用予定なら保持、そうでなければ削除
-
-4. `IdentifierRef.is_global` - 未読み込み
-   - 場所: semantic_analyzer/types.rs
-   - **推奨**: グローバル変数管理で使用予定なら保持、そうでなければ削除
-
-5. `Scope.get_variable` メソッド - 未使用
-
-### 5.3 compiler_ws モジュールの未使用項目
-
-**現在の警告** (2026-02-11 時点):
-
-多数の未使用項目があります:
-- `LabelId`, `WsNumber`, `HeapAddress` (未使用 import)
-- `EnvironmentMetrics` (未使用 import)
-- `UndefinedVariable` バリアント (未構築)
-- 各種メソッド:
-  - `new_label_range`, `scope`
-  - `allocate_global`, `global_size`, `initial_local_heap`
-  - `len`, `is_empty`, `into_instructions`, `instructions`
-  - `new`, `value`, `offset`
-- フィールド:
-  - `global_var_count`
-
-**原因**: compiler_ws モジュールが部分的な実装段階にあるため
-
-**対処**:
-1. 完全に不要なコードは削除
-2. 将来使用予定のコードには `#[allow(dead_code)]` を追加
-3. Whitespace コンパイラ実装が進んだら再評価
-
-**優先度**: 低 - クリーンなコードベースのため
+**優先度**: 低～中
 
 ---
 
 ## 実装の優先順位
 
-1. **未使用の関数の削除** (`convert_to_exec_expression`) - すぐに削除可能
-2. **未使用フィールドの整理** - 将来使用予定か判断が必要
-3. **変数/関数の識別子管理の改善** - 型安全性とパフォーマンス向上
+全ての項目が完了または別ドキュメントに分離済み。
+
+1. ~~**未使用の関数の削除**~~ → [unused-code-cleanup.md](./unused-code-cleanup.md)
+2. ~~**未使用フィールドの整理**~~ → [unused-code-cleanup.md](./unused-code-cleanup.md)
+3. ~~**変数/関数の識別子管理の改善**~~ → [identifier-management-improvement.md](./identifier-management-improvement.md)
 4. ~~**Clone derive の削除**~~ - ✅ 完了 (2026-02-10)
 5. ~~**Function の args フィールド削除**~~ - ✅ 完了 (2026-02-11)
 6. ~~**エラーメッセージ型の改善**~~ - ✅ 完了済み
@@ -193,11 +145,14 @@ pub struct CodeParseError {
 - [src/semantic_analyzer/mod.rs](../../src/semantic_analyzer/mod.rs)
 - [src/compiler_ws/](../../src/compiler_ws/)
 - [ai-docs/spec/implementation-status.md](../spec/implementation-status.md)
+- [identifier-management-improvement.md](./identifier-management-improvement.md) - §3.1, §3.3 の詳細設計
+- [unused-code-cleanup.md](./unused-code-cleanup.md) - §5 の詳細調査・対処方針
 
 ---
 
 ## 更新履歴
 
+- 2026-02-11: §5 を unused-code-cleanup.md に分離。本ドキュメントを完了として done-task/ に移動
 - 2026-02-11: §3.1, §3.3 の設計を identifier-management-improvement.md に分離
 - 2026-02-11: 実装状況を再確認し、最新の警告情報に更新。Function の args フィールド削除を完了としてマーク
 - 2026-02-10: Clone derive の削除を完了、エラーメッセージ型が既に完了済みであることを確認
