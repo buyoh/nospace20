@@ -68,6 +68,18 @@ rustup target add wasm32-unknown-unknown
 cargo build --target wasm32-unknown-unknown --lib --no-default-features --features wasm
 ```
 
+### WASM Node.js Tests
+
+```bash
+# Build WASM for Node.js
+wasm-pack build --target nodejs --no-default-features --features wasm
+
+# Note: Node.js is only required to run the tests. The wasm-pack build itself does not depend on Node.js.
+
+# Run Node.js smoke tests
+cd tools/wasm-test && node test.mjs
+```
+
 ### Feature Flags
 
 - `cli` (default): Enable CLI binary build with `clap` and `unicode-width` dependencies

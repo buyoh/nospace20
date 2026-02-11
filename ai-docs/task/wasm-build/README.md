@@ -67,11 +67,11 @@ nospace を直接ステップ実行する中断可能インタプリタの WASM 
 
 Node.js でのスモークテスト・既存テストケースの WASM 経由実行。
 
-- [ ] テスト環境構築（`tests/wasm/` ディレクトリ、package.json）
-- [ ] Node.js でのスモークテスト（`run` / `compile` / `parse` 関数）
-- [ ] WasmWhitespaceVM ステップ実行テスト
-- [ ] エラーケーステスト
-- [ ] README.md にテスト実行方法を追記
+- [x] テスト環境構築（`tools/wasm-test/` ディレクトリ、package.json）
+- [x] Node.js スモークテスト実装（`run` / `compile` / `parse` 関数）
+- [x] WasmWhitespaceVM ステップ実行テスト実装
+- [x] エラーケーステスト実装
+- [x] README.md にテスト実行方法を追記
 - [ ] サイズ最適化（`wasm-opt`、不要機能の除外）
 
 ## 実装順序の推奨

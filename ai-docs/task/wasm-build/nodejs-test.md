@@ -44,6 +44,8 @@ Phase 3（テスト・統合）の一部として、すべての公開 API が�
 - Node.js (v18 以上推奨、ES modules サポート)
 - wasm-pack (`cargo install wasm-pack` または `npx wasm-pack`)
 
+Node.js はテスト実行にのみ必要で、`wasm-pack build` 自体は Node.js に依存しない。
+
 ### ビルド手順
 
 ```bash
@@ -196,21 +198,22 @@ cd tools/wasm-test && node test.mjs
 
 ### Phase 1: テスト環境構築
 
-- [ ] `tools/wasm-test/` ディレクトリ作成
-- [ ] `tools/wasm-test/package.json` 作成
-- [ ] WASM ビルドスクリプト追加（Makefile または npm script）
+- [x] `tools/wasm-test/` ディレクトリ作成
+- [x] `tools/wasm-test/package.json` 作成
 
 ### Phase 2: テストスクリプト実装
 
-- [ ] `tools/wasm-test/test.mjs` 作成
-- [ ] 基本関数テスト実装（run, compile, parse）
-- [ ] WasmWhitespaceVM テスト実装
-- [ ] エラーケーステスト実装
+- [x] `tools/wasm-test/test.mjs` 作成
+- [x] 基本関数テスト実装（run, compile, parse）
+- [x] WasmWhitespaceVM テスト実装
+- [x] エラーケーステスト実装
 
 ### Phase 3: 検証・統合
 
-- [ ] 全テスト通過確認
-- [ ] README.md にテスト実行方法を追記
+- [ ] 全テスト通過確認（wasm-pack 未導入のため未実施）
+- [x] README.md にテスト実行方法を追記
+
+失敗調査メモ: [nodejs-test-failure.md](nodejs-test-failure.md)
 
 ## 備考
 

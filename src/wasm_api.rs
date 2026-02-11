@@ -239,6 +239,12 @@ pub fn parse(source: &str) -> JsValue {
     match syntactic_analyze(&statements) {
         Ok(_) => {
             let result = serde_json::json!({ "success": true });
+            // Bug fix: parse() must return here and close before VM exports below.
+            serde_wasm_bindgen::to_value(&result).unwrap()
+        }
+        Err(errors) => convert_errors(&errors, &text),
+    }
+}
 
 // ========================================
 // Whitespace VM のステップ実行 API
@@ -459,9 +465,4 @@ pub fn compile_to_whitespace_string(source: &str) -> JsValue {
 #[wasm_bindgen]
 pub fn compile_to_mnemonic_string(source: &str) -> JsValue {
     compile(source, "mnemonic", "ws")
-}
-            serde_wasm_bindgen::to_value(&result).unwrap()
-        }
-        Err(errors) => convert_errors(&errors, &text),
-    }
 }
