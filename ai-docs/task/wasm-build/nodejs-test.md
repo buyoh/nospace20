@@ -64,8 +64,8 @@ nospace20/
 │   ├── nospace20.js
 │   ├── nospace20_bg.wasm
 │   └── nospace20.d.ts
-├── tests/
-│   └── wasm/                 # WASM テストディレクトリ（新規）
+├── tools/
+│   └── wasm-test/            # WASM テストディレクトリ（新規）
 │       ├── package.json      # テスト用 npm 設定
 │       └── test.mjs          # テストスクリプト
 ```
@@ -74,7 +74,7 @@ nospace20/
 
 ### 構成
 
-`tests/wasm/test.mjs` で全テストを実行する単一ファイル構成。
+`tools/wasm-test/test.mjs` で全テストを実行する単一ファイル構成。
 外部テストフレームワーク（Jest, Mocha 等）を使わず、シンプルな assert ベースで実装。
 
 ### テストケース
@@ -176,7 +176,7 @@ assert(vm2.flush_stdout() === '2\n');
 
 ```bash
 # テスト実行（プロジェクトルートから）
-cd tests/wasm && node test.mjs
+cd tools/wasm-test && node test.mjs
 ```
 
 ### package.json
@@ -196,13 +196,13 @@ cd tests/wasm && node test.mjs
 
 ### Phase 1: テスト環境構築
 
-- [ ] `tests/wasm/` ディレクトリ作成
-- [ ] `tests/wasm/package.json` 作成
+- [ ] `tools/wasm-test/` ディレクトリ作成
+- [ ] `tools/wasm-test/package.json` 作成
 - [ ] WASM ビルドスクリプト追加（Makefile または npm script）
 
 ### Phase 2: テストスクリプト実装
 
-- [ ] `tests/wasm/test.mjs` 作成
+- [ ] `tools/wasm-test/test.mjs` 作成
 - [ ] 基本関数テスト実装（run, compile, parse）
 - [ ] WasmWhitespaceVM テスト実装
 - [ ] エラーケーステスト実装
