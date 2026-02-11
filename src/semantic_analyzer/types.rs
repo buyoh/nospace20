@@ -28,7 +28,6 @@ pub struct IdentifierRef {
 #[derive(Clone)]
 pub(crate) struct Variable {
     // NOTE: ここに初期化情報は置かない
-    pub identifier: String,
     /// スロットインデックス
     /// 変数が使用するメモリスロットの開始位置
     /// 配列の場合、開始位置のインデックス

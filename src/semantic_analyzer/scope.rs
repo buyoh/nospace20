@@ -6,18 +6,17 @@ use crate::{base::CodeParseError, code_parse_error};
 
 use super::types::{Block, ExecStatement, IdentifierRef, Variable};
 
-#[derive(Clone)]
-pub(super) struct IdentifierInfo {
-    // name: String,
-    #[allow(dead_code)]
-    pub idx: usize,
-}
+#[derive(Clone, Copy)]
+pub(super) struct FunctionIndex(pub usize);
+
+#[derive(Clone, Copy)]
+pub(super) struct VariableIndex(pub usize);
 
 #[derive(Clone)]
 pub(super) enum Identifier {
-    Function(IdentifierInfo),
+    Function(FunctionIndex),
     #[allow(dead_code)]
-    Variable(IdentifierInfo),
+    Variable(VariableIndex),
 }
 
 /// 関数情報
@@ -77,7 +76,7 @@ pub struct Scope {
 impl Scope {
     pub(crate) fn get_function(&self, id: &str) -> Option<&Function> {
         if let Some(Identifier::Function(info)) = self.identifier_map.get(id) {
-            Some(&self.functions[info.idx])
+            Some(&self.functions[info.0])
         } else {
             None
         }
@@ -242,7 +241,7 @@ impl<'a> ScopeResolver<'a> {
                 // local_index はグローバルインデックス
                 return Some(IdentifierRef {
                     scope_depth: 0,
-                    local_index: info.idx,
+                    local_index: info.0,
                     is_global: true,
                 });
             }
@@ -258,6 +257,8 @@ impl<'a> ScopeResolver<'a> {
 pub(super) struct ScopeBuilder {
     pub identifier_map: BTreeMap<String, Identifier>,
     pub variables: Vec<Variable>,
+    /// 変数名のリスト（variables と同じ順序）
+    pub variable_names: Vec<String>,
     /// static 変数の初期化文を一時的に保持
     pub static_init_statements: Vec<ExecStatement>,
 }
@@ -267,6 +268,7 @@ impl ScopeBuilder {
         Self {
             identifier_map: BTreeMap::new(),
             variables: vec![],
+            variable_names: vec![],
             static_init_statements: vec![],
         }
     }
@@ -288,8 +290,9 @@ impl ScopeBuilder {
         let mut slot_index = 0;
         for (var_idx, var) in self.variables.iter_mut().enumerate() {
             var.slot_index = slot_index;
-            variable_indices.insert(var.identifier.clone(), slot_index);
-            variable_name_to_var_index.insert(var.identifier.clone(), var_idx);
+            let var_name = &self.variable_names[var_idx];
+            variable_indices.insert(var_name.clone(), slot_index);
+            variable_name_to_var_index.insert(var_name.clone(), var_idx);
             slot_index += var.array_size.unwrap_or(1);
         }
         let variable_count = slot_index;
@@ -325,6 +328,7 @@ impl ScopeBuilder {
     pub fn add_variable(&mut self, name: &str, var: Variable) -> Result<(), Vec<CodeParseError>> {
         let vi = self.variables.len();
         self.variables.push(var);
-        self.add_identifier(name, Identifier::Variable(IdentifierInfo { idx: vi }))
+        self.variable_names.push(name.to_string());
+        self.add_identifier(name, Identifier::Variable(VariableIndex(vi)))
     }
 }

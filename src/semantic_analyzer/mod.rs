@@ -12,7 +12,7 @@ mod types;
 
 use std::collections::BTreeMap;
 
-use scope::{Identifier, IdentifierInfo, ScopeBuilder, ScopeResolver, ScopeType};
+use scope::{FunctionIndex, Identifier, ScopeBuilder, ScopeResolver, ScopeType};
 
 use crate::{
     base::CodeParseError,
@@ -247,7 +247,6 @@ fn analyze_internal_with_parent(
         scope.add_variable(
             &var_name,
             Variable {
-                identifier: var_name.clone(),
                 slot_index: 0, // build() で正しい値に設定される
                 is_static: false, // 関数引数は非 static
                 array_size: None, // 関数引数は配列ではない
@@ -287,7 +286,7 @@ fn analyze_internal_with_parent(
                 // identifier_map にはグローバルインデックスを登録
                 scope.identifier_map.insert(
                     name.clone(),
-                    Identifier::Function(IdentifierInfo { idx: global_idx }),
+                    Identifier::Function(FunctionIndex(global_idx)),
                 );
             }
             _ => {}
@@ -304,7 +303,6 @@ fn analyze_internal_with_parent(
                 scope.add_variable(
                     name,
                     Variable {
-                        identifier: name.clone(),
                         slot_index: 0, // build() で正しい値に設定される
                         is_static: final_is_static,
                         array_size: array_size.map(|n| n as usize),
@@ -324,8 +322,9 @@ fn analyze_internal_with_parent(
     let mut variable_name_to_var_index_temp = BTreeMap::new();
     let mut slot_index = 0;
     for (idx, var) in scope.variables.iter().enumerate() {
-        variable_indices_temp.insert(var.identifier.clone(), slot_index);
-        variable_name_to_var_index_temp.insert(var.identifier.clone(), idx);
+        let var_name = &scope.variable_names[idx];
+        variable_indices_temp.insert(var_name.clone(), slot_index);
+        variable_name_to_var_index_temp.insert(var_name.clone(), idx);
         slot_index += var.array_size.unwrap_or(1);
     }
 
@@ -419,7 +418,7 @@ fn analyze_internal_with_parent(
                 // Phase 5: パス1aで登録済みの関数を更新
                 // identifier_map にはグローバルインデックスが格納されている
                 let global_idx = if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
-                    info.idx
+                    info.0
                 } else {
                     panic!("internal error: function should be pre-registered in pass 1a");
                 };
