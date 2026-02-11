@@ -134,32 +134,34 @@ impl LocalEnvironment<'_, '_> {
 
     fn interpret_call_function(
         &mut self,
-        id: &String,
+        kind: &crate::semantic_analyzer::BuiltinFunctionKind,
         args: &Vec<Box<ExecExpression>>,
     ) -> ExpressionFlow {
-        match id.as_str() {
-            "__clog" => {
+        use crate::semantic_analyzer::BuiltinFunctionKind;
+
+        match kind {
+            BuiltinFunctionKind::Clog => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                 if !self.env.config.ignore_debug {
                     println!("__clog: {}", a);
                 }
                 ExpressionFlow::Value(a)
             }
-            "__assert" => {
+            BuiltinFunctionKind::Assert => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                 if !self.env.config.ignore_debug && a == 0 {
                     panic!("assertion failed: {} == 0", a);
                 }
                 ExpressionFlow::Value(a)
             }
-            "__assert_not" => {
+            BuiltinFunctionKind::AssertNot => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                 if !self.env.config.ignore_debug && a != 0 {
                     panic!("assertion failed: {} != 0", a);
                 }
                 ExpressionFlow::Value(a)
             }
-            "__trace" => {
+            BuiltinFunctionKind::Trace => {
                 let key = try_expr!(self.interpret_expression(args.first().unwrap()));
                 if !self.env.config.ignore_debug {
                     let traced = &mut self.env.traced;
@@ -171,88 +173,25 @@ impl LocalEnvironment<'_, '_> {
                 }
                 ExpressionFlow::Value(0)
             }
-            "__puti" => {
+            BuiltinFunctionKind::Puti => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                 self.env.write_int(a);
                 ExpressionFlow::Value(a)
             }
-            "__putc" => {
+            BuiltinFunctionKind::Putc => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
                 self.env.write_char(a);
                 ExpressionFlow::Value(a)
             }
-            "__geti" => {
+            BuiltinFunctionKind::Geti => {
                 let val = self.env.read_int();
                 ExpressionFlow::Value(val)
             }
-            "__getc" => {
+            BuiltinFunctionKind::Getc => {
                 let val = self.env.read_char();
                 ExpressionFlow::Value(val)
             }
-            _ => self.interpret_call_user_function(id, args),
         }
-    }
-
-    fn interpret_call_user_function(
-        &mut self,
-        id: &String,
-        args: &Vec<Box<ExecExpression>>,
-    ) -> ExpressionFlow {
-        let mut arg_values = Vec::new();
-        arg_values.reserve(args.len());
-        for a in args {
-            // note: We can't use `map` because some args may say `return`/`break`;
-            arg_values.push(try_expr!(self.interpret_expression(a)));
-        }
-        let func = self.root_scope.get_function(id.as_str()).unwrap();
-
-        // Phase 4: static 変数の永続化対応
-        let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
-
-        // 新しい scope を既存の scope_stack に push
-        let mut variables = vec![0; func.block.scope.variable_count];
-
-        // static 変数があり、永続ストレージが存在する場合は値を復元
-        if has_static {
-            if let Some(storage) = self.env.function_static_storage.get(id.as_str()) {
-                for var in &func.block.scope.variables {
-                    if var.is_static {
-                        let slot_idx = var.slot_index;
-                        let slot_count = var.array_size.unwrap_or(1);
-                        for i in 0..slot_count {
-                            variables[slot_idx + i] = storage[slot_idx + i];
-                        }
-                    }
-                }
-            }
-        }
-
-        for (i, arg_val) in arg_values.iter().enumerate() {
-            if i < func.arg_indices.len() {
-                variables[func.arg_indices[i]] = *arg_val;
-            }
-        }
-        self.scope_stack.push(variables);
-
-        // 既存の LocalEnvironment 上で関数本体を実行
-        let result = match self.interpret_statements(&func.block.statements) {
-            Flow::Proceed => ExpressionFlow::Value(0),
-            Flow::Return(x) => ExpressionFlow::Value(x),
-            Flow::Continue => panic!("internal error: unexpected continue"),
-            Flow::Break => panic!("internal error: unexpected break"),
-        };
-
-        // Phase 4: static 変数の値を永続ストレージに保存
-        if has_static {
-            let scope_data = self.scope_stack.last().unwrap().clone();
-            self.env
-                .function_static_storage
-                .insert(id.clone(), scope_data);
-        }
-
-        // 関数スコープを pop
-        self.scope_stack.pop();
-        result
     }
 
     /// Phase 5: IdentifierRef を使用してユーザー定義関数を呼び出す
@@ -522,7 +461,8 @@ impl LocalEnvironment<'_, '_> {
                 self.interpret_operation2(op, expr1, expr2)
             }
             // Phase 5: BuiltinFunction と UserFunction に分離
-            ExecExpression::BuiltinFunction(id, args) => self.interpret_call_function(id, args),
+            // Phase 6: BuiltinFunction は BuiltinFunctionKind enum を使用
+            ExecExpression::BuiltinFunction(kind, args) => self.interpret_call_function(kind, args),
             ExecExpression::UserFunction(func_ref, args) => {
                 self.interpret_call_user_function_by_ref(func_ref, args)
             }

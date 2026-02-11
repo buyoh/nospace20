@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub use scope::{Function, Scope};
-pub use types::IdentifierRef;
+pub use types::{BuiltinFunctionKind, IdentifierRef};
 pub(crate) use types::{Block, ExecExpression, ExecStatement, Variable};
 
 /// 式を ExecExpression に変換する（識別子解決あり）
@@ -171,14 +171,22 @@ fn convert_to_exec_expression_with_resolver(
             }
 
             // 組み込み関数のリスト（__ で始まる）
-            const BUILTIN_FUNCTIONS: &[&str] = &[
-                "__clog", "__assert", "__assert_not", "__trace",
-                "__puti", "__putc", "__geti", "__getc",
-            ];
+            // Phase 6: 文字列を BuiltinFunctionKind に変換
+            let builtin_kind = match f.as_str() {
+                "__puti" => Some(types::BuiltinFunctionKind::Puti),
+                "__putc" => Some(types::BuiltinFunctionKind::Putc),
+                "__geti" => Some(types::BuiltinFunctionKind::Geti),
+                "__getc" => Some(types::BuiltinFunctionKind::Getc),
+                "__clog" => Some(types::BuiltinFunctionKind::Clog),
+                "__assert" => Some(types::BuiltinFunctionKind::Assert),
+                "__assert_not" => Some(types::BuiltinFunctionKind::AssertNot),
+                "__trace" => Some(types::BuiltinFunctionKind::Trace),
+                _ => None,
+            };
 
-            if BUILTIN_FUNCTIONS.contains(&f.as_str()) {
+            if let Some(kind) = builtin_kind {
                 // 組み込み関数
-                Ok(Box::new(ExecExpression::BuiltinFunction(f.clone(), args)))
+                Ok(Box::new(ExecExpression::BuiltinFunction(kind, args)))
             } else {
                 // ユーザー定義関数：resolve する
                 let func_ref = parent_resolver.resolve_function(f).ok_or_else(|| {

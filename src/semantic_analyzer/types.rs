@@ -2,6 +2,27 @@
 
 use crate::tree_parser::{Operator1, Operator2};
 
+/// 組み込み関数の種類
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BuiltinFunctionKind {
+    /// __puti(x) - 整数を10進数で出力
+    Puti,
+    /// __putc(x) - 文字を出力
+    Putc,
+    /// __geti() - 整数を入力
+    Geti,
+    /// __getc() - 文字を入力
+    Getc,
+    /// __clog(x) - デバッグログ出力
+    Clog,
+    /// __assert(x) - x が非ゼロであることをアサート
+    Assert,
+    /// __assert_not(x) - x がゼロであることをアサート
+    AssertNot,
+    /// __trace(x) - 実行回数をトレース
+    Trace,
+}
+
 /// 解決済み識別子への参照
 ///
 /// 変数・関数の識別子を文字列ではなく、
@@ -53,8 +74,8 @@ pub(crate) enum ExecExpression {
     If(Box<ExecExpression>, Block, Block),
     While(Box<ExecExpression>, Block),
     /// 組み込み関数呼び出し
-    /// 組み込み関数は文字列のまま保持
-    BuiltinFunction(String, Vec<Box<ExecExpression>>),
+    /// Phase 6: 組み込み関数は BuiltinFunctionKind enum で識別
+    BuiltinFunction(BuiltinFunctionKind, Vec<Box<ExecExpression>>),
     /// ユーザー定義関数呼び出し
     /// Phase 5 で追加：スコープ解決済みの関数参照を保持
     UserFunction(IdentifierRef, Vec<Box<ExecExpression>>),

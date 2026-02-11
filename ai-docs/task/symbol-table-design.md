@@ -198,4 +198,9 @@ pub struct SymbolTable {
   - [variable-identifier-to-slot-index.md](../done-task/variable-identifier-to-slot-index.md) に詳細を記録
   - `Variable` に `slot_index` フィールドを追加
   - interpreter で `variable_indices` マップの代わりに `var.slot_index` を使用
+- 2026-02-11: ステップ3「ExecExpression::Function のインデックス化」実装完了
+  - [builtin-function-indexing.md](../done-task/builtin-function-indexing.md) に詳細を記録
+  - `BuiltinFunctionKind` enum を定義
+  - 組み込み関数の識別を文字列マッチングから enum ベースに変更
+  - interpreter と compiler_ws で文字列比較が不要に
   - すべてのテストが成功

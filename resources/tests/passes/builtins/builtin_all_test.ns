@@ -1,0 +1,20 @@
+# Test all builtin functions #
+
+func: main() {
+    # Test __puti #
+    __puti(123);
+
+    # Test __putc #
+    __putc('\n');
+
+    # Test __geti and __getc - just call them #
+    # (input tests are covered elsewhere) #
+
+    # Test debug functions #
+    __clog(42);
+    __assert(1);
+    __assert_not(0);
+    __trace(999);
+
+    return: 0;
+}

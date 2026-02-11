@@ -38,8 +38,9 @@ pub fn generate_expression(
         ExecExpression::Operation2(op, left, right) => generate_binary_op(ctx, op, left, right),
 
         // 組み込み関数呼び出し
-        ExecExpression::BuiltinFunction(func_name, args) => {
-            generate_function_call(ctx, func_name, args)
+        // Phase 6: BuiltinFunctionKind enum を使用
+        ExecExpression::BuiltinFunction(kind, args) => {
+            generate_function_call(ctx, kind, args)
         }
 
         // Phase 5: ユーザー定義関数呼び出し
@@ -292,23 +293,21 @@ fn generate_store_variable(
 /// 関数呼び出し
 fn generate_function_call(
     ctx: &mut CodeGenContext,
-    func_name: &str,
+    kind: &crate::semantic_analyzer::BuiltinFunctionKind,
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
-    match func_name {
-        "__puti" => generate_builtin_puti(ctx, args),
-        "__putc" => generate_builtin_putc(ctx, args),
-        "__geti" => generate_builtin_geti(ctx, args),
-        "__getc" => generate_builtin_getc(ctx, args),
+    use crate::semantic_analyzer::BuiltinFunctionKind;
+
+    match kind {
+        BuiltinFunctionKind::Puti => generate_builtin_puti(ctx, args),
+        BuiltinFunctionKind::Putc => generate_builtin_putc(ctx, args),
+        BuiltinFunctionKind::Geti => generate_builtin_geti(ctx, args),
+        BuiltinFunctionKind::Getc => generate_builtin_getc(ctx, args),
         // デバッグ用組み込み関数は Whitespace では無視（引数は評価して値を返す）
-        "__clog" => generate_builtin_debug_noop(ctx, args),
-        "__trace" => generate_builtin_debug_noop(ctx, args),
-        "__assert" => generate_builtin_debug_noop(ctx, args),
-        "__assert_not" => generate_builtin_debug_noop(ctx, args),
-        _ => {
-            // ユーザー定義関数は未実装
-            Err(CompileError::UndefinedFunction(func_name.to_string()))
-        }
+        BuiltinFunctionKind::Clog => generate_builtin_debug_noop(ctx, args),
+        BuiltinFunctionKind::Trace => generate_builtin_debug_noop(ctx, args),
+        BuiltinFunctionKind::Assert => generate_builtin_debug_noop(ctx, args),
+        BuiltinFunctionKind::AssertNot => generate_builtin_debug_noop(ctx, args),
     }
 }
 
