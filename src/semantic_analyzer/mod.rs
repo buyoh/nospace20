@@ -134,11 +134,11 @@ fn convert_to_exec_expression_with_resolver(
             Ok(Box::new(ExecExpression::If(
                 convert_to_exec_expression_with_resolver(cond, parent_resolver)?,
                 Block {
-                    scope: s1.build(false, Vec::new(), Vec::new(), Vec::new()), // ブロックは関数スコープではなく、root_statementsは空
+                    scope: s1.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
                     statements: es1,
                 },
                 Block {
-                    scope: s2.build(false, Vec::new(), Vec::new(), Vec::new()), // ブロックは関数スコープではなく、root_statementsは空
+                    scope: s2.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
                     statements: es2,
                 },
             )))
@@ -155,7 +155,7 @@ fn convert_to_exec_expression_with_resolver(
             Ok(Box::new(ExecExpression::While(
                 convert_to_exec_expression_with_resolver(expr, parent_resolver)?,
                 Block {
-                    scope: s.build(false, Vec::new(), Vec::new(), Vec::new()), // ブロックは関数スコープではなく、root_statementsは空
+                    scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
                     statements: es,
                 },
             )))
@@ -215,14 +215,6 @@ fn convert_to_exec_expression_with_resolver(
             unreachable!("Expression::Invalid should not reach semantic analysis")
         }
     }
-}
-
-fn convert_to_exec_expression(
-    expr: &Box<Expression>,
-) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
-    // 後方互換性のため残すが、内部的には空の resolver を使用
-    let resolver = ScopeResolver::new();
-    convert_to_exec_expression_with_resolver(expr, &resolver)
 }
 
 fn analyze_internal(
@@ -285,13 +277,11 @@ fn analyze_internal_with_parent(
                             variable_count: 0,
                             functions: Vec::new(),
                             function_names: Vec::new(),
-                            is_function_scope: true,
                             static_init_statements: Vec::new(),
                             root_statements: Vec::new(),
                         },
                         statements: Vec::new(),
                     },
-                    scope_depth: 0, // 後で更新
                 });
                 // identifier_map にはグローバルインデックスを登録
                 scope.identifier_map.insert(
@@ -349,7 +339,6 @@ fn analyze_internal_with_parent(
         variable_count: slot_index,
         functions: Vec::new(), // 未使用
         function_names: Vec::new(), // 未使用
-        is_function_scope,
         static_init_statements: Vec::new(), // 未使用
         root_statements: Vec::new(), // 未使用
     };
@@ -412,7 +401,7 @@ fn analyze_internal_with_parent(
                     global_function_names,
                 )?;
                 // Phase 5: 非ルートスコープの build() には空の functions/function_names を渡す
-                let built_scope = s.build(true, Vec::new(), Vec::new(), Vec::new()); // 関数スコープ、root_statementsは空
+                let built_scope = s.build(Vec::new(), Vec::new(), Vec::new()); // root_statementsは空
 
                 // 引数のインデックスを事前計算（最適化）
                 let arg_indices: Vec<usize> = args
@@ -424,14 +413,6 @@ fn analyze_internal_with_parent(
                             .expect("argument must be registered as variable")
                     })
                     .collect();
-
-                // Phase 5: 関数のスコープ深度を記録
-                // 現在のスコープ = resolver.scope_stack.len() - 1 (0-indexed)
-                let current_scope_depth = if resolver.scope_stack.is_empty() {
-                    0
-                } else {
-                    resolver.scope_stack.len() - 1
-                };
 
                 // Phase 5: パス1aで登録済みの関数を更新
                 // identifier_map にはグローバルインデックスが格納されている
@@ -447,7 +428,6 @@ fn analyze_internal_with_parent(
                         scope: built_scope,
                         statements: es,
                     },
-                    scope_depth: current_scope_depth,
                 };
             }
             Statement::Return(e) => {
@@ -499,7 +479,7 @@ pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError
     let mut global_functions = Vec::new();
     let mut global_function_names = Vec::new();
     analyze_internal(root, ScopeType::Root, &mut global_functions, &mut global_function_names)
-        .map(|(scope, root_stmts)| scope.build(true, root_stmts, global_functions, global_function_names))
+        .map(|(scope, root_stmts)| scope.build(root_stmts, global_functions, global_function_names))
 }
 
 #[cfg(test)]

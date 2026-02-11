@@ -54,22 +54,26 @@ impl WsProgram {
     }
 
     /// 命令数を取得
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.instructions.len()
     }
 
     /// 空かどうかを判定
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.instructions.is_empty()
     }
 
     /// 命令列を消費して Vec<Instruction> を返す
     /// WhitespaceVM へ渡す際に使用
+    #[allow(dead_code)]
     pub fn into_instructions(self) -> Vec<Instruction> {
         self.instructions
     }
 
     /// 命令列への参照を返す
+    #[allow(dead_code)]
     pub fn instructions(&self) -> &[Instruction] {
         &self.instructions
     }

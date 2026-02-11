@@ -7,6 +7,7 @@ use crate::compiler_ws::types::HeapAddress;
 /// Whitespace ヒープの予約領域と変数配置を管理する。
 pub struct MemoryLayout {
     /// グローバル変数の数
+    #[allow(dead_code)]
     global_var_count: i64,
 }
 
@@ -35,6 +36,7 @@ impl MemoryLayout {
     // === 動的アドレス計算 ===
 
     /// グローバル変数を登録し、そのアドレスを返す
+    #[allow(dead_code)]
     pub fn allocate_global(&mut self) -> HeapAddress {
         let addr = Self::GLOBAL_PTR.offset(self.global_var_count);
         self.global_var_count += 1;
@@ -42,11 +44,13 @@ impl MemoryLayout {
     }
 
     /// グローバル変数領域のサイズを取得
+    #[allow(dead_code)]
     pub fn global_size(&self) -> i64 {
         self.global_var_count
     }
 
     /// ローカルヒープ初期値（global領域の直後）
+    #[allow(dead_code)]
     pub fn initial_local_heap(&self) -> HeapAddress {
         Self::GLOBAL_PTR.offset(self.global_var_count)
     }

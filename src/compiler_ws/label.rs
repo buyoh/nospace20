@@ -76,6 +76,7 @@ impl LabelAllocator {
     }
 
     /// 関数ラベルが存在するか確認
+    #[cfg(test)]
     pub fn has_function(&self, name: &str) -> bool {
         self.function_labels.contains_key(name)
     }

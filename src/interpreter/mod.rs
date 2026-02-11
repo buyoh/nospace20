@@ -9,7 +9,9 @@ mod environment;
 mod exec;
 mod types;
 
-pub use environment::{Environment, EnvironmentConfig, EnvironmentMetrics};
+pub use environment::{Environment, EnvironmentConfig};
+#[allow(unused_imports)]
+pub use environment::EnvironmentMetrics;
 
 use crate::semantic_analyzer::Scope;
 use exec::LocalEnvironment;

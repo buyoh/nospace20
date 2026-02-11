@@ -81,16 +81,19 @@ impl LabelId {
 pub struct HeapAddress(pub i64);
 
 impl HeapAddress {
+    #[allow(dead_code)]
     pub const fn new(addr: i64) -> Self {
         Self(addr)
     }
 
     /// アドレス値を取得（Whitespace 命令生成用）
+    #[allow(dead_code)]
     pub fn value(&self) -> i64 {
         self.0
     }
 
     /// オフセットを加算した新しいアドレスを返す
+    #[allow(dead_code)]
     pub fn offset(&self, n: i64) -> Self {
         Self(self.0 + n)
     }

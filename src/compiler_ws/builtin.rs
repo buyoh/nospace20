@@ -6,7 +6,7 @@ use crate::compiler_ws::{
     label::reserved_labels,
     memory::heap_layout,
     program::WsProgram,
-    types::{LabelId, WsNumber},
+    types::WsNumber,
     CompileError,
 };
 

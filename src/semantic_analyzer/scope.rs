@@ -9,12 +9,14 @@ use super::types::{Block, ExecStatement, IdentifierRef, Variable};
 #[derive(Clone)]
 pub(super) struct IdentifierInfo {
     // name: String,
+    #[allow(dead_code)]
     pub idx: usize,
 }
 
 #[derive(Clone)]
 pub(super) enum Identifier {
     Function(IdentifierInfo),
+    #[allow(dead_code)]
     Variable(IdentifierInfo),
 }
 
@@ -25,9 +27,6 @@ pub struct Function {
     /// 各引数の block.scope 内でのインデックスを保持
     pub arg_indices: Vec<usize>,
     pub block: Block,
-    /// この関数が定義されたスコープの深度
-    /// Phase 5 で追加：関数の可視性チェックに使用
-    pub scope_depth: usize,
     // pub identifier: String,
 }
 
@@ -65,11 +64,6 @@ pub struct Scope {
     /// 関数名のリスト（関数のイテレーションに使用）
     pub(crate) function_names: Vec<String>,
 
-    /// このスコープが関数スコープかどうか
-    /// true の場合、非 static 変数は親スコープからアクセス不可
-    /// Root スコープと Function スコープで true
-    pub(crate) is_function_scope: bool,
-
     /// static 変数の初期化文
     /// 関数スコープの場合: 関数内の static 変数の初期化式
     /// ルートスコープの場合: ルートレベルの static 変数の初期化式（非 static より先に実行）
@@ -84,14 +78,6 @@ impl Scope {
     pub(crate) fn get_function(&self, id: &str) -> Option<&Function> {
         if let Some(Identifier::Function(info)) = self.identifier_map.get(id) {
             Some(&self.functions[info.idx])
-        } else {
-            None
-        }
-    }
-
-    pub(crate) fn get_variable(&self, id: &str) -> Option<&Variable> {
-        if let Some(Identifier::Variable(info)) = self.identifier_map.get(id) {
-            Some(&self.variables[info.idx])
         } else {
             None
         }
@@ -290,7 +276,6 @@ impl ScopeBuilder {
     /// ルートスコープの場合のみ有効な値を渡し、それ以外は空の Vec を渡す
     pub fn build(
         self,
-        is_function_scope: bool,
         root_statements: Vec<ExecStatement>,
         functions: Vec<Function>,
         function_names: Vec<String>,
@@ -315,7 +300,6 @@ impl ScopeBuilder {
             variable_count,
             functions,
             function_names,
-            is_function_scope,
             static_init_statements: self.static_init_statements,
             root_statements,
         }

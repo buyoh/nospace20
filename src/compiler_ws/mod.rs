@@ -27,7 +27,6 @@ mod statement;
 pub mod types;
 
 pub use program::WsProgram;
-pub use types::{HeapAddress, LabelId, WsNumber};
 
 use crate::semantic_analyzer::Scope;
 use context::CodeGenContext;
@@ -35,6 +34,7 @@ use context::CodeGenContext;
 /// コンパイルエラー
 #[derive(Debug)]
 pub enum CompileError {
+    #[allow(dead_code)]
     UndefinedVariable(String),
     UndefinedFunction(String),
     MainNotFound,

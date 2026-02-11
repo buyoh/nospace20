@@ -28,6 +28,7 @@ pub struct CodeGenContext<'a> {
     labels: LabelAllocator,
 
     /// 現在のスコープがグローバルか
+    #[allow(dead_code)]
     is_global: bool,
 
     /// 現在の関数のローカル変数サイズ
@@ -72,6 +73,7 @@ impl<'a> CodeGenContext<'a> {
     }
 
     /// ラベル範囲を確保
+    #[allow(dead_code)]
     pub fn new_label_range(&mut self, count: u32) -> LabelId {
         self.labels.allocate_range(count)
     }
@@ -102,6 +104,7 @@ impl<'a> CodeGenContext<'a> {
     }
 
     /// 現在のスコープを取得
+    #[allow(dead_code)]
     pub fn scope(&self) -> &'a Scope {
         self.scope
     }
