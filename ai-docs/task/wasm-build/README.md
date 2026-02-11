@@ -63,7 +63,7 @@ nospace を直接ステップ実行する中断可能インタプリタの WASM 
 - [ ] デバッグ情報 API（変数・コールスタック）
 - [ ] テスト・検証
 
-### Phase 3: テスト・統合 → [nodejs-test.md](nodejs-test.md)
+### Phase 3: テスト・統合 → [wasm-build-phase3-nodejs-test.md](../../done-task/wasm-build-phase3-nodejs-test.md)
 
 Node.js でのスモークテスト・既存テストケースの WASM 経由実行。
 
