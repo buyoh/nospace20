@@ -29,6 +29,10 @@ pub struct IdentifierRef {
 pub(crate) struct Variable {
     // NOTE: ここに初期化情報は置かない
     pub identifier: String,
+    /// スロットインデックス
+    /// 変数が使用するメモリスロットの開始位置
+    /// 配列の場合、開始位置のインデックス
+    pub slot_index: usize,
     /// static フラグ
     /// true の場合、親の関数スコープからもアクセス可能
     /// グローバル変数は暗黙的に is_static = true

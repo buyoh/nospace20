@@ -275,17 +275,19 @@ impl ScopeBuilder {
     /// Phase 5: functions と function_names を引数として受け取る
     /// ルートスコープの場合のみ有効な値を渡し、それ以外は空の Vec を渡す
     pub fn build(
-        self,
+        mut self,
         root_statements: Vec<ExecStatement>,
         functions: Vec<Function>,
         function_names: Vec<String>,
     ) -> Scope {
         // 変数名からスロットインデックスへのマッピングを構築
         // 配列の場合、変数の開始スロットインデックスを記録
+        // 同時に各 Variable に slot_index を設定
         let mut variable_indices = BTreeMap::new();
         let mut variable_name_to_var_index = BTreeMap::new();
         let mut slot_index = 0;
-        for (var_idx, var) in self.variables.iter().enumerate() {
+        for (var_idx, var) in self.variables.iter_mut().enumerate() {
+            var.slot_index = slot_index;
             variable_indices.insert(var.identifier.clone(), slot_index);
             variable_name_to_var_index.insert(var.identifier.clone(), var_idx);
             slot_index += var.array_size.unwrap_or(1);

@@ -678,3 +678,64 @@ fn test_success_static_array() {
     assert!(func.block.scope.variables[0].is_static);
     assert_eq!(func.block.scope.variables[0].array_size, Some(3));
 }
+
+#[test]
+fn test_variable_slot_index() {
+    // func: main() { let: a; let: arr[3]; let: b; return:0; }
+    // slot_index: a=0, arr=1, b=4
+    let var_a = LocatedStatement {
+        statement: Statement::VariableDeclaration(
+            "a".to_string(),
+            Box::new(Expression::Factor(0)),
+            false,
+            None,
+        ),
+        location: SourceLocation::new(20, 30),
+    };
+
+    let var_arr = LocatedStatement {
+        statement: Statement::VariableDeclaration(
+            "arr".to_string(),
+            Box::new(Expression::Factor(0)),
+            false,
+            Some(3),
+        ),
+        location: SourceLocation::new(40, 50),
+    };
+
+    let var_b = LocatedStatement {
+        statement: Statement::VariableDeclaration(
+            "b".to_string(),
+            Box::new(Expression::Factor(0)),
+            false,
+            None,
+        ),
+        location: SourceLocation::new(60, 70),
+    };
+
+    let ret = LocatedStatement {
+        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        location: SourceLocation::new(80, 90),
+    };
+
+    let func = LocatedStatement {
+        statement: Statement::FunctionDeclaration(
+            "main".to_string(),
+            vec![],
+            vec![var_a, var_arr, var_b, ret],
+        ),
+        location: SourceLocation::new(0, 100),
+    };
+
+    let statements = vec![func];
+    let result = analyze(&statements);
+    assert!(result.is_ok());
+
+    let scope = result.unwrap();
+    let func = scope.get_function("main").unwrap();
+
+    // slot_index が正しく設定されていることを確認
+    assert_eq!(func.block.scope.variables[0].slot_index, 0); // a
+    assert_eq!(func.block.scope.variables[1].slot_index, 1); // arr
+    assert_eq!(func.block.scope.variables[2].slot_index, 4); // b (arr が 3 スロット使用)
+}

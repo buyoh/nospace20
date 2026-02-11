@@ -217,7 +217,7 @@ impl LocalEnvironment<'_, '_> {
             if let Some(storage) = self.env.function_static_storage.get(id.as_str()) {
                 for var in &func.block.scope.variables {
                     if var.is_static {
-                        let slot_idx = func.block.scope.variable_indices[&var.identifier];
+                        let slot_idx = var.slot_index;
                         let slot_count = var.array_size.unwrap_or(1);
                         for i in 0..slot_count {
                             variables[slot_idx + i] = storage[slot_idx + i];
@@ -286,7 +286,7 @@ impl LocalEnvironment<'_, '_> {
             if let Some(storage) = self.env.function_static_storage.get(&func_key) {
                 for var in &func.block.scope.variables {
                     if var.is_static {
-                        let slot_idx = func.block.scope.variable_indices[&var.identifier];
+                        let slot_idx = var.slot_index;
                         let slot_count = var.array_size.unwrap_or(1);
                         for i in 0..slot_count {
                             variables[slot_idx + i] = storage[slot_idx + i];

@@ -248,6 +248,7 @@ fn analyze_internal_with_parent(
             &var_name,
             Variable {
                 identifier: var_name.clone(),
+                slot_index: 0, // build() で正しい値に設定される
                 is_static: false, // 関数引数は非 static
                 array_size: None, // 関数引数は配列ではない
             },
@@ -304,6 +305,7 @@ fn analyze_internal_with_parent(
                     name,
                     Variable {
                         identifier: name.clone(),
+                        slot_index: 0, // build() で正しい値に設定される
                         is_static: final_is_static,
                         array_size: array_size.map(|n| n as usize),
                     },
