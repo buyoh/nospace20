@@ -44,10 +44,12 @@ JavaScript / ブラウザ / Node.js から CLI と同等の機能を呼び出せ
 nospace → Whitespace コンパイル + Whitespace VM ステップ実行の WASM API。
 既存の `compiler_ws` + `whitespace::interpreter` を活用。
 
-- [ ] WhitespaceVM の軽微な拡張（`pc()`, `call_stack_depth()` 等）
-- [ ] `compile_to_whitespace()` / `compile_to_mnemonic()` WASM API
-- [ ] `WasmWhitespaceVM` ステートフルラッパー実装
-- [ ] Node.js / ブラウザでのスモークテスト
+**完了 (2026-02-10)** - 詳細: [phase-a-report.md](../../done-task/phase-a-report.md)
+
+- [x] WhitespaceVM の軽微な拡張（`pc()`, `call_stack_depth()` 等）
+- [x] `compile_to_whitespace()` / `compile_to_mnemonic()` WASM API
+- [x] `WasmWhitespaceVM` ステートフルラッパー実装
+- [x] Node.js / ブラウザでのスモークテスト
 
 ### Phase B: nospace ステップ実行インタプリタ → [implementation.md](implementation.md#phase-b-nospace-ステップ実行インタプリタ-api)
 

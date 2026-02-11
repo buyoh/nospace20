@@ -6,10 +6,17 @@ technical-debt.md §3.1, §3.3 を分離したドキュメント。
 
 semantic_analyzer における識別子管理の技術的負債を解消する。
 
-1. `Variable.identifier: String` フィールドの削除
-2. `IdentifierInfo` 構造体の型安全化
+1. `Variable.identifier: String` フィールドの削除 - **一部完了 (2026-02-11)**
+2. `IdentifierInfo` 構造体の型安全化 - **未完了**
 
 ## 1. Variable.identifier フィールドの削除
+
+### ステータス
+
+**一部完了 (2026-02-11)**: `Variable` に `slot_index` フィールドを追加し、interpreter での使用を最適化。
+`identifier` フィールドの完全削除は未完了。
+
+詳細: [variable-identifier-to-slot-index.md](../done-task/variable-identifier-to-slot-index.md)
 
 ### 現状
 

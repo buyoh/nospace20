@@ -195,7 +195,7 @@ pub struct SymbolTable {
 
 - 2026-02-10: function-args-identifier-resolution.md から分離して作成
 - 2026-02-11: ステップ2「Variable.identifier → slot_index」実装完了
-  - [variable-identifier-to-slot-index.md](./variable-identifier-to-slot-index.md) に詳細を記録
+  - [variable-identifier-to-slot-index.md](../done-task/variable-identifier-to-slot-index.md) に詳細を記録
   - `Variable` に `slot_index` フィールドを追加
   - interpreter で `variable_indices` マップの代わりに `var.slot_index` を使用
   - すべてのテストが成功

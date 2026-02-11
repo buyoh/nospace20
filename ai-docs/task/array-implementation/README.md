@@ -23,8 +23,8 @@ nospace 言語に固定長配列を導入する。配列はスタック上に連
 
 ## 現在の状態
 
-- [ ] Phase 1: 構文解析
-- [ ] Phase 2: 意味解析
-- [ ] Phase 3: インタプリタ
-- [ ] Phase 4: Whitespace コンパイラ
-- [ ] Phase 5: 文字列リテラル
+- [x] Phase 1: 構文解析 - 完了 (2026-02-10) - [レポート](../../done-task/phase1-implementation-report.md)
+- [x] Phase 2: 意味解析 - 完了 (2026-02-10) - [レポート](../../done-task/phase2-implementation-report.md)
+- [x] Phase 3: インタプリタ - 完了 (2026-02-10)
+- [ ] Phase 4: Whitespace コンパイラ - 未実装
+- [ ] Phase 5: 文字列リテラル - 未実装
