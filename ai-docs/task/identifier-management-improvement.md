@@ -1,13 +1,17 @@
 # 識別子管理の改善設計
 
+**ステータス: 完了 (2026-02-11)**
+
 technical-debt.md §3.1, §3.3 を分離したドキュメント。
+
+完了レポート: [identifier-management-improvement-completed.md](../done-task/identifier-management-improvement-completed.md)
 
 ## 概要
 
 semantic_analyzer における識別子管理の技術的負債を解消する。
 
-1. `Variable.identifier: String` フィールドの削除 - **一部完了 (2026-02-11)**
-2. `IdentifierInfo` 構造体の型安全化 - **未完了**
+1. `Variable.identifier: String` フィールドの削除 - **完了 (2026-02-11)**
+2. `IdentifierInfo` 構造体の型安全化 - **完了 (2026-02-11)**
 
 ## 1. Variable.identifier フィールドの削除
 
