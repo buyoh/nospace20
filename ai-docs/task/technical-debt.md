@@ -2,7 +2,7 @@
 
 このドキュメントは nospace プロジェクトのコード内に残る技術的負債と改善点をまとめたものです。
 
-最終更新日: 2026-02-07
+最終更新日: 2026-02-11
 
 ## 目次
 
@@ -63,10 +63,14 @@ Expression::Invalid(_) => {
 
 ### 3.1 Variable の identifier フィールド
 
+**状態**: ⚠️ TODO (コメント無し)
+
+**場所**: [src/semantic_analyzer/types.rs](../../src/semantic_analyzer/types.rs#L31)
+
 **コード**:
 ```rust
 pub(crate) struct Variable {
-    pub identifier: String, // TODO: use IdentifierInfo
+    pub identifier: String,
     pub is_static: bool,
 }
 ```
@@ -74,26 +78,37 @@ pub(crate) struct Variable {
 **説明**: 
 - 文字列ベースの識別子管理を `IdentifierInfo` ベースに変更予定
 - より効率的な識別子管理
+- TODO コメントは既に削除されているが、実装は未完了
 
 ### 3.2 Function の args フィールド
 
-**状態**: 考察済み → 別ドキュメントに分離
+**状態**: ✅ 完了 (2026-02-11)
 
 **詳細**: [function-args-identifier-resolution.md](./function-args-identifier-resolution.md)
 
-**結論**: `args: Vec<String>` フィールドは削除可能。`arg_indices: Vec<usize>` が既に完全な識別子解決結果を保持しており、全ての消費者（interpreter, compiler_ws）が `arg_indices` のみで動作できる。変更量は小（3ファイル数行）。
+**説明**:
+- `args: Vec<String>` フィールドは既にコードから削除済み
+- コメントアウトされた行のみ残存: `// pub identifier: String,`
+- `arg_indices: Vec<usize>` のみで完全に動作
 
-### 3.3 IdentifierInfo の idx フィールド
+### 3.3 IdentifierInfo の構造
+
+**状態**: ⚠️ TODO (コメント無し)
+
+**場所**: [src/semantic_analyzer/scope.rs](../../src/semantic_analyzer/scope.rs#L10-L12)
 
 **コード**:
 ```rust
 struct IdentifierInfo {
-    idx: usize, // TODO: more safety
+    // name: String,
+    pub idx: usize,
 }
 ```
 
 **説明**:
-- より安全な型に変更予定 (newtype パターン等)
+- `name` フィールドは既にコメントアウト済み
+- `idx` フィールドをより安全な型に変更予定 (newtype パターン等)
+- TODO コメントは既に削除されているが、型安全性の改善は未実施
 
 **優先度**: 中 - 型安全性とパフォーマンス向上
 
@@ -130,30 +145,58 @@ pub struct CodeParseError {
 
 ### 5.1 未使用の関数
 
-- `convert_to_exec_expression` (semantic_analyzer/mod.rs:169)
-  - コメントで「削除予定」と記載あり
-  - 全ての呼び出しを `convert_to_exec_expression_with_resolver` に置き換える
+**現在の警告** (2026-02-11 時点):
+
+1. `convert_to_exec_expression` (semantic_analyzer/mod.rs:220)
+   - 後方互換性のため残されているが、実際には未使用
+   - 全ての呼び出しは `convert_to_exec_expression_with_resolver` を使用
+   - **推奨**: 削除可能
 
 ### 5.2 未使用のフィールド
 
-- `IdentifierInfo.0` (semantic_analyzer/mod.rs:45)
-- `is_function_scope` (semantic_analyzer/mod.rs:216)
-- `is_global` (compiler_ws/context.rs:34)
-- その他多数
+**現在の警告** (2026-02-11 時点):
+
+1. `IdentifierInfo.0` - フィールドが読み込まれていない
+   - 場所: semantic_analyzer/scope.rs:10
+   - 実際には `idx` という名前のフィールド
+   - **原因**: 使用箇所はあるが、コンパイラが検出できていない可能性
+
+2. `Function.scope_depth` - 書き込みのみで読み込みなし
+   - 場所: semantic_analyzer/scope.rs:30
+   - **推奨**: 将来の関数可視性チェックで使用予定なら保持、そうでなければ削除
+
+3. `Scope.is_function_scope` - 未読み込み
+   - 場所: semantic_analyzer/scope.rs
+   - **推奨**: 関数境界チェック実装時に使用予定なら保持、そうでなければ削除
+
+4. `IdentifierRef.is_global` - 未読み込み
+   - 場所: semantic_analyzer/types.rs
+   - **推奨**: グローバル変数管理で使用予定なら保持、そうでなければ削除
+
+5. `Scope.get_variable` メソッド - 未使用
 
 ### 5.3 compiler_ws モジュールの未使用項目
 
+**現在の警告** (2026-02-11 時点):
+
 多数の未使用項目があります:
 - `LabelId`, `WsNumber`, `HeapAddress` (未使用 import)
-- `UndefinedVariable` (未構築バリアント)
-- 各種メソッド (`len`, `is_empty`, `allocate_global`, 等)
+- `EnvironmentMetrics` (未使用 import)
+- `UndefinedVariable` バリアント (未構築)
+- 各種メソッド:
+  - `new_label_range`, `scope`
+  - `allocate_global`, `global_size`, `initial_local_heap`
+  - `len`, `is_empty`, `into_instructions`, `instructions`
+  - `new`, `value`, `offset`
+- フィールド:
+  - `global_var_count`
 
 **原因**: compiler_ws モジュールが部分的な実装段階にあるため
 
 **対処**:
 1. 完全に不要なコードは削除
 2. 将来使用予定のコードには `#[allow(dead_code)]` を追加
-3. コンパイラ実装が進んだら再評価
+3. Whitespace コンパイラ実装が進んだら再評価
 
 **優先度**: 低 - クリーンなコードベースのため
 
@@ -161,10 +204,12 @@ pub struct CodeParseError {
 
 ## 実装の優先順位
 
-1. **変数/関数の識別子管理の改善** - 型安全性とパフォーマンス向上
-2. ~~**Clone derive の削除**~~ - ✅ 完了 (2026-02-10)
-3. **未使用の関数とフィールドの整理** - コードの可読性向上
-4. ~~**エラーメッセージ型の改善**~~ - ✅ 完了済み
+1. **未使用の関数の削除** (`convert_to_exec_expression`) - すぐに削除可能
+2. **未使用フィールドの整理** - 将来使用予定か判断が必要
+3. **変数/関数の識別子管理の改善** - 型安全性とパフォーマンス向上
+4. ~~**Clone derive の削除**~~ - ✅ 完了 (2026-02-10)
+5. ~~**Function の args フィールド削除**~~ - ✅ 完了 (2026-02-11)
+6. ~~**エラーメッセージ型の改善**~~ - ✅ 完了済み
 
 ---
 
@@ -178,5 +223,6 @@ pub struct CodeParseError {
 
 ## 更新履歴
 
+- 2026-02-11: 実装状況を再確認し、最新の警告情報に更新。Function の args フィールド削除を完了としてマーク
 - 2026-02-10: Clone derive の削除を完了、エラーメッセージ型が既に完了済みであることを確認
 - 2026-02-07: unimplemented-features.md から分離して作成
