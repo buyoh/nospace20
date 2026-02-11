@@ -238,8 +238,11 @@ pub fn parse(source: &str) -> JsValue {
 
     match syntactic_analyze(&statements) {
         Ok(_) => {
-            let result = serde_json::json!({ "success": true });
-            // Bug fix: parse() must return here and close before VM exports below.
+            #[derive(Serialize)]
+            struct ParseResultOk {
+                success: bool,
+            }
+            let result = ParseResultOk { success: true };
             serde_wasm_bindgen::to_value(&result).unwrap()
         }
         Err(errors) => convert_errors(&errors, &text),

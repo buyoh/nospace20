@@ -210,10 +210,22 @@ cd tools/wasm-test && node test.mjs
 
 ### Phase 3: 検証・統合
 
-- [ ] 全テスト通過確認（wasm-pack 未導入のため未実施）
+- [x] 全テスト通過確認
 - [x] README.md にテスト実行方法を追記
 
-失敗調査メモ: [nodejs-test-failure.md](nodejs-test-failure.md)
+## テスト実行結果
+
+2026-02-12: 全テストPASS
+
+```
+$ cd tools/wasm-test && node test.mjs
+WASM Node.js tests passed.
+```
+
+テスト修正内容:
+- 構文エラー修正: `func main()` → `func: main()` (コロン必須)
+- 組み込み関数名修正: `__println()` → `__puti()` + `__putc(10)`, `__readInt()` → `__geti()`
+- `parse()` 関数の返り値修正: `serde_json::json!` → 専用の Serialize 構造体
 
 ## 備考
 
