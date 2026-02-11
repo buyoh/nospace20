@@ -10,7 +10,6 @@
 - [unimplemented-type-system.md](unimplemented-type-system.md) - 未実装の型システム（int, void, function, tuple）
 - [unimplemented-compiler-features.md](unimplemented-compiler-features.md) - 未実装のコンパイラ機能（compiler, grayspace）
 - [unused-code-cleanup.md](unused-code-cleanup.md) - 未使用コードの整理（17件の警告調査・分類済み、Phase 1-3 の対処方針）
-- [identifier-management-improvement.md](identifier-management-improvement.md) - 識別子管理改善設計（Variable.identifier 削除、IdentifierInfo 型安全化）- slot_index 追加完了 (2026-02-11)
 - [symbol-table-design.md](symbol-table-design.md) - デバッグ用シンボルテーブル設計（識別子のインデックス化・文字列分離）- ステップ2完了 (2026-02-11)
 - [error-message-improvement.md](error-message-improvement.md) - エラーメッセージ型の改善（Cow<'static, str> 導入設計）
 - [implement-getcv-builtin.md](implement-getcv-builtin.md) - __getcv 組み込み関数の実装（変数アドレスへの入力）
@@ -30,7 +29,6 @@
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
-- [scope/](scope/) - スコープ機能の実装計画
 - [array-implementation/](array-implementation/) - 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装設計（5フェーズ: 構文解析→意味解析→インタプリタ→WSコンパイラ→文字列）
 
 ## 現在のタスク
@@ -41,6 +39,8 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [identifier-management-improvement.md](../done-task/identifier-management-improvement.md) - 識別子管理改善設計（Variable.identifier 削除、IdentifierInfo 型安全化）(2026-02-11完了)
+- [scope/](../done-task/scope/) - スコープ機能の実装（Phase 1-5 全て完了：ブロックスコープ、識別子解決、グローバル変数、static変数、ネスト関数）(2026-02-11完了)
 - [reference-dereference-interpreter-implementation.md](../done-task/reference-dereference-interpreter-implementation.md) - 参照(`&`)・デリファレンス(`*`)の実装完了（Phase 1-3: token_parser, tree_parser, semantic_analyzer, interpreter）(2026-02-10完了)
 - [unit-test-interpreter.md](../done-task/unit-test-interpreter.md) - interpreter ユニットテスト追加（組み込み関数・演算子・制御フロー、25件追加） (2026-02-10完了)
 - [interpreter-split.md](../done-task/interpreter-split.md) - interpreter モジュールのファイル分割（mod.rs → types/environment/exec） (2026-02-07完了)
