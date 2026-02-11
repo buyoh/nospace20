@@ -66,3 +66,31 @@ pub(crate) struct Variable {
   - `interpreter/exec.rs` L220, L289: static 変数復元時
 
 次のステップ: すべての使用箇所を調査し、段階的に実装
+
+### 2026-02-11: 実装完了
+
+実装した内容:
+1. `Variable` 構造体に `slot_index: usize` フィールドを追加（`identifier` は保持）
+2. `ScopeBuilder.build()` で各変数に `slot_index` を自動設定
+3. `interpreter/exec.rs` で `variable_indices[&var.identifier]` を `var.slot_index` に置き換え
+4. `test_variable_slot_index` テストを追加
+
+テスト結果:
+- 新規テスト: 成功
+- 既存テスト: すべて成功（158 unit tests, 109 code tests, 1 compile test, 8 ignore_debug tests）
+- static 変数のテストもすべて成功
+
+コミット: `2e908c3` "Add slot_index field to Variable struct"
+
+## 今後の作業
+
+このステップにより、`Variable.identifier` は以下の箇所でのみ使用されるようになった:
+- `ScopeBuilder` での `variable_indices` / `variable_name_to_var_index` マップ構築
+- `ScopeResolver` での変数名解決（semantic analyzer 内部）
+
+次のステップ候補:
+1. `Variable.identifier` の削除を検討（semantic analyzer での使用方法を変更）
+2. シンボルテーブル設計の次のステップ（ExecExpression::Function のインデックス化）へ進む
+
+現時点では、`identifier` フィールドは semantic analyzer の内部処理で必要なため、
+削除は symbol-table-design.md のステップ3以降で検討する。
