@@ -1,0 +1,13 @@
+# Test main_function_index with other functions #
+
+func: foo() {
+    return: 1;
+}
+
+func: bar() {
+    return: 2;
+}
+
+func: main() {
+    return: foo() + bar();
+}

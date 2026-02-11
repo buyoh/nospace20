@@ -284,8 +284,7 @@ fn analyze_internal_with_parent(
                             variables: Vec::new(),
                             variable_count: 0,
                             functions: Vec::new(),
-                            function_names: Vec::new(),
-                            static_init_statements: Vec::new(),
+                            function_names: Vec::new(),                            main_function_index: None,                            static_init_statements: Vec::new(),
                             root_statements: Vec::new(),
                         },
                         statements: Vec::new(),
@@ -348,6 +347,7 @@ fn analyze_internal_with_parent(
         variable_count: slot_index,
         functions: Vec::new(), // 未使用
         function_names: Vec::new(), // 未使用
+        main_function_index: None, // Phase 6: 一時スコープなので None
         static_init_statements: Vec::new(), // 未使用
         root_statements: Vec::new(), // 未使用
     };

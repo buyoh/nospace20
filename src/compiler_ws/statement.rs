@@ -21,8 +21,9 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
     }
 
     // 注: 現在は main 関数のみを明示的に生成
-    // 現在は main 関数のみを明示的に生成
-    if let Some(main_func) = scope.get_function("main") {
+    // Phase 6: main_function_index を使用してインデックスベースでアクセス
+    if let Some(main_idx) = scope.main_function_index {
+        let main_func = &scope.functions[main_idx];
         prog.append(generate_function_definition(ctx, "main", main_func)?);
     }
 

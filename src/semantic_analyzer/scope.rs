@@ -63,6 +63,10 @@ pub struct Scope {
     /// 関数名のリスト（関数のイテレーションに使用）
     pub(crate) function_names: Vec<String>,
 
+    /// main 関数のインデックス（存在する場合）
+    /// Phase 6: 関数名による検索を排除し、インデックスベースでアクセス
+    pub main_function_index: Option<usize>,
+
     /// static 変数の初期化文
     /// 関数スコープの場合: 関数内の static 変数の初期化式
     /// ルートスコープの場合: ルートレベルの static 変数の初期化式（非 static より先に実行）
@@ -297,6 +301,11 @@ impl ScopeBuilder {
         }
         let variable_count = slot_index;
 
+        // Phase 6: main 関数のインデックスを解決
+        let main_function_index = function_names
+            .iter()
+            .position(|name| name == "main");
+
         Scope {
             identifier_map: self.identifier_map,
             variable_indices,
@@ -305,6 +314,7 @@ impl ScopeBuilder {
             variable_count,
             functions,
             function_names,
+            main_function_index,
             static_init_statements: self.static_init_statements,
             root_statements,
         }

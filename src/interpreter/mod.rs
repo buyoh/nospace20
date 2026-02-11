@@ -83,11 +83,8 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) {
 /// 全関数をスキャンし、static 変数を持つ関数について永続ストレージを作成する。
 /// static 変数の初期化式がある場合は、一時的なスコープで実行して初期値を設定する。
 fn initialize_function_statics(env: &mut Environment, scope: &Scope) {
-    for name in &scope.function_names {
-        let func = match scope.get_function(name) {
-            Some(f) => f,
-            None => continue,
-        };
+    // Phase 6: インデックスベースで関数にアクセス
+    for (func_idx, func) in scope.functions.iter().enumerate() {
         let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
         if !has_static {
             continue;
@@ -113,12 +110,27 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) {
             vec![0i64; func.block.scope.variable_count]
         };
 
-        env.function_static_storage.insert(name.clone(), storage);
+        // Phase 6: 関数名ではなくインデックスを使用
+        let func_name = &scope.function_names[func_idx];
+        env.function_static_storage.insert(func_name.clone(), storage);
     }
 }
 
 /// グローバル変数を初期化してから main 関数を実行
 pub fn interpret_all(env: &mut Environment, scope: &Scope) -> Option<i64> {
     interpret_global(env, scope);
-    interpret_func(env, scope, "main")
+    // Phase 6: main_function_index を使用してインデックスベースでアクセス
+    if let Some(main_idx) = scope.main_function_index {
+        let func = &scope.functions[main_idx];
+        let mut e = LocalEnvironment::new_func(env, scope, func, &Vec::<i64>::new());
+        let res = e.interpret_statements(&func.block.statements);
+        if let Flow::Return(x) = res {
+            Some(x)
+        } else {
+            None
+        }
+    } else {
+        eprintln!("error: function 'main' not found");
+        None
+    }
 }

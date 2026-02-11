@@ -1,70 +1,63 @@
 # デバッグ用シンボルテーブルによる識別子名管理の設計
 
-分離元: [function-args-identifier-resolution.md](./function-args-identifier-resolution.md)
-
 作成日: 2026-02-10
+**ステータス**: 🚧 進行中（ステップ1-4完了、ステップ5-6未完了）
 
-## 動機
+## 実装状況
 
-`Function.args` の削除に限らず、semantic analyzer の出力全体から文字列識別子を分離し、
-インデックスや参照から識別子名を逆引きできる **シンボルテーブル** を別構造体で持つ設計が望ましい。
-これにより、ランタイム（interpreter / compiler_ws）は純粋にインデックスベースで動作し、
-デバッグ・エラーメッセージ生成時にのみシンボルテーブルを参照する構造になる。
+| ステップ | 内容 | ステータス | 完了日 | 詳細 |
+|---------|------|-----------|--------|------|
+| 1 | Function.args 削除 | ✅ 完了 | 2026-02-10 | [function-args-identifier-resolution-completed.md](../done-task/function-args-identifier-resolution-completed.md) |
+| 2 | Variable.identifier → slot_index | ✅ 完了 | 2026-02-11 | [variable-identifier-to-slot-index.md](../done-task/variable-identifier-to-slot-index.md) |
+| 3 | ExecExpression::Function のインデックス化 | ✅ 完了 | 2026-02-11 | [builtin-function-indexing.md](../done-task/builtin-function-indexing.md) |
+| 4 | Scope.identifier_map の縮小 | ✅ 完了 | 2026-02-11 | [main-function-indexing.md](../done-task/main-function-indexing.md) |
+| 5 | function_static_storage のインデックスキー化 | ⏳ 未着手 | - | 本ドキュメント参照 |
+| 6 | SymbolTable の導入 | ⏳ 未着手 | - | 本ドキュメント参照 |
+（2026-02-11更新）
+
+| 構造体 / フィールド | 型 | ステータス | 備考 |
+|---|---|---|---|
+| ~~`Variable.identifier`~~ | ~~`String`~~ | ✅ 削除済 | ステップ2で `slot_index` に置き換え |
+| ~~`Function.args`~~ | ~~`Vec<String>`~~ | ✅ 削除済 | ステップ1で削除 |
+| `Scope.identifier_map` | `BTreeMap<String, Identifier>` | ⏳ 残存 | **ステップ4で対応予定** |
+| ~~`Scope.variable_indices`~~ | ~~`BTreeMap<String, usize>`~~ | ✅ 削除済 | ステップ2で不要に |
+| `Scope.variable_name_to_var_index` | `BTreeMap<String, usize>` | ⚠️ 内部のみ | 意味解析中のみ使用 |
+| `Scope.function_names` | `Vec<String>` | ⏳ 残存 | **ステップ4で対応予定** |
+| ~~`ExecExpression::Function`~~ | ~~`String`~~ | ✅ 削除済 | ステップ3で enum 化 |
+| `Environment.function_static_storage` | `BTreeMap<String, Vec<i64>>` | ⏳ 残存 | **ステップ5で対応予定** |
 
 ---
 
-## 現状: semantic analyzer 出力に残る文字列の棚卸し
+## 完了済みステップの要約
 
-| 構造体 / フィールド | 型 | ランタイムでの使用 |
-|---|---|---|
-| `Variable.identifier` | `String` | static変数復元時のスロット特定に使用 (exec.rs L220) |
-| `Function.args` | `Vec<String>` | `.len()` のみ (compiler_ws) → 削除可能 |
-| `Scope.identifier_map` | `BTreeMap<String, Identifier>` | `get_function(name)` で関数検索 (interpreter, compiler_ws) |
-| `Scope.variable_indices` | `BTreeMap<String, usize>` | static変数復元 (exec.rs L220)、arg_indices計算 |
-| `Scope.variable_name_to_var_index` | `BTreeMap<String, usize>` | ScopeResolver（意味解析中のみ） |
-| `Scope.function_names` | `Vec<String>` | 関数イテレーション (interpreter/mod.rs) |
-| `ExecExpression::Function` | `String` | 組み込み/ユーザー関数の関数名マッチ (exec.rs L455) |
-| `Environment.function_static_storage` | `BTreeMap<String, Vec<i64>>` | 関数名キーで永続ストレージ管理 |
+### ✅ ステップ1: Function.args 削除（完了）
+
+詳細: [function-args-identifier-resolution-completed.md](../done-task/function-args-identifier-resolution-completed.md)
+
+- `Function.args` フィールドを削除
+- 引数の情報は `arg_indices` のみでインデックスベースで管理
+
+### ✅ ステップ2: Variable.identifier → slot_index（完了）
+
+詳細: [variable-identifier-to-slot-index.md](../done-task/variable-identifier-to-slot-index.md)
+
+- `Variable` に `slot_index` フィールドを追加
+- `Scope.variable_indices` マップが不要に
+- static 変数復元がインデックスベースに
+
+### ✅ ステップ3: ExecExpression::Function のインデックス化（完了）
+
+詳細: [builtin-function-indexing.md](../done-task/builtin-function-indexing.md)
+
+- `BuiltinFunctionKind` enum を定義
+- `ExecExpression::BuiltinFunction` が enum ベースに
+- 組み込み関数の文字列比較が不要に
 
 ---
 
-## 分析: 各文字列をインデックス化できるか
+## 残りのステップの詳細設計
 
-### (1) Variable.identifier → 削除可能
-
-`Variable.identifier` は現在2つの場面で使用:
-
-1. **`ScopeBuilder.build()` でのマップ構築**: `variable_indices` / `variable_name_to_var_index` の構築時に使用。
-   これらのマップ自体をインデックスベースにすれば不要になる。
-2. **interpreter の static 変数復元** (exec.rs L220): `variable_indices[&var.identifier]` でスロットインデックスを取得。
-
-static 変数復元は `Variable` に `slot_index: usize` フィールドを直接持たせれば文字列不要:
-
-```rust
-// 改善案
-pub(crate) struct Variable {
-    pub slot_index: usize,  // variable_indices の値を直接保持
-    pub is_static: bool,
-    pub array_size: Option<usize>,
-}
-```
-
-これにより `Scope.variable_indices: BTreeMap<String, usize>` も不要になる。
-
-### (2) ExecExpression::Function → 2段階で解決可能
-
-現在 `interpret_call_function` は文字列マッチで組み込み関数とユーザー関数を分岐している:
-
-```rust
-match id.as_str() {
-    "__puti" => { ... },
-    "__putc" => { ... },
-    _ => self.interpret_call_user_function(id, args),
-}
-```
-
-**解決案**: semantic analyzer で関数呼び出しを2種類に分離する:
-
+### ⏳ ステップ4: Scope.identifier_map の縮小
 ```rust
 pub(crate) enum ExecExpression {
     BuiltinFunction(BuiltinFunctionKind, Vec<Box<ExecExpression>>),
@@ -97,92 +90,96 @@ impl Scope {
 }
 ```
 
-`"main"` 関数のエントリポイント解決も semantic analyzer 側で行い、
-`Scope` に `main_function_index: Option<usize>` を持たせる。
+**現状**: `identifier_map` は `get_function(name)` で関数を名前から検索するために使用されている。
 
-### (4) function_static_storage → インデックスキー化可能
+**課題**:
+- interpreter が `"main"` などの関数名で関数を取得している
+- ランタイムで文字列マッチングが発生
 
-`BTreeMap<String, Vec<i64>>` を `Vec<Option<Vec<i64>>>` に変更すれば文字列不要:
+**解決案**:
 
-```rust
-// 改善案
-pub(crate) function_static_storage: Vec<Option<Vec<i64>>>,
-// function_static_storage[func_idx] = Some(storage) or None
-```
+1. `Scope` に `main_function_index: Option<usize>` を追加
+2. semantic analyzer が `"main"` 関数のインデックスを事前に解決
+3. interpreter/compiler_ws は `scope.functions[main_idx]` で直接アクセス
+4. `get_function(name)` メソッドを削除または非推奨化
 
-### (5) Scope.variable_name_to_var_index → 意味解析中のみ使用
+**実装の影響**:
+- interpreter/mod.rs の main 関数取得処理を変更
+- テストコードで `get_function` を使用している箇所の修正が必要
 
-`ScopeResolver` で使用されるが、これは semantic analyzer 内部で完結する。
-最終的な `Scope` 出力からは除外し、`ScopeBuilder` 専用のフィールドに移動可能。
+**依存関係**: ステップ3（組み込み関数のインデックス化）の完了が前提
 
-### (6) Scope.function_names → インデックスイテレーションで代替可能
-
-`function_names` は関数をイテレートするために使用。
-関数インデックスベースのイテレーション `0..scope.functions.len()` で代替可能。
-
+### ⏳ ステップ5: function_static_storage のインデックスキー化
 ---
 
 ## 提案: SymbolTable 構造体
+**目的**: ステップ1-5で削除された全ての文字列情報を、デバッグ用の別構造体に集約する。
+
+**設計**:
 
 ```rust
 /// デバッグ用シンボルテーブル
 /// インデックスから識別子名への逆引きを提供
 /// ランタイム動作には不要。デバッグ・エラーメッセージ用
 pub struct SymbolTable {
-    /// 変数インデックス → 変数名
-    pub variable_names: Vec<String>,
+    /// 変数スロットインデックス → 変数名
+    pub variable_names: Vec<Option<String>>,
     /// 関数インデックス → 関数名
     pub function_names: Vec<String>,
 }
+
+/// Scope に追加
+pub struct Scope {
+    // ... 既存のフィールド ...
+    /// デバッグ用シンボルテーブル（オプショナル）
+    pub debug_symbols: Option<SymbolTable>,
+}
 ```
 
-`Scope` に `debug_symbols: Option<SymbolTable>` として保持し、
-リリースビルドやパフォーマンス優先時は `None` にできる設計。
+**利用シーン**:
+- エラーメッセージで変数名・関数名を表示
+- デバッグログで識別子名を表示
+- テストコードでの検証
+
+**実装方針**:
+- semantic analyzer が SymbolTable を構築
+- `--release` ビルドや `--no-debug-symbols` フラグで `None` に設定可能
+- ランタイムコードは SymbolTable に一切依存しないインデックスベース設計を維持
+
+**依存関係**: ステップ1-5の全てが完了していることが前提
 
 ---
 
-## 実現可能性の結論
+## 次のステップ
 
-**実現可能**。ただし段階的な実施を推奨する。
+ステップ4から順次実装を進める:
 
-以下の依存関係がある:
+1. **ステップ4**: Scope.identifier_map の縮小と main 関数インデックス化
+   - 変更量: 中
+   - 影響範囲: interpreter/mod.rs, テストコード
 
-```
-(1) Variable.identifier 削除
-    ← Variable に slot_index を追加
-    ← static変数復元をインデックスベースに変更
+2. **ステップ5**: function_static_storage のインデックスキー化
+   - 変更量: 小
+   - 影響範囲: interpreter/exec.rs
 
-(2) Function.args 削除          ← 単独で実施可能（function-args-identifier-resolution.md 参照）
+3. **ステップ6**: SymbolTable の導入
+   - 変更量: 中
+   - 影響範囲: semantic analyzer, エラーメッセージ生成箇所
 
-(3) ExecExpression::Function のインデックス化
-    ← 組み込み関数の enum 化
-    ← ユーザー関数の semantic analyzer での解決
-
-(4) Scope.identifier_map の縮小
-    ← (3) の完了が必要
-    ← get_function のインデックスベース化
-    ← main 関数エントリポイント解決の semantic analyzer への移動
-
-(5) function_static_storage のインデックスキー化
-    ← (3)(4) の完了が必要
-
-(6) SymbolTable の導入
-    ← (1)〜(5) の完了後に文字列情報を SymbolTable に集約
-```
+全ステップ完了後、semantic analyzer の出力は完全にインデックスベースとなり、
+文字列はオプショナルな SymbolTable のみに集約される。
 
 ---
 
-## 推奨実施順序
+## 関連ドキュメント
 
-1. **(2) Function.args 削除** — 変更量小。単独で完了可能
-2. **(1) Variable.identifier → slot_index** — 変更量中。static 変数復元の書き換えが必要
-3. **(3) ExecExpression::Function のインデックス化** — 変更量大。組み込み関数 enum の設計が必要
-4. **(4)(5)(6) Scope からの文字列排除 + SymbolTable 導入** — (3) の完了後にまとめて実施
+### 完了済み
+- [function-args-identifier-resolution-completed.md](../done-task/function-args-identifier-resolution-completed.md) — ステップ1
+- [variable-identifier-to-slot-index.md](../done-task/variable-identifier-to-slot-index.md) — ステップ2
+- [builtin-function-indexing.md](../done-task/builtin-function-indexing.md) — ステップ3
 
-各ステップは独立してテスト可能であり、全ステップ完了後に semantic analyzer の出力は
-完全にインデックスベースとなり、文字列はオプショナルな SymbolTable のみに集約される。
-
----
+### 参考
+- [technical-debt.md](../done-task
 
 ## 関連ドキュメント
 
@@ -193,7 +190,9 @@ pub struct SymbolTable {
 
 ## 更新履歴
 
-- 2026-02-10: function-args-identifier-resolution.md から分離して作成
+- 2026-02-10: 設計ドキュメントとして作成
+- 2026-02-11: ステップ1「Function.args 削除」実装完了
+  - [function-args-identifier-resolution-completed.md](../done-task/function-args-identifier-resolution-completed.md) に詳細を記録
 - 2026-02-11: ステップ2「Variable.identifier → slot_index」実装完了
   - [variable-identifier-to-slot-index.md](../done-task/variable-identifier-to-slot-index.md) に詳細を記録
   - `Variable` に `slot_index` フィールドを追加
@@ -203,4 +202,14 @@ pub struct SymbolTable {
   - `BuiltinFunctionKind` enum を定義
   - 組み込み関数の識別を文字列マッチングから enum ベースに変更
   - interpreter と compiler_ws で文字列比較が不要に
-  - すべてのテストが成功
+- 2026-02-11: ステップ4「Scope.identifier_map の縮小」実装完了
+  - [main-function-indexing.md](../done-task/main-function-indexing.md) に詳細を記録
+  - `Scope` に `main_function_index` フィールドを追加
+  - main 関数の取得をインデックスベースに変更
+  - `initialize_function_statics` を直接イテレーションに変更
+  - interpreter と compiler_ws で main 関数の文字列検索が不要に
+- 2026-02-11: ドキュメント整理
+  - 完了済みステップ（1-3）と未完了ステップ（4-6）を明確に区別
+  - 実装状況テーブルを追加
+  - 完了済みステップの詳細説明を簡略化し done-task へのリンクを強化
+  - 残りのステップ（4-6）の詳細設計を展開

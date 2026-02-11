@@ -1,0 +1,5 @@
+# Test main_function_index #
+
+func: main() {
+    return: 42;
+}
