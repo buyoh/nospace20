@@ -155,13 +155,13 @@ tests:
     type: success
     path: operators/ref_basic_001
     comment: "Reference and dereference operators"
-    targets: [interpreter]
+    targets: [interpreter, whitespace]
 
   - name: test_operators_ref_deref_assign_001
     type: success
     path: operators/ref_deref_assign_001
     comment: "Dereference assignment (*ptr = value)"
-    targets: [interpreter]
+    targets: [interpreter, whitespace]
 
   - name: test_operators_ref_func_arg_001
     type: success
@@ -179,7 +179,7 @@ tests:
     type: success
     path: operators/ref_double_001
     comment: "Double pointer (pointer to pointer)"
-    targets: [interpreter]
+    targets: [interpreter, whitespace]
 
   # ========================================
   # Builtins

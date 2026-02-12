@@ -3,7 +3,8 @@
 ## ステータス
 
 - 作成日: 2026-02-10
-- 状態: 未実装
+- 状態: 完了
+- 完了日: 2026-02-13
 
 ## 背景
 
@@ -164,6 +165,78 @@ impl CodeGenContext {
 - `test_operators_ref_swap_001` - 参照を使った swap 関数
 
 現在、これらのテストは `mode: InterpretFunc` のみで実行されています。Phase 4 完了後は `mode: CompileWs` でも実行できるようにします。
+
+## 実装手順
+
+1. `CodeGenContext::get_variable_address` メソッドを実装（または既存メソッドを確認）
+2. `Operator1::Ref` の実装
+   - 変数の場合
+   - 配列要素の場合（将来的に）
+3. `Operator1::Deref` の実装（読み取り）
+4. `generate_assignment` の拡張（デリファレンス代入）
+5. ユニットテストの追加
+6. 統合テストの mode を `CompileWs` に拡張
+7. 全テストスイート（`cargo test`）が PASS することを確認
+
+## 実装内容
+
+### 実装日: 2026-02-13
+
+#### 1. ヘルパー関数の追加
+
+**`generate_variable_address`** - 変数のアドレスをスタックに積む関数を追加:
+- グローバル変数: `GLOBAL_PTR + offset` をスタックに Push
+- ローカル変数: `heap[LOCAL_HEAP_BEGIN] + offset` をスタックに Push
+
+**`generate_array_element_address`** - 配列要素のアドレスをスタックに積む関数を追加:
+- グローバル配列: `GLOBAL_PTR + offset + index` をスタックに Push
+- ローカル配列: `heap[LOCAL_HEAP_BEGIN] + offset + index` をスタックに Push
+
+**`generate_load_variable`** と **`generate_array_access`** をリファクタリング:
+- 新しいヘルパー関数を使用するように変更
+- アドレス取得と値の読み取り（Retrieve）を分離
+
+#### 2. Operator1::Ref の実装
+
+`generate_unary_op` 関数内で `Operator1::Ref` の処理を実装:
+- `ExecExpression::Variable` の場合: `generate_variable_address` を呼び出し
+- `ExecExpression::ArrayAccess` の場合: `generate_array_element_address` を呼び出し
+- それ以外の場合: エラーを返す（参照演算子は変数または配列要素にのみ適用可能）
+
+#### 3. Operator1::Deref の実装
+
+`generate_unary_op` 関数内で `Operator1::Deref` の処理を実装:
+- 内部式を評価してアドレスをスタックに積む
+- `Instruction::Retrieve` でそのアドレスから値を取得
+
+#### 4. デリファレンス代入の実装
+
+`generate_binary_op` 関数内の `Operator2::Assign` に、デリファレンス代入のケースを追加:
+- `ExecExpression::Operation1(Operator1::Deref, addr_expr)` の場合を処理
+- アドレス式を評価してスタックに積む
+- 値を評価してスタックに積む
+- `Instruction::Store` でメモリに格納
+- 代入式の値として、再度アドレスから値を取得してスタックに残す
+
+#### 5. テストケースの更新
+
+`resources/tests/test-manifest.yaml` を更新:
+- `test_operators_ref_basic_001` の targets に `whitespace` を追加
+- `test_operators_ref_deref_assign_001` の targets に `whitespace` を追加
+- `test_operators_ref_double_001` の targets に `whitespace` を追加
+
+これにより、これらのテストがインタプリタだけでなく Whitespace コンパイラでも実行されるようになりました。
+
+#### 6. 動作確認
+
+手動テスト (`tmp/test-ref-deref.ns`) を作成して動作を確認:
+- インタプリタモード (`--debug`): 正常に動作し、trace 結果が期待通り
+- コンパイルモード (`--std=ws --mode=compile --target=mnemonic`): 正常にコンパイルされ、適切なWhitespace命令が生成される
+
+#### 7. 注意事項
+
+- `test_operators_ref_func_arg_001` と `test_operators_ref_swap_001` は、ユーザー定義関数呼び出しを含むため、Phase 5 完了まで `whitespace` ターゲットには追加していません
+- Whitespace テストは `wsc` (Whitespace コンパイラ) が必要で、`#[ignore]` 属性が付いています
 
 ## 実装手順
 

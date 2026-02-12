@@ -58,8 +58,8 @@ pub fn generate_expression(
     }
 }
 
-/// 変数の値をロード（スタックにプッシュ）
-fn generate_load_variable(
+/// 変数のアドレスを取得（スタックにアドレスをプッシュ）
+fn generate_variable_address(
     ctx: &CodeGenContext,
     var_ref: &crate::semantic_analyzer::IdentifierRef,
 ) -> Result<WsProgram, CompileError> {
@@ -71,7 +71,6 @@ fn generate_load_variable(
             // グローバル: GlobalPtr + offset
             let addr = heap_layout::GLOBAL_PTR + var_info.offset;
             prog.push(Instruction::Push(WsNumber(addr)));
-            prog.push(Instruction::Retrieve);
         }
         VarScope::Local => {
             // ローカル: heap[LocalHeapBegin] + offset
@@ -79,16 +78,24 @@ fn generate_load_variable(
             prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
             prog.push(Instruction::Retrieve);
             prog.push(Instruction::Add);
-            prog.push(Instruction::Retrieve);
         }
     }
 
     Ok(prog)
 }
 
-/// 配列アクセスのコード生成（読み取り）
-/// arr[index] の値をスタックにプッシュ
-fn generate_array_access(
+/// 変数の値をロード（スタックにプッシュ）
+fn generate_load_variable(
+    ctx: &CodeGenContext,
+    var_ref: &crate::semantic_analyzer::IdentifierRef,
+) -> Result<WsProgram, CompileError> {
+    let mut prog = generate_variable_address(ctx, var_ref)?;
+    prog.push(Instruction::Retrieve);
+    Ok(prog)
+}
+
+/// 配列要素のアドレスを取得（スタックにアドレスをプッシュ）
+fn generate_array_element_address(
     ctx: &mut CodeGenContext,
     var_ref: &crate::semantic_analyzer::IdentifierRef,
     index_expr: &ExecExpression,
@@ -103,7 +110,6 @@ fn generate_array_access(
             prog.push(Instruction::Push(WsNumber(base_addr)));
             prog.append(generate_expression(ctx, index_expr)?);
             prog.push(Instruction::Add);
-            prog.push(Instruction::Retrieve);
         }
         VarScope::Local => {
             // local_addr = heap[LOCAL_HEAP_BEGIN] + offset + index
@@ -113,10 +119,21 @@ fn generate_array_access(
             prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
             prog.push(Instruction::Retrieve);
             prog.push(Instruction::Add);
-            prog.push(Instruction::Retrieve);
         }
     }
 
+    Ok(prog)
+}
+
+/// 配列アクセスのコード生成（読み取り）
+/// arr[index] の値をスタックにプッシュ
+fn generate_array_access(
+    ctx: &mut CodeGenContext,
+    var_ref: &crate::semantic_analyzer::IdentifierRef,
+    index_expr: &ExecExpression,
+) -> Result<WsProgram, CompileError> {
+    let mut prog = generate_array_element_address(ctx, var_ref, index_expr)?;
+    prog.push(Instruction::Retrieve);
     Ok(prog)
 }
 
@@ -143,12 +160,25 @@ fn generate_unary_op(
             prog.push(Instruction::Call(reserved_labels::COMPARATOR_ZERO));
         }
         Operator1::Ref => {
-            // 未実装
-            unimplemented!("reference operator (&) is not implemented yet")
+            // 変数または配列要素のアドレスを取得
+            match inner {
+                ExecExpression::Variable(var_ref) => {
+                    prog.append(generate_variable_address(ctx, var_ref)?);
+                }
+                ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
+                    prog.append(generate_array_element_address(ctx, var_ref, index_expr)?);
+                }
+                _ => {
+                    return Err(CompileError::InvalidOperation(
+                        "Reference operator (&) can only be applied to variables or array elements".to_string(),
+                    ));
+                }
+            }
         }
         Operator1::Deref => {
-            // 未実装
-            unimplemented!("dereference operator (*) is not implemented yet")
+            // スタックトップの値をアドレスとして値を取得
+            prog.append(generate_expression(ctx, inner)?);
+            prog.push(Instruction::Retrieve);
         }
     }
 
@@ -259,7 +289,7 @@ fn generate_binary_op(
 
         // 代入
         Operator2::Assign => {
-            // 左辺は変数参照または配列アクセスである必要がある
+            // 左辺は変数参照、配列アクセス、またはデリファレンスである必要がある
             match left {
                 ExecExpression::Variable(var_ref) => {
                     prog.append(generate_store_variable(ctx, var_ref, right)?);
@@ -267,9 +297,21 @@ fn generate_binary_op(
                 ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
                     prog.append(generate_store_array(ctx, var_ref, index_expr, right)?);
                 }
+                ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
+                    // デリファレンス代入: *ptr = value
+                    // アドレスを評価
+                    prog.append(generate_expression(ctx, addr_expr)?);
+                    // 値を評価
+                    prog.append(generate_expression(ctx, right)?);
+                    // Store: heap[addr] = value
+                    prog.push(Instruction::Store);
+                    // 代入式の値として value を残す（再度取得）
+                    prog.append(generate_expression(ctx, addr_expr)?);
+                    prog.push(Instruction::Retrieve);
+                }
                 _ => {
                     return Err(CompileError::InvalidOperation(
-                        "Left-hand side of assignment must be a variable or array access"
+                        "Left-hand side of assignment must be a variable, array access, or dereference"
                             .to_string(),
                     ));
                 }
