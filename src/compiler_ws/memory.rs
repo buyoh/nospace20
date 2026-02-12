@@ -35,12 +35,19 @@ impl MemoryLayout {
 
     // === 動的アドレス計算 ===
 
-    /// グローバル変数を登録し、そのアドレスを返す
+    /// グローバル変数を登録し、先頭アドレスを返す
+    /// size: スロット数（通常変数は 1、配列は配列サイズ）
+    #[allow(dead_code)]
+    pub fn allocate_global_slots(&mut self, size: i64) -> HeapAddress {
+        let addr = Self::GLOBAL_PTR.offset(self.global_var_count);
+        self.global_var_count += size;
+        addr
+    }
+
+    /// 後方互換: 1スロットのグローバル変数を登録
     #[allow(dead_code)]
     pub fn allocate_global(&mut self) -> HeapAddress {
-        let addr = Self::GLOBAL_PTR.offset(self.global_var_count);
-        self.global_var_count += 1;
-        addr
+        self.allocate_global_slots(1)
     }
 
     /// グローバル変数領域のサイズを取得

@@ -686,16 +686,16 @@ tests:
     type: success_io
     path: array-basic
     comment: "Array declaration, access, and initialization"
-    targets: [interpreter]
+    targets: [interpreter, whitespace]
 
   - name: test_array_reference
     type: success_io
     path: array-reference
     comment: "Array reference operations and pointer arithmetic"
-    targets: [interpreter]
+    targets: [interpreter]  # Whitespace: requires & operator (not yet implemented)
 
   - name: test_array_static
     type: success_io
     path: array-static
     comment: "Static array operations"
-    targets: [interpreter]
+    targets: [interpreter, whitespace]

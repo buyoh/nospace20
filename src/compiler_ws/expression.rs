@@ -24,11 +24,9 @@ pub fn generate_expression(
         // 変数参照
         ExecExpression::Variable(var_ref) => generate_load_variable(ctx, var_ref),
 
-        // 配列アデスセ (未実装)
-        ExecExpression::ArrayAccess(_, _, _) => {
-            Err(CompileError::InvalidOperation(
-                "array access is not yet supported in compiler".to_string(),
-            ))
+        // 配列アクセス
+        ExecExpression::ArrayAccess(var_ref, index_expr, _array_size) => {
+            generate_array_access(ctx, var_ref, index_expr)
         }
 
         // 単項演算
@@ -78,6 +76,40 @@ fn generate_load_variable(
         VarScope::Local => {
             // ローカル: heap[LocalHeapBegin] + offset
             prog.push(Instruction::Push(WsNumber(var_info.offset)));
+            prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
+            prog.push(Instruction::Retrieve);
+            prog.push(Instruction::Add);
+            prog.push(Instruction::Retrieve);
+        }
+    }
+
+    Ok(prog)
+}
+
+/// 配列アクセスのコード生成（読み取り）
+/// arr[index] の値をスタックにプッシュ
+fn generate_array_access(
+    ctx: &mut CodeGenContext,
+    var_ref: &crate::semantic_analyzer::IdentifierRef,
+    index_expr: &ExecExpression,
+) -> Result<WsProgram, CompileError> {
+    let var_info = ctx.get_var_info(var_ref);
+    let mut prog = WsProgram::new();
+
+    match var_info.scope {
+        VarScope::Global => {
+            // global_addr = GLOBAL_PTR + offset + index
+            let base_addr = heap_layout::GLOBAL_PTR + var_info.offset;
+            prog.push(Instruction::Push(WsNumber(base_addr)));
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
+            prog.push(Instruction::Retrieve);
+        }
+        VarScope::Local => {
+            // local_addr = heap[LOCAL_HEAP_BEGIN] + offset + index
+            prog.push(Instruction::Push(WsNumber(var_info.offset)));
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
             prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
             prog.push(Instruction::Retrieve);
             prog.push(Instruction::Add);
@@ -227,13 +259,20 @@ fn generate_binary_op(
 
         // 代入
         Operator2::Assign => {
-            // 左辺は変数参照である必要がある
-            if let ExecExpression::Variable(var_ref) = left {
-                prog.append(generate_store_variable(ctx, var_ref, right)?);
-            } else {
-                return Err(CompileError::InvalidOperation(
-                    "Left-hand side of assignment must be a variable".to_string(),
-                ));
+            // 左辺は変数参照または配列アクセスである必要がある
+            match left {
+                ExecExpression::Variable(var_ref) => {
+                    prog.append(generate_store_variable(ctx, var_ref, right)?);
+                }
+                ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
+                    prog.append(generate_store_array(ctx, var_ref, index_expr, right)?);
+                }
+                _ => {
+                    return Err(CompileError::InvalidOperation(
+                        "Left-hand side of assignment must be a variable or array access"
+                            .to_string(),
+                    ));
+                }
             }
         }
         
@@ -280,6 +319,58 @@ fn generate_store_variable(
             prog.push(Instruction::Store);
             // 代入式の値として value を残す（再度取得）
             prog.push(Instruction::Push(WsNumber(var_info.offset)));
+            prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
+            prog.push(Instruction::Retrieve);
+            prog.push(Instruction::Add);
+            prog.push(Instruction::Retrieve);
+        }
+    }
+
+    Ok(prog)
+}
+
+/// 配列要素への値の格納
+/// arr[index] = value
+fn generate_store_array(
+    ctx: &mut CodeGenContext,
+    var_ref: &crate::semantic_analyzer::IdentifierRef,
+    index_expr: &ExecExpression,
+    value_expr: &ExecExpression,
+) -> Result<WsProgram, CompileError> {
+    let var_info = ctx.get_var_info(var_ref);
+    let mut prog = WsProgram::new();
+
+    match var_info.scope {
+        VarScope::Global => {
+            // global_addr = GLOBAL_PTR + offset + index
+            let base_addr = heap_layout::GLOBAL_PTR + var_info.offset;
+            prog.push(Instruction::Push(WsNumber(base_addr)));
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
+            // 値を評価してストア
+            prog.append(generate_expression(ctx, value_expr)?);
+            prog.push(Instruction::Store);
+            // 代入式の値として value を残す（再度取得）
+            prog.push(Instruction::Push(WsNumber(base_addr)));
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
+            prog.push(Instruction::Retrieve);
+        }
+        VarScope::Local => {
+            // local_addr = heap[LOCAL_HEAP_BEGIN] + offset + index
+            prog.push(Instruction::Push(WsNumber(var_info.offset)));
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
+            prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
+            prog.push(Instruction::Retrieve);
+            prog.push(Instruction::Add);
+            // 値を評価してストア
+            prog.append(generate_expression(ctx, value_expr)?);
+            prog.push(Instruction::Store);
+            // 代入式の値として value を残す（再度取得）
+            prog.push(Instruction::Push(WsNumber(var_info.offset)));
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
             prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
             prog.push(Instruction::Retrieve);
             prog.push(Instruction::Add);
