@@ -1,9 +1,34 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const require = createRequire(import.meta.url);
-const wasm = require("../../pkg/nospace20.js");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkgDir = join(__dirname, "../../pkg");
 
+// WASM ファイルを読み込んで初期化 (bundler target 対応)
+const wasmPath = join(pkgDir, "nospace20_bg.wasm");
+const wasmBytes = await readFile(wasmPath);
+
+// nospace20_bg.js をインポート
+const bg = await import("../../pkg/nospace20_bg.js");
+
+// WASM を初期化
+const wasmModule = await WebAssembly.compile(wasmBytes);
+const imports = {
+  "./nospace20_bg.js": bg,
+};
+const wasmInstance = await WebAssembly.instantiate(wasmModule, imports);
+
+// wasm を設定
+bg.__wbg_set_wasm(wasmInstance.exports);
+
+// 初期化関数を実行
+if (wasmInstance.exports.__wbindgen_start) {
+  wasmInstance.exports.__wbindgen_start();
+}
+
+// 使用する関数を取得
 const {
   run,
   compile,
@@ -11,7 +36,7 @@ const {
   compile_to_whitespace_string,
   compile_to_mnemonic_string,
   WasmWhitespaceVM,
-} = wasm;
+} = bg;
 
 function expectSuccess(result, label) {
   assert.equal(result.success, true, `${label}: expected success`);
