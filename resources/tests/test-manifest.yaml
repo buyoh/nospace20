@@ -699,3 +699,18 @@ tests:
     path: array-static
     comment: "Static array operations"
     targets: [interpreter, whitespace]
+
+  # ========================================
+  # String literals (Phase 5)
+  # ========================================
+  - name: test_string_basic
+    type: success_io
+    path: string-basic
+    comment: "String literal basic operations and null termination"
+    targets: [interpreter, whitespace]
+
+  - name: test_string_escape
+    type: success_io
+    path: string-escape
+    comment: "String literal escape sequences"
+    targets: [interpreter, whitespace]

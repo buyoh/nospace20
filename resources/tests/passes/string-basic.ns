@@ -1,0 +1,37 @@
+func: main() {
+    let: s("Hello");
+    __puti(s[0]);
+    __putc(10);
+    __puti(s[1]);
+    __putc(10);
+    __puti(s[2]);
+    __putc(10);
+    __puti(s[3]);
+    __putc(10);
+    __puti(s[4]);
+    __putc(10);
+    __puti(s[5]);
+    __putc(10);
+
+    let: s2("A\sB");
+    __puti(s2[0]);
+    __putc(10);
+    __puti(s2[1]);
+    __putc(10);
+    __puti(s2[2]);
+    __putc(10);
+    __puti(s2[3]);
+    __putc(10);
+
+    let: empty("");
+    __puti(empty[0]);
+    __putc(10);
+
+    let: s3[10]("Hi");
+    __puti(s3[0]);
+    __putc(10);
+    __puti(s3[1]);
+    __putc(10);
+    __puti(s3[2]);
+    __putc(10);
+}

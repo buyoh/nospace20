@@ -25,6 +25,7 @@ pub enum Token {
     Number(i64),
     Identifier(String),
     Keyword(Keyword),
+    StringLiteral(Vec<i64>),  // 文字列リテラル（各文字のASCII値のベクタ、ヌル終端は含まない）
     Plus,
     Minus,
     Asterisk,
@@ -213,6 +214,95 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
     }
 }
 
+/// 文字列リテラルをパースする。"..." のような形式で、エスケープシーケンスも対応。
+/// 呼び出し時点で開始の `"` は既に消費されている必要がある。
+/// ヌル終端は含まない（tree_parser で追加される）。
+fn parse_string_literal<I: Iterator<Item = (usize, char)>>(
+    iter: &mut iter::Peekable<I>,
+    start_idx: usize,
+) -> Result<Token, CodeParseError> {
+    let mut chars = Vec::new();
+
+    loop {
+        match iter.peek() {
+            Some((_, '"')) => {
+                // 終了のダブルクォート
+                iter.next();
+                return Ok(Token::StringLiteral(chars));
+            }
+            Some((_, '\\')) => {
+                // エスケープシーケンス
+                iter.next(); // '\\' を消費
+                match iter.next() {
+                    Some((_, 'n')) => chars.push(10),  // 改行 (LF)
+                    Some((_, 'r')) => chars.push(13),  // 復帰 (CR)
+                    Some((_, 't')) => chars.push(9),   // タブ
+                    Some((_, 's')) => chars.push(32),  // スペース
+                    Some((_, '\\')) => chars.push(92), // バックスラッシュ
+                    Some((_, '"')) => chars.push(34),  // ダブルクォート
+                    Some((_, '\'')) => chars.push(39), // シングルクォート
+                    Some((idx, 'x')) => {
+                        // 16進数エスケープシーケンス \xHH
+                        let hex1_idx = idx;
+                        let hex1 = iter
+                            .next()
+                            .ok_or_else(|| {
+                                code_parse_error!(
+                                    hex1_idx,
+                                    "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
+                                )
+                            })?
+                            .1;
+
+                        let hex2_idx = hex1_idx + 1;
+                        let hex2 = iter
+                            .next()
+                            .ok_or_else(|| {
+                                code_parse_error!(
+                                    hex2_idx,
+                                    "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
+                                )
+                            })?
+                            .1;
+
+                        let hex_str = format!("{}{}", hex1, hex2);
+                        let value = i64::from_str_radix(&hex_str, 16).map_err(|_| {
+                            code_parse_error!(
+                                hex1_idx,
+                                format!("invalid hex escape sequence: \\x{}", hex_str)
+                            )
+                        })?;
+                        chars.push(value);
+                    }
+                    Some((idx, c)) => {
+                        return Err(code_parse_error!(
+                            idx,
+                            format!("unknown escape sequence: \\{}", c)
+                        ));
+                    }
+                    None => {
+                        return Err(code_parse_error!(
+                            start_idx,
+                            "unexpected end of input in string literal"
+                        ));
+                    }
+                }
+            }
+            Some((_, c)) => {
+                // 通常の文字（空白文字も含む - nospace では空白は無視されるが、文字列内では保持）
+                chars.push(*c as i64);
+                iter.next();
+            }
+            None => {
+                return Err(code_parse_error!(
+                    start_idx,
+                    "unclosed string literal: expected closing '\"'"
+                ));
+            }
+        }
+    }
+}
+
 fn determine_keyword_or_identifier(id: String) -> Token {
     match id.as_str() {
         "let" => Token::Keyword(Keyword::Let),
@@ -283,6 +373,21 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                     let start_idx = *idx;
                     iter.next(); // 開始の `'` を消費
                     match parse_char_literal(iter, start_idx) {
+                        Ok(token) => {
+                            tokens.push((token, info));
+                            continue;
+                        }
+                        Err(err) => {
+                            parse_errors.push(err);
+                            continue;
+                        }
+                    }
+                }
+                '"' => {
+                    // 文字列リテラル
+                    let start_idx = *idx;
+                    iter.next(); // 開始の `"` を消費
+                    match parse_string_literal(iter, start_idx) {
                         Ok(token) => {
                             tokens.push((token, info));
                             continue;

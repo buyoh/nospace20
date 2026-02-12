@@ -1,0 +1,23 @@
+func: main() {
+    let: esc("\n\t\\");
+    __puti(esc[0]);
+    __putc(10);
+    __puti(esc[1]);
+    __putc(10);
+    __puti(esc[2]);
+    __putc(10);
+    __puti(esc[3]);
+    __putc(10);
+
+    static: s("Test");
+    __puti(s[0]);
+    __putc(10);
+    __puti(s[1]);
+    __putc(10);
+    __puti(s[2]);
+    __putc(10);
+    __puti(s[3]);
+    __putc(10);
+    __puti(s[4]);
+    __putc(10);
+}

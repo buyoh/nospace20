@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "string_escape",
+      "stdin": "",
+      "stdout": "10\n9\n92\n0\n84\n101\n115\n116\n0\n"
+    }
+  ]
+}
