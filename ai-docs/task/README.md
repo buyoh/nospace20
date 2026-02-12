@@ -29,7 +29,6 @@
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
-- [array-implementation/](array-implementation/) - 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装設計（5フェーズ: 構文解析→意味解析→インタプリタ→WSコンパイラ→文字列）
 
 ## 現在のタスク
 
@@ -38,6 +37,8 @@
 - [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
 
 ### 完了済み (done-task/ に移動)
+
+- [array-implementation/](../done-task/array-implementation/) - 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装（Phase 1-5 全て完了：構文解析→意味解析→インタプリタ→WSコンパイラ→文字列）(2026-02-13完了)
 
 - [identifier-management-improvement.md](../done-task/identifier-management-improvement.md) - 識別子管理改善設計（Variable.identifier 削除、IdentifierInfo 型安全化）(2026-02-11完了)
 - [scope/](../done-task/scope/) - スコープ機能の実装（Phase 1-5 全て完了：ブロックスコープ、識別子解決、グローバル変数、static変数、ネスト関数）(2026-02-11完了)

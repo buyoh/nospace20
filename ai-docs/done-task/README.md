@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [array-implementation/](array-implementation/) | 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装（Phase 1-5全て完了：構文解析→意味解析→インタプリタ→WSコンパイラ→文字列） | 2026-02-13 |
 | [identifier-management-improvement.md](identifier-management-improvement.md) | 識別子管理の改善（Variable.identifierフィールド削除、IdentifierInfo型安全化、全Phase完了） | 2026-02-11 |
 | [scope/](scope/) | スコープ機能の実装（Phase 1-5全て完了：ブロックスコープ、識別子解決、グローバル変数、static変数、ネスト関数） | 2026-02-11 |
 | [reference-dereference-interpreter-implementation.md](reference-dereference-interpreter-implementation.md) | 参照(`&`)・デリファレンス(`*`)演算子の実装（Phase 1-3完了: token_parser, tree_parser, semantic_analyzer, interpreter、全テストPASS） | 2026-02-10 |
