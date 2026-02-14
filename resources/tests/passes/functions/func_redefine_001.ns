@@ -1,0 +1,15 @@
+# 正常ケース: 関数の再定義（後の定義が前の定義を上書き）#
+func: foo() {
+  return: 1;
+}
+
+func: foo() {
+  return: 2;
+}
+
+func: main() {
+  let: result;
+  result = foo();
+  __assert(result == 2);
+  __trace(0);
+}

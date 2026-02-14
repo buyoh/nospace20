@@ -1,0 +1,10 @@
+# エラーケース: グローバル変数の多重定義 #
+let: gv;
+
+func: dummy() {}
+
+let: gv;
+
+func: main() {
+  __clog(gv);
+}

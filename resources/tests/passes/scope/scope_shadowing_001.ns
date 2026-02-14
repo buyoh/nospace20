@@ -1,0 +1,26 @@
+# 正常ケース: 異なるスコープでの同名変数 #
+func: foo() {
+  let: x;
+  x = 1;
+  __assert(x == 1);
+  __trace(0);
+  return: x;
+}
+
+func: bar() {
+  let: x;
+  x = 2;
+  __assert(x == 2);
+  __trace(1);
+  return: x;
+}
+
+func: main() {
+  let: result1;
+  let: result2;
+  result1 = foo();
+  result2 = bar();
+  __assert(result1 == 1);
+  __assert(result2 == 2);
+  __trace(2);
+}

@@ -1,0 +1,23 @@
+# 正常ケース: ネストされたブロックスコープでのシャドーイング #
+func: main() {
+  let: x;
+  x = 10;
+  __assert(x == 10);
+  __trace(0);
+  if: 1 {
+    let: x;
+    x = 20;
+    __assert(x == 20);
+    __trace(1);
+    if: 1 {
+      let: x;
+      x = 30;
+      __assert(x == 30);
+      __trace(2);
+    };
+    __assert(x == 20);
+    __trace(3);
+  };
+  __assert(x == 10);
+  __trace(4);
+}

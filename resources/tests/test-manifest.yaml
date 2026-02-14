@@ -275,6 +275,11 @@ tests:
     path: functions/func_hoist_001
     comment: "Function hoisting"
 
+  - name: test_functions_func_redefine_001
+    type: success
+    path: functions/func_redefine_001
+    comment: "Function redefinition (later definition overwrites)"
+
   # - name: test_functions_func_nested_001
   #   type: success
   #   path: functions/func_nested_001
@@ -356,6 +361,16 @@ tests:
     path: scope/scope_shadow_multi_001
     comment: "Multiple levels of shadowing"
 
+  - name: test_scope_scope_shadowing_001
+    type: success
+    path: scope/scope_shadowing_001
+    comment: "Shadowing in different function scopes"
+
+  - name: test_scope_scope_shadowing_002
+    type: success
+    path: scope/scope_shadowing_002
+    comment: "Shadowing in nested block scopes"
+
   - name: test_scope_disabled_scope_block_var_001
     type: success
     path: scope/disabled_scope_block_var_001
@@ -406,7 +421,7 @@ tests:
   # Phase 5: child scope function access error
   - name: test_scope_scope_nested_func_child_access_error_001
     type: compile_error
-    path: scope/scope_nested_func_child_access_error_001
+    path: scope_nested_func_child_access_error_001
     comment: "Error: child scope function access"
 
   - name: test_scope_scope_static_init_001
@@ -477,6 +492,11 @@ tests:
     type: compile_error
     path: scope_duplicate_001
     comment: "Error: duplicate variable definition"
+
+  - name: test_compile_error_global_duplicate_001
+    type: compile_error
+    path: global_duplicate_001
+    comment: "Error: duplicate global variable definition"
 
   - name: test_compile_error_scope_out_of_scope_001
     type: compile_error
