@@ -159,4 +159,37 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   assert.equal(vm2.flush_stdout(), "2\n", "vm2 stdout");
 }
 
+// 6. Compile error tests (semantic errors)
+{
+  // Undefined variable
+  const result1 = run("func: main() { __puti(undefined_var); }", "", false);
+  expectFailure(result1, "compile error: undefined variable");
+
+  // Undefined function
+  const result2 = run("func: main() { undefined_func(); }", "", false);
+  expectFailure(result2, "compile error: undefined function");
+
+  // Duplicate variable definition in same scope
+  const result4 = run("func: main() { let: x; let: x; }", "", false);
+  expectFailure(result4, "compile error: duplicate variable");
+
+  // Missing main function
+  const result9 = compile("func: foo() { __puti(1); }", "ws", "ws");
+  expectFailure(result9, "compile error: missing main function");
+
+  // Assignment to undefined variable
+  const result10 = run("func: main() { undefined_var = 42; }", "", false);
+  expectFailure(result10, "compile error: assignment to undefined variable");
+
+  // Parse errors
+  const result7 = parse("return: 42;");
+  expectFailure(result7, "parse error: return at top level");
+
+  const result8 = parse("func: () {}");
+  expectFailure(result8, "parse error: empty function name");
+
+  const result12 = parse("func: main() { let: arr[]; }");
+  expectFailure(result12, "parse error: array without size");
+}
+
 console.log("WASM Node.js tests passed.");
