@@ -68,7 +68,84 @@ semantic error: the name '{}' is already used
 
 このエラーメッセージは変数と関数の両方で統一される。
 
-### エラーケース
+### 正常ケース（許可される定義）
+
+異なるスコープであれば、同じ名前の関数を定義できる（シャドーイング）：
+
+#### ケース1: グローバルスコープとネストスコープで同じ名前
+
+```nospace
+func: foo() {  # グローバルスコープの foo #
+  __puti(1);
+}
+
+func: outer() {
+  func: foo() {  # outer スコープ内の foo（グローバルとは別スコープ）#
+    __puti(2);
+  }
+  foo();  # このスコープの foo を呼ぶ（2を出力）#
+}
+
+func: main() {
+  foo();    # グローバルの foo（1を出力）#
+  outer();  # outer の foo（2を出力）#
+}
+```
+
+**期待される動作**: 正常に実行され、`1 2` を出力
+
+#### ケース2: 異なるネスト関数スコープで同じ名前
+
+```nospace
+func: outer1() {
+  func: inner() {  # outer1 スコープの inner #
+    __puti(1);
+  }
+  inner();
+}
+
+func: outer2() {
+  func: inner() {  # outer2 スコープの inner（別スコープなので OK）#
+    __puti(2);
+  }
+  inner();
+}
+
+func: main() {
+  outer1();  # 1 を出力 #
+  outer2();  # 2 を出力 #
+}
+```
+
+**期待される動作**: 正常に実行され、`1 2` を出力
+
+#### ケース3: 親スコープの関数を子スコープでシャドーイング
+
+```nospace
+func: outer() {
+  func: test() {  # outer スコープの test #
+    __puti(1);
+  }
+  
+  func: middle() {
+    func: test() {  # middle スコープの test（親をシャドーイング）#
+      __puti(2);
+    }
+    test();  # middle の test を呼ぶ（2を出力）#
+  }
+  
+  test();    # outer の test を呼ぶ（1を出力）#
+  middle();
+}
+
+func: main() {
+  outer();  # 1 2 を出力 #
+}
+```
+
+**期待される動作**: 正常に実行され、`1 2` を出力
+
+### エラーケース（検出される重複定義）
 
 以下のケースがエラーとして検出されるようになる：
 
@@ -134,11 +211,125 @@ func: main() {}
 
 ## テストケース
 
-### 追加するテストファイル
+### 正常系テストファイル（追加）
+
+#### 1. グローバルとネストスコープでの関数シャドーイング
+
+- **ファイル**: `resources/tests/passes/scope/func_shadowing_global_001.ns`
+- **内容**: グローバルスコープとネストスコープで同じ名前の関数を定義
+
+```nospace
+# 正常ケース: グローバルとネストスコープでの関数シャドーイング #
+
+func: foo() {
+  __puti(1);
+}
+
+func: outer() {
+  func: foo() {
+    __puti(2);
+  }
+  foo();
+}
+
+func: main() {
+  foo();
+  __putc('\s');
+  outer();
+}
+```
+
+- **期待される出力**: `1 2`
+
+#### 2. 異なるネストスコープでの同名関数
+
+- **ファイル**: `resources/tests/passes/scope/func_shadowing_siblings_001.ns`
+- **内容**: 兄弟関係にある異なるスコープで同じ名前の関数を定義
+
+```nospace
+# 正常ケース: 異なるネストスコープでの同名関数 #
+
+func: outer1() {
+  func: inner() {
+    __puti(1);
+  }
+  inner();
+}
+
+func: outer2() {
+  func: inner() {
+    __puti(2);
+  }
+  inner();
+}
+
+func: main() {
+  outer1();
+  __putc('\s');
+  outer2();
+}
+```
+
+- **期待される出力**: `1 2`
+
+#### 3. 親スコープの関数を子スコープでシャドーイング
+
+- **ファイル**: `resources/tests/passes/scope/func_shadowing_nested_001.ns`
+- **内容**: 親スコープの関数を子スコープでシャドーイング
+
+```nospace
+# 正常ケース: 親スコープの関数を子スコープでシャドーイング #
+
+func: outer() {
+  func: test() {
+    __puti(1);
+  }
+  
+  func: middle() {
+    func: test() {
+      __puti(2);
+    }
+    test();
+  }
+  
+  test();
+  __putc('\s');
+  middle();
+}
+
+func: main() {
+  outer();
+}
+```
+
+- **期待される出力**: `1 2`
+
+### エラー系テストファイル（追加）
 
 #### 1. グローバルスコープでの関数重複
 
 - **ファイル**: `resources/tests/fails/compile/func_duplicate_global_001.ns`
+#### 正常系テスト
+
+```yaml
+- name: test_scope_func_shadowing_global_001
+  type: success
+  path: scope/func_shadowing_global_001
+  comment: "Function shadowing: global vs nested scope"
+
+- name: test_scope_func_shadowing_siblings_001
+  type: success
+  path: scope/func_shadowing_siblings_001
+  comment: "Function shadowing: different nested scopes"
+
+- name: test_scope_func_shadowing_nested_001
+  type: success
+  path: scope/func_shadowing_nested_001
+  comment: "Function shadowing: parent vs child scope"
+```
+
+#### エラー系テスト
+
 - **内容**: グローバルスコープで同じ名前の関数を2回定義
 
 ```nospace
@@ -238,16 +429,21 @@ func: main() {
   path: func_duplicate_global_001
   comment: "Error: duplicate function definition in global scope"
 
-- name: test_compile_error_func_duplicate_nested_001
-  type: compile_error
-  path: func_duplicate_nested_001
-  comment: "Error: duplicate function definition in nested scope"
+- nam正常系テストファイル追加**
+   - 上記3つの正常系テストケースを `resources/tests/passes/scope/` に追加
+   - 各テストに対応する `.check.json` ファイル（期待出力含む）を作成
 
-- name: test_compile_error_func_var_conflict_001
-  type: compile_error
-  path: func_var_conflict_001
-  comment: "Error: function-variable name conflict"
+3. **エラー系テストファイル追加**
+   - 上記4つのエラー系テストケースを `resources/tests/fails/compile/` に追加
+   - 各テストに対応する `.check.json` ファイルを作成
 
+4. **test-manifest.yaml 更新**
+   - 正常系3つ + エラー系4つ = 合計7つのテストエントリを追加
+
+5. **テスト実行**
+   - `cargo test` で全テストが通ることを確認
+   - 正常系テストが期待通り実行され、正しい出力を得ることを確認
+   - エラー系
 - name: test_compile_error_func_duplicate_main_001
   type: compile_error
   path: func_duplicate_main_001
@@ -310,10 +506,11 @@ func: main() {
 - 変数と関数を区別: `"semantic error: the variable '{}' is already defined"`
 - 再定義の場所を表示: `"semantic error: the name '{}' is already used at line X"`
 
-これらは将来的な改善として検討可能。
-
-## 完了条件
-
+これらは将来正常系3つのテストファイルの追加（`resources/tests/passes/scope/`）
+- [ ] エラー系4つのテストファイルの追加（`resources/tests/fails/compile/`）
+- [ ] `test-manifest.yaml` の更新（合計7つのエントリ）
+- [ ] `cargo test` で全テストが成功
+- [ ] `cargo test --test code_test` で正常系テストが正しく実行され、エラー系
 - [ ] `src/semantic_analyzer/mod.rs` の修正
 - [ ] 4つのテストファイルの追加
 - [ ] `test-manifest.yaml` の更新
