@@ -1,0 +1,24 @@
+# 正常ケース: 親スコープの関数を子スコープでシャドーイング #
+
+func: outer() {
+  __trace(1);
+  func: test() {
+    __trace(2);
+  }
+  
+  func: middle() {
+    __trace(3);
+    func: test() {
+      __trace(4);
+    }
+    test();
+  }
+  
+  test();
+  middle();
+}
+
+func: main() {
+  __trace(0);
+  outer();
+}

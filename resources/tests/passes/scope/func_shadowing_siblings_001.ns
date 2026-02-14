@@ -1,0 +1,23 @@
+# 正常ケース: 異なるネストスコープでの同名関数 #
+
+func: outer1() {
+  __trace(1);
+  func: inner() {
+    __trace(2);
+  }
+  inner();
+}
+
+func: outer2() {
+  __trace(3);
+  func: inner() {
+    __trace(4);
+  }
+  inner();
+}
+
+func: main() {
+  __trace(0);
+  outer1();
+  outer2();
+}

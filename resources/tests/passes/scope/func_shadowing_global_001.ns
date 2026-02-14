@@ -1,0 +1,19 @@
+# 正常ケース: グローバルとネストスコープでの関数シャドーイング #
+
+func: foo() {
+  __trace(1);
+}
+
+func: outer() {
+  __trace(2);
+  func: foo() {
+    __trace(3);
+  }
+  foo();
+}
+
+func: main() {
+  __trace(0);
+  foo();
+  outer();
+}

@@ -1,0 +1,17 @@
+# エラーケース: ネストスコープでの関数の重複定義 #
+
+func: outer() {
+  func: inner() {
+    __puti(1);
+  }
+  
+  func: inner() {
+    __puti(2);
+  }
+  
+  inner();
+}
+
+func: main() {
+  outer();
+}

@@ -1,0 +1,11 @@
+# エラーケース: 関数と変数の名前衝突 #
+
+func: foo() {
+  __puti(1);
+}
+
+let: foo;
+
+func: main() {
+  foo();
+}

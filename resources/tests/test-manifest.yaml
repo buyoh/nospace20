@@ -412,6 +412,22 @@ tests:
     path: scope/scope_static_counter_factory_001
     comment: "Counter factory pattern with static variable"
 
+  # Function shadowing tests
+  - name: test_scope_func_shadowing_global_001
+    type: success
+    path: scope/func_shadowing_global_001
+    comment: "Function shadowing: global vs nested scope"
+
+  - name: test_scope_func_shadowing_siblings_001
+    type: success
+    path: scope/func_shadowing_siblings_001
+    comment: "Function shadowing: different nested scopes"
+
+  - name: test_scope_func_shadowing_nested_001
+    type: success
+    path: scope/func_shadowing_nested_001
+    comment: "Function shadowing: parent vs child scope"
+
   # Phase 5: nested function support enabled
   - name: test_scope_scope_static_error_001
     type: compile_error
@@ -502,6 +518,26 @@ tests:
     type: compile_error
     path: scope_out_of_scope_001
     comment: "Error: variable out of scope"
+
+  - name: test_compile_error_func_duplicate_global_001
+    type: compile_error
+    path: func_duplicate_global_001
+    comment: "Error: duplicate function definition in global scope"
+
+  - name: test_compile_error_func_duplicate_nested_001
+    type: compile_error
+    path: func_duplicate_nested_001
+    comment: "Error: duplicate function definition in nested scope"
+
+  - name: test_compile_error_func_var_conflict_001
+    type: compile_error
+    path: func_var_conflict_001
+    comment: "Error: function and variable name conflict"
+
+  - name: test_compile_error_func_duplicate_main_001
+    type: compile_error
+    path: func_duplicate_main_001
+    comment: "Error: duplicate main function definition"
 
   # ========================================
   # I/O tests (migrated from legacy tests)
