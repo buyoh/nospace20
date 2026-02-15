@@ -291,10 +291,10 @@ fn analyze_internal_with_parent(
                     },
                 });
                 // identifier_map にはグローバルインデックスを登録
-                scope.identifier_map.insert(
-                    name.clone(),
+                scope.add_identifier(
+                    name,
                     Identifier::Function(FunctionIndex(global_idx)),
-                );
+                )?;
             }
             _ => {}
         }
