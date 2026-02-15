@@ -1,0 +1,8 @@
+# Empty block expression returns 0 #
+func: main() {
+  __trace(0);
+  let: y;
+  y = {};
+  __assert(y == 0);
+  __trace(0);
+}

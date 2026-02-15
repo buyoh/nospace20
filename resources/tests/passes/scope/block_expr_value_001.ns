@@ -1,0 +1,12 @@
+# Block expression returns value #
+func: main() {
+  __trace(0);
+  let: x;
+  x = {
+    let: a;
+    a = 3;
+    a;
+  };
+  __assert(x == 3);
+  __trace(0);
+}

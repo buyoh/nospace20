@@ -53,6 +53,7 @@ expr_val ::=
     | ident "(" (expr ("," expr)*)? ")"       # 関数呼び出し
     | ident
     | "(" expr ")"
+    | block                                    # ブロックスコープ式
 
 ## Statements
 

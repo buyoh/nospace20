@@ -329,6 +329,17 @@ impl LocalEnvironment<'_, '_> {
         result
     }
 
+    fn interpret_block(&mut self, block: &Block) -> ExpressionFlow {
+        self.enter_block(&block.scope);
+        let (flow, value) = self.interpret_statements_with_value(&block.statements);
+        let result = match flow {
+            Flow::Proceed => ExpressionFlow::Value(value),
+            other => ExpressionFlow::Jump(other),
+        };
+        self.leave_block();
+        result
+    }
+
     fn interpret_operation1(
         &mut self,
         op: &Operator1,
@@ -484,6 +495,7 @@ impl LocalEnvironment<'_, '_> {
                 self.interpret_if(cond, then_block, else_block)
             }
             ExecExpression::While(cond, block) => self.interpret_while(cond, block),
+            ExecExpression::Block(block) => self.interpret_block(block),
         }
     }
 

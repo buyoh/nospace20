@@ -54,6 +54,7 @@ pub enum Expression {
         Vec<LocatedStatement>,
     ),
     While(Box<Expression>, Vec<LocatedStatement>),
+    Block(Vec<LocatedStatement>), // ブロックスコープ式
     Function(String, Vec<Box<Expression>>),  // 関数呼び出し
     Factor(i64),
     Variable(String),
@@ -178,12 +179,15 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 }
                 return e;
             }
-            // if/while を factor レベルで解析
+            // if/while/block を factor レベルで解析
             Some((Token::Keyword(Keyword::If), _)) => {
                 return self.parse_to_expression_tree_if_impl();
             }
             Some((Token::Keyword(Keyword::While), _)) => {
                 return self.parse_to_expression_tree_while_impl();
+            }
+            Some((Token::BraceL, _)) => {
+                return self.parse_to_expression_tree_block_impl();
             }
             Some((_, token_info)) => {
                 return Box::new(Expression::Invalid(
@@ -355,6 +359,17 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         }
         match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
         Box::new(Expression::While(cond, stat))
+    }
+
+    // ブロックスコープ式の解析処理
+    fn parse_to_expression_tree_block_impl(&mut self) -> Box<Expression> {
+        self.iter.next(); // '{' を消費
+        let (stat, mut stat_err) = parse_to_statements(self.iter);
+        if !stat_err.is_empty() {
+            self.code_parse_error.append(&mut stat_err);
+        }
+        match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
+        Box::new(Expression::Block(stat))
     }
 
     // if 式の実際の解析処理

@@ -371,6 +371,32 @@ tests:
     path: scope/scope_shadowing_002
     comment: "Shadowing in nested block scopes"
 
+  # Block expression tests
+  - name: test_scope_block_expr_basic_001
+    type: success
+    path: scope/block_expr_basic_001
+    comment: "Block expression: basic scope"
+
+  - name: test_scope_block_expr_value_001
+    type: success
+    path: scope/block_expr_value_001
+    comment: "Block expression: return value"
+
+  - name: test_scope_block_expr_empty_001
+    type: success
+    path: scope/block_expr_empty_001
+    comment: "Block expression: empty block returns 0"
+
+  - name: test_scope_block_expr_nested_001
+    type: success
+    path: scope/block_expr_nested_001
+    comment: "Block expression: nested blocks"
+
+  - name: test_scope_block_expr_parent_scope_001
+    type: success
+    path: scope/block_expr_parent_scope_001
+    comment: "Block expression: parent scope access"
+
   - name: test_scope_disabled_scope_block_var_001
     type: success
     path: scope/disabled_scope_block_var_001

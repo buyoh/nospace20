@@ -1,0 +1,16 @@
+# Block expression basic scope #
+func: main() {
+  __trace(0);
+  let: x;
+  x = 1;
+  __assert(x == 1);
+  {
+    let: y;
+    y = 2;
+    __assert(y == 2);
+    __assert(x == 1);
+  };
+  # y is out of scope #
+  __assert(x == 1);
+  __trace(0);
+}

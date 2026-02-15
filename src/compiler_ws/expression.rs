@@ -55,6 +55,11 @@ pub fn generate_expression(
 
         // while 式
         ExecExpression::While(cond, body) => generate_while_expression(ctx, cond, body),
+
+        // ブロック式
+        ExecExpression::Block(block) => {
+            super::statement::generate_block(ctx, block)
+        }
     }
 }
 

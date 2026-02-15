@@ -1,0 +1,13 @@
+# Block expression accesses parent scope #
+func: main() {
+  __trace(0);
+  let: x;
+  x = 5;
+  {
+    let: y;
+    y = 10;
+    x = x + y;
+  };
+  __assert(x == 15);
+  __trace(0);
+}

@@ -1,0 +1,16 @@
+# Nested block expressions #
+func: main() {
+  __trace(0);
+  let: result;
+  result = {
+    let: a;
+    a = 10;
+    {
+      let: b;
+      b = 5;
+      a + b;
+    };
+  };
+  __assert(result == 15);
+  __trace(0);
+}

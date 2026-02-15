@@ -73,6 +73,7 @@ pub(crate) enum ExecExpression {
     Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
     If(Box<ExecExpression>, Block, Block),
     While(Box<ExecExpression>, Block),
+    Block(Block), // ブロックスコープ式
     /// 組み込み関数呼び出し
     /// Phase 6: 組み込み関数は BuiltinFunctionKind enum で識別
     BuiltinFunction(BuiltinFunctionKind, Vec<Box<ExecExpression>>),

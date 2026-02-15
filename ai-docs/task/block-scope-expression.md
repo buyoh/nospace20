@@ -1,7 +1,8 @@
 # ブロックスコープ式の実装
 
 **日付**: 2026-02-10  
-**ステータス**: 📋 設計完了
+**更新**: 2026-02-15  
+**ステータス**: ✅ 実装完了
 
 ## 概要
 
@@ -255,3 +256,49 @@ expr_val ::=
 ### Clone derive について
 
 `Expression::Block` は `Vec<LocatedStatement>` を保持するが、`Expression` には `#[derive(Clone)]` が既にあるため問題ない。
+
+## 実装結果 (2026-02-15)
+
+### 実装完了
+
+すべての実装手順を完了しました：
+
+1. ✅ **tree_parser**: `Expression::Block` バリアント追加、`parse_to_expression_tree_block_impl` メソッド実装
+2. ✅ **semantic_analyzer**: `ExecExpression::Block` バリアント追加、変換処理実装
+3. ✅ **interpreter**: `interpret_block` メソッド実装
+4. ✅ **compiler_ws**: ブロック式のコード生成実装
+5. ✅ **テストケース**: 5つのテストケースを追加し、全て成功
+   - `block_expr_basic_001`: 基本的なスコープテスト
+   - `block_expr_value_001`: ブロック式の戻り値テスト
+   - `block_expr_empty_001`: 空ブロックが0を返すテスト
+   - `block_expr_nested_001`: ネストしたブロックのテスト
+   - `block_expr_parent_scope_001`: 親スコープへのアクセステスト
+6. ✅ **ドキュメント**: `spec.md` にセクション6.5追加、`grammar.bnf` 更新
+
+### 既存テストの失敗
+
+実装後、4つの既存テストが失敗しています：
+- `test_functions_func_redefine_001`
+- `test_scope_func_shadowing_global_001`
+- `test_scope_func_shadowing_nested_001`
+- `test_scope_func_shadowing_siblings_001`
+
+これらのテストについては `ai-docs/task/block-expr-test-failure-investigation.md` で調査中です。
+プロンプト指示に従い、既存のテストは修正せず失敗したままにしています。
+
+### 動作確認
+
+```nospace
+func: main() {
+  let: x;
+  x = {
+    let: a;
+    a = 3;
+    a;
+  };
+  __assert(x == 3);
+}
+```
+
+このコードが正しく動作し、アサーションが成功します。
+

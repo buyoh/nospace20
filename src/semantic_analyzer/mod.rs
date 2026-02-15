@@ -160,6 +160,20 @@ fn convert_to_exec_expression_with_resolver(
                 },
             )))
         }
+        Expression::Block(statements) => {
+            let (s, es) = analyze_internal_with_parent(
+                statements,
+                ScopeType::Block,
+                Vec::new(),
+                Some(parent_resolver),
+                &mut Vec::new(),
+                &mut Vec::new(),
+            )?;
+            Ok(Box::new(ExecExpression::Block(Block {
+                scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
+                statements: es,
+            })))
+        }
         Expression::Function(f, a) => {
             // Phase 5: 組み込み関数とユーザー定義関数を区別
             let mut args = Vec::new();
