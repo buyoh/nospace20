@@ -18,6 +18,7 @@
 
 ### アクティブなタスク
 
+- [multi-error-reporting.md](multi-error-reporting.md) - 意味解析における複数エラー報告（semantic_analyzer で複数箇所のコンパイルエラーを収集・表示）
 - [duplicate-function-check.md](duplicate-function-check.md) - 同一スコープ内の関数重複定義の検出（semantic error）
 - [block-scope-expression.md](block-scope-expression.md) - ブロックスコープ式 `{ ... }` の実装（独立したスコープ機能）
 - [error-specification/](error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討
@@ -26,6 +27,7 @@
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開）
 - [wasm-build/](wasm-build/) - Rust → WebAssembly ビルド（ランタイム WASM 化、Phase A: WS ステップ実行完了、Phase 3: Node.js テスト設計追加）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
+- [wasm-compile-error-location.md](wasm-compile-error-location.md) - WASM版コンパイルエラーの位置情報表示（compiler_ws の CompileError に SourceLocation 付与）
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
