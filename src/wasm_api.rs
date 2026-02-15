@@ -16,6 +16,75 @@ use crate::{
 };
 use crate::whitespace::{WhitespaceVM, StepResult, RuntimeError};
 
+// ========================================
+// TypeScript 型定義
+// ========================================
+
+#[wasm_bindgen(typescript_custom_section)]
+const TS_TYPES: &str = r#"
+interface WasmError {
+    message: string;
+    line?: number;
+    column?: number;
+}
+
+interface ResultErr {
+    success: false;
+    errors: WasmError[];
+}
+
+interface RunResultOk {
+    success: true;
+    returnValue: number | null;
+    stdout: string;
+    trace?: Record<string, string>;
+}
+
+type RunResult = RunResultOk | ResultErr;
+
+interface CompileResultOk {
+    success: true;
+    output: string;
+}
+
+type CompileResult = CompileResultOk | ResultErr;
+
+interface ParseResultOk {
+    success: true;
+}
+
+type ParseResult = ParseResultOk | ResultErr;
+
+interface VmStepResult {
+    status: "suspended" | "complete" | "error";
+    error?: string;
+}
+"#;
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "RunResult")]
+    pub type JsRunResult;
+
+    #[wasm_bindgen(typescript_type = "CompileResult")]
+    pub type JsCompileResult;
+
+    #[wasm_bindgen(typescript_type = "ParseResult")]
+    pub type JsParseResult;
+
+    #[wasm_bindgen(typescript_type = "VmStepResult")]
+    pub type JsVmStepResult;
+
+    #[wasm_bindgen(typescript_type = "number[]")]
+    pub type JsNumberArray;
+
+    #[wasm_bindgen(typescript_type = "Record<string, number>")]
+    pub type JsNumberRecord;
+
+    #[wasm_bindgen(typescript_type = "string[]")]
+    pub type JsStringArray;
+}
+
 #[derive(Serialize)]
 struct RunResultOk {
     success: bool, // always true
@@ -47,7 +116,7 @@ struct WasmError {
     column: Option<usize>,
 }
 
-fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
+fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsResultErr {
     let wasm_errors: Vec<WasmError> = errors
         .iter()
         .map(|e| {
@@ -75,26 +144,26 @@ fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
 /// nospace ソースコードを解析・実行する。
 /// CLI の `--mode=run` に相当。
 #[wasm_bindgen]
-pub fn run(source: &str, stdin: &str, debug: bool) -> JsValue {
+pub fn run(source: &str, stdin: &str, debug: bool) -> JsRunResult {
     let text = TextCode::new(source);
     let source_string = source.to_string();
 
     // 字句解析
     let tokens = match parse_to_tokens(&source_string) {
         Ok(t) => t,
-        Err(errors) => return convert_errors(&errors, &text),
+        Err(errors) => return convert_errors(&errors, &text).into(),
     };
 
     // 構文解析
     let statements = match parse_to_tree(&tokens) {
         Ok(s) => s,
-        Err(errors) => return convert_errors(&errors, &text),
+        Err(errors) => return convert_errors(&errors, &text).into(),
     };
 
     // 意味解析
     let scope = match syntactic_analyze(&statements) {
         Ok(a) => a,
-        Err(errors) => return convert_errors(&errors, &text),
+        Err(errors) => return convert_errors(&errors, &text).into(),
     };
 
     // 実行
@@ -119,13 +188,14 @@ pub fn run(source: &str, stdin: &str, debug: bool) -> JsValue {
         stdout: stdout_str,
         trace,
     };
-    serde_wasm_bindgen::to_value(&result).unwrap()
+    let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
+    js.into()
 }
 
 /// nospace ソースコードをコンパイルする。
 /// CLI の `--mode=compile` に相当。
 #[wasm_bindgen]
-pub fn compile(source: &str, target: &str, lang_std: &str) -> JsValue {
+pub fn compile(source: &str, target: &str, lang_std: &str) -> JsCompileResult {
     let text = TextCode::new(source);
     let source_string = source.to_string();
 
@@ -142,7 +212,8 @@ pub fn compile(source: &str, target: &str, lang_std: &str) -> JsValue {
                     column: None,
                 }],
             };
-            return serde_wasm_bindgen::to_value(&result).unwrap();
+            let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
+            return js.into();
         }
     };
 
@@ -158,7 +229,8 @@ pub fn compile(source: &str, target: &str, lang_std: &str) -> JsValue {
                     column: None,
                 }],
             };
-            return serde_wasm_bindgen::to_value(&result).unwrap();
+            let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
+            return js.into();
         }
     };
 
@@ -174,21 +246,22 @@ pub fn compile(source: &str, target: &str, lang_std: &str) -> JsValue {
                 column: None,
             }],
         };
-        return serde_wasm_bindgen::to_value(&result).unwrap();
+        let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
+        return js.into();
     }
 
     // 解析
     let tokens = match parse_to_tokens(&source_string) {
         Ok(t) => t,
-        Err(errors) => return convert_errors(&errors, &text),
+        Err(errors) => return convert_errors(&errors, &text).into(),
     };
     let statements = match parse_to_tree(&tokens) {
         Ok(s) => s,
-        Err(errors) => return convert_errors(&errors, &text),
+        Err(errors) => return convert_errors(&errors, &text).into(),
     };
     let scope = match syntactic_analyze(&statements) {
         Ok(a) => a,
-        Err(errors) => return convert_errors(&errors, &text),
+        Err(errors) => return convert_errors(&errors, &text).into(),
     };
 
     // コンパイル
@@ -204,7 +277,8 @@ pub fn compile(source: &str, target: &str, lang_std: &str) -> JsValue {
                 success: true,
                 output,
             };
-            serde_wasm_bindgen::to_value(&result).unwrap()
+            let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
+            js.into()
         }
         Err(err) => {
             let result = ResultErr {
@@ -215,25 +289,26 @@ pub fn compile(source: &str, target: &str, lang_std: &str) -> JsValue {
                     column: None,
                 }],
             };
-            serde_wasm_bindgen::to_value(&result).unwrap()
+            let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
+            js.into()
         }
     }
 }
 
 /// nospace ソースコードの構文チェックのみ行う。
 #[wasm_bindgen]
-pub fn parse(source: &str) -> JsValue {
+pub fn parse(source: &str) -> JsParseResult {
     let text = TextCode::new(source);
     let source_string = source.to_string();
 
     let tokens = match parse_to_tokens(&source_string) {
         Ok(t) => t,
-        Err(errors) => return convert_errors(&errors, &text),
+        Err(errors) => return convert_errors(&errors, &text).into(),
     };
 
     let statements = match parse_to_tree(&tokens) {
         Ok(s) => s,
-        Err(errors) => return convert_errors(&errors, &text),
+        Err(errors) => return convert_errors(&errors, &text).into(),
     };
 
     match syntactic_analyze(&statements) {
@@ -243,9 +318,10 @@ pub fn parse(source: &str) -> JsValue {
                 success: bool,
             }
             let result = ParseResultOk { success: true };
-            serde_wasm_bindgen::to_value(&result).unwrap()
+            let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
+            js.into()
         }
-        Err(errors) => convert_errors(&errors, &text),
+        Err(errors) => convert_errors(&errors, &text).into(),
     }
 }
 
@@ -363,7 +439,7 @@ impl WasmWhitespaceVM {
     /// 指定ステップ数だけ実行する
     ///
     /// 戻り値: { status: "suspended" | "complete" | "error", error?: string }
-    pub fn step(&mut self, budget: u32) -> JsValue {
+    pub fn step(&mut self, budget: u32) -> JsVmStepResult {
         let result = self.vm.step(budget as usize);
 
         let vm_result = match result {
@@ -381,7 +457,8 @@ impl WasmWhitespaceVM {
             },
         };
 
-        serde_wasm_bindgen::to_value(&vm_result).unwrap()
+        let js: JsValue = serde_wasm_bindgen::to_value(&vm_result).unwrap();
+        js.into()
     }
 
     /// 現在のプログラムカウンタ（命令インデックス）
@@ -402,22 +479,24 @@ impl WasmWhitespaceVM {
     /// データスタックの現在の内容
     ///
     /// 戻り値: number[] (i64 → JS number に変換。53bit 超は精度が落ちる)
-    pub fn get_stack(&self) -> JsValue {
+    pub fn get_stack(&self) -> JsNumberArray {
         let stack: Vec<f64> = self.vm.data_stack().iter().map(|&v| v as f64).collect();
-        serde_wasm_bindgen::to_value(&stack).unwrap()
+        let js: JsValue = serde_wasm_bindgen::to_value(&stack).unwrap();
+        js.into()
     }
 
     /// ヒープの現在の内容
     ///
     /// 戻り値: { [address: string]: number }
-    pub fn get_heap(&self) -> JsValue {
+    pub fn get_heap(&self) -> JsNumberRecord {
         let heap: std::collections::BTreeMap<String, f64> = self
             .vm
             .heap()
             .iter()
             .map(|(k, v)| (k.to_string(), *v as f64))
             .collect();
-        serde_wasm_bindgen::to_value(&heap).unwrap()
+        let js: JsValue = serde_wasm_bindgen::to_value(&heap).unwrap();
+        js.into()
     }
 
     /// コールスタックの深さ
@@ -436,14 +515,15 @@ impl WasmWhitespaceVM {
     /// トレース情報を取得
     ///
     /// 戻り値: { [key: string]: number }
-    pub fn get_traced(&self) -> JsValue {
+    pub fn get_traced(&self) -> JsNumberRecord {
         let traced: std::collections::BTreeMap<String, f64> = self
             .vm
             .traced
             .iter()
             .map(|(k, v)| (k.to_string(), *v as f64))
             .collect();
-        serde_wasm_bindgen::to_value(&traced).unwrap()
+        let js: JsValue = serde_wasm_bindgen::to_value(&traced).unwrap();
+        js.into()
     }
 
     /// 現在の命令のニーモニック表現を取得（デバッグ用）
@@ -452,20 +532,21 @@ impl WasmWhitespaceVM {
     }
 
     /// 命令列全体のニーモニック表現を取得
-    pub fn disassemble(&self) -> JsValue {
+    pub fn disassemble(&self) -> JsStringArray {
         let instructions = self.vm.disassemble();
-        serde_wasm_bindgen::to_value(&instructions).unwrap()
+        let js: JsValue = serde_wasm_bindgen::to_value(&instructions).unwrap();
+        js.into()
     }
 }
 
 /// nospace ソースコードを Whitespace にコンパイル（ヘルパー関数）
 #[wasm_bindgen]
-pub fn compile_to_whitespace_string(source: &str) -> JsValue {
+pub fn compile_to_whitespace_string(source: &str) -> JsCompileResult {
     compile(source, "ws", "ws")
 }
 
 /// nospace ソースコードをニーモニックにコンパイル（ヘルパー関数）
 #[wasm_bindgen]
-pub fn compile_to_mnemonic_string(source: &str) -> JsValue {
+pub fn compile_to_mnemonic_string(source: &str) -> JsCompileResult {
     compile(source, "mnemonic", "ws")
 }
