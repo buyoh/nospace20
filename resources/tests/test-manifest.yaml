@@ -276,9 +276,9 @@ tests:
     comment: "Function hoisting"
 
   - name: test_functions_func_redefine_001
-    type: success
-    path: functions/func_redefine_001
-    comment: "Function redefinition (later definition overwrites)"
+    type: compile_error
+    path: func_redefine_001
+    comment: "Function redefinition is a compile error (duplicate definition)"
 
   # - name: test_functions_func_nested_001
   #   type: success
