@@ -1,0 +1,15 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "123",
+      "stdin": "12p3ppx",
+      "stdout": "123."
+    },
+    {
+      "name": "1234567",
+      "stdin": "12p345pp6p7pppx",
+      "stdout": "1234567."
+    }
+  ]
+}

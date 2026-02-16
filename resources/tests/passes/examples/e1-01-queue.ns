@@ -1,0 +1,35 @@
+let: size(5);
+let: data[5];
+let: idx_head;
+let: idx_tail;
+
+func: push(val) {
+  data[idx_head] = val;
+  idx_head += 1;
+  idx_head %= size;
+  return: 0;
+}
+
+func: pop() {
+  if: idx_tail == idx_head {
+    return: -1;
+  };
+  let: res(data[idx_tail]);
+  idx_tail += 1;
+  idx_tail %= size;
+  return: res;
+}
+
+func: main() {
+  while: 1 {
+    let: c(__getc());
+    if: '0' <= c && c <= '9' {
+      push(c);
+    } else: if: c == 'p' {
+      __putc(pop());
+    } else: {
+      break;
+    };
+  };
+  __putc('.');
+}

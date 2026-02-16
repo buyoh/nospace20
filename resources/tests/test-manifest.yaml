@@ -891,3 +891,7 @@ tests:
     path: examples/e1-00-qsort
     comment: ""
   
+  - name: test_example_queue
+    type: success_io
+    path: examples/e1-01-queue
+    comment: ""
