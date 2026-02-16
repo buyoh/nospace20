@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "simple",
+      "stdin": "",
+      "stdout": "hello world\n"
+    }
+  ]
+}

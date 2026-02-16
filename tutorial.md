@@ -87,7 +87,7 @@ func: main() {
 ## Rotate Array
 
 ```
-func:swap(p,q){let:t;t=*p;*p=*q;*q=t;}
+f u n c:swap(p,q){let:t;t=*p;*p=*q;*q=t;}
 func: rotate(begin, end) {
     end -= 1;
     while: begin < end {
@@ -117,6 +117,7 @@ func: main(){
 - `arr` は `arr[0]` と同義
   - C言語と異なる
 - 空白改行タブを一切含めること無く記述できるのが本言語の下らない特徴
+- 逆に、どこに空白改行タブを入れてもその空白は無視される
 
 ## Sorting (Quick Sort)
 
@@ -145,7 +146,7 @@ func: main() {
     let: i(0);
     while: i < 9 {
         __puti(arr[i]);
-        __putc(' ');
+        __putc('\s');
         i += 1;
     };
 }
@@ -155,3 +156,4 @@ func: main() {
 - `a[3](1,2)` で `a[0]` を `1`，`a[1]`を `2` に初期化する
   - `a[2]` は確保されるが未定値
 - 初期化の値は定数でなくても良い
+- 半角スペースは `\s` で出力できる。`' '` は `''`と解釈され、コンパイルエラーになる

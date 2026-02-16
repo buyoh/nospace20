@@ -1,0 +1,42 @@
+
+func: swap(p, q) {
+  let: t;
+  t = *p; *p = *q; *q = t;
+}
+func: qsort(begin, end) {
+  if: end - begin <= 1 { return; };
+  let: pv(begin), it(begin + 1);
+  while: it < end {
+    if: *pv > *it {
+      swap(pv + 1, it);
+      swap(pv, pv + 1);
+      pv += 1;
+    };
+    it += 1;
+  };
+  qsort(begin, pv);
+  qsort(pv+1, end);
+}
+func: main() {
+  let: arr[20];
+  let: n;
+  n = __geti();
+  if: n > 20 {
+    return: 1;
+  }
+  {
+    let: i(0);
+    while: i < n {
+      arr[i] = __geti();
+      i += 1;
+    }
+  };
+  qsort(&arr, &arr+n);
+  let: i(0);
+  while: i < n {
+    __puti(arr[i]);
+    __putc('\s');
+    i += 1;
+  };
+  return: 0;
+}

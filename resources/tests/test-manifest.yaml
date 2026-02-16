@@ -897,3 +897,26 @@ tests:
     path: string-escape
     comment: "String literal escape sequences"
     targets: [interpreter, whitespace]
+
+  # ========================================
+  # Special examples
+  # ========================================
+
+  - name: test_example_puts
+    type: success_io
+    path: examples/e0-00-puts
+    comment: ""
+    targets: [interpreter, whitespace]
+
+  - name: test_example_fibonacci
+    type: success_io
+    path: examples/e0-01-fibonacci
+    comment: ""
+    targets: [interpreter, whitespace]
+
+  - name: test_example_qsort
+    type: success_io
+    path: examples/e1-00-qsort
+    comment: ""
+    targets: [interpreter, whitespace]
+  

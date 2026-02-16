@@ -1,0 +1,25 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "0 -> 1",
+      "stdin": "0",
+      "stdout": "1\n"
+    },
+    {
+      "name": "1 -> 1 and break",
+      "stdin": "1\n",
+      "stdout": "1\n"
+    },
+    {
+      "name": "2 -> 2",
+      "stdin": "2\n",
+      "stdout": "2\n"
+    },
+    {
+      "name": "10 -> 55",
+      "stdin": "10\n",
+      "stdout": "55\n"
+    }
+  ]
+}

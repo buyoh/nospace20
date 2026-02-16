@@ -1,0 +1,14 @@
+func: puts(str) {
+  __puti(str);
+  while: *str != 0 {
+    __putc(*str);
+    str += 1;
+  };
+  __putc('\n');
+}
+
+func: main() {
+  let: g[12]("hello\sworld");
+  puts(&g);
+  return: 0;
+}
