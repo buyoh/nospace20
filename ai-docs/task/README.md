@@ -40,6 +40,7 @@
 ### アクティブ
 
 - [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
+- [fix-whitespace-vm-test-failures.md](fix-whitespace-vm-test-failures.md) - WhitespaceVM テスト失敗の修正（WSA エンコーディング誤り 8 件 + マニフェストパス誤り 4 件）
 
 ### 完了済み (done-task/ に移動)
 
