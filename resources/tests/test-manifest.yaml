@@ -822,7 +822,7 @@ tests:
 # ========================================
 # Disabled tests (未実装機能のテスト)
 # ========================================
-# DISABLED: requires global variables
+# DISABLED: requires global variables [TODO: ENABLE]
 # - name: test_variables_disabled_var_global_001
 #   type: success
 #   path: variables/disabled_var_global_001
@@ -832,33 +832,27 @@ tests:
 #   type: success
 #   path: variables/disabled_var_final_001
 
-# DISABLED: requires variable initialization in declaration
+# DISABLED: requires variable initialization in declaration [TODO: ENABLE]
 # - name: test_variables_disabled_var_init_001
 #   type: success
 #   path: variables/disabled_var_init_001
 
-# DISABLED legacy tests (require unimplemented features)
-# - name: test_legacy_017
-#   type: success_io
-#   path: legacy/legacy_017
-#   comment: "DISABLED: requires pointers and <="
-
-# - name: test_legacy_019
+# - name: test_legacy_019 [TODO: ENABLE]
 #   type: success_io
 #   path: legacy/legacy_019
 #   comment: "DISABLED: requires arrays"
 
-# - name: test_legacy_021
+# - name: test_legacy_021 [TODO: ENABLE]
 #   type: success_io
 #   path: legacy/legacy_021
 #   comment: "DISABLED: requires array initialization"
 
-# - name: test_legacy_022
+# - name: test_legacy_022 [TODO: ENABLE]
 #   type: success_io
 #   path: legacy/legacy_022
 #   comment: "DISABLED: requires pointers"
 
-# - name: test_legacy_024
+# - name: test_legacy_024 [TODO: ENABLE]
 #   type: success_io
 #   path: legacy/legacy_024
 #   comment: "DISABLED: requires arrays and pointers"
@@ -867,11 +861,6 @@ tests:
 #   type: success_io
 #   path: legacy/legacy_026
 #   comment: "DISABLED: requires multi-char literals"
-
-# - name: test_legacy_027
-#   type: success_io
-#   path: legacy/legacy_027
-#   comment: "DISABLED: requires __getiv, __getcv, complex expressions"
 
   # ========================================
   # Arrays (Phase 3)
