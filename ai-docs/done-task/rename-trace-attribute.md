@@ -91,7 +91,43 @@ find resources/tests -name '*.check.json' -exec sed -i '' 's/"trace":/"trace_hit
 
 ## ステータス
 
-- [ ] 設計完了
-- [ ] 実装
-- [ ] テスト確認
-- [ ] ドキュメント更新
+- [x] 設計完了
+- [x] 実装
+- [x] テスト確認（127 passed, 21 ignored）
+- [x] ドキュメント更新
+
+## 実施内容
+
+### 実装完了 (2026-02-16)
+
+1. **Rust コード更新** (`tests/code_test.rs`)
+   - `TestConfig::Success` フィールド名を `trace` → `trace_hit_counts` に変更
+   - `#[serde(alias = "trace")]` を追加して後方互換性を確保
+   - `from_legacy` メソッドを更新し、`trace` と `trace_hit_counts` の両方に対応
+   - 検証ロジック内の変数名を更新
+
+2. **check.json 一括変換**
+   - `tools/rename-trace-to-trace-hit-counts.sh` スクリプトを作成
+   - 約83ファイルの `"trace":` を `"trace_hit_counts":` に一括変換
+   - macOS / Linux 両対応
+
+3. **ドキュメント更新**
+   - `resources/tests/README.md` の `trace` → `trace_hit_counts` に更新
+   - `.github/skills/add-test-spec/SKILL.md` は `trace` の参照なし（更新不要）
+
+4. **テスト実行**
+   - `cargo test --test code_test` で全テスト通過確認
+   - 127 passed, 21 ignored (requires wsc)
+
+5. **コミット**
+   - コミットハッシュ: 808068a
+   - 87 files changed, 123 insertions(+), 95 deletions(-)
+
+### 後方互換性
+
+以下の方法で後方互換性を確保:
+
+1. `#[serde(alias = "trace")]` により、旧形式 `"trace"` も引き続き読み込み可能
+2. `from_legacy` メソッドが `"trace"` と `"trace_hit_counts"` の両方を検出
+
+## 完了
