@@ -6,7 +6,7 @@
 #   type: success | success_io | syntax_error
 #   path: テストファイルのパス（resources/tests/passes/ または fails/syntax/ からの相対パス）
 #   comment: (オプション) テストの説明
-#   exclude_targets: (オプション) 除外するテスト対象 [interpreter, whitespace] デフォルトは全ターゲット
+#   exclude_targets: (オプション) 除外するテスト対象 [interpreter, whitespace, whitespace-self] デフォルトは全ターゲット
 
 tests:
   # ========================================

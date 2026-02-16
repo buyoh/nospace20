@@ -6,6 +6,7 @@ use nospace20::{
     compile_to_whitespace, interpret_func_testing, interpret_func_with_io, parse_to_tokens,
     parse_to_tree, syntactic_analyze,
 };
+use nospace20::whitespace::{StepResult, WhitespaceVM};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -430,6 +431,128 @@ fn test_whitespace_io_base(test_name: &str) {
         // whitespace 実行
         let actual_stdout = run_whitespace(&ws_code, &stdin_content)
             .unwrap_or_else(|e| panic!("Whitespace execution failed: {}", e));
+
+        assert_eq!(
+            expected_stdout, actual_stdout,
+            "stdout mismatch in test '{}', case '{}'\nExpected: {:?}\nActual: {:?}",
+            test_name, case_name, expected_stdout, actual_stdout
+        );
+    }
+}
+
+fn test_whitespace_self_base(test_name: &str) {
+    let path_base = "resources/tests/passes/".to_owned() + test_name;
+    let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
+        .expect("Something went wrong reading the file");
+
+    // コンパイル
+    let t = parse_to_tokens(&ns_cnt).unwrap();
+    let s = parse_to_tree(&t).unwrap();
+    let a = syntactic_analyze(&s).unwrap();
+    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+
+    // Whitespace コードが空白文字のみであることを確認
+    assert!(!ws_code.is_empty(), "Whitespace code is empty");
+    assert!(
+        ws_code.chars().all(|c| c == ' ' || c == '\t' || c == '\n'),
+        "Whitespace code contains non-whitespace characters"
+    );
+
+    // 独自 WhitespaceVM で実行
+    let mut vm = WhitespaceVM::from_source(&ws_code)
+        .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e));
+
+    let result = vm.run(1_000_000);
+
+    match result {
+        StepResult::Complete => {}
+        StepResult::Suspended => panic!("Whitespace execution suspended (exceeded step limit) for {}", test_name),
+        StepResult::Error(e) => panic!("Whitespace execution failed for {}: {:?}", test_name, e),
+    }
+}
+
+fn test_whitespace_self_io_base(test_name: &str) {
+    let path_base = "resources/tests/passes/".to_owned() + test_name;
+    let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
+        .expect("Something went wrong reading the file");
+
+    let check_json_value: serde_json::Value = serde_json::from_reader(io::BufReader::new(
+        fs::File::open(path_base.to_owned() + ".check.json")
+            .ok()
+            .unwrap(),
+    ))
+    .ok()
+    .unwrap();
+
+    let check_json: TestConfig = serde_json::from_value(check_json_value).ok().unwrap();
+    let test_cases = check_json.get_io_test_cases();
+
+    // コンパイル（全ケース共通）
+    let t = parse_to_tokens(&ns_cnt).unwrap();
+    let s = parse_to_tree(&t).unwrap();
+    let a = syntactic_analyze(&s).unwrap();
+    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+
+    // Whitespace コードが空白文字のみであることを確認
+    assert!(!ws_code.is_empty(), "Whitespace code is empty");
+    assert!(
+        ws_code.chars().all(|c| c == ' ' || c == '\t' || c == '\n'),
+        "Whitespace code contains non-whitespace characters"
+    );
+
+    // 各ケースを実行
+    for (idx, case) in test_cases.iter().enumerate() {
+        let case_name = case
+            .name
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| format!("case_{}", idx));
+
+        // stdin を取得
+        let stdin_content = if let Some(s) = &case.stdin {
+            s.clone()
+        } else if let Some(f) = &case.stdin_file {
+            fs::read_to_string(path_base.clone() + "." + f).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        // 期待される stdout を取得
+        let expected_stdout = if let Some(s) = &case.stdout {
+            s.clone()
+        } else if let Some(f) = &case.stdout_file {
+            fs::read_to_string(path_base.clone() + "." + f).unwrap()
+        } else {
+            panic!(
+                "IoTestCase must specify stdout or stdout_file (test: {}, case: {})",
+                test_name, case_name
+            );
+        };
+
+        // 独自 WhitespaceVM で実行
+        let mut vm = WhitespaceVM::from_source(&ws_code)
+            .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e));
+
+        let stdin_cursor: Box<dyn io::BufRead> =
+            Box::new(io::Cursor::new(stdin_content.into_bytes()));
+        let stdout_buf: Box<dyn io::Write> = Box::new(Vec::<u8>::new());
+        vm = vm.with_io(stdin_cursor, stdout_buf);
+
+        let result = vm.run(1_000_000);
+
+        match result {
+            StepResult::Complete => {}
+            StepResult::Suspended => panic!(
+                "Whitespace execution suspended (exceeded step limit) for {}, case '{}'",
+                test_name, case_name
+            ),
+            StepResult::Error(e) => panic!(
+                "Whitespace execution failed for {}, case '{}': {:?}",
+                test_name, case_name, e
+            ),
+        }
+
+        let actual_stdout = vm.get_stdout_string();
 
         assert_eq!(
             expected_stdout, actual_stdout,

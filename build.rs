@@ -53,6 +53,7 @@ fn main() {
         let exclude_targets = test.exclude_targets.as_ref().unwrap_or(&empty_targets);
         let has_interpreter = !exclude_targets.iter().any(|t| t == "interpreter");
         let has_whitespace = !exclude_targets.iter().any(|t| t == "whitespace");
+        let has_whitespace_self = !exclude_targets.iter().any(|t| t == "whitespace-self");
 
         match test.test_type.as_str() {
             "success" => {
@@ -82,6 +83,19 @@ fn {}_ws() {{
                     )
                     .unwrap();
                 }
+
+                if has_whitespace_self {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
+fn {}_ws_self() {{
+    test_whitespace_self_base("{}")
+}}
+"#,
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
             }
             "success_io" => {
                 if has_interpreter {
@@ -104,6 +118,19 @@ fn {}() -> std::fmt::Result {{
 #[ignore = "requires wsc (./tools/setup-wsc.sh)"]
 fn {}_ws() {{
     test_whitespace_io_base("{}")
+}}
+"#,
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
+
+                if has_whitespace_self {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
+fn {}_ws_self() {{
+    test_whitespace_self_io_base("{}")
 }}
 "#,
                         comment_line, test.name, test.path
