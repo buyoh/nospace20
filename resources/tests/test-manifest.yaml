@@ -307,6 +307,11 @@ tests:
   #   type: success
   #   path: control_flow/break_continue_001
 
+  - name: test_control_flow_while_func_stack_001
+    type: success_io
+    path: control_flow/while_func_stack_001
+    comment: "While loop in function does not corrupt caller's local variables (Bug C regression)"
+
   - name: test_control_flow_return_001
     type: success
     path: control_flow/return_001

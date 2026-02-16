@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "while loop does not corrupt caller locals",
+      "stdin": "",
+      "stdout": "42"
+    }
+  ]
+}
