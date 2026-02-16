@@ -145,3 +145,8 @@ impl<'a> CodeGenContext<'a> {
         self.labels.sync_next_id(&child.labels);
     }
 }
+
+// 注: CodeGenContext のテストは、Scope のプライベートフィールドのため、
+// 簡単なダミーインスタンスを作成できない。
+// label.rs の LabelAllocator のテストで十分にカバーされているため、
+// context.rs には統合テストのみに依存する。
