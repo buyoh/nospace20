@@ -73,6 +73,8 @@ cargo build --target wasm32-unknown-unknown --lib --no-default-features --featur
 ```bash
 # Build WASM (bundler target works with Node.js)
 wasm-pack build --target bundler --features wasm
+# Debug build
+# wasm-pack build --target bundler --features wasm --dev --out-dir pkg-dev
 
 # Note: Node.js is only required to run the tests. The wasm-pack build itself does not depend on Node.js.
 
