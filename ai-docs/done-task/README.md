@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [add-whitespace-self-target.md](add-whitespace-self-target.md) | whitespace-self テストターゲット追加（独自 WhitespaceVM で nospace コンパイル結果を実行・検証）| 2026-02-17 |
 | [fix-whitespace-vm-test-failures.md](fix-whitespace-vm-test-failures.md) | WhitespaceVM テスト失敗修正（WSAエンコーディング誤り11箇所 + マニフェストパス誤り4件、全39テスト合格）| 2026-02-17 |
 | [wsc-cross-validation.md](wsc-cross-validation.md) | wsc による WSA テストケースのクロスバリデーション（外部インタプリタで全39テストケースの正当性を検証、自前VM12件のバグ特定）| 2026-02-16 |
 | [wasm-build/](wasm-build/) | WASM ビルド完全完了（Phase 0/1/A/3 + サイズ最適化、269KB → 198KB, 26%削減）| 2026-02-16 |
