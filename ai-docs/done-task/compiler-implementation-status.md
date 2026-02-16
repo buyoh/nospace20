@@ -28,11 +28,12 @@
 
 ### 完了記録 → `ai-docs/done-task/`
 
-環境構築の進捗記録は完了タスクとして移動しました：
+環境構築・機能実装の進捗記録は完了タスクとして移動しました：
 
 - [ai-docs/done-task/ws-environment-setup-progress.md](../../done-task/ws-environment-setup-progress.md)
 - [ai-docs/done-task/whitespace-integration-test.md](../../done-task/whitespace-integration-test.md)
 - [ai-docs/done-task/phase4-implementation-report.md](../../done-task/phase4-implementation-report.md)
+- [ai-docs/done-task/compiler-whitespace-missing-features-implementation.md](../../done-task/compiler-whitespace-missing-features-implementation.md)
 
 ## 現在の実装
 
@@ -41,19 +42,19 @@ Whitespace コンパイラは `src/compiler_ws/` モジュールに実装され�
 ### 実装済み機能
 
 - ✅ 基本的な演算・制御構造
-- ✅ 関数定義・呼び出し（main関数のみ）
+- ✅ 関数定義・呼び出し（ユーザー定義関数を含む）
 - ✅ グローバル/ローカル変数
-- ✅ 配列サポート（Phase 4）
+- ✅ 配列サポート
 - ✅ 参照・参照解除演算子
 - ✅ 組み込みI/O関数
+- ✅ break/continue 文
 
-### 未実装機能
+### 制限事項
 
-- ❌ ユーザー定義関数呼び出し
-- ❌ break 文
-- ❌ continue 文
+- 論理演算子は短絡評価を行わない
+- ネストした関数定義は不可
 
-詳細は [whitespace-missing-features.md](whitespace-missing-features.md) を参照してください。
+詳細は [compiler-whitespace-missing-features-implementation.md](../../done-task/compiler-whitespace-missing-features-implementation.md) を参照してください。
 
 ### テスト
 
@@ -66,29 +67,6 @@ cargo test --test compile_test -- --ignored
 # wsc のセットアップ
 ./tools/setup-wsc.sh
 ```
-
-## 今後のタスク
-
-現在、以下の機能が未実装です：
-
-1. **ユーザー定義関数呼び出し** (Phase 7)
-   - 複数関数の定義生成
-   - 関数呼び出しのコード生成
-   
-2. **break/continue 文** (Phase 8)
-   - ループラベルスタックの実装
-   - break/continue 文のコード生成
-
-詳細は [whitespace-missing-features.md](whitespace-missing-features.md) を参照してください。
-
-- 制御構造（if/elsif/else、while）
-- I/O（整数・文字の入出力）
-
-### 制限事項
-
-- 論理演算子は短絡評価を行わない
-- ネストした関数定義は不可
-- break/continue は未実装
 
 ## 参考
 
