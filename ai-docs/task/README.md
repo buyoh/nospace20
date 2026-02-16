@@ -45,6 +45,7 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [fix-ws-self-label-duplication.md](../done-task/fix-ws-self-label-duplication.md) - compiler_ws ラベル ID 重複バグ修正（10/15件成功、256 passed; 5 failed）(2026-02-17完了)
 - [whitespace-test-failures-investigation.md](../done-task/whitespace-test-failures-investigation.md) - Whitespace インタプリタテスト失敗調査（全39テスト成功確認、12件の失敗すべて解決）(2026-02-17完了)
 - [fix-whitespace-vm-test-failures.md](../done-task/fix-whitespace-vm-test-failures.md) - WhitespaceVM テスト失敗修正（WSAエンコーディング誤り11箇所 + マニフェストパス誤り4件）(2026-02-17完了)
 - [wsc-cross-validation.md](../done-task/wsc-cross-validation.md) - wsc による WSA テストケースのクロスバリデーション（外部 Whitespace インタプリタでテストケースの正当性を検証、全39テスト合格）(2026-02-16完了)
