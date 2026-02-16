@@ -3,7 +3,8 @@ SSSTSTN
 # JumpIfNegative to label 0 (won't jump)
 NTTSN
 # Push 2
-SSTSN
+# 注意: 数値フォーマットは [符号(S=正,T=負)][2進数字(S=0,T=1,MSB順)][N(終端)]
+SSSTSN
 # OutputNumber (2)
 TNST
 # Jump to label 1
@@ -15,6 +16,7 @@ SSSTTSSSTTN
 # OutputNumber
 TNST
 # Label 1
-NSSTN
+# 注意: ラベル番号も数値と同じフォーマット: [符号][2進数字][N]
+NSSSTN
 # Exit
 NNN

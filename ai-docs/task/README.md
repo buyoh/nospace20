@@ -40,10 +40,10 @@
 ### アクティブ
 
 - [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
-- [fix-whitespace-vm-test-failures.md](fix-whitespace-vm-test-failures.md) - WhitespaceVM テスト失敗の修正（WSA エンコーディング誤り 8 件 + マニフェストパス誤り 4 件）
 
 ### 完了済み (done-task/ に移動)
 
+- [fix-whitespace-vm-test-failures.md](../done-task/fix-whitespace-vm-test-failures.md) - WhitespaceVM テスト失敗修正（WSAエンコーディング誤り11箇所 + マニフェストパス誤り4件）(2026-02-17完了)
 - [wsc-cross-validation.md](../done-task/wsc-cross-validation.md) - wsc による WSA テストケースのクロスバリデーション（外部 Whitespace インタプリタでテストケースの正当性を検証、全39テスト合格）(2026-02-16完了)
 - [wasm-build/](../done-task/wasm-build/) - WASM ビルド完全完了（Phase 0/1/A/3 + サイズ最適化、269KB → 198KB）(2026-02-16完了)
 - [wasm-build-phase0-1-a-3-completion.md](../done-task/wasm-build-phase0-1-a-3-completion.md) - WASM ビルド Phase 0/1/A/3 完了（ビルド基盤、run/compile API、Whitespace VM ステップ実行、テスト環境）(2026-02-12完了)

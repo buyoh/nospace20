@@ -139,3 +139,10 @@ path: stack_underflow_001
 - `resources/tests_ws/passes/` 配下の `.wsa` ファイル 8 件
 - `resources/tests_ws/test-manifest.yaml` 1 件
 - ソースコード（パーサ・インタプリタ）の変更は不要
+
+## 完了記録
+
+- 2026-02-17: 全 11 箇所の WSA エンコーディング修正 + 4 件のマニフェストパス修正を実施
+- `cargo test --test whitespace_direct_test`: 39 passed, 0 failed
+- `cargo test`: 全テストスイート 0 failure
+- 修正済み WSA ファイルにはエンコーディングの注意事項をコメントとして追記

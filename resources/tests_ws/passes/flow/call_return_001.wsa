@@ -7,7 +7,9 @@ SSSTSTSTSN
 # Return
 NTN
 # Label 1 (main)
-NSSTN
+# 注意: ラベル番号も数値と同じフォーマット: [符号][2進数字][N]
+# 1 → S(正) T(1) N(終端)
+NSSSTN
 # Call label 0
 NSTSN
 # OutputNumber (42)

@@ -183,20 +183,20 @@ tests:
   # Runtime errors
   - name: test_ws_errors_stack_underflow_001
     type: ws_runtime_error
-    path: ../fails/runtime/stack_underflow_001
+    path: stack_underflow_001
     comment: "Stack underflow on empty stack"
 
   - name: test_ws_errors_div_zero_001
     type: ws_runtime_error
-    path: ../fails/runtime/div_zero_001
+    path: div_zero_001
     comment: "Division by zero"
 
   - name: test_ws_errors_callstack_underflow_001
     type: ws_runtime_error
-    path: ../fails/runtime/callstack_underflow_001
+    path: callstack_underflow_001
     comment: "Return without prior Call"
 
   - name: test_ws_errors_undefined_label_001
     type: ws_runtime_error
-    path: ../fails/runtime/undefined_label_001
+    path: undefined_label_001
     comment: "Jump to undefined label"

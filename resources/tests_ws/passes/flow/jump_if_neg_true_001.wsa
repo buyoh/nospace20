@@ -1,5 +1,7 @@
 # Push -1
-SSTN
+# 注意: 数値フォーマットは [符号(S=正,T=負)][2進数字(S=0,T=1,MSB順)][N(終端)]
+# -1 → T(負) T(1) N(終端)
+SSTTN
 # JumpIfNegative to label 0
 NTTSN
 # (skipped) Push 99

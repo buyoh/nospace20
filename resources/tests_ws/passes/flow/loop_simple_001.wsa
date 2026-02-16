@@ -17,7 +17,8 @@ NTSSTN
 # Jump label 0 (continue loop)
 NSNSN
 # Label 1
-NSSTN
+# 注意: ラベル番号も数値と同じフォーマット: [符号][2進数字][N]
+NSSSTN
 # Discard (remove 0)
 SNN
 # Exit

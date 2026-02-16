@@ -1,7 +1,8 @@
 # Push 6
 SSSTTSN
 # Push 7
-SSSTTN
+# 注意: 7 = 111₂ → S(正) T(1) T(1) T(1) N(終端)
+SSSTTTN
 # Mul (6 * 7 = 42)
 TSSN
 # OutputNumber

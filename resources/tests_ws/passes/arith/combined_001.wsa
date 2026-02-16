@@ -1,11 +1,14 @@
 # Push 2
-SSTSN
+# 注意: 数値フォーマットは [符号(S=正,T=負)][2進数字(S=0,T=1,MSB順)][N(終端)]
+# 2 = 10₂ → S(正) T(1) S(0) N(終端)
+SSSTSN
 # Push 3
 SSSTTN
 # Add (2+3=5)
 TSSS
 # Push 4
-SSSTSN
+# 4 = 100₂ → S(正) T(1) S(0) S(0) N(終端)
+SSSTSSN
 # Mul (5*4=20)
 TSSN
 # OutputNumber
