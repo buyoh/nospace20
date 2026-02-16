@@ -18,13 +18,14 @@
 
 ### アクティブなタスク
 
+- [error-test-coverage/](error-test-coverage/) - エラーテストケース網羅性向上（18件のテスト追加計画、字句解析6件・構文解析7件・意味解析5件）
 - [multi-error-reporting.md](multi-error-reporting.md) - 意味解析における複数エラー報告（semantic_analyzer で複数箇所のコンパイルエラーを収集・表示）
 - [duplicate-function-check.md](duplicate-function-check.md) - 同一スコープ内の関数重複定義の検出（semantic error）
 - [block-scope-expression.md](block-scope-expression.md) - ブロックスコープ式 `{ ... }` の実装（独立したスコープ機能）
 - [reference-dereference-compiler-ws.md](reference-dereference-compiler-ws.md) - 参照(`&`)・デリファレンス(`*`)のWhitespaceコンパイラ実装（Phase 4、インタプリタは完了済み）
 - [whitespace-interpreter/](whitespace-interpreter/) - Whitespace インタプリタ（明示的スタックマシン、中断可能実行）
-- [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開）
-- [wasm-build/](wasm-build/) - Rust → WebAssembly ビルド（ランタイム WASM 化、Phase A: WS ステップ実行完了、Phase 3: Node.js テスト設計追加）
+- [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
+- [wasm-build/](wasm-build/) - WASM ビルド サイズ最適化（Phase 0/1/A/3 完了済み、残タスク: wasm-opt / LTO / strip 等の最適化）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [wasm-compile-error-location.md](wasm-compile-error-location.md) - WASM版コンパイルエラーの位置情報表示（compiler_ws の CompileError に SourceLocation 付与）
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
@@ -41,6 +42,7 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [wasm-build-phase0-1-a-3-completion.md](../done-task/wasm-build-phase0-1-a-3-completion.md) - WASM ビルド Phase 0/1/A/3 完了（ビルド基盤、run/compile API、Whitespace VM ステップ実行、テスト環境）(2026-02-12完了)
 - [error-specification/](../done-task/error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討（調査・設計フェーズ完了：6ドキュメント、計1600行以上のエラー仕様を記録）(2026-02-16完了)
 - [array-implementation/](../done-task/array-implementation/) - 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装（Phase 1-5 全て完了：構文解析→意味解析→インタプリタ→WSコンパイラ→文字列）(2026-02-13完了)
 
