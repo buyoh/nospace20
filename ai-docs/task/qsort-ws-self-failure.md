@@ -13,24 +13,17 @@ Fix A および Fix B の実装により、5件の失敗テストのうち4件�
 **期待される出力**: "1 1 2 3 4 5 9 "  
 **実際の出力**: ""（空）
 
-## 考察
+## 原因特定済み (2026-02-17)
 
-出力が完全に空であることから、以下のいずれかの可能性が考えられる：
+**Bug C: while ループ本体のブロック値がスタックに蓄積する問題**
 
-1. **実行時エラー/クラッシュ**: プログラムが途中で異常終了している
-2. **無限ループ**: タイムアウトまたはステップ数上限に達している
-3. **別のバグ**: Fix A/B とは無関係の別の問題
+`generate_while_expression` がループ本体に `generate_block` を使用しているが、
+`generate_block` が末尾で生成する `push 0`（ブロック式値）がイテレーションごとに
+スタックに蓄積し、`generate_local_deallocate` でのスタック不整合を引き起こしていた。
 
-元の調査（remaining-ws-self-failures.md）では、このテストは「出力不一致」の
-パターンだったが、Fix A/B の適用後に「空出力」に変化した可能性がある。
-
-## 次のステップ
-
-- [ ] テストケースのソースコードを確認
-- [ ] コンパイル結果（mnemonic）を確認
-- [ ] 実行時の詳細なトレース（もし可能なら）
-- [ ] 元の調査で記録したスタックトレースとの比較
+詳細な分析と修正設計は [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) を参照。
 
 ## 関連ドキュメント
 
+- [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) - 修正設計（Fix C）
 - [remaining-ws-self-failures.md](remaining-ws-self-failures.md) - Fix A/B の実装記録
