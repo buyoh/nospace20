@@ -56,6 +56,29 @@
 - [ ] 既存テストケースが全て通ることの確認
 - [ ] WASM API (`wasm-build` タスク) との統合
 
+### Phase 5: WASM API 実装 (Phase 1〜4 完了後)
+
+nospace を直接ステップ実行する中断可能インタプリタの WASM API を実装する。
+
+**前提条件:** Phase 1〜4 の完了（`InterpreterSession` / 再開機能が実装済み）
+
+- [ ] `OwnedInterpreterSession` の実装（Scope 所有版セッション）
+  - `InterpreterSession` が参照を持つため、WASM 境界をまたげない
+  - Scope を所有し、ライフタイムフリーな構造を作成
+- [ ] `WasmInterpreterSession` WASM API 実装
+  - `new(source: &str, stdin: &str)` — セッション作成
+  - `step(n: u32)` — n ステップ実行（`VmStepResult` を返却）
+  - `get_stdout()` — 標準出力取得
+  - `get_return_value()` — 終了時の戻り値取得
+- [ ] デバッグ情報 API
+  - `get_variables()` — 現在のスコープの変数一覧・値
+  - `get_call_stack()` — 関数コールスタック
+  - `get_position()` — 現在の実行位置（行・列）
+- [ ] テスト・検証
+  - Node.js スモークテスト（`tools/wasm-test/` にテストケース追加）
+  - ブラウザでのマニュアル動作確認
+
 ## 関連タスク
 
-- [wasm-build/](../wasm-build/) — WASM API で `run` 関数が内部的に本機能を使用する予定
+- [wasm-build/](../wasm-build/) — WASM ビルド・基本 API (run / compile / Phase A は完了済み)
+- Phase 5 は wasm-build タスクの Phase B に相当する機能を実装する

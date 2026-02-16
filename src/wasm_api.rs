@@ -14,7 +14,7 @@ use crate::{
     compile_to_whitespace, compile_to_whitespace_debug, interpret_func_with_io, parse_to_tokens,
     parse_to_tree, syntactic_analyze, CodeParseError, CompileTarget, LanguageStd, TextCode,
 };
-use crate::whitespace::{WhitespaceVM, StepResult, RuntimeError};
+use crate::whitespace::{WhitespaceVM, StepResult};
 
 // ========================================
 // TypeScript 型定義
@@ -116,7 +116,7 @@ struct WasmError {
     column: Option<usize>,
 }
 
-fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsResultErr {
+fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
     let wasm_errors: Vec<WasmError> = errors
         .iter()
         .map(|e| {

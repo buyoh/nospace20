@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["buyoh <mai@ukibune.net>"]
 edition = "2018"
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Oz", "--enable-bulk-memory"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -39,3 +42,11 @@ tempfile = "3.0"
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+
+# WASM サイズ最適化設定
+[profile.release]
+opt-level = "z"     # サイズ最適化優先
+lto = true          # Link Time Optimization 有効化
+codegen-units = 1   # 並列コンパイル無効（最適化優先）
+strip = true        # デバッグシンボル除去
+panic = "abort"     # パニックハンドラのコード削減
