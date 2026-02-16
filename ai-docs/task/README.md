@@ -32,6 +32,7 @@
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
+- [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
 
 ## 現在のタスク
 
