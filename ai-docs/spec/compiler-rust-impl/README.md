@@ -2,6 +2,8 @@
 
 Whitespace コンパイラの Rust 実装設計ドキュメント。
 
+**実装状況**: ✅ 実装済み（`src/compiler_ws/` モジュール）
+
 ## ドキュメント一覧
 
 | ファイル | 内容 |
@@ -41,3 +43,11 @@ Whitespace コード文字列
 - `MemoryLayout` - メモリレイアウト管理
 - `LabelAllocator` - ラベル管理
 - `CodeGenContext` - コード生成状態
+
+## 関連ドキュメント
+
+- [../compiler-legacy/](../compiler-legacy/) - 旧実装の調査ドキュメント
+- [../compiler-test-strategy.md](../compiler-test-strategy.md) - コンパイラテスト戦略
+- `src/compiler_ws/` - 実際の Rust 実装
+- [../../done-task/whitespace-integration-test.md](../../done-task/whitespace-integration-test.md) - 統合テスト完了記録
+- [../../done-task/phase4-implementation-report.md](../../done-task/phase4-implementation-report.md) - Phase 4 配列実装完了記録

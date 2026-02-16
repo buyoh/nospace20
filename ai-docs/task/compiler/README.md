@@ -1,103 +1,69 @@
-# nospace → Whitespace コンパイラ調査
+# nospace → Whitespace コンパイラ
 
-このディレクトリには、旧実装（`.local/nospace/main.cpp`）における nospace から Whitespace への変換ロジックの調査・分析結果を記載しています。
+**実装状況**: ✅ 実装済み（`src/compiler_ws/` モジュール）
 
-## 目的
+## ドキュメント移動のお知らせ
 
-現在の nospace20 実装はインタプリタのみですが、将来的に Whitespace へのコンパイル機能を実装する際の参考資料として、旧実装の変換方式を文書化しています。
+このディレクトリにあったドキュメントは、以下のように再整理されました：
 
-## ドキュメント一覧
+### 旧実装の調査ドキュメント → `ai-docs/spec/compiler-legacy/`
 
-### 概要・基礎
+旧実装（`.local/nospace/main.cpp`）の解析結果は、調査・仕様ドキュメントとして `ai-docs/spec/compiler-legacy/` に移動しました。
 
-| ファイル | 内容 |
-|----------|------|
-| [overview.md](overview.md) | コンパイラの全体像と変換フロー |
-| [instructions.md](instructions.md) | Whitespace 命令セットのエンコーディング |
-| [memory-layout.md](memory-layout.md) | メモリレイアウトとスタックフレーム管理 |
+- [ai-docs/spec/compiler-legacy/README.md](../../spec/compiler-legacy/README.md) - インデックス
+- overview.md, instructions.md, memory-layout.md など
 
-### Rust 実装設計
+### Rust実装設計ドキュメント → `ai-docs/spec/compiler-rust-impl/`
 
-詳細な Rust 実装設計は [rust-impl/](rust-impl/) サブディレクトリに分割されています。
+現在の nospace20 の Whitespace コンパイラ設計ドキュメントは `ai-docs/spec/compiler-rust-impl/` に移動しました。
 
-| ファイル | 内容 |
-|----------|------|
-| [rust-impl/README.md](rust-impl/README.md) | 実装設計ドキュメントのインデックス |
-| [rust-impl/overview.md](rust-impl/overview.md) | 設計方針・モジュール構成 |
-| [rust-impl/whitespace.md](rust-impl/whitespace.md) | 命令表現・プログラム構造 |
-| [rust-impl/memory-label.md](rust-impl/memory-label.md) | メモリレイアウト・ラベル管理 |
-| [rust-impl/codegen.md](rust-impl/codegen.md) | コード生成 |
-| [rust-impl/builtin.md](rust-impl/builtin.md) | 組み込みルーチン |
-| [rust-impl/api-cli.md](rust-impl/api-cli.md) | 公開API・CLI統合 |
-| [rust-impl/implementation-plan.md](rust-impl/implementation-plan.md) | テスト戦略・実装計画 |
+- [ai-docs/spec/compiler-rust-impl/README.md](../../spec/compiler-rust-impl/README.md) - インデックス
+- overview.md, whitespace.md, codegen.md など
 
-### 演算子
+### テスト戦略 → `ai-docs/spec/compiler-test-strategy.md`
 
-| ファイル | 内容 |
-|----------|------|
-| [arithmetic.md](arithmetic.md) | 算術演算子 (`+`, `-`, `*`, `/`, `%`) と比較演算子 (`==`, `!=`, `<`, `<=`, `>`, `>=`) |
-| [logical.md](logical.md) | 論理演算子 (`&&`, `\|\|`, `!`) |
-| [assignment.md](assignment.md) | 代入演算子 (`=`, `+=`, `-=`, `*=`, `/=`, `%=`) とポインタ操作 (`*`, `&`, `[]`) |
+コンパイラのテスト戦略は以下に移動しました：
 
-### 制御構造
+- [ai-docs/spec/compiler-test-strategy.md](../../spec/compiler-test-strategy.md)
 
-| ファイル | 内容 |
-|----------|------|
-| [control-flow.md](control-flow.md) | 条件分岐 (`if`/`elsif`/`else`) とループ (`while`) |
-| [functions.md](functions.md) | 関数定義・呼び出し・return 文 |
+### 完了記録 → `ai-docs/done-task/`
 
-### 組み込み機能
+環境構築の進捗記録は完了タスクとして移動しました：
 
-| ファイル | 内容 |
-|----------|------|
-| [io.md](io.md) | 入出力関数 (`__puti`, `__putc`, `__geti`, `__getc`, `__getiv`, `__getcv`) |
-| [builtin-routines.md](builtin-routines.md) | 比較・論理演算用の組み込みサブルーチン |
-| [io-builtin-design.md](io-builtin-design.md) | I/O ビルトイン関数の実装設計 |
-| [builtin-functions-todo.md](builtin-functions-todo.md) | ビルトイン関数の実装 TODO |
+- [ai-docs/done-task/ws-environment-setup-progress.md](../../done-task/ws-environment-setup-progress.md)
+- [ai-docs/done-task/whitespace-integration-test.md](../../done-task/whitespace-integration-test.md)
+- [ai-docs/done-task/phase4-implementation-report.md](../../done-task/phase4-implementation-report.md)
+
+## 現在の実装
+
+Whitespace コンパイラは `src/compiler_ws/` モジュールに実装されています。
+
+### 実装済み機能
+
+- ✅ 基本的な演算・制御構造
+- ✅ 関数定義・呼び出し
+- ✅ グローバル/ローカル変数
+- ✅ 配列サポート（Phase 4）
+- ✅ 参照・参照解除演算子
+- ✅ 組み込みI/O関数
 
 ### テスト
 
-| ファイル | 内容 |
-|----------|------|
-| [test-strategy.md](test-strategy.md) | コンパイラテスト戦略（wsc 連携） |
+Whitespace コンパイラのテストは以下で実行できます：
 
-## 変換の概要
+```bash
+# 統合テスト（wsc が必要）
+cargo test --test compile_test -- --ignored
 
-### 処理フロー
-
-```
-nospace ソースコード
-    ↓ 字句解析 (Parser::parseToTokens)
-トークン列
-    ↓ 構文解析 (Compiler::getStatementsScope)
-AST (抽象構文木)
-    ↓ コード生成 (Builder::convert*)
-Whitespace 命令列
-    ↓ 出力
-空白文字のみのコード
+# wsc のセットアップ
+./tools/setup-wsc.sh
 ```
 
-### メモリモデル
+## 今後のタスク
 
-- **スタック**: 式の評価、関数引数、戻り値
-- **ヒープ**: 変数格納、スコープ情報
+現在、Whitespace コンパイラに関する新規のタスクはありません。
+新しいタスクが発生した場合は、このディレクトリに追加してください。
 
-### ラベル管理
-
-- ラベル 0-15: 組み込みルーチン用
-- ラベル 16+: ユーザーコード（関数、制御構造）
-
-## 旧実装の特徴
-
-### 実装されている機能
-
-- 整数演算（四則演算、剰余）
-- 比較演算子
-- 論理演算子（短絡評価なし）
-- 変数（グローバル・ローカル）
-- 配列
-- ポインタ（参照・参照解除）
-- 関数（再帰対応）
 - 制御構造（if/elsif/else、while）
 - I/O（整数・文字の入出力）
 

@@ -5,6 +5,9 @@
 ## 目次
 
 - [implementation-status.md](implementation-status.md) - 実装状況
+- [compiler-legacy/](compiler-legacy/) - Whitespace コンパイラ（旧実装）の調査ドキュメント
+- [compiler-rust-impl/](compiler-rust-impl/) - Whitespace コンパイラ（現在の実装）の設計ドキュメント
+- [compiler-test-strategy.md](compiler-test-strategy.md) - Whitespace コンパイラのテスト戦略
 
 ## 言語仕様
 
