@@ -41,6 +41,7 @@
 ### アクティブ
 
 - [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
+- [fix-ws-self-label-duplication.md](fix-ws-self-label-duplication.md) - compiler_ws ラベル ID 重複バグ修正（15件の _ws_self テスト失敗、ラベルアロケータ clone による next_id 未同期）
 
 ### 完了済み (done-task/ に移動)
 
