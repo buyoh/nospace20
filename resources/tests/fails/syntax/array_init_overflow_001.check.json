@@ -1,0 +1,5 @@
+{
+  "type": "parse_error",
+  "phase": "tree",
+  "contains": ["too many initializers"]
+}

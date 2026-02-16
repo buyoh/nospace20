@@ -1,0 +1,8 @@
+# 関数呼び出しのカンマ欠落 #
+func: foo(a, b) {
+  return: a;
+}
+func: main() {
+  let: x;
+  x = foo(1 2);
+}

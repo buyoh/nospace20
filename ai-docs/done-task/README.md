@@ -6,6 +6,8 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [wasm-build/](wasm-build/) | WASM ビルド完全完了（Phase 0/1/A/3 + サイズ最適化、269KB → 198KB, 26%削減）| 2026-02-16 |
+| [wasm-build-size-optimization.md](wasm-build-size-optimization.md) | WASM サイズ最適化完了レポート（Cargo.toml + wasm-opt、198KB / gzip: 78.3KB）| 2026-02-16 |
 | [wasm-build-phase0-1-a-3-completion.md](wasm-build-phase0-1-a-3-completion.md) | WASM ビルド Phase 0/1/A/3 完了（ビルド基盤、run/compile API、Whitespace VM ステップ実行、テスト環境）| 2026-02-12 |
 | [array-implementation/](array-implementation/) | 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装（Phase 1-5全て完了：構文解析→意味解析→インタプリタ→WSコンパイラ→文字列） | 2026-02-13 |
 | [identifier-management-improvement.md](identifier-management-improvement.md) | 識別子管理の改善（Variable.identifierフィールド削除、IdentifierInfo型安全化、全Phase完了） | 2026-02-11 |

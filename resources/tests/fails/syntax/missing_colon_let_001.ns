@@ -1,0 +1,4 @@
+# let 文のコロン欠落 #
+func: main() {
+  let x;
+}
