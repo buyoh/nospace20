@@ -183,6 +183,7 @@ fn generate_ws_tests() {
 
         match test.test_type.as_str() {
             "ws_io" => {
+                // 通常の WhitespaceVM テスト
                 writeln!(
                     f,
                     r#"{}#[test]
@@ -193,8 +194,22 @@ fn {}() {{
                     comment_line, test.name, test.path
                 )
                 .unwrap();
+
+                // wsc クロスバリデーションテスト
+                writeln!(
+                    f,
+                    r#"#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn {}_wsc() {{
+    test_ws_io_wsc_base("{}")
+}}
+"#,
+                    test.name, test.path
+                )
+                .unwrap();
             }
             "ws_runtime_error" => {
+                // 通常の WhitespaceVM テスト
                 writeln!(
                     f,
                     r#"{}#[test]
@@ -203,6 +218,19 @@ fn {}() {{
 }}
 "#,
                     comment_line, test.name, test.path
+                )
+                .unwrap();
+
+                // wsc クロスバリデーションテスト
+                writeln!(
+                    f,
+                    r#"#[test]
+#[ignore = "requires wsc (./tools/setup-wsc.sh)"]
+fn {}_wsc() {{
+    test_ws_runtime_error_wsc_base("{}")
+}}
+"#,
+                    test.name, test.path
                 )
                 .unwrap();
             }

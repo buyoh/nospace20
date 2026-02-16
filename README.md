@@ -87,6 +87,14 @@ cd tools/wasm-test && node test.mjs
 - `cli` (default): Enable CLI binary build with `clap` and `unicode-width` dependencies
 - `wasm`: Enable WebAssembly build with `wasm-bindgen` and `serde-wasm-bindgen` dependencies
 
+### Tests
+
+```bash
+cargo test
+bash tools/setup-wsc.sh  # Once to setup wsc (Whitespace Compiler)
+cargo test -- --ignored
+```
+
 ## Other Features
 
 ### Whitespace20

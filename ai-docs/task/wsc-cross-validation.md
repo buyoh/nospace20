@@ -147,3 +147,67 @@ Step 4 の結果に基づき、バグのあるテストケースを修正。
 - wsc はファイルパスを引数に取る（stdin パイプではない）ため、一時ファイル経由で WS コードを渡す（`run_whitespace()` が既にこの方式）
 - `#[ignore]` テストのため、CI で wsc がインストールされていない場合でも通常テストに影響しない
 - エラーテストの wsc 検証はエラー種別の厳密比較が困難なため、「実行失敗すること」のみを検証
+## 進捗
+
+### Step1 完了（既存インフラ確認）
+
+- wsc は `tools/wsc-install/bin/wsc` に既にインストール済み
+- `tests/common/mod.rs` に必要な関数が実装済み
+
+### Step2 完了（テストランナー拡張）
+
+実装内容:
+- `tests/whitespace_direct_test.rs` に以下の関数を追加:
+  - `test_ws_io_wsc_base(test_name: &str)`: I/O テストの wsc クロスバリデーション
+  - `test_ws_runtime_error_wsc_base(test_name: &str)`: エラーテストの wsc クロスバリデーション
+- `mod common;` をファイル先頭で宣言
+
+### Step3 完了（build.rs 拡張）
+
+実装内容:
+- `build.rs` の `generate_ws_tests()` 関数を拡張
+- 各テストに対して `_wsc` サフィックス付きの `#[ignore]` テストを生成
+- `ws_io` と `ws_runtime_error` の両方のテストタイプに対応
+
+### Step4 完了（テスト実行・検証）
+
+**テスト実行結果:**
+
+#### wsc クロスバリデーションテスト（`cargo test --test whitespace_direct_test -- --ignored`）
+- **結果**: 39 passed; 0 failed
+- **所要時間**: 0.32s
+- **結論**: 全ての WSA テストケースは wsc で正常に実行できる
+
+#### 自前 WhitespaceVM テスト（`cargo test --test whitespace_direct_test`）
+- **結果**: 27 passed; 12 failed; 39 ignored
+- **所要時間**: 0.00s
+
+**失敗したテスト（12件）:**
+1. `test_ws_arith_combined_001`
+2. `test_ws_arith_mul_001`
+3. `test_ws_arith_sub_001`
+4. `test_ws_errors_callstack_underflow_001`
+5. `test_ws_errors_div_zero_001`
+6. `test_ws_errors_stack_underflow_001`
+7. `test_ws_errors_undefined_label_001`
+8. `test_ws_flow_call_return_001` - Error(UndefinedLabel(1))
+9. `test_ws_flow_jump_if_neg_false_001` - Error(UndefinedLabel(1))
+10. `test_ws_flow_jump_if_neg_true_001` - stdout mismatch: 期待 "991", 実際 "1"
+11. `test_ws_flow_jump_if_zero_false_001` - Error(UndefinedLabel(1))
+12. `test_ws_flow_loop_simple_001` - stdout mismatch: 期待 "3", 実際 "321"
+
+**分析:**
+- **テストケースの正当性**: wsc で全テストがパスしているため、WSA テストケース自体は正しい
+- **自前 VM のバグ**: 自前 WhitespaceVM に実装バグがあることが確定
+- **主な問題点**:
+  - `UndefinedLabel(1)` エラーが多発: ラベル解釈・参照に問題がある可能性
+  - stdout の不一致: 制御フロー（ジャンプ、ループ）の実装に問題がある可能性
+
+**次のステップ（Step5）の方針:**
+- テストケースの修正は不要（wsc で全てパス）
+- 自前 WhitespaceVM の実装を修正する必要がある
+- 特に以下の機能に焦点を当てる:
+  - ラベルのエンコーディング/デコーディング
+  - ジャンプ命令の実装
+  - 条件分岐の実装
+  - サブルーチン呼び出しとリターン
