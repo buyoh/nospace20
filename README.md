@@ -107,6 +107,7 @@ cd tools/wasm-test && node test.mjs
 
 ```bash
 cargo test
+# wsc only supports x64, not for arm64
 bash tools/setup-wsc.sh  # Once to setup wsc (Whitespace Compiler)
 cargo test -- --ignored
 ```
