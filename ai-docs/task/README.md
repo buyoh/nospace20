@@ -21,7 +21,6 @@
 - [multi-error-reporting.md](multi-error-reporting.md) - 意味解析における複数エラー報告（semantic_analyzer で複数箇所のコンパイルエラーを収集・表示）
 - [duplicate-function-check.md](duplicate-function-check.md) - 同一スコープ内の関数重複定義の検出（semantic error）
 - [block-scope-expression.md](block-scope-expression.md) - ブロックスコープ式 `{ ... }` の実装（独立したスコープ機能）
-- [error-specification/](error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討
 - [reference-dereference-compiler-ws.md](reference-dereference-compiler-ws.md) - 参照(`&`)・デリファレンス(`*`)のWhitespaceコンパイラ実装（Phase 4、インタプリタは完了済み）
 - [whitespace-interpreter/](whitespace-interpreter/) - Whitespace インタプリタ（明示的スタックマシン、中断可能実行）
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開）
@@ -42,6 +41,7 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [error-specification/](../done-task/error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討（調査・設計フェーズ完了：6ドキュメント、計1600行以上のエラー仕様を記録）(2026-02-16完了)
 - [array-implementation/](../done-task/array-implementation/) - 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装（Phase 1-5 全て完了：構文解析→意味解析→インタプリタ→WSコンパイラ→文字列）(2026-02-13完了)
 
 - [identifier-management-improvement.md](../done-task/identifier-management-improvement.md) - 識別子管理改善設計（Variable.identifier 削除、IdentifierInfo 型安全化）(2026-02-11完了)
