@@ -18,7 +18,7 @@ struct TestCase {
     #[serde(default)]
     comment: Option<String>,
     #[serde(default)]
-    targets: Option<Vec<String>>,
+    exclude_targets: Option<Vec<String>>,
 }
 
 fn main() {
@@ -48,11 +48,11 @@ fn main() {
             String::new()
         };
 
-        // targets が指定されていない場合はデフォルトで interpreter のみ
-        let default_targets = vec!["interpreter".to_string()];
-        let targets = test.targets.as_ref().unwrap_or(&default_targets);
-        let has_interpreter = targets.iter().any(|t| t == "interpreter");
-        let has_whitespace = targets.iter().any(|t| t == "whitespace");
+        // exclude_targets に含まれないターゲットを有効にする（デフォルトは全ターゲット）
+        let empty_targets: Vec<String> = vec![];
+        let exclude_targets = test.exclude_targets.as_ref().unwrap_or(&empty_targets);
+        let has_interpreter = !exclude_targets.iter().any(|t| t == "interpreter");
+        let has_whitespace = !exclude_targets.iter().any(|t| t == "whitespace");
 
         match test.test_type.as_str() {
             "success" => {

@@ -6,7 +6,7 @@
 #   type: success | success_io | syntax_error
 #   path: テストファイルのパス（resources/tests/passes/ または fails/syntax/ からの相対パス）
 #   comment: (オプション) テストの説明
-#   targets: (オプション) テスト対象 [interpreter, whitespace] デフォルトは [interpreter]
+#   exclude_targets: (オプション) 除外するテスト対象 [interpreter, whitespace] デフォルトは全ターゲット
 
 tests:
   # ========================================
@@ -16,7 +16,6 @@ tests:
     type: success
     path: c000
     comment: "Legacy test - basic functionality"
-    targets: [interpreter, whitespace]
 
   - name: test_ok_coding_c001
     type: success
@@ -47,7 +46,6 @@ tests:
     type: success
     path: literals/num_001
     comment: "Numeric literal parsing"
-    targets: [interpreter, whitespace]
 
   - name: test_literals_num_002
     type: success
@@ -91,7 +89,6 @@ tests:
     type: success
     path: operators/arith_001
     comment: "Basic arithmetic operations"
-    targets: [interpreter, whitespace]
 
   - name: test_operators_arith_002
     type: success
@@ -133,21 +130,18 @@ tests:
     type: success
     path: operators/logical_short_circuit_001
     comment: "Logical short-circuit evaluation (AND)"
-    targets: [interpreter, whitespace]
 
   # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_logical_short_circuit_002
     type: success
     path: operators/logical_short_circuit_002
     comment: "Logical short-circuit evaluation (OR)"
-    targets: [interpreter, whitespace]
 
   # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_logical_precedence_001
     type: success
     path: operators/logical_precedence_001
     comment: "Logical operator precedence"
-    targets: [interpreter, whitespace]
 
   - name: test_operators_modulo_001
     type: success
@@ -163,33 +157,28 @@ tests:
     type: success
     path: operators/ref_basic_001
     comment: "Reference and dereference operators"
-    targets: [interpreter, whitespace]
 
   - name: test_operators_ref_deref_assign_001
     type: success
     path: operators/ref_deref_assign_001
     comment: "Dereference assignment (*ptr = value)"
-    targets: [interpreter, whitespace]
 
   # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_ref_func_arg_001
     type: success
     path: operators/ref_func_arg_001
     comment: "Passing pointers to functions"
-    targets: [interpreter, whitespace]
 
   # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_ref_swap_001
     type: success
     path: operators/ref_swap_001
     comment: "Swapping values using pointers"
-    targets: [interpreter, whitespace]
 
   - name: test_operators_ref_double_001
     type: success
     path: operators/ref_double_001
     comment: "Double pointer (pointer to pointer)"
-    targets: [interpreter, whitespace]
 
   # ========================================
   # Builtins
@@ -208,25 +197,21 @@ tests:
     type: success_io
     path: builtins/debug_clog_001
     comment: "Debug builtin __clog (ignored in Whitespace)"
-    targets: [interpreter, whitespace]
 
   - name: test_builtins_debug_assert_001
     type: success_io
     path: builtins/debug_assert_001
     comment: "Debug builtins __assert/__assert_not (ignored in Whitespace)"
-    targets: [interpreter, whitespace]
 
   - name: test_builtins_debug_trace_001
     type: success_io
     path: builtins/debug_trace_001
     comment: "Debug builtin __trace (ignored in Whitespace)"
-    targets: [interpreter, whitespace]
 
   - name: test_builtins_debug_return_001
     type: success_io
     path: builtins/debug_return_001
     comment: "Debug builtin return value test"
-    targets: [interpreter, whitespace]
 
   # ========================================
   # Variables
@@ -235,7 +220,6 @@ tests:
     type: success
     path: variables/var_basic_001
     comment: "Basic variable declaration and assignment"
-    targets: [interpreter, whitespace]
 
   - name: test_variables_var_hoist_001
     type: success
@@ -499,7 +483,6 @@ tests:
     type: success
     path: integration/integ_001
     comment: "Integration test - complex program"
-    targets: [interpreter, whitespace]
 
   # ========================================
   # Syntax Errors
@@ -692,14 +675,12 @@ tests:
     type: success_io
     path: legacy/legacy_004
     comment: "Legacy I/O test"
-    targets: [interpreter, whitespace]
 
   # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_legacy_005
     type: success_io
     path: legacy/legacy_005
     comment: "Legacy I/O test"
-    targets: [interpreter, whitespace]
 
   - name: test_legacy_007
     type: success_io
@@ -751,7 +732,6 @@ tests:
     type: success_io
     path: legacy/legacy_014
     comment: "Legacy I/O test (negative literals)"
-    targets: [interpreter, whitespace]
 
   - name: test_legacy_015
     type: success_io
@@ -768,7 +748,6 @@ tests:
     type: success_io
     path: legacy/legacy_020
     comment: "Legacy I/O test (logical operators)"
-    targets: [interpreter, whitespace]
 
   - name: test_legacy_023
     type: success_io
@@ -787,37 +766,31 @@ tests:
     type: success_io
     path: io/puti_basic_001
     comment: "Built-in puti() function"
-    targets: [interpreter, whitespace]
 
   - name: test_io_putc_basic_001
     type: success_io
     path: io/putc_basic_001
     comment: "Built-in putc() function"
-    targets: [interpreter, whitespace]
 
   - name: test_io_geti_basic_001
     type: success_io
     path: io/geti_basic_001
     comment: "Built-in geti() function"
-    targets: [interpreter, whitespace]
 
   - name: test_io_getc_basic_001
     type: success_io
     path: io/getc_basic_001
     comment: "Built-in getc() function"
-    targets: [interpreter, whitespace]
 
   - name: test_io_combined_001
     type: success_io
     path: io/io_combined_001
     comment: "Combined I/O operations"
-    targets: [interpreter, whitespace]
 
   - name: test_io_geti_multiple_cases
     type: success_io
     path: io/geti_multiple_cases
     comment: "Multiple test cases in one test"
-    targets: [interpreter, whitespace]
 
 # ========================================
 # Disabled tests (未実装機能のテスト)
@@ -869,19 +842,17 @@ tests:
     type: success_io
     path: array-basic
     comment: "Array declaration, access, and initialization"
-    targets: [interpreter, whitespace]
 
   - name: test_array_reference
     type: success_io
     path: array-reference
     comment: "Array reference operations and pointer arithmetic"
-    targets: [interpreter]  # Whitespace: requires & operator (not yet implemented)
+    exclude_targets: [whitespace]  # Whitespace: requires & operator (not yet implemented)
 
   - name: test_array_static
     type: success_io
     path: array-static
     comment: "Static array operations"
-    targets: [interpreter, whitespace]
 
   # ========================================
   # String literals (Phase 5)
@@ -890,13 +861,11 @@ tests:
     type: success_io
     path: string-basic
     comment: "String literal basic operations and null termination"
-    targets: [interpreter, whitespace]
 
   - name: test_string_escape
     type: success_io
     path: string-escape
     comment: "String literal escape sequences"
-    targets: [interpreter, whitespace]
 
   # ========================================
   # Special examples
@@ -906,17 +875,14 @@ tests:
     type: success_io
     path: examples/e0-00-puts
     comment: ""
-    targets: [interpreter, whitespace]
 
   - name: test_example_fibonacci
     type: success_io
     path: examples/e0-01-fibonacci
     comment: ""
-    targets: [interpreter, whitespace]
 
   - name: test_example_qsort
     type: success_io
     path: examples/e1-00-qsort
     comment: ""
-    targets: [interpreter, whitespace]
   

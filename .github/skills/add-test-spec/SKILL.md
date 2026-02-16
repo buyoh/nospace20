@@ -22,7 +22,7 @@ description: /resources/tests/ 以下にテストケースを追加するとき�
    - `type`: `success`, `success_io`, `syntax_error`, `compile_error` など
    - `path`: テストファイルのパス（相対パス）
    - `comment`: (オプション) テストの説明
-   - `targets`: (オプション) `[interpreter, whitespace]` など
+   - `exclude_targets`: (オプション) 除外するターゲット `[interpreter]` や `[whitespace]` など。デフォルトは全ターゲット
 
 ## success_io テストで複数ケースを使う
 
