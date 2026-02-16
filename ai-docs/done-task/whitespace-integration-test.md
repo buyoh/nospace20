@@ -1,5 +1,18 @@
 # Whitespace コンパイラ統合テスト設計
 
+**完了日**: 2026年2月16日  
+**状態**: Phase 1 完了（基本機能実装済み）
+
+## 完了メモ
+
+Phase 1 のすべてのタスクが完了し、whitespace 統合テスト基盤が正常に動作しています:
+- ✅ 21個の whitespace テスト (`_ws`) が自動生成
+- ✅ test-manifest.yaml の `targets` フィールドによる制御が機能
+- ✅ build.rs による自動テスト生成が実装済み
+- ✅ `#[ignore]` 属性による wsc 依存テストの分離
+
+Phase 2（テストカバレッジ拡大）は将来的な改善タスクとして保留。
+
 ## 概要
 
 既存の「largeテスト」（`resources/tests/` 以下の `.ns` ファイルを nospace インタプリタで実行し検証）と同様の仕組みを、whitespace コンパイラ向けにも構築する。
@@ -167,12 +180,12 @@ tests/
 - ✅ `test-manifest.yaml` への `targets` フィールド追加
 - ✅ `build.rs` の whitespace テスト生成機能実装
 - ✅ `code_test.rs` への `test_whitespace_base()` / `test_whitespace_io_base()` ヘルパー関数追加
-- ✅ I/O テスト・通常テスト合計14個に `targets: [interpreter, whitespace]` を設定
+- ✅ I/O テスト・通常テスト合計22個に `targets: [interpreter, whitespace]` を設定
 - ✅ ビルトイン関数の実装完了（`__puti`, `__putc`, `__geti`, `__getc`, `__trace`, `__assert`, `__assert_not`）
 
 ### 生成されたテスト
 
-以下の whitespace テストが自動生成され、`#[ignore]` 属性が付与されています（合計14個）。
+以下の whitespace テストが自動生成され、`#[ignore]` 属性が付与されています（**合計21個**）。
 最新の一覧は `cargo test --test code_test -- --list | grep _ws` で確認可能。
 
 ### 既知の問題
@@ -189,12 +202,12 @@ tests/
 ### テスト結果
 
 ```
-running 116 tests
-test result: ok. 102 passed; 0 failed; 14 ignored; 0 measured; 0 filtered out
+running 148 tests
+test result: ok. 127 passed; 0 failed; 21 ignored; 0 measured; 0 filtered out
 ```
 
-- ✅ 102個のテストがパス（インタプリタテスト）
-- ⏭️ 14個の whitespace テストが ignore（wsc が必要なため `#[ignore]` 属性付き）
+- ✅ 127個のテストがパス（インタプリタテスト）
+- ⏭️ 21個の whitespace テストが ignore（wsc が必要なため `#[ignore]` 属性付き）
   - wsc をインストールし `cargo test --test code_test -- --ignored` で実行可能
 
 ### 実行方法
