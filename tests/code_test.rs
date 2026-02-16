@@ -27,7 +27,8 @@ struct IoTestCase {
 #[serde(rename_all = "snake_case")]
 enum TestConfig {
     Success {
-        trace: Vec<i64>,
+        #[serde(alias = "trace")]
+        trace_hit_counts: Vec<i64>,
     },
     SuccessIo {
         // 後方互換性のため残す（cases が未定義の場合に使用）
@@ -59,14 +60,17 @@ enum TestConfig {
 // 後方互換性のため、"trace" フィールドのみの場合は Success として扱う
 impl TestConfig {
     fn from_legacy(value: &serde_json::Value) -> Option<Self> {
-        if value.get("type").is_none() && value.get("trace").is_some() {
-            let trace = value
-                .get("trace")?
+        if value.get("type").is_none()
+            && (value.get("trace").is_some() || value.get("trace_hit_counts").is_some())
+        {
+            let trace_hit_counts = value
+                .get("trace_hit_counts")
+                .or_else(|| value.get("trace"))?
                 .as_array()?
                 .iter()
                 .map(|e| e.as_i64().unwrap())
                 .collect();
-            Some(TestConfig::Success { trace })
+            Some(TestConfig::Success { trace_hit_counts })
         } else {
             None
         }
@@ -136,10 +140,10 @@ fn test_ok_coding_base(test_name: &str) -> Result {
 
     match check_json {
         TestConfig::Success {
-            trace: expected_trace_vec,
+            trace_hit_counts: expected_trace_hit_counts,
         } => {
-            let expected_trace = expected_trace_vec.into_iter();
-            for (i, expected) in expected_trace.enumerate() {
+            let expected_iter = expected_trace_hit_counts.into_iter();
+            for (i, expected) in expected_iter.enumerate() {
                 let key = i as i64;
                 if let Some(actual) = trace.get(&key) {
                     assert_eq!(expected, *actual, "trace(idx:{}) failed", key);

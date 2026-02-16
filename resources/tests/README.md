@@ -38,13 +38,13 @@ func: main() {
 
 ```json
 {
-  "trace": [1]
+  "trace_hit_counts": [1]
 }
 ```
 
-**`trace` の意味:**
+**`trace_hit_counts` の意味:**
 - 配列の各要素は、対応するトレースポイント (0, 1, 2, ...) の実行回数を表します
-- `"trace": [2, 1, 1, 1]` は、`__trace(0)` が2回、`__trace(1)` が1回、`__trace(2)` が1回、`__trace(3)` が1回実行されたことを意味します
+- `"trace_hit_counts": [2, 1, 1, 1]` は、`__trace(0)` が2回、`__trace(1)` が1回、`__trace(2)` が1回、`__trace(3)` が1回実行されたことを意味します
 
 ### 2. `success_io` テスト
 
