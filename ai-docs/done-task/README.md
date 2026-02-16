@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [wsc-cross-validation.md](wsc-cross-validation.md) | wsc による WSA テストケースのクロスバリデーション（外部インタプリタで全39テストケースの正当性を検証、自前VM12件のバグ特定）| 2026-02-16 |
 | [wasm-build/](wasm-build/) | WASM ビルド完全完了（Phase 0/1/A/3 + サイズ最適化、269KB → 198KB, 26%削減）| 2026-02-16 |
 | [wasm-build-size-optimization.md](wasm-build-size-optimization.md) | WASM サイズ最適化完了レポート（Cargo.toml + wasm-opt、198KB / gzip: 78.3KB）| 2026-02-16 |
 | [wasm-build-phase0-1-a-3-completion.md](wasm-build-phase0-1-a-3-completion.md) | WASM ビルド Phase 0/1/A/3 完了（ビルド基盤、run/compile API、Whitespace VM ステップ実行、テスト環境）| 2026-02-12 |

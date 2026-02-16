@@ -27,10 +27,10 @@
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [wasm-compile-error-location.md](wasm-compile-error-location.md) - WASM版コンパイルエラーの位置情報表示（compiler_ws の CompileError に SourceLocation 付与）
+- [fix-e0-00-puts-test.md](fix-e0-00-puts-test.md) - e0-00-puts テスト失敗の修正（__puti デバッグ行の除去）
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [whitespace-interpreter-tests.md](whitespace-interpreter-tests.md) - Whitespace インタプリタ直接テスト設計（resources/tests_ws/, WSA記法, 29テストケース計画）
-- [wsc-cross-validation.md](wsc-cross-validation.md) - wsc による WSA テストケースのクロスバリデーション（外部 Whitespace インタプリタでテストケースの正当性を検証）
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
@@ -43,6 +43,7 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [wsc-cross-validation.md](../done-task/wsc-cross-validation.md) - wsc による WSA テストケースのクロスバリデーション（外部 Whitespace インタプリタでテストケースの正当性を検証、全39テスト合格）(2026-02-16完了)
 - [wasm-build/](../done-task/wasm-build/) - WASM ビルド完全完了（Phase 0/1/A/3 + サイズ最適化、269KB → 198KB）(2026-02-16完了)
 - [wasm-build-phase0-1-a-3-completion.md](../done-task/wasm-build-phase0-1-a-3-completion.md) - WASM ビルド Phase 0/1/A/3 完了（ビルド基盤、run/compile API、Whitespace VM ステップ実行、テスト環境）(2026-02-12完了)
 - [error-specification/](../done-task/error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討（調査・設計フェーズ完了：6ドキュメント、計1600行以上のエラー仕様を記録）(2026-02-16完了)
