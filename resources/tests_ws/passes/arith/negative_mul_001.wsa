@@ -1,0 +1,11 @@
+# Test: -3 * 4 = -12
+# Push -3
+SSTTTN
+# Push 4
+SSSTSSN
+# Mul (-3 * 4 = -12)
+TSSN
+# OutputNumber
+TNST
+# Exit
+NNN

@@ -9,7 +9,22 @@ tests:
   - name: test_ws_stack_push_negative_001
     type: ws_io
     path: stack/push_negative_001
-    comment: "Push negative number and output"
+    comment: "Push negative number (-3) and output"
+
+  - name: test_ws_stack_push_negative_002
+    type: ws_io
+    path: stack/push_negative_002
+    comment: "Push negative number (-1) and output"
+
+  - name: test_ws_stack_push_negative_003
+    type: ws_io
+    path: stack/push_negative_003
+    comment: "Push negative number (-42) and output"
+
+  - name: test_ws_stack_push_negative_004
+    type: ws_io
+    path: stack/push_negative_004
+    comment: "Push negative number (-100) and output"
 
   - name: test_ws_stack_push_zero_001
     type: ws_io
@@ -66,6 +81,36 @@ tests:
     type: ws_io
     path: arith/combined_001
     comment: "Combined arithmetic"
+
+  - name: test_ws_arith_negative_add_001
+    type: ws_io
+    path: arith/negative_add_001
+    comment: "Addition with negative numbers (-5 + 3)"
+
+  - name: test_ws_arith_negative_sub_001
+    type: ws_io
+    path: arith/negative_sub_001
+    comment: "Subtraction resulting in negative (5 - 8)"
+
+  - name: test_ws_arith_negative_mul_001
+    type: ws_io
+    path: arith/negative_mul_001
+    comment: "Multiplication with negative (-3 * 4)"
+
+  - name: test_ws_arith_mixed_add_001
+    type: ws_io
+    path: arith/mixed_add_001
+    comment: "Addition of positive and negative (10 + -3)"
+
+  - name: test_ws_arith_negative_div_001
+    type: ws_io
+    path: arith/negative_div_001
+    comment: "Division with negative (-10 / 3)"
+
+  - name: test_ws_arith_negative_mod_001
+    type: ws_io
+    path: arith/negative_mod_001
+    comment: "Modulo with negative (-17 % 5)"
 
   # Heap
   - name: test_ws_heap_store_retrieve_001

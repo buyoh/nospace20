@@ -1,0 +1,11 @@
+# Test: 10 + (-3) = 7
+# Push 10
+SSSTSTSN
+# Push -3
+SSTTTN
+# Add
+TSSS
+# OutputNumber
+TNST
+# Exit
+NNN

@@ -1,0 +1,11 @@
+# Test: 5 - 8 = -3
+# Push 5
+SSSTSTN
+# Push 8
+SSSTSSSN
+# Sub (5 - 8 = -3)
+TSST
+# OutputNumber
+TNST
+# Exit
+NNN

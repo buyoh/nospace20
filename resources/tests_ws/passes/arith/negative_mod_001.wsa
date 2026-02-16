@@ -1,0 +1,11 @@
+# Test: -17 % 5 = -2 (modulo with negative)
+# Push -17
+SSTTSSST N
+# Push 5
+SSSTSTN
+# Mod (-17 % 5 = -2)
+TSTT
+# OutputNumber
+TNST
+# Exit
+NNN

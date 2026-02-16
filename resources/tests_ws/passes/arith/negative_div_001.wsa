@@ -1,0 +1,11 @@
+# Test: -10 / 3 = -3 (integer division)
+# Push -10
+SSTTSTSN
+# Push 3
+SSSTTN
+# Div (-10 / 3 = -3)
+TSTS
+# OutputNumber
+TNST
+# Exit
+NNN
