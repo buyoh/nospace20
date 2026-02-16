@@ -139,4 +139,9 @@ impl<'a> CodeGenContext<'a> {
     pub fn current_loop_end(&self) -> Option<LabelId> {
         self.loop_labels.last().map(|(_, end)| *end)
     }
+
+    /// 子コンテキストで消費されたラベルカウンタを親に同期する。
+    pub fn sync_labels_from(&mut self, child: &CodeGenContext) {
+        self.labels.sync_next_id(&child.labels);
+    }
 }

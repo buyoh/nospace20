@@ -175,5 +175,58 @@ fn test_sync_next_id() {
 
 - [x] 原因調査完了
 - [x] 修正計画策定完了
-- [ ] 修正実装
-- [ ] テスト全通過確認
+- [x] 修正実装完了 (2026-02-17)
+- [x] テスト実行: 15件 → 5件に減少
+- [ ] 残り5件の失敗についてさらなる調査が必要
+
+## 実装結果 (2026-02-17)
+
+### 実装内容
+
+以下の修正を実施:
+
+1. **`src/compiler_ws/label.rs`**
+   - `sync_next_id()` メソッド追加
+   - `function_labels` のマージ機能を追加（子コンテキストで作成された関数ラベルを親にマージ）
+   - `test_sync_next_id()` と `test_sync_function_labels()` テストを追加
+
+2. **`src/compiler_ws/context.rs`**
+   - `sync_labels_from()` メソッド追加
+
+3. **`src/compiler_ws/statement.rs`**
+   - `generate_return()` のシグネチャを `&mut CodeGenContext` に変更し、`ctx.clone()` を除去
+   - `generate_function_definition()` に `ctx.sync_labels_from(&local_ctx)` 呼び出しを追加
+
+### テスト結果
+
+- **修正前**: 246 passed; 15 failed
+- **修正後**: 256 passed; 5 failed
+
+**成功に変わったテスト (10件)**:
+- test_example_puts_ws_self
+- test_legacy_011_ws_self
+- test_legacy_012_ws_self
+- test_scope_func_shadowing_nested_001_ws_self
+- test_scope_func_shadowing_siblings_001_ws_self
+- test_scope_scope_nested_func_001_ws_self
+- test_scope_scope_static_counter_factory_001_ws_self
+- test_scope_scope_static_mixed_001_ws_self
+- test_scope_scope_static_multi_decl_001_ws_self
+- test_scope_scope_static_nested_001_ws_self
+
+**依然失敗しているテスト (5件)**:
+- test_example_fibonacci_ws_self - Suspended (無限ループ)
+- test_example_qsort_ws_self - 出力不一致（空出力）
+- test_legacy_014_ws_self - 出力不一致
+- test_legacy_015_ws_self - Suspended
+- test_legacy_020_ws_self - 出力不一致
+
+### 追加の発見
+
+修正過程で `test_functions_func_hoist_001_ws_self` が一時的に失敗したが、`function_labels` のマージ機能を追加することで解決した。
+これは、関数本体内で他の関数を参照する場合、子コンテキストで作成された関数ラベルが親に反映される必要があることを示している。
+
+### 残りの問題
+
+残り5件のテストは、より複雑なラベル重複パターンまたは別の問題を抱えている可能性がある。
+さらなる調査が必要。別途調査ドキュメント `remaining-ws-self-failures.md` を作成予定。

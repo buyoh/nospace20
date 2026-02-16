@@ -85,6 +85,19 @@ impl LabelAllocator {
     pub fn get_function_label(&self, name: &str) -> Option<LabelId> {
         self.function_labels.get(name).copied()
     }
+
+    /// 子アロケータで消費されたラベル ID を同期する。
+    /// 子アロケータの next_id が自身より大きい場合に更新する。
+    /// また、子アロケータで作成された関数ラベルを親にマージする。
+    pub fn sync_next_id(&mut self, other: &LabelAllocator) {
+        if other.next_id > self.next_id {
+            self.next_id = other.next_id;
+        }
+        // 子コンテキストで作成された関数ラベルをマージ
+        for (name, label) in &other.function_labels {
+            self.function_labels.entry(name.clone()).or_insert(*label);
+        }
+    }
 }
 
 impl Default for LabelAllocator {
@@ -137,5 +150,34 @@ mod tests {
         assert!(!alloc.has_function("test"));
         alloc.get_or_create_function_label("test");
         assert!(alloc.has_function("test"));
+    }
+
+    #[test]
+    fn test_sync_next_id() {
+        let mut parent = LabelAllocator::new();
+        parent.allocate(); // next_id = 17
+        
+        let mut child = parent.clone();
+        child.allocate(); // child next_id = 18
+        child.allocate(); // child next_id = 19
+        
+        parent.sync_next_id(&child);
+        assert_eq!(parent.allocate().0, 19); // 同期後は 19 から割り当て
+    }
+
+    #[test]
+    fn test_sync_function_labels() {
+        let mut parent = LabelAllocator::new();
+        parent.get_or_create_function_label("main"); // label_16
+        
+        let mut child = parent.clone();
+        child.get_or_create_function_label("helper"); // label_18
+        
+        parent.sync_next_id(&child);
+        
+        // 子で作成された関数ラベルが親にマージされることを確認
+        assert_eq!(parent.get_function_label("helper"), Some(LabelId(18)));
+        // 次のラベルは 20 から
+        assert_eq!(parent.allocate().0, 20);
     }
 }

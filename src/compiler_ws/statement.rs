@@ -85,13 +85,13 @@ pub fn generate_statement(
 
 /// return 文のコード生成
 fn generate_return(
-    ctx: &CodeGenContext,
+    ctx: &mut CodeGenContext,
     expr: &crate::semantic_analyzer::ExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
     // 返り値を評価
-    prog.append(expression::generate_expression(&mut ctx.clone(), expr)?);
+    prog.append(expression::generate_expression(ctx, expr)?);
 
     // ローカル変数領域解放
     prog.append(builtin::generate_local_deallocate());
@@ -150,6 +150,9 @@ fn generate_function_definition(
     prog.append(builtin::generate_local_deallocate());
     prog.push(Instruction::Push(WsNumber(0)));
     prog.push(Instruction::Return);
+
+    // 子コンテキストのラベルカウンタを親に同期
+    ctx.sync_labels_from(&local_ctx);
 
     // 関数定義終了ラベル
     prog.push(Instruction::Label(label.offset(1)));
