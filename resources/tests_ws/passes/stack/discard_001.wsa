@@ -1,0 +1,10 @@
+# Push 10
+SSSTSTSN
+# Push 99
+SSSTTSSST TN
+# Discard (remove 99)
+SNN
+# OutputNumber (remaining = 10)
+TNST
+# Exit
+NNN

@@ -1,0 +1,10 @@
+# Push 65 ('A')
+SSSTSSSSST N
+# OutputChar
+TNSS
+# Push 66 ('B')
+SSSTS SSSTSN
+# OutputChar
+TNSS
+# Exit
+NNN

@@ -1,0 +1,14 @@
+# Push 0 (address)
+SSSN
+# Push 42 (value)
+SSSTSTSTSN
+# Store
+TTS
+# Push 0 (address)
+SSSN
+# Retrieve
+TTT
+# OutputNumber
+TNST
+# Exit
+NNN

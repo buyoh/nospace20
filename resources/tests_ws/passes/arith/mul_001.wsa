@@ -1,0 +1,10 @@
+# Push 6
+SSSTTSN
+# Push 7
+SSSTTN
+# Mul (6 * 7 = 42)
+TSSN
+# OutputNumber
+TNST
+# Exit
+NNN

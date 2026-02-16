@@ -1,0 +1,8 @@
+# Push 10
+SSTSTSN
+# Push 0
+SSSN
+# Div (10 / 0)
+TSTS
+# Exit
+NNN

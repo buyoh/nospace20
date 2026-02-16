@@ -1,0 +1,12 @@
+# Push 0 (address for input)
+SSSN
+# InputChar (read char into heap[0])
+TNTS
+# Push 0 (address)
+SSSN
+# Retrieve (load from heap[0])
+TTT
+# OutputChar
+TNSS
+# Exit
+NNN

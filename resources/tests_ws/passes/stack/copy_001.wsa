@@ -1,0 +1,12 @@
+# Push 10
+SSSTSTSN
+# Push 20
+SSSTSTSSN
+# Push 30
+SSST TTTTSN
+# Copy 2nd from top (index 2 = value 10)
+STSSTSN
+# OutputNumber
+TNST
+# Exit
+NNN

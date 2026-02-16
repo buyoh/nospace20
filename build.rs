@@ -24,6 +24,7 @@ struct TestCase {
 fn main() {
     // YAMLファイルが変更されたら再ビルド
     println!("cargo:rerun-if-changed=resources/tests/test-manifest.yaml");
+    println!("cargo:rerun-if-changed=resources/tests_ws/test-manifest.yaml");
 
     // YAMLファイルを読み込み
     let manifest_path = "resources/tests/test-manifest.yaml";
@@ -145,4 +146,71 @@ fn {}() -> std::fmt::Result {{
     }
 
     println!("Generated {} tests", test_count);
+
+    // Whitespace 直接テスト用の生成コード
+    generate_ws_tests();
+}
+
+fn generate_ws_tests() {
+    // test-manifest.yaml を読み込み
+    let manifest_path = "resources/tests_ws/test-manifest.yaml";
+    
+    // ファイルが存在しない場合はスキップ
+    if !Path::new(manifest_path).exists() {
+        println!("Skipping Whitespace tests generation (manifest not found)");
+        return;
+    }
+
+    let manifest_content =
+        fs::read_to_string(manifest_path).expect("Failed to read tests_ws/test-manifest.yaml");
+
+    let manifest: TestManifest =
+        serde_yaml::from_str(&manifest_content).expect("Failed to parse tests_ws/test-manifest.yaml");
+
+    // 出力ディレクトリを取得
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let dest_path = Path::new(&out_dir).join("generated_ws_tests.rs");
+    let mut f = fs::File::create(&dest_path).unwrap();
+
+    // テストコードを生成
+    let test_count = manifest.tests.len();
+    for test in manifest.tests {
+        let comment_line = if let Some(comment) = &test.comment {
+            format!("// {}\n", comment)
+        } else {
+            String::new()
+        };
+
+        match test.test_type.as_str() {
+            "ws_io" => {
+                writeln!(
+                    f,
+                    r#"{}#[test]
+fn {}() {{
+    test_ws_io_base("{}")
+}}
+"#,
+                    comment_line, test.name, test.path
+                )
+                .unwrap();
+            }
+            "ws_runtime_error" => {
+                writeln!(
+                    f,
+                    r#"{}#[test]
+fn {}() {{
+    test_ws_runtime_error_base("{}")
+}}
+"#,
+                    comment_line, test.name, test.path
+                )
+                .unwrap();
+            }
+            _ => {
+                panic!("Unknown Whitespace test type: {}", test.test_type);
+            }
+        }
+    }
+
+    println!("Generated {} Whitespace tests", test_count);
 }

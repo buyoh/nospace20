@@ -1,0 +1,10 @@
+# Push 10
+SSTSTSN
+# Push 3
+SSSTTN
+# Sub (10 - 3 = 7)
+TSST
+# OutputNumber
+TNST
+# Exit
+NNN

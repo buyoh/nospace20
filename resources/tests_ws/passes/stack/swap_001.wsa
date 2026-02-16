@@ -1,0 +1,12 @@
+# Push 1
+SSSTN
+# Push 2
+SSSTSN
+# Swap
+SNT
+# OutputNumber (top was 2, after swap = 1)
+TNST
+# OutputNumber (was 1, after swap = 2)
+TNST
+# Exit
+NNN

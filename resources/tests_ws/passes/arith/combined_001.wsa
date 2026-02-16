@@ -1,0 +1,14 @@
+# Push 2
+SSTSN
+# Push 3
+SSSTTN
+# Add (2+3=5)
+TSSS
+# Push 4
+SSSTSN
+# Mul (5*4=20)
+TSSN
+# OutputNumber
+TNST
+# Exit
+NNN

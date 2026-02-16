@@ -1,0 +1,10 @@
+# Push 17
+SSST SSSTN
+# Push 5
+SSSTSTN
+# Mod (17 % 5 = 2)
+TSTT
+# OutputNumber
+TNST
+# Exit
+NNN

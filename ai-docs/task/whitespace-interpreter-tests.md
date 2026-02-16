@@ -1036,3 +1036,56 @@ tests:
 - 拡張仕様（負ヒープアドレスによる `__trace`/`__assert`/`__assert_not`）
 - Slide 命令（`src/whitespace/` に未実装）
 - パーサ単体のエラーテスト（既存のユニットテストで十分カバー）
+
+## 実装状況
+
+### 完了した作業
+
+1. ✅ テストディレクトリ構造を作成（`resources/tests_ws/`）
+2. ✅ test-manifest.yaml を作成
+3. ✅ 30個のテストケース（.wsa, .check.json）を作成
+4. ✅ テストランナー（`tests/whitespace_direct_test.rs`）を実装
+5. ✅ build.rs を拡張して Whitespace テスト自動生成機能を追加
+6. ✅ WSA デコーダにコメント除外機能を追加
+
+### テスト結果
+
+**成功: 17/30 テスト** (56.7%)
+
+#### 成功したテスト
+- スタック操作: push_positive, push_zero, dup, swap, discard, copy
+- 算術演算: add, div, mod
+- ヒープ操作: store_retrieve, multiple_addr
+- I/O: output_char, output_number, input_char, input_number
+- フロー制御: jump, jump_if_zero_true
+
+#### 失敗したテスト (13件)
+
+| テスト名 | 期待値 | 実際の値 | 状態 |
+|---------|--------|---------|------|
+| stack/push_negative_001 | -3 | (要調査) | WSAエンコーディング修正が必要 |
+| arith/sub_001 | 7 | (要調査) | 減算命令の動作確認が必要 |
+| arith/mul_001 | 42 | (要調査) | 乗算命令の動作確認が必要 |
+| arith/combined_001 | 20 | 6 | 複合演算のスタック順序確認が必要 |
+| flow/call_return_001 | 42 | (要調査) | サブルーチン呼び出しの動作確認 |
+| flow/jump_if_neg_true_001 | 1 | 991 | ジャンプ条件と出力の動作確認 |
+| flow/jump_if_neg_false_001 | 2 | (要調査) | ジャンプ条件の動作確認 |
+| flow/jump_if_zero_false_001 | 2 | (要調査) | ジャンプ条件の動作確認 |
+| flow/loop_simple_001 | 321 | (要調査) | ループ動作の確認 |
+| errors/stack_underflow_001 | RuntimeError | (要調査) | エラー検出の確認 |
+| errors/div_zero_001 | DivisionByZero | (要調査) | エラー検出の確認 |
+| errors/callstack_underflow_001 | CallStackUnderflow | (要調査) | エラー検出の確認 |
+| errors/undefined_label_001 | UndefinedLabel | (要調査) | エラー検出の確認 |
+
+### 既知の問題
+
+1. **数値エンコーディング**: 一部のWSAファイルで数値エンコーディングが不正確（修正中）
+2. **エラーテスト**: すべてのエラーテストが失敗（パス問題またはテストケースの問題の可能性）
+3. **減算・乗算命令**: 期待値と実際の出力が一致しない（インタプリタの実装確認が必要）
+
+### 次のステップ
+
+1. 失敗したテストケースの詳細調査
+2. WSAファイルのエンコーディング検証
+3. インタプリタの動作確認（特に減算・乗算・フロー制御）
+4. エラーテストのデバッグ

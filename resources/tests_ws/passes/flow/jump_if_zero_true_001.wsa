@@ -1,0 +1,16 @@
+# Push 0
+SSSN
+# JumpIfZero to label 0
+NTSSN
+# (skipped) Push 99
+SSSTTSSSTTN
+# (skipped) OutputNumber
+TNST
+# Label 0
+NSSSN
+# Push 1
+SSSTN
+# OutputNumber
+TNST
+# Exit
+NNN

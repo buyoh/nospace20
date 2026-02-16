@@ -1,0 +1,16 @@
+# Jump to label 1 (main)
+NSNSTN
+# Label 0 (subroutine: push 42)
+NSSSN
+# Push 42
+SSSTSTSTSN
+# Return
+NTN
+# Label 1 (main)
+NSSTN
+# Call label 0
+NSTSN
+# OutputNumber (42)
+TNST
+# Exit
+NNN

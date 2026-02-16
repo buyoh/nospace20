@@ -1,0 +1,24 @@
+# Push 3 (counter)
+SSSTTN
+# Label 0 (loop start)
+NSSSN
+# Dup counter
+SNS
+# OutputNumber
+TNST
+# Push 1
+SSSTN
+# Sub (counter - 1)
+TSST
+# Dup
+SNS
+# JumpIfZero label 1 (if counter == 0, exit)
+NTSSTN
+# Jump label 0 (continue loop)
+NSNSN
+# Label 1
+NSSTN
+# Discard (remove 0)
+SNN
+# Exit
+NNN

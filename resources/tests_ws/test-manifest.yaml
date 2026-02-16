@@ -1,0 +1,157 @@
+# Whitespace Interpreter Direct Test Manifest
+tests:
+  # Stack manipulation
+  - name: test_ws_stack_push_positive_001
+    type: ws_io
+    path: stack/push_positive_001
+    comment: "Push positive number and output"
+
+  - name: test_ws_stack_push_negative_001
+    type: ws_io
+    path: stack/push_negative_001
+    comment: "Push negative number and output"
+
+  - name: test_ws_stack_push_zero_001
+    type: ws_io
+    path: stack/push_zero_001
+    comment: "Push zero and output"
+
+  - name: test_ws_stack_dup_001
+    type: ws_io
+    path: stack/dup_001
+    comment: "Duplicate top item"
+
+  - name: test_ws_stack_swap_001
+    type: ws_io
+    path: stack/swap_001
+    comment: "Swap top two items"
+
+  - name: test_ws_stack_discard_001
+    type: ws_io
+    path: stack/discard_001
+    comment: "Discard top item"
+
+  - name: test_ws_stack_copy_001
+    type: ws_io
+    path: stack/copy_001
+    comment: "Copy nth item to top"
+
+  # Arithmetic
+  - name: test_ws_arith_add_001
+    type: ws_io
+    path: arith/add_001
+    comment: "Addition"
+
+  - name: test_ws_arith_sub_001
+    type: ws_io
+    path: arith/sub_001
+    comment: "Subtraction"
+
+  - name: test_ws_arith_mul_001
+    type: ws_io
+    path: arith/mul_001
+    comment: "Multiplication"
+
+  - name: test_ws_arith_div_001
+    type: ws_io
+    path: arith/div_001
+    comment: "Integer division"
+
+  - name: test_ws_arith_mod_001
+    type: ws_io
+    path: arith/mod_001
+    comment: "Modulo"
+
+  - name: test_ws_arith_combined_001
+    type: ws_io
+    path: arith/combined_001
+    comment: "Combined arithmetic"
+
+  # Heap
+  - name: test_ws_heap_store_retrieve_001
+    type: ws_io
+    path: heap/store_retrieve_001
+    comment: "Store and retrieve"
+
+  - name: test_ws_heap_multiple_addr_001
+    type: ws_io
+    path: heap/multiple_addr_001
+    comment: "Multiple heap addresses"
+
+  # Flow control
+  - name: test_ws_flow_jump_001
+    type: ws_io
+    path: flow/jump_001
+    comment: "Unconditional jump"
+
+  - name: test_ws_flow_jump_if_zero_true_001
+    type: ws_io
+    path: flow/jump_if_zero_true_001
+    comment: "JumpIfZero with zero value"
+
+  - name: test_ws_flow_jump_if_zero_false_001
+    type: ws_io
+    path: flow/jump_if_zero_false_001
+    comment: "JumpIfZero with non-zero value"
+
+  - name: test_ws_flow_jump_if_neg_true_001
+    type: ws_io
+    path: flow/jump_if_neg_true_001
+    comment: "JumpIfNegative with negative value"
+
+  - name: test_ws_flow_jump_if_neg_false_001
+    type: ws_io
+    path: flow/jump_if_neg_false_001
+    comment: "JumpIfNegative with positive value"
+
+  - name: test_ws_flow_call_return_001
+    type: ws_io
+    path: flow/call_return_001
+    comment: "Subroutine call and return"
+
+  - name: test_ws_flow_loop_simple_001
+    type: ws_io
+    path: flow/loop_simple_001
+    comment: "Simple countdown loop"
+
+  # I/O
+  - name: test_ws_io_output_char_001
+    type: ws_io
+    path: io/output_char_001
+    comment: "Output character"
+
+  - name: test_ws_io_output_number_001
+    type: ws_io
+    path: io/output_number_001
+    comment: "Output number"
+
+  - name: test_ws_io_input_number_001
+    type: ws_io
+    path: io/input_number_001
+    comment: "Input number"
+
+  - name: test_ws_io_input_char_001
+    type: ws_io
+    path: io/input_char_001
+    comment: "Input character"
+
+  # Runtime errors
+  - name: test_ws_errors_stack_underflow_001
+    type: ws_runtime_error
+    path: ../fails/runtime/stack_underflow_001
+    comment: "Stack underflow on empty stack"
+
+  - name: test_ws_errors_div_zero_001
+    type: ws_runtime_error
+    path: ../fails/runtime/div_zero_001
+    comment: "Division by zero"
+
+  - name: test_ws_errors_callstack_underflow_001
+    type: ws_runtime_error
+    path: ../fails/runtime/callstack_underflow_001
+    comment: "Return without prior Call"
+
+  - name: test_ws_errors_undefined_label_001
+    type: ws_runtime_error
+    path: ../fails/runtime/undefined_label_001
+    comment: "Jump to undefined label"

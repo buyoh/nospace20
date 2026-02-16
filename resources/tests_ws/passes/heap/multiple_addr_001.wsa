@@ -1,0 +1,20 @@
+# Store: addr=0, val=10
+SSSN
+SSSTSTSN
+TTS
+# Store: addr=1, val=20
+SSSTN
+SSSTSTSSN
+TTS
+# Retrieve addr=1
+SSSTN
+TTT
+# OutputNumber (20)
+TNST
+# Retrieve addr=0
+SSSN
+TTT
+# OutputNumber (10)
+TNST
+# Exit
+NNN
