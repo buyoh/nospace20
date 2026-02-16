@@ -17,9 +17,9 @@
       "stdout": "2\n"
     },
     {
-      "name": "10 -> 55",
+      "name": "10 -> 89",
       "stdin": "10\n",
-      "stdout": "55\n"
+      "stdout": "89\n"
     }
   ]
 }

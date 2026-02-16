@@ -1,5 +1,4 @@
 func: puts(str) {
-  __puti(str);
   while: *str != 0 {
     __putc(*str);
     str += 1;
