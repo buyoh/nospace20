@@ -30,6 +30,7 @@
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [whitespace-interpreter-tests.md](whitespace-interpreter-tests.md) - Whitespace インタプリタ直接テスト設計（resources/tests_ws/, WSA記法, 29テストケース計画）
+- [wsc-cross-validation.md](wsc-cross-validation.md) - wsc による WSA テストケースのクロスバリデーション（外部 Whitespace インタプリタでテストケースの正当性を検証）
 - [compiler/](compiler/) - nospace → Whitespace コンパイラ調査 (旧実装分析)
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
