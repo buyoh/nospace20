@@ -28,7 +28,7 @@
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [wasm-compile-error-location.md](wasm-compile-error-location.md) - WASM版コンパイルエラーの位置情報表示（compiler_ws の CompileError に SourceLocation 付与）
 - [fix-e0-00-puts-test.md](fix-e0-00-puts-test.md) - e0-00-puts テスト失敗の修正（__puti デバッグ行の除去）
-- [whitespace-self-test-failures.md](whitespace-self-test-failures.md) - whitespace-self テスト15件の失敗調査（ステップ数超過・出力不一致）
+- [whitespace-self-test-failures.md](whitespace-self-test-failures.md) - whitespace-self テスト15件の失敗調査（原因特定済み：compiler_ws のラベルアロケータ clone によるラベル ID 重複バグ）
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
 - [whitespace-interpreter-tests.md](whitespace-interpreter-tests.md) - Whitespace インタプリタ直接テスト設計（resources/tests_ws/, WSA記法, 29テストケース計画）
