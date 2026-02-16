@@ -29,7 +29,6 @@ tests:
     type: success
     path: c002
     comment: "Legacy test: break/continue"
-    targets: [whitespace]
 
   - name: test_ok_coding_c003
     type: success

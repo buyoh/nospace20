@@ -9,7 +9,7 @@ func: main() {
   j=5;
   while:j+__trace(3){
     __trace(4);
-    if:j-3{
+    if:j-3==0{
       __trace(5);
       break;
     };
@@ -17,9 +17,9 @@ func: main() {
     j=j-1;
   };
   j=5;
-  while:j+__trace(7){
+  while:j+__trace(7)>0{
     __trace(8);
-    if:j-4{
+    if:j-4==0{
       __trace(9);
       j=j-2;
       continue;
