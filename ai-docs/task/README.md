@@ -44,6 +44,7 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [whitespace-test-failures-investigation.md](../done-task/whitespace-test-failures-investigation.md) - Whitespace インタプリタテスト失敗調査（全39テスト成功確認、12件の失敗すべて解決）(2026-02-17完了)
 - [fix-whitespace-vm-test-failures.md](../done-task/fix-whitespace-vm-test-failures.md) - WhitespaceVM テスト失敗修正（WSAエンコーディング誤り11箇所 + マニフェストパス誤り4件）(2026-02-17完了)
 - [wsc-cross-validation.md](../done-task/wsc-cross-validation.md) - wsc による WSA テストケースのクロスバリデーション（外部 Whitespace インタプリタでテストケースの正当性を検証、全39テスト合格）(2026-02-16完了)
 - [wasm-build/](../done-task/wasm-build/) - WASM ビルド完全完了（Phase 0/1/A/3 + サイズ最適化、269KB → 198KB）(2026-02-16完了)
