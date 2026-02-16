@@ -20,11 +20,11 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
         prog.append(generate_statement(ctx, stmt)?);
     }
 
-    // 注: 現在は main 関数のみを明示的に生成
-    // Phase 6: main_function_index を使用してインデックスベースでアクセス
-    if let Some(main_idx) = scope.main_function_index {
-        let main_func = &scope.functions[main_idx];
-        prog.append(generate_function_definition(ctx, "main", main_func)?);
+    // Phase 7: 全ての関数定義を生成
+    // 関数は function_names と functions が対応している
+    for (i, func_name) in scope.function_names.iter().enumerate() {
+        let func = &scope.functions[i];
+        prog.append(generate_function_definition(ctx, func_name, func)?);
     }
 
     Ok(prog)
@@ -61,13 +61,25 @@ pub fn generate_statement(
         // return 文
         ExecStatement::Return(expr) => generate_return(ctx, expr),
 
-        // break/continue (現在未実装)
-        ExecStatement::Break => Err(CompileError::InvalidOperation(
-            "break not implemented".to_string(),
-        )),
-        ExecStatement::Continue => Err(CompileError::InvalidOperation(
-            "continue not implemented".to_string(),
-        )),
+        // break 文
+        ExecStatement::Break => {
+            let loop_end = ctx.current_loop_end().ok_or_else(|| {
+                CompileError::InvalidOperation("break outside loop".to_string())
+            })?;
+            let mut prog = WsProgram::new();
+            prog.push(Instruction::Jump(loop_end));
+            Ok(prog)
+        }
+
+        // continue 文
+        ExecStatement::Continue => {
+            let loop_start = ctx.current_loop_start().ok_or_else(|| {
+                CompileError::InvalidOperation("continue outside loop".to_string())
+            })?;
+            let mut prog = WsProgram::new();
+            prog.push(Instruction::Jump(loop_start));
+            Ok(prog)
+        }
     }
 }
 

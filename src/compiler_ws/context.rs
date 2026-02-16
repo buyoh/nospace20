@@ -38,6 +38,10 @@ pub struct CodeGenContext<'a> {
     /// ※ 現在は使用していないが、将来的な拡張用に保持
     #[allow(dead_code)]
     variables: HashMap<String, VarInfo>,
+
+    /// ループラベルスタック (break/continue のため)
+    /// (loop_start, loop_end) のペア
+    loop_labels: Vec<(LabelId, LabelId)>,
 }
 
 impl<'a> CodeGenContext<'a> {
@@ -48,6 +52,7 @@ impl<'a> CodeGenContext<'a> {
             is_global: true,
             local_heap_size: 0,
             variables: HashMap::new(),
+            loop_labels: Vec::new(),
         }
     }
 
@@ -59,6 +64,7 @@ impl<'a> CodeGenContext<'a> {
             is_global: false,
             local_heap_size: local_var_count as i64,
             variables: HashMap::new(),
+            loop_labels: Vec::new(),
         }
     }
 
@@ -112,5 +118,25 @@ impl<'a> CodeGenContext<'a> {
     /// ローカルヒープサイズを取得
     pub fn local_heap_size(&self) -> i64 {
         self.local_heap_size
+    }
+
+    /// ループラベルをプッシュ (while 式生成時)
+    pub fn push_loop_labels(&mut self, loop_start: LabelId, loop_end: LabelId) {
+        self.loop_labels.push((loop_start, loop_end));
+    }
+
+    /// ループラベルをポップ (while 式生成完了時)
+    pub fn pop_loop_labels(&mut self) {
+        self.loop_labels.pop();
+    }
+
+    /// 現在のループの開始ラベルを取得 (continue 用)
+    pub fn current_loop_start(&self) -> Option<LabelId> {
+        self.loop_labels.last().map(|(start, _)| *start)
+    }
+
+    /// 現在のループの終了ラベルを取得 (break 用)
+    pub fn current_loop_end(&self) -> Option<LabelId> {
+        self.loop_labels.last().map(|(_, end)| *end)
     }
 }

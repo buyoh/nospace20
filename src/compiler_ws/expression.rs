@@ -42,10 +42,28 @@ pub fn generate_expression(
         }
 
         // Phase 5: ユーザー定義関数呼び出し
-        ExecExpression::UserFunction(_func_ref, _args) => {
-            return Err(CompileError::InvalidOperation(
-                "user-defined function calls are not yet supported in compiler".to_string(),
-            ))
+        ExecExpression::UserFunction(func_ref, args) => {
+            let mut prog = WsProgram::new();
+
+            // 引数を評価してスタックにプッシュ（順番通り）
+            // 関数定義では逆順で取得するため、ここでは普通の順序でプッシュする
+            for arg in args {
+                prog.append(generate_expression(ctx, arg)?);
+            }
+
+            // 関数名を取得
+            // scope.function_names[func_ref.local_index] で関数名が取得できる
+            let scope = ctx.scope();
+            let func_name = &scope.function_names[func_ref.local_index];
+            
+            // 関数ラベルを取得または作成
+            let func_label = ctx.get_or_create_function_label(func_name);
+
+            // Call 命令を生成
+            prog.push(Instruction::Call(func_label));
+
+            // 戻り値がスタックに残る
+            Ok(prog)
         }
 
         // if 式
@@ -610,6 +628,9 @@ fn generate_while_expression(
     let loop_start = ctx.new_label();
     let loop_end = ctx.new_label();
 
+    // ループラベルをスタックにプッシュ (break/continue のため)
+    ctx.push_loop_labels(loop_start, loop_end);
+
     // ループ開始ラベル
     prog.push(Instruction::Label(loop_start));
 
@@ -627,6 +648,9 @@ fn generate_while_expression(
 
     // ループ終了ラベル
     prog.push(Instruction::Label(loop_end));
+
+    // ループラベルをポップ
+    ctx.pop_loop_labels();
 
     // while式の値として0を返す
     prog.push(Instruction::Push(WsNumber(0)));
