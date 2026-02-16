@@ -36,6 +36,19 @@ Fix C を実装した結果、出力が変化:
 **現在の仮説**: qsort 特有の複雑な再帰構造や配列操作に関連する別のバグが存在する可能性。
 さらなる調査が必要。
 
+## Bug D 特定 (2026-02-17)
+
+**Bug D: ブロックスコープ変数のヒープオフセット衝突**
+
+`CodeGenContext::get_var_info` が `IdentifierRef.scope_depth` を無視し、
+`local_index` をそのまま `offset` として使用するため、内部ブロックスコープの変数が
+関数スコープの変数とヒープアドレスを共有する。
+
+main() の内部ブロック `{ let: i(0); ... }` の `i` が `arr[0]` と同じ `heap[LHB+0]` に配置され、
+配列データが破壊される。
+
+修正設計: [fix-block-scope-offset/](fix-block-scope-offset/)
+
 ## 関連ドキュメント
 
 - [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) - 修正設計（Fix C）

@@ -41,8 +41,9 @@
 
 - [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
 - [remaining-ws-self-failures.md](remaining-ws-self-failures.md) - 残りの _ws_self テスト失敗 (5件) の調査（より複雑なラベル重複パターンまたは別の問題）
-- [qsort-ws-self-failure.md](qsort-ws-self-failure.md) - test_example_qsort_ws_self 失敗調査（原因特定済み：Bug C）
+- [qsort-ws-self-failure.md](qsort-ws-self-failure.md) - test_example_qsort_ws_self 失敗調査（原因特定済み：Bug C → Bug D）
 - [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) - while ループ本体のスタックリーク修正設計（Fix C: generate_while_expression で Discard 追加）
+- [fix-block-scope-offset/](fix-block-scope-offset/) - ブロックスコープ変数のヒープオフセット衝突修正設計（Bug D: scope_depth 無視による変数衝突）
 
 ### 完了済み (done-task/ に移動)
 
