@@ -517,6 +517,73 @@ tests:
     path: extra_closing_braces_001
     comment: "Extra closing braces detection"
 
+  - name: test_syntax_error_char_invalid_escape_001
+    type: syntax_error
+    path: char_invalid_escape_001
+    comment: "Error: unknown escape sequence in character literal"
+
+  - name: test_syntax_error_char_empty_001
+    type: syntax_error
+    path: char_empty_001
+    comment: "Error: empty character literal"
+
+  - name: test_syntax_error_char_unclosed_001
+    type: syntax_error
+    path: char_unclosed_001
+    comment: "Error: unclosed character literal"
+
+  - name: test_syntax_error_char_eof_001
+    type: syntax_error
+    path: char_eof_001
+    comment: "Error: unexpected EOF in character literal"
+
+  - name: test_syntax_error_string_unclosed_001
+    type: syntax_error
+    path: string_unclosed_001
+    comment: "Error: unclosed string literal"
+
+  - name: test_syntax_error_single_pipe_001
+    type: syntax_error
+    path: single_pipe_001
+    comment: "Error: single pipe operator is not supported"
+
+  - name: test_syntax_error_unexpected_comma_001
+    type: syntax_error
+    path: unexpected_comma_001
+    comment: "Error: unexpected comma in function call"
+
+  # DISABLED: Parser accepts 'let x;' syntax (not an error in current implementation)
+  # - name: test_syntax_error_missing_comma_001
+  #   type: syntax_error
+  #   path: missing_comma_001
+  #   comment: "Error: missing comma in function call"
+
+  # DISABLED: Parser accepts 'foo(1 2)' syntax (not an error in current implementation)
+  # - name: test_syntax_error_missing_colon_let_001
+  #   type: syntax_error
+  #   path: missing_colon_let_001
+  #   comment: "Error: missing colon after let keyword"
+
+  - name: test_syntax_error_unexpected_factor_001
+    type: syntax_error
+    path: unexpected_factor_001
+    comment: "Error: unexpected token in expression"
+
+  - name: test_syntax_error_array_size_zero_001
+    type: syntax_error
+    path: array_size_zero_001
+    comment: "Error: array size must be positive"
+
+  - name: test_syntax_error_array_init_overflow_001
+    type: syntax_error
+    path: array_init_overflow_001
+    comment: "Error: too many initializers for array"
+
+  - name: test_syntax_error_string_too_long_for_array_001
+    type: syntax_error
+    path: string_too_long_for_array_001
+    comment: "Error: string literal too long for array"
+
   # ========================================
   # Compile Errors
   # ========================================
@@ -564,6 +631,31 @@ tests:
     type: compile_error
     path: func_duplicate_main_001
     comment: "Error: duplicate main function definition"
+
+  - name: test_compile_error_not_an_array_001
+    type: compile_error
+    path: not_an_array_001
+    comment: "Error: subscript access on non-array variable"
+
+  - name: test_compile_error_ref_non_variable_001
+    type: compile_error
+    path: ref_non_variable_001
+    comment: "Error: reference operator on non-variable"
+
+  - name: test_compile_error_return_outside_func_001
+    type: compile_error
+    path: return_outside_func_001
+    comment: "Error: return statement outside of function"
+
+  - name: test_compile_error_continue_outside_func_001
+    type: compile_error
+    path: continue_outside_func_001
+    comment: "Error: continue statement outside of function"
+
+  - name: test_compile_error_break_outside_func_001
+    type: compile_error
+    path: break_outside_func_001
+    comment: "Error: break statement outside of function"
 
   # ========================================
   # I/O tests (migrated from legacy tests)

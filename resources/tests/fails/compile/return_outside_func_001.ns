@@ -1,0 +1,6 @@
+# 関数外での return 文 #
+return: 0;
+
+func: main() {
+  __trace(0);
+}

@@ -1,0 +1,6 @@
+# 関数外での break 文 #
+break;
+
+func: main() {
+  __trace(0);
+}
