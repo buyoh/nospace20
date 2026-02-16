@@ -120,19 +120,17 @@ fn generate_function_definition(
     // ローカル変数領域確保
     let local_var_count = func.block.scope.variable_count;
     let mut local_ctx = ctx.enter_function(local_var_count);
-    prog.append(builtin::generate_local_allocate(
-        local_ctx.local_heap_size(),
-    ));
 
     // 引数をローカル変数にコピー
     // 引数はスタックから取得（逆順）
+    // allocate前のLOCAL_HEAP_ENDは新しいフレームのLOCAL_HEAP_BEGINと同じ値になる
     for i in (0..func.arg_indices.len()).rev() {
         // スタックから引数を取得してローカル変数に格納
         let offset = func.arg_indices.get(i).copied().unwrap_or(i) as i64;
         prog.extend([
             Instruction::Push(WsNumber(offset)),
             Instruction::Push(WsNumber(
-                crate::compiler_ws::memory::heap_layout::LOCAL_HEAP_BEGIN,
+                crate::compiler_ws::memory::heap_layout::LOCAL_HEAP_END,
             )),
             Instruction::Retrieve,
             Instruction::Add,
@@ -140,6 +138,10 @@ fn generate_function_definition(
             Instruction::Store,
         ]);
     }
+
+    prog.append(builtin::generate_local_allocate(
+        local_ctx.local_heap_size(),
+    ));
 
     // 関数本体
     for stmt in &func.block.statements {

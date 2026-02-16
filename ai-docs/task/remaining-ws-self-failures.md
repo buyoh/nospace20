@@ -185,8 +185,29 @@ fn generate_return(ctx, expr) {
 - [x] コンパイル結果の詳細分析 (mnemonic + スタックトレース)
 - [x] 根本原因の特定 (Bug A: パラメータ格納順序, Bug B: return deallocate 不整合)
 - [x] 修正設計 (Fix A + Fix B)
-- [ ] 修正実装
+- [x] Fix A 実装完了
+- [ ] Fix B 実装
 - [ ] 全テスト通過確認
+
+### Fix A 実装結果 (2026-02-17)
+
+**実装内容:**
+- `src/compiler_ws/statement.rs` の `generate_function_definition` でパラメータ格納を `generate_local_allocate` の前に移動
+- パラメータ格納時のベースアドレスを `LOCAL_HEAP_BEGIN` から `LOCAL_HEAP_END` に変更
+
+**テスト結果:**
+- ws_self テスト: 112 passed; 2 failed (改善前: 109 passed; 5 failed)
+- 解決したテスト (3件):
+  - test_legacy_014_ws_self ✓
+  - test_legacy_015_ws_self ✓
+  - test_legacy_020_ws_self ✓
+- 残りの失敗テスト (2件):
+  - test_example_fibonacci_ws_self (出力: 期待 "1\n", 実際 "8\n")
+  - test_example_qsort_ws_self
+
+**考察:**
+Fix A だけで 3/5 件のテストが解決。残りの 2 件は return 文で値を変換して返すケースで、
+Bug B (return 時の swap 不足) の影響を受けていると推測される。Fix B の実装が必要。
 
 ## 関連ドキュメント
 
