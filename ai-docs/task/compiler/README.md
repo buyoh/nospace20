@@ -41,11 +41,19 @@ Whitespace コンパイラは `src/compiler_ws/` モジュールに実装され�
 ### 実装済み機能
 
 - ✅ 基本的な演算・制御構造
-- ✅ 関数定義・呼び出し
+- ✅ 関数定義・呼び出し（main関数のみ）
 - ✅ グローバル/ローカル変数
 - ✅ 配列サポート（Phase 4）
 - ✅ 参照・参照解除演算子
 - ✅ 組み込みI/O関数
+
+### 未実装機能
+
+- ❌ ユーザー定義関数呼び出し
+- ❌ break 文
+- ❌ continue 文
+
+詳細は [whitespace-missing-features.md](whitespace-missing-features.md) を参照してください。
 
 ### テスト
 
@@ -61,8 +69,17 @@ cargo test --test compile_test -- --ignored
 
 ## 今後のタスク
 
-現在、Whitespace コンパイラに関する新規のタスクはありません。
-新しいタスクが発生した場合は、このディレクトリに追加してください。
+現在、以下の機能が未実装です：
+
+1. **ユーザー定義関数呼び出し** (Phase 7)
+   - 複数関数の定義生成
+   - 関数呼び出しのコード生成
+   
+2. **break/continue 文** (Phase 8)
+   - ループラベルスタックの実装
+   - break/continue 文のコード生成
+
+詳細は [whitespace-missing-features.md](whitespace-missing-features.md) を参照してください。
 
 - 制御構造（if/elsif/else、while）
 - I/O（整数・文字の入出力）
