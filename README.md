@@ -6,6 +6,22 @@ Nospace is a toy programming language that allows arbitrary spaces, newlines, an
 
 Nospace とは、改行、タブ・半角スペース等の空白に影響を受けることなく記述できるプログラミング言語です。esolang である whitespace と対になる言語を目指しています。Nospace20 は interpreter として動作する他、~~whitespace へのコンパイルも可能です~~。
 
+```
+func: puts(str) {
+  while: *str != 0 {
+    __putc(*str);
+    str += 1;
+  };
+  __putc('\n');
+}
+
+func: main() {
+  let: g[12]("hello\sworld");
+  puts(&g);
+  return: 0;
+}
+```
+
 ## CLI Usage
 
 ```bash
@@ -74,7 +90,7 @@ cargo build --target wasm32-unknown-unknown --lib --no-default-features --featur
 # Build WASM (bundler target works with Node.js)
 wasm-pack build --target bundler --features wasm
 # Debug build
-# wasm-pack build --target bundler --features wasm --dev --out-dir pkg-dev
+# wasm-pack build --dev  --out-dir pkg-dev --target bundler --features wasm
 
 # Note: Node.js is only required to run the tests. The wasm-pack build itself does not depend on Node.js.
 

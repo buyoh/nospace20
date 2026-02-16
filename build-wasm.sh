@@ -13,4 +13,4 @@ wasm-pack build --target bundler --features wasm
 cargo build \
   --target wasm32-unknown-unknown --lib \
   --no-default-features --features wasm
-wasm-pack build --target bundler --features wasm --dev --out-dir pkg-dev
+wasm-pack build --dev  --out-dir pkg-dev --target bundler --features wasm
