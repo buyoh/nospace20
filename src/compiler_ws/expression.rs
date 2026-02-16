@@ -643,6 +643,9 @@ fn generate_while_expression(
     // ループ本体
     prog.append(super::statement::generate_block(ctx, body)?);
 
+    // ブロック値をクリーンアップ（Bug C 修正: while ループ本体のスタックリーク防止）
+    prog.push(Instruction::Discard);
+
     // ループ開始へジャンプ
     prog.push(Instruction::Jump(loop_start));
 
