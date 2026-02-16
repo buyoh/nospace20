@@ -93,6 +93,10 @@ fn generate_return(
     // 返り値を評価
     prog.append(expression::generate_expression(ctx, expr)?);
 
+    // Fix B: deallocateの前にswapを挿入
+    // stack: [old_LHB, return_value] -> [return_value, old_LHB]
+    prog.push(Instruction::Swap);
+
     // ローカル変数領域解放
     prog.append(builtin::generate_local_deallocate());
 

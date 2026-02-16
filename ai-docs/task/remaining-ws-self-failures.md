@@ -186,8 +186,8 @@ fn generate_return(ctx, expr) {
 - [x] 根本原因の特定 (Bug A: パラメータ格納順序, Bug B: return deallocate 不整合)
 - [x] 修正設計 (Fix A + Fix B)
 - [x] Fix A 実装完了
-- [ ] Fix B 実装
-- [ ] 全テスト通過確認
+- [x] Fix B 実装完了
+- [ ] 全テスト通過確認（1件残存）
 
 ### Fix A 実装結果 (2026-02-17)
 
@@ -208,6 +208,24 @@ fn generate_return(ctx, expr) {
 **考察:**
 Fix A だけで 3/5 件のテストが解決。残りの 2 件は return 文で値を変換して返すケースで、
 Bug B (return 時の swap 不足) の影響を受けていると推測される。Fix B の実装が必要。
+
+### Fix B 実装結果 (2026-02-17)
+
+**実装内容:**
+- `src/compiler_ws/statement.rs` の `generate_return` で返り値評価後、`generate_local_deallocate` の前に `Swap` 命令を追加
+- これにより、スタックが [return_value, old_LHB] となり、deallocate が正しく動作
+
+**テスト結果:**
+- ws_self テスト: 113 passed; 1 failed (Fix A のみ: 112 passed; 2 failed)
+- 新たに解決したテスト (1件):
+  - test_example_fibonacci_ws_self ✓
+- 残りの失敗テスト (1件):
+  - test_example_qsort_ws_self (出力: 期待値あり、実際は空出力)
+
+**考察:**
+Fix B により fibonacci テストが解決。qsort の失敗は出力が空であり、
+元の調査で想定していた Bug A/B とは別の問題の可能性がある。
+別途調査が必要。
 
 ## 関連ドキュメント
 
