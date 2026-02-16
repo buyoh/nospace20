@@ -21,7 +21,7 @@ Fix A および Fix B の実装により、5件の失敗テストのうち4件�
 `generate_block` が末尾で生成する `push 0`（ブロック式値）がイテレーションごとに
 スタックに蓄積し、`generate_local_deallocate` でのスタック不整合を引き起こしていた。
 
-詳細な分析と修正設計は [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) を参照。
+詳細な分析と修正設計は [fix-while-loop-stack-leak.md](../done-task/fix-while-loop-stack-leak.md) を参照。
 
 ## Fix C 実装後の状況 (2026-02-17)
 

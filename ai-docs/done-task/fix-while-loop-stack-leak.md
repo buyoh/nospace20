@@ -185,4 +185,4 @@ ret → return_value を返す ✓
 ## 関連ドキュメント
 
 - [remaining-ws-self-failures.md](remaining-ws-self-failures.md) - Fix A/B の実装記録
-- [qsort-ws-self-failure.md](qsort-ws-self-failure.md) - 元の調査起票
+- [qsort-ws-self-failure.md](../task/qsort-ws-self-failure.md) - 元の調査起票
