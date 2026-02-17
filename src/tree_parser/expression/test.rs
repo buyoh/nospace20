@@ -678,14 +678,12 @@ fn test_parse_array_access_expr_index() {
         Expression::ArrayAccess(name, index) => {
             assert_eq!(name, "arr");
             match *index {
-                Expression::Operation2(Operator2::Plus, left, right) => {
-                    match (*left, *right) {
-                        (Expression::Variable(v), Expression::Factor(1)) => {
-                            assert_eq!(v, "i");
-                        }
-                        _ => panic!("Expected Variable(i) + Factor(1)"),
+                Expression::Operation2(Operator2::Plus, left, right) => match (*left, *right) {
+                    (Expression::Variable(v), Expression::Factor(1)) => {
+                        assert_eq!(v, "i");
                     }
-                }
+                    _ => panic!("Expected Variable(i) + Factor(1)"),
+                },
                 _ => panic!("Expected Operation2(Plus) as index"),
             }
         }

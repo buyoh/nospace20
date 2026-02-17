@@ -54,7 +54,8 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let target_extensions: Vec<TargetExtension> = args.std_ext.into_iter().map(|e| e.into()).collect();
+    let target_extensions: Vec<TargetExtension> =
+        args.std_ext.into_iter().map(|e| e.into()).collect();
     let debug_ext = target_extensions.contains(&TargetExtension::Debug);
 
     // ファイル読み込み

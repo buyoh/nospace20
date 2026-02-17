@@ -4,8 +4,8 @@ use clap::{Parser, ValueEnum};
 use nospace20::{
     compile_to_whitespace,
     compile_to_whitespace_debug,
-    compile_to_whitespace_with_options,
     compile_to_whitespace_debug_with_options,
+    compile_to_whitespace_with_options,
     interpret_with_env,
     parse_to_tokens,
     parse_to_tree,
@@ -216,7 +216,7 @@ fn main() {
                 eprintln!("error: function 'main' not found");
                 process::exit(1);
             }
-            
+
             // インタプリタモード
             let config = nospace20::EnvironmentConfig {
                 ignore_debug: property.ignore_debug,

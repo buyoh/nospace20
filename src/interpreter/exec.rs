@@ -694,8 +694,16 @@ func: main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(env.traced.get(&1), Some(&2), "__trace(1) should be called twice");
-        assert_eq!(env.traced.get(&2), Some(&1), "__trace(2) should be called once");
+        assert_eq!(
+            env.traced.get(&1),
+            Some(&2),
+            "__trace(1) should be called twice"
+        );
+        assert_eq!(
+            env.traced.get(&2),
+            Some(&1),
+            "__trace(2) should be called once"
+        );
     }
 
     #[test]

@@ -34,14 +34,14 @@ fn test_ws_io_base(test_name: &str) {
     ))
     .expect(&format!("Failed to parse check.json for {}", test_name));
 
-    let stdin_str = check
-        .get("stdin")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let stdin_str = check.get("stdin").and_then(|v| v.as_str()).unwrap_or("");
     let expected_stdout = check
         .get("stdout")
         .and_then(|v| v.as_str())
-        .expect(&format!("No 'stdout' field in check.json for {}", test_name));
+        .expect(&format!(
+            "No 'stdout' field in check.json for {}",
+            test_name
+        ));
 
     let mut vm = WhitespaceVM::from_source(&ws_code)
         .expect(&format!("Failed to parse Whitespace for {}", test_name));
@@ -110,10 +110,7 @@ fn test_ws_runtime_error_base(test_name: &str) {
                 test_name
             );
         }
-        _ => panic!(
-            "Test {} expected error but got: {:?}",
-            test_name, result
-        ),
+        _ => panic!("Test {} expected error but got: {:?}", test_name, result),
     }
 }
 
@@ -136,14 +133,14 @@ fn test_ws_io_wsc_base(test_name: &str) {
     ))
     .expect(&format!("Failed to parse check.json for {}", test_name));
 
-    let stdin_str = check
-        .get("stdin")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let stdin_str = check.get("stdin").and_then(|v| v.as_str()).unwrap_or("");
     let expected_stdout = check
         .get("stdout")
         .and_then(|v| v.as_str())
-        .expect(&format!("No 'stdout' field in check.json for {}", test_name));
+        .expect(&format!(
+            "No 'stdout' field in check.json for {}",
+            test_name
+        ));
 
     // wsc で実行
     let actual_stdout = common::run_whitespace(&ws_code, stdin_str)

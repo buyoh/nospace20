@@ -107,9 +107,9 @@ pub fn generate_statement(
 
         // break 文
         ExecStatement::Break => {
-            let loop_end = ctx.current_loop_end().ok_or_else(|| {
-                CompileError::InvalidOperation("break outside loop".to_string())
-            })?;
+            let loop_end = ctx
+                .current_loop_end()
+                .ok_or_else(|| CompileError::InvalidOperation("break outside loop".to_string()))?;
             let mut prog = WsProgram::new();
             prog.push(Instruction::Jump(loop_end));
             Ok(prog)
@@ -255,7 +255,9 @@ fn count_nested_vars_in_expression(expr: &crate::semantic_analyzer::ExecExpressi
             .iter()
             .map(|arg| count_nested_vars_in_expression(arg))
             .sum(),
-        ExecExpression::ArrayAccess(_, index_expr, _) => count_nested_vars_in_expression(index_expr),
+        ExecExpression::ArrayAccess(_, index_expr, _) => {
+            count_nested_vars_in_expression(index_expr)
+        }
         ExecExpression::Variable(_) | ExecExpression::Factor(_) => 0,
     }
 }

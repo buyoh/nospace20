@@ -352,7 +352,10 @@ fn test_parse_array_declaration() {
                 _ => panic!("Expected Factor(0)"),
             }
         }
-        _ => panic!("Expected Statement::VariableDeclaration, got: {:?}", stmts[0].statement),
+        _ => panic!(
+            "Expected Statement::VariableDeclaration, got: {:?}",
+            stmts[0].statement
+        ),
     }
 }
 
@@ -378,8 +381,12 @@ fn test_parse_array_declaration_with_init() {
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
     // 宣言 + 初期化式3つ = 4文
-    assert_eq!(stmts.len(), 4, "Expected 4 statements (1 declaration + 3 assignments)");
-    
+    assert_eq!(
+        stmts.len(),
+        4,
+        "Expected 4 statements (1 declaration + 3 assignments)"
+    );
+
     // 1つ目: 配列宣言
     match &stmts[0].statement {
         Statement::VariableDeclaration(name, _, is_static, array_size) => {
@@ -389,7 +396,7 @@ fn test_parse_array_declaration_with_init() {
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
-    
+
     // 2-4つ目: 各要素への代入 arr[0]=10, arr[1]=20, arr[2]=30
     for (i, expected_val) in [10, 20, 30].iter().enumerate() {
         match &stmts[i + 1].statement {

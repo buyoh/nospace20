@@ -156,11 +156,11 @@ mod tests {
     fn test_sync_next_id() {
         let mut parent = LabelAllocator::new();
         parent.allocate(); // next_id = 17
-        
+
         let mut child = parent.clone();
         child.allocate(); // child next_id = 18
         child.allocate(); // child next_id = 19
-        
+
         parent.sync_next_id(&child);
         assert_eq!(parent.allocate().0, 19); // 同期後は 19 から割り当て
     }
@@ -169,12 +169,12 @@ mod tests {
     fn test_sync_function_labels() {
         let mut parent = LabelAllocator::new();
         parent.get_or_create_function_label("main"); // label_16
-        
+
         let mut child = parent.clone();
         child.get_or_create_function_label("helper"); // label_18
-        
+
         parent.sync_next_id(&child);
-        
+
         // 子で作成された関数ラベルが親にマージされることを確認
         assert_eq!(parent.get_function_label("helper"), Some(LabelId(18)));
         // 次のラベルは 20 から
@@ -187,10 +187,10 @@ mod tests {
         parent.allocate(); // next_id = 17
         parent.allocate(); // next_id = 18
         parent.allocate(); // next_id = 19
-        
+
         let child = parent.clone();
         // 子では何も割り当てない (next_id = 19 のまま)
-        
+
         parent.sync_next_id(&child);
         // 子の next_id が親と同じなので変化なし
         assert_eq!(parent.allocate().0, 19);
@@ -200,18 +200,18 @@ mod tests {
     fn test_sync_multiple_children() {
         let mut parent = LabelAllocator::new();
         parent.allocate(); // next_id = 17
-        
+
         // 第1の子コンテキスト
         let mut child1 = parent.clone();
         child1.allocate(); // child1 next_id = 18
         parent.sync_next_id(&child1);
-        
+
         // 第2の子コンテキスト
         let mut child2 = parent.clone();
         child2.allocate(); // child2 next_id = 19
         child2.allocate(); // child2 next_id = 20
         parent.sync_next_id(&child2);
-        
+
         // 最終的に child2 の next_id まで同期される
         assert_eq!(parent.allocate().0, 20);
     }
@@ -221,32 +221,32 @@ mod tests {
         // 実際のバグシナリオをシミュレーション:
         // 関数1で制御構造のラベルを使用し、その後関数2を定義
         let mut parent = LabelAllocator::new();
-        
+
         // 関数1 (puts) を定義開始
         let func1_label = parent.get_or_create_function_label("puts"); // label_16, 17
         assert_eq!(func1_label.0, 16);
-        
+
         // 関数1の本体を生成 (子コンテキスト)
         let mut child1 = parent.clone();
         let loop_start = child1.allocate(); // label_18 (while ループ開始)
-        let loop_end = child1.allocate();   // label_19 (while ループ終了)
+        let loop_end = child1.allocate(); // label_19 (while ループ終了)
         assert_eq!(loop_start.0, 18);
         assert_eq!(loop_end.0, 19);
-        
+
         // 関数1完了後、ラベルを同期 ← これがバグ修正
         parent.sync_next_id(&child1);
-        
+
         // 関数2 (main) を定義
         let func2_label = parent.get_or_create_function_label("main"); // label_20, 21
         assert_eq!(func2_label.0, 20); // label_18 ではなく label_20 (重複回避成功!)
-        
+
         // 関数2の本体
         let mut child2 = parent.clone();
         let if_else_label = child2.allocate(); // label_22
         assert_eq!(if_else_label.0, 22);
-        
+
         parent.sync_next_id(&child2);
-        
+
         // 最終的に全てのラベルが一意であることを確認
         assert_eq!(parent.allocate().0, 23);
     }

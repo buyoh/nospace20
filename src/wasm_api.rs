@@ -10,13 +10,12 @@ use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::Rc;
 
+use crate::whitespace::{StepResult, WhitespaceVM};
 use crate::{
-    compile_to_whitespace, compile_to_whitespace_debug,
-    compile_to_whitespace_with_options, compile_to_whitespace_debug_with_options,
-    interpret_func_with_io, parse_to_tokens,
-    parse_to_tree, syntactic_analyze, CodeParseError, CompileTarget, LanguageStd, TextCode,
+    compile_to_whitespace, compile_to_whitespace_debug, compile_to_whitespace_debug_with_options,
+    compile_to_whitespace_with_options, interpret_func_with_io, parse_to_tokens, parse_to_tree,
+    syntactic_analyze, CodeParseError, CompileTarget, LanguageStd, TextCode,
 };
-use crate::whitespace::{WhitespaceVM, StepResult};
 
 // ========================================
 // TypeScript 型定義
@@ -182,7 +181,6 @@ pub fn run(source: &str, stdin: &str, debug: bool) -> JsRunResult {
     } else {
         None
     };
-
 
     let result = RunResultOk {
         success: true,

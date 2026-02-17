@@ -21,8 +21,8 @@ use crate::{
 };
 
 pub use scope::{Function, Scope};
-pub use types::{BuiltinFunctionKind, IdentifierRef};
 pub(crate) use types::{Block, ExecExpression, ExecStatement, Variable};
+pub use types::{BuiltinFunctionKind, IdentifierRef};
 
 /// 式を ExecExpression に変換する（識別子解決あり）
 ///
@@ -57,7 +57,8 @@ fn convert_to_exec_expression_with_resolver(
                         })?
                         .unwrap_or(1);
 
-                    let exec_index = convert_to_exec_expression_with_resolver(index_expr, parent_resolver)?;
+                    let exec_index =
+                        convert_to_exec_expression_with_resolver(index_expr, parent_resolver)?;
 
                     Ok(Box::new(ExecExpression::Operation1(
                         Operator1::Ref,
@@ -79,31 +80,51 @@ fn convert_to_exec_expression_with_resolver(
                 Operator2::PlusAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(Operator2::Plus, l.clone(), r.clone())),
+                    &Box::new(Expression::Operation2(
+                        Operator2::Plus,
+                        l.clone(),
+                        r.clone(),
+                    )),
                 ),
                 Operator2::MinusAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(Operator2::Minus, l.clone(), r.clone())),
+                    &Box::new(Expression::Operation2(
+                        Operator2::Minus,
+                        l.clone(),
+                        r.clone(),
+                    )),
                 ),
                 Operator2::MultiplyAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(Operator2::Multiply, l.clone(), r.clone())),
+                    &Box::new(Expression::Operation2(
+                        Operator2::Multiply,
+                        l.clone(),
+                        r.clone(),
+                    )),
                 ),
                 Operator2::DivideAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(Operator2::Divide, l.clone(), r.clone())),
+                    &Box::new(Expression::Operation2(
+                        Operator2::Divide,
+                        l.clone(),
+                        r.clone(),
+                    )),
                 ),
                 Operator2::ModuloAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(Operator2::Modulo, l.clone(), r.clone())),
+                    &Box::new(Expression::Operation2(
+                        Operator2::Modulo,
+                        l.clone(),
+                        r.clone(),
+                    )),
                 ),
                 _ => (op.to_owned(), l, r),
             };
-            
+
             Ok(Box::new(ExecExpression::Operation2(
                 actual_op,
                 convert_to_exec_expression_with_resolver(&actual_l, parent_resolver)?,
@@ -215,27 +236,32 @@ fn convert_to_exec_expression_with_resolver(
                 if args.len() != expected {
                     return Err(vec![code_parse_error!(format!(
                         "builtin function '{}' expects {} argument(s), but {} were provided",
-                        f, expected, args.len()
+                        f,
+                        expected,
+                        args.len()
                     ))]);
                 }
                 // 組み込み関数
                 Ok(Box::new(ExecExpression::BuiltinFunction(kind, args)))
             } else {
                 // ユーザー定義関数：resolve する
-                let func_ref = parent_resolver.resolve_function(f).ok_or_else(|| {
-                    vec![code_parse_error!(format!("undefined function: {}", f))]
-                })?;
+                let func_ref = parent_resolver
+                    .resolve_function(f)
+                    .ok_or_else(|| vec![code_parse_error!(format!("undefined function: {}", f))])?;
 
                 // 引数数チェック
-                let expected_count = parent_resolver.get_function_arg_count(f)
+                let expected_count = parent_resolver
+                    .get_function_arg_count(f)
                     .expect("function should be resolvable");
                 if args.len() != expected_count {
                     return Err(vec![code_parse_error!(format!(
                         "function '{}' expects {} argument(s), but {} were provided",
-                        f, expected_count, args.len()
+                        f,
+                        expected_count,
+                        args.len()
                     ))]);
                 }
-                
+
                 Ok(Box::new(ExecExpression::UserFunction(func_ref, args)))
             }
         }
@@ -260,7 +286,9 @@ fn convert_to_exec_expression_with_resolver(
 
             let exec_index = convert_to_exec_expression_with_resolver(index_expr, parent_resolver)?;
 
-            Ok(Box::new(ExecExpression::ArrayAccess(id_ref, exec_index, array_size)))
+            Ok(Box::new(ExecExpression::ArrayAccess(
+                id_ref, exec_index, array_size,
+            )))
         }
         // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
         Expression::Invalid(_) => {
@@ -275,7 +303,15 @@ fn analyze_internal(
     global_functions: &mut Vec<Function>,
     global_function_names: &mut Vec<String>,
 ) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
-    analyze_internal_with_parent(statements, scope_type, Vec::new(), None, global_functions, global_function_names, None)
+    analyze_internal_with_parent(
+        statements,
+        scope_type,
+        Vec::new(),
+        None,
+        global_functions,
+        global_function_names,
+        None,
+    )
 }
 
 /// 初期変数と親のresolve rを指定して解析する
@@ -300,7 +336,7 @@ fn analyze_internal_with_parent(
         scope.add_variable(
             &var_name,
             Variable {
-                slot_index: 0, // build() で正しい値に設定される
+                slot_index: 0,    // build() で正しい値に設定される
                 is_static: false, // 関数引数は非 static
                 array_size: None, // 関数引数は配列ではない
             },
@@ -441,9 +477,9 @@ fn analyze_internal_with_parent(
         match stat {
             Statement::VariableDeclaration(_, init, is_static_explicit, _) => {
                 // 初期化式を変換（変数宣言自体はパス1で完了）
-                let exec = ExecStatement::Expression(
-                    convert_to_exec_expression_with_resolver(init, &resolver)?,
-                );
+                let exec = ExecStatement::Expression(convert_to_exec_expression_with_resolver(
+                    init, &resolver,
+                )?);
                 // static 変数の初期化式は分離する
                 // - ルートスコープ: static 変数の初期化は非 static より先に実行
                 // - 関数スコープ: static 変数の初期化は main 前に1回だけ実行
@@ -455,11 +491,12 @@ fn analyze_internal_with_parent(
             }
             Statement::FunctionDeclaration(name, args, block) => {
                 // Phase 5: パス1aで登録済みの関数のグローバルインデックスを取得
-                let global_idx = if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
-                    info.0
-                } else {
-                    panic!("internal error: function should be pre-registered in pass 1a");
-                };
+                let global_idx =
+                    if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
+                        info.0
+                    } else {
+                        panic!("internal error: function should be pre-registered in pass 1a");
+                    };
 
                 // 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
                 // Phase 5: global_functions と global_function_names を渡す
@@ -544,8 +581,13 @@ pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError
     // Phase 5: global_functions と global_function_names を作成し、再帰呼び出しで共有
     let mut global_functions = Vec::new();
     let mut global_function_names = Vec::new();
-    analyze_internal(root, ScopeType::Root, &mut global_functions, &mut global_function_names)
-        .map(|(scope, root_stmts)| scope.build(root_stmts, global_functions, global_function_names))
+    analyze_internal(
+        root,
+        ScopeType::Root,
+        &mut global_functions,
+        &mut global_function_names,
+    )
+    .map(|(scope, root_stmts)| scope.build(root_stmts, global_functions, global_function_names))
 }
 
 #[cfg(test)]

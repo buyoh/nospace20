@@ -149,11 +149,7 @@ fn test_success_simple_function() {
     };
 
     let func = LocatedStatement {
-        statement: Statement::FunctionDeclaration(
-            "main".to_string(),
-            vec![],
-            vec![return_stmt],
-        ),
+        statement: Statement::FunctionDeclaration("main".to_string(), vec![], vec![return_stmt]),
         location: SourceLocation::new(0, 35),
     };
 

@@ -25,7 +25,7 @@ pub fn parse_to_tree(
 ) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
     let mut iter = tokens.iter().peekable();
     let (st, mut err) = parse_to_statements(&mut iter);
-    
+
     // 余剰トークンのチェック
     if let Some((_, token_info)) = iter.next() {
         err.push(code_parse_error!(
@@ -33,7 +33,7 @@ pub fn parse_to_tree(
             "unexpected token (unmatched closing brace or extra code)"
         ));
     }
-    
+
     if err.is_empty() {
         Ok(st)
     } else {

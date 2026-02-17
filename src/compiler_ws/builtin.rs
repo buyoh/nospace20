@@ -2,12 +2,8 @@
 
 use crate::compiler_ws::context::CodeGenContext;
 use crate::compiler_ws::{
-    instruction::Instruction,
-    label::reserved_labels,
-    memory::heap_layout,
-    program::WsProgram,
-    types::WsNumber,
-    CompileError,
+    instruction::Instruction, label::reserved_labels, memory::heap_layout, program::WsProgram,
+    types::WsNumber, CompileError,
 };
 
 /// ヘッダー部分を生成

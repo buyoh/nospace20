@@ -54,8 +54,8 @@ pub enum Expression {
         Vec<LocatedStatement>,
     ),
     While(Box<Expression>, Vec<LocatedStatement>),
-    Block(Vec<LocatedStatement>), // ブロックスコープ式
-    Function(String, Vec<Box<Expression>>),  // 関数呼び出し
+    Block(Vec<LocatedStatement>),           // ブロックスコープ式
+    Function(String, Vec<Box<Expression>>), // 関数呼び出し
     Factor(i64),
     Variable(String),
     ArrayAccess(String, Box<Expression>), // 配列アクセス: arr[expr]

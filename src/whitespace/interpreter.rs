@@ -215,7 +215,10 @@ impl WhitespaceVM {
 
     /// 命令列全体のニーモニック表現を取得
     pub fn disassemble(&self) -> Vec<String> {
-        self.instructions.iter().map(|inst| format!("{:?}", inst)).collect()
+        self.instructions
+            .iter()
+            .map(|inst| format!("{:?}", inst))
+            .collect()
     }
 
     /// stdout の内容をフラッシュ

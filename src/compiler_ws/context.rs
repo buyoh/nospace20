@@ -144,7 +144,7 @@ impl<'a> CodeGenContext<'a> {
     }
 
     /// static 変数初期化用のコンテキストを作成
-    /// 
+    ///
     /// static 初期化では、変数への書き込みはグローバルヒープ上で行われるため、
     /// ローカルヒープの allocate/deallocate は不要。
     /// それ以外は enter_function と同じ動作でアドレス解決を行う。

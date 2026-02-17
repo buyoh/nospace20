@@ -37,9 +37,7 @@ pub fn generate_expression(
 
         // 組み込み関数呼び出し
         // Phase 6: BuiltinFunctionKind enum を使用
-        ExecExpression::BuiltinFunction(kind, args) => {
-            generate_function_call(ctx, kind, args)
-        }
+        ExecExpression::BuiltinFunction(kind, args) => generate_function_call(ctx, kind, args),
 
         // Phase 5: ユーザー定義関数呼び出し
         ExecExpression::UserFunction(func_ref, args) => {
@@ -55,7 +53,7 @@ pub fn generate_expression(
             // scope.symbol_table.function_names[func_ref.local_index] で関数名が取得できる
             let scope = ctx.scope();
             let func_name = &scope.symbol_table.function_names[func_ref.local_index];
-            
+
             // 関数ラベルを取得または作成
             let func_label = ctx.get_or_create_function_label(func_name);
 
@@ -75,9 +73,7 @@ pub fn generate_expression(
         ExecExpression::While(cond, body) => generate_while_expression(ctx, cond, body),
 
         // ブロック式
-        ExecExpression::Block(block) => {
-            super::statement::generate_block(ctx, block)
-        }
+        ExecExpression::Block(block) => super::statement::generate_block(ctx, block),
     }
 }
 
@@ -193,7 +189,8 @@ fn generate_unary_op(
                 }
                 _ => {
                     return Err(CompileError::InvalidOperation(
-                        "Reference operator (&) can only be applied to variables or array elements".to_string(),
+                        "Reference operator (&) can only be applied to variables or array elements"
+                            .to_string(),
                     ));
                 }
             }
@@ -340,7 +337,7 @@ fn generate_binary_op(
                 }
             }
         }
-        
+
         // 複合代入演算子はセマンティック解析で展開されるため、ここに到達することはない
         Operator2::PlusAssign
         | Operator2::MinusAssign

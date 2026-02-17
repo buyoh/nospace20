@@ -25,7 +25,7 @@ pub enum Token {
     Number(i64),
     Identifier(String),
     Keyword(Keyword),
-    StringLiteral(Vec<i64>),  // 文字列リテラル（各文字のASCII値のベクタ、ヌル終端は含まない）
+    StringLiteral(Vec<i64>), // 文字列リテラル（各文字のASCII値のベクタ、ヌル終端は含まない）
     Plus,
     Minus,
     Asterisk,
@@ -39,11 +39,11 @@ pub enum Token {
     Greater,
     LessEqual,
     GreaterEqual,
-    PlusEqual,    // +=
-    MinusEqual,   // -=
-    AsteriskEqual, // *=
-    SlashEqual,   // /=
-    PercentEqual, // %=
+    PlusEqual,       // +=
+    MinusEqual,      // -=
+    AsteriskEqual,   // *=
+    SlashEqual,      // /=
+    PercentEqual,    // %=
     DoubleAmpersand, // &&
     DoublePipe,      // ||
     Ampersand,       // &

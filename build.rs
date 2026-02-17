@@ -58,9 +58,11 @@ fn main() {
         let has_interpreter = !exclude_targets.iter().any(|t| t == "interpreter");
         let has_whitespace = !exclude_targets.iter().any(|t| t == "whitespace");
         let has_whitespace_self = !exclude_targets.iter().any(|t| t == "whitespace-self");
-        
+
         // デフォルトで debug_ext は常に true、exclude_std_ext: [debug] で除外された場合のみ false
-        let has_debug_ext = test.exclude_std_ext.as_ref()
+        let has_debug_ext = test
+            .exclude_std_ext
+            .as_ref()
             .map(|exts| !exts.iter().any(|e| e == "debug"))
             .unwrap_or(true);
 
@@ -230,7 +232,7 @@ fn {}() -> std::fmt::Result {{
 fn generate_ws_tests() {
     // test-manifest.yaml を読み込み
     let manifest_path = "resources/tests_ws/test-manifest.yaml";
-    
+
     // ファイルが存在しない場合はスキップ
     if !Path::new(manifest_path).exists() {
         println!("Skipping Whitespace tests generation (manifest not found)");
@@ -240,8 +242,8 @@ fn generate_ws_tests() {
     let manifest_content =
         fs::read_to_string(manifest_path).expect("Failed to read tests_ws/test-manifest.yaml");
 
-    let manifest: TestManifest =
-        serde_yaml::from_str(&manifest_content).expect("Failed to parse tests_ws/test-manifest.yaml");
+    let manifest: TestManifest = serde_yaml::from_str(&manifest_content)
+        .expect("Failed to parse tests_ws/test-manifest.yaml");
 
     // 出力ディレクトリを取得
     let out_dir = env::var("OUT_DIR").unwrap();

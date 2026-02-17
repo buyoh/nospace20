@@ -9,9 +9,9 @@ mod environment;
 mod exec;
 mod types;
 
-pub use environment::{Environment, EnvironmentConfig};
 #[allow(unused_imports)]
 pub use environment::EnvironmentMetrics;
+pub use environment::{Environment, EnvironmentConfig};
 
 use crate::semantic_analyzer::Scope;
 use exec::LocalEnvironment;
@@ -101,7 +101,10 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) {
             for stmt in &func.block.scope.static_init_statements {
                 match local_env.interpret_statement(stmt) {
                     Flow::Proceed => (),
-                    other => panic!("unexpected flow in function static initialization: {:?}", other),
+                    other => panic!(
+                        "unexpected flow in function static initialization: {:?}",
+                        other
+                    ),
                 }
             }
             local_env.scope_stack.pop().unwrap()
