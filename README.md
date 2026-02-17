@@ -2,9 +2,9 @@
 
 ## What is Nospace20?
 
-Nospace is a toy programming language that allows arbitrary spaces, newlines, and tabs anywhere in the code, inspired by the esoteric programming language Whitespace. Nospace20 can interpret Nospace code. ~~It can also compile Nospace code into Whitespace.~~
+Nospace is a toy programming language that allows arbitrary spaces, newlines, and tabs anywhere in the code, inspired by the esoteric programming language Whitespace. Nospace20 can interpret Nospace code. It can also compile Nospace code into Whitespace.
 
-Nospace とは、改行、タブ・半角スペース等の空白に影響を受けることなく記述できるプログラミング言語です。esolang である whitespace と対になる言語を目指しています。Nospace20 は interpreter として動作する他、~~whitespace へのコンパイルも可能です~~。
+Nospace とは、改行、タブ・半角スペース等の空白に影響を受けることなく記述できるプログラミング言語です。esolang である Whitespace と対になる言語を目指しています。Nospace20 は interpreter として動作する他、Whitespace へのコンパイルも可能です。
 
 ```
 func: puts(str) {
@@ -21,6 +21,8 @@ func: main() {
   return: 0;
 }
 ```
+
+If you want to see more examples, please check the [test cases](./resources/tests/passes/examples).
 
 ## CLI Usage
 
