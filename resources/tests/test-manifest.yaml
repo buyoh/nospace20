@@ -396,6 +396,11 @@ tests:
     path: scope/block_expr_parent_scope_001
     comment: "Block expression: parent scope access"
 
+  - name: test_scope_block_var_no_collision_001
+    type: success_io
+    path: scope/block_var_no_collision_001
+    comment: "Block scope variable must not collide with parent scope variable (Bug D)"
+
   - name: test_scope_disabled_scope_block_var_001
     type: success
     path: scope/disabled_scope_block_var_001

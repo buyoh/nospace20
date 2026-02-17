@@ -1,0 +1,19 @@
+# Block scope variable must not collide with parent scope variable (Bug D) #
+func: main() {
+  let: a(10);
+  let: b(20);
+  {
+    let: x(99);
+    __puti(x);
+    __putc('\n');
+    __puti(a);
+    __putc('\n');
+    __puti(b);
+    __putc('\n');
+  };
+  __puti(a);
+  __putc('\n');
+  __puti(b);
+  __putc('\n');
+  return: 0;
+}
