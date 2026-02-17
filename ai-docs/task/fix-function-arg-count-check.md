@@ -237,10 +237,33 @@ semantic error: builtin function '__puti' expects 1 argument(s), but 0 were prov
 
 ## ステータス
 
-- [ ] Step 1: `FunctionIndex` に引数数を追加
-- [ ] Step 2: `ScopeResolver` にメソッド追加
-- [ ] Step 3: パス1a で引数数を登録
-- [ ] Step 4: 関数呼び出し時の引数数チェック
-- [ ] Step 5: `resolve_function` 動作確認（修正不要のはず）
-- [ ] Step 6: テストケース追加
-- [ ] 既存テストの確認・全テスト通過
+- [x] Step 1: `FunctionIndex` に引数数を追加
+- [x] Step 2: `ScopeResolver` にメソッド追加
+- [x] Step 3: パス1a で引数数を登録
+- [x] Step 4: 関数呼び出し時の引数数チェック
+- [x] Step 5: `resolve_function` 動作確認（修正不要のはず）
+- [x] Step 6: テストケース追加
+- [x] 既存テストの確認・全テスト通過
+
+## 実装完了
+
+2026年2月17日に実装完了。
+
+### 実装内容
+
+1. `src/semantic_analyzer/scope.rs`:
+   - `FunctionIndex` を `(usize, usize)` に変更し、引数数も保持
+   - `ScopeResolver::get_function_arg_count()` メソッドを追加
+
+2. `src/semantic_analyzer/mod.rs`:
+   - パス1aで関数宣言時に引数数を `FunctionIndex` に登録
+   - 関数呼び出し時にユーザー定義関数と組み込み関数の両方で引数数チェックを実装
+
+3. テストケース追加:
+   - `func_arg_too_few_001.ns` / `func_arg_too_many_001.ns` (ユーザー定義関数)
+   - `builtin_arg_too_few_001.ns` / `builtin_arg_too_many_001.ns` (組み込み関数)
+
+### テスト結果
+
+- 新規追加した4つのテストすべてが成功
+- 既存テストのうち3つ (`test_control_flow_if_expr_value_001_ws_self`, `test_scope_block_expr_nested_001_ws_self`, `test_scope_block_expr_value_001_ws_self`) は私の変更前から失敗しており、既存のバグであることを確認

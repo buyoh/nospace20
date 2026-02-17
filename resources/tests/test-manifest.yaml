@@ -940,3 +940,26 @@ tests:
     type: success_io
     path: examples/e1-01-queue
     comment: ""
+
+  # ========================================
+  # Function argument count checks
+  # ========================================
+  - name: test_compile_error_func_arg_too_few_001
+    type: compile_error
+    path: func_arg_too_few_001
+    comment: "Error: user-defined function called with too few arguments"
+
+  - name: test_compile_error_func_arg_too_many_001
+    type: compile_error
+    path: func_arg_too_many_001
+    comment: "Error: user-defined function called with too many arguments"
+
+  - name: test_compile_error_builtin_arg_too_few_001
+    type: compile_error
+    path: builtin_arg_too_few_001
+    comment: "Error: builtin function called with too few arguments"
+
+  - name: test_compile_error_builtin_arg_too_many_001
+    type: compile_error
+    path: builtin_arg_too_many_001
+    comment: "Error: builtin function called with too many arguments"

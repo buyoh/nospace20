@@ -199,6 +199,23 @@ fn convert_to_exec_expression_with_resolver(
             };
 
             if let Some(kind) = builtin_kind {
+                // 組み込み関数の引数数チェック
+                let expected = match kind {
+                    types::BuiltinFunctionKind::Puti => 1,
+                    types::BuiltinFunctionKind::Putc => 1,
+                    types::BuiltinFunctionKind::Geti => 0,
+                    types::BuiltinFunctionKind::Getc => 0,
+                    types::BuiltinFunctionKind::Clog => 1,
+                    types::BuiltinFunctionKind::Assert => 1,
+                    types::BuiltinFunctionKind::AssertNot => 1,
+                    types::BuiltinFunctionKind::Trace => 1,
+                };
+                if args.len() != expected {
+                    return Err(vec![code_parse_error!(format!(
+                        "builtin function '{}' expects {} argument(s), but {} were provided",
+                        f, expected, args.len()
+                    ))]);
+                }
                 // 組み込み関数
                 Ok(Box::new(ExecExpression::BuiltinFunction(kind, args)))
             } else {
@@ -206,6 +223,17 @@ fn convert_to_exec_expression_with_resolver(
                 let func_ref = parent_resolver.resolve_function(f).ok_or_else(|| {
                     vec![code_parse_error!(format!("undefined function: {}", f))]
                 })?;
+
+                // 引数数チェック
+                let expected_count = parent_resolver.get_function_arg_count(f)
+                    .expect("function should be resolvable");
+                if args.len() != expected_count {
+                    return Err(vec![code_parse_error!(format!(
+                        "function '{}' expects {} argument(s), but {} were provided",
+                        f, expected_count, args.len()
+                    ))]);
+                }
+                
                 Ok(Box::new(ExecExpression::UserFunction(func_ref, args)))
             }
         }
@@ -283,7 +311,7 @@ fn analyze_internal_with_parent(
     for located_stat in statements {
         let stat = &located_stat.statement;
         match stat {
-            Statement::FunctionDeclaration(name, _, _) => {
+            Statement::FunctionDeclaration(name, args, _) => {
                 // 関数を仮登録（本体は後で解析）
                 // とりあえず空の関数をプレースホルダーとして登録
                 let global_idx = global_functions.len();
@@ -304,10 +332,10 @@ fn analyze_internal_with_parent(
                         statements: Vec::new(),
                     },
                 });
-                // identifier_map にはグローバルインデックスを登録
+                // identifier_map にはグローバルインデックスと引数数を登録
                 scope.add_identifier(
                     name,
-                    Identifier::Function(FunctionIndex(global_idx)),
+                    Identifier::Function(FunctionIndex(global_idx, args.len())),
                 )?;
             }
             _ => {}

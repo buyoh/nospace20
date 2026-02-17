@@ -7,7 +7,7 @@ use crate::{base::CodeParseError, code_parse_error};
 use super::types::{Block, ExecStatement, IdentifierRef, Variable};
 
 #[derive(Clone, Copy)]
-pub(super) struct FunctionIndex(pub usize);
+pub(super) struct FunctionIndex(pub usize, pub usize); // (global_index, arg_count)
 
 #[derive(Clone, Copy)]
 pub(super) struct VariableIndex(pub usize);
@@ -248,6 +248,16 @@ impl<'a> ScopeResolver<'a> {
                     local_index: info.0,
                     is_global: true,
                 });
+            }
+        }
+        None
+    }
+
+    /// 関数の期待される引数数を取得する
+    pub fn get_function_arg_count(&self, name: &str) -> Option<usize> {
+        for scope_info in self.scope_stack.iter().rev() {
+            if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
+                return Some(info.1);
             }
         }
         None
