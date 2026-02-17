@@ -663,6 +663,24 @@ tests:
     comment: "Error: break statement outside of function"
 
   # ========================================
+  # Runtime Errors
+  # ========================================
+  - name: test_runtime_error_assert_fail_001
+    type: runtime_error
+    path: assert_fail_001
+    comment: "Error: __assert(0) should panic"
+
+  - name: test_runtime_error_assert_not_fail_001
+    type: runtime_error
+    path: assert_not_fail_001
+    comment: "Error: __assert_not(1) should panic"
+
+  - name: test_runtime_error_assert_in_expr_001
+    type: runtime_error
+    path: assert_in_expr_001
+    comment: "Error: __assert(0) in expression should panic"
+
+  # ========================================
   # I/O tests (migrated from legacy tests)
   # ========================================
   - name: test_legacy_001

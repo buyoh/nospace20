@@ -1,0 +1,4 @@
+# __assert が 0 でパニックするケース #
+func: main() {
+  __assert(0);
+}

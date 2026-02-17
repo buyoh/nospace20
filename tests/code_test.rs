@@ -56,6 +56,10 @@ enum TestConfig {
         #[serde(skip_serializing_if = "Option::is_none")]
         contains: Option<Vec<String>>,
     },
+    RuntimeError {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        contains: Option<Vec<String>>,
+    },
 }
 
 // 後方互換性のため、"trace" フィールドのみの場合は Success として扱う
@@ -321,6 +325,63 @@ fn test_compile_error_base(test_name: &str) -> Result {
             }
         }
         _ => panic!("Expected compile_error test config"),
+    }
+    Ok(())
+}
+
+fn test_runtime_error_base(test_name: &str) -> Result {
+    let path_base = "resources/tests/fails/runtime/".to_owned() + test_name;
+    let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
+        .expect("Something went wrong reading the file");
+
+    let check_json_value: serde_json::Value = serde_json::from_reader(io::BufReader::new(
+        fs::File::open(path_base.to_owned() + ".check.json")
+            .ok()
+            .unwrap(),
+    ))
+    .ok()
+    .unwrap();
+
+    let check_json: TestConfig = serde_json::from_value(check_json_value).ok().unwrap();
+
+    match check_json {
+        TestConfig::RuntimeError { contains } => {
+            // パース
+            let t = parse_to_tokens(&ns_cnt).ok().unwrap();
+            let s = parse_to_tree(&t).ok().unwrap();
+            let a = syntactic_analyze(&s).ok().unwrap();
+
+            // 実行してパニックをキャッチ
+            let result = std::panic::catch_unwind(|| {
+                interpret_func_with_io(&a, "main", "");
+            });
+
+            assert!(result.is_err(), "Expected runtime panic but succeeded");
+
+            // contains が指定されている場合、パニックメッセージに含まれているか確認
+            if let Some(keywords) = contains {
+                if let Err(panic_info) = result {
+                    // パニックメッセージを取得
+                    let panic_msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        String::new()
+                    };
+
+                    for keyword in keywords {
+                        assert!(
+                            panic_msg.contains(&keyword),
+                            "Panic message does not contain '{}': {}",
+                            keyword,
+                            panic_msg
+                        );
+                    }
+                }
+            }
+        }
+        _ => panic!("Expected runtime_error test config"),
     }
     Ok(())
 }

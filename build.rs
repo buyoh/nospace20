@@ -166,6 +166,20 @@ fn {}() -> std::fmt::Result {{
                     .unwrap();
                 }
             }
+            "runtime_error" => {
+                if has_interpreter {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
+fn {}() -> std::fmt::Result {{
+    test_runtime_error_base("{}")
+}}
+"#,
+                        comment_line, test.name, test.path
+                    )
+                    .unwrap();
+                }
+            }
             _ => {
                 panic!("Unknown test type: {}", test.test_type);
             }
