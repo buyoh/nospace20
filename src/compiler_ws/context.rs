@@ -45,6 +45,14 @@ pub struct CodeGenContext<'a> {
 
     /// デバッグ拡張 API が有効か (--std-ext debug)
     debug_ext: bool,
+
+    /// スコープオフセットスタック
+    /// 各エントリは、そのスコープの変数のヒープ内ベースオフセット
+    /// 末尾が現在のスコープ
+    scope_offsets: Vec<i64>,
+
+    /// 次のブロックスコープに割り当てる開始オフセット
+    next_var_offset: i64,
 }
 
 impl<'a> CodeGenContext<'a> {
@@ -61,19 +69,29 @@ impl<'a> CodeGenContext<'a> {
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext,
+            scope_offsets: vec![0],
+            next_var_offset: 0,
         }
     }
 
     /// ローカル（関数内）コンテキストを作成
-    pub fn enter_function(&self, local_var_count: usize) -> CodeGenContext<'a> {
+    /// total_var_count: 関数内の全ブロック（ネスト含む）の変数合計数
+    /// func_scope_var_count: 関数スコープ直下の変数数
+    pub fn enter_function(
+        &self,
+        total_var_count: usize,
+        func_scope_var_count: usize,
+    ) -> CodeGenContext<'a> {
         CodeGenContext {
             scope: self.scope,
             labels: self.labels.clone(),
             is_global: false,
-            local_heap_size: local_var_count as i64,
+            local_heap_size: total_var_count as i64,
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext: self.debug_ext,
+            scope_offsets: vec![0],
+            next_var_offset: func_scope_var_count as i64,
         }
     }
 
@@ -111,9 +129,21 @@ impl<'a> CodeGenContext<'a> {
                 offset: var_ref.local_index as i64,
             }
         } else {
-            VarInfo {
-                scope: VarScope::Local,
-                offset: var_ref.local_index as i64,
+            // scope_depth が scope_offsets の範囲を超える場合はグローバル変数として扱う
+            // （static 変数などで発生する可能性がある）
+            let scope_offsets_len = self.scope_offsets.len();
+            if var_ref.scope_depth >= scope_offsets_len {
+                VarInfo {
+                    scope: VarScope::Global,
+                    offset: var_ref.local_index as i64,
+                }
+            } else {
+                let scope_idx = scope_offsets_len - 1 - var_ref.scope_depth;
+                let base_offset = self.scope_offsets[scope_idx];
+                VarInfo {
+                    scope: VarScope::Local,
+                    offset: base_offset + var_ref.local_index as i64,
+                }
             }
         }
     }
@@ -147,6 +177,19 @@ impl<'a> CodeGenContext<'a> {
     /// 現在のループの終了ラベルを取得 (break 用)
     pub fn current_loop_end(&self) -> Option<LabelId> {
         self.loop_labels.last().map(|(_, end)| *end)
+    }
+
+    /// ブロックスコープに入る
+    /// block_var_count: このブロックの variable_count
+    pub fn enter_block_scope(&mut self, block_var_count: usize) {
+        self.scope_offsets.push(self.next_var_offset);
+        self.next_var_offset += block_var_count as i64;
+    }
+
+    /// ブロックスコープから出る
+    pub fn leave_block_scope(&mut self) {
+        self.scope_offsets.pop();
+        // next_var_offset は戻さない（各スコープに一意のオフセットを保証）
     }
 
     /// 子コンテキストで消費されたラベルカウンタを親に同期する。

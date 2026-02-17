@@ -34,10 +34,16 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
 pub fn generate_block(ctx: &mut CodeGenContext, block: &Block) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
+    // ブロックスコープのオフセットを設定
+    ctx.enter_block_scope(block.scope.variable_count);
+
     // ブロック内の文を順次実行
     for stmt in &block.statements {
         prog.append(generate_statement(ctx, stmt)?);
     }
+
+    // ブロックスコープから退出
+    ctx.leave_block_scope();
 
     // ブロックの値として 0 を返す（必要に応じて）
     prog.push(Instruction::Push(WsNumber(0)));
@@ -122,8 +128,9 @@ fn generate_function_definition(
     prog.push(Instruction::Label(label));
 
     // ローカル変数領域確保
-    let local_var_count = func.block.scope.variable_count;
-    let mut local_ctx = ctx.enter_function(local_var_count);
+    let func_scope_var_count = func.block.scope.variable_count;
+    let total_var_count = calculate_total_variable_count(&func.block);
+    let mut local_ctx = ctx.enter_function(total_var_count, func_scope_var_count);
 
     // 引数をローカル変数にコピー
     // 引数はスタックから取得（逆順）
@@ -164,4 +171,47 @@ fn generate_function_definition(
     prog.push(Instruction::Label(label.offset(1)));
 
     Ok(prog)
+}
+
+/// 関数内の全ブロック（ネスト含む）の変数合計数を計算
+fn calculate_total_variable_count(block: &Block) -> usize {
+    block.scope.variable_count + count_nested_vars_in_statements(&block.statements)
+}
+
+fn count_nested_vars_in_statements(stmts: &[ExecStatement]) -> usize {
+    stmts.iter().map(count_nested_vars_in_statement).sum()
+}
+
+fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {
+    match stmt {
+        ExecStatement::Expression(expr) | ExecStatement::Return(expr) => {
+            count_nested_vars_in_expression(expr)
+        }
+        ExecStatement::Break | ExecStatement::Continue => 0,
+    }
+}
+
+fn count_nested_vars_in_expression(expr: &crate::semantic_analyzer::ExecExpression) -> usize {
+    use crate::semantic_analyzer::ExecExpression;
+    match expr {
+        ExecExpression::If(cond, then_block, else_block) => {
+            count_nested_vars_in_expression(cond)
+                + calculate_total_variable_count(then_block)
+                + calculate_total_variable_count(else_block)
+        }
+        ExecExpression::While(cond, body) => {
+            count_nested_vars_in_expression(cond) + calculate_total_variable_count(body)
+        }
+        ExecExpression::Block(block) => calculate_total_variable_count(block),
+        ExecExpression::Operation1(_, inner) => count_nested_vars_in_expression(inner),
+        ExecExpression::Operation2(_, l, r) => {
+            count_nested_vars_in_expression(l) + count_nested_vars_in_expression(r)
+        }
+        ExecExpression::BuiltinFunction(_, args) | ExecExpression::UserFunction(_, args) => args
+            .iter()
+            .map(|arg| count_nested_vars_in_expression(arg))
+            .sum(),
+        ExecExpression::ArrayAccess(_, index_expr, _) => count_nested_vars_in_expression(index_expr),
+        ExecExpression::Variable(_) | ExecExpression::Factor(_) => 0,
+    }
 }

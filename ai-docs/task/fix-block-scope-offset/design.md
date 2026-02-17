@@ -224,10 +224,45 @@ pub fn generate_block(
 4. `arr[i]`: arr は scope_depth=1, local_index=i → offset = scope_offsets[0] + i (正しい)
 5. 全入力値が正しく配列に格納される → qsort → 正しい出力
 
+### 影響テスト (2026-02-17 更新)
+
+Bug D の修正により以下の 13 テストが成功に変わることが期待される:
+
+| テスト名 | 失敗パターン |
+|----------|-------------|
+| test_example_qsort_ws_self | 出力不一致（"0 0 0 1 1 4 7 "） |
+| test_ok_coding_c004_ws_self | AssertionFailed |
+| test_scope_block_expr_basic_001_ws_self | AssertionFailed |
+| test_scope_block_expr_parent_scope_001_ws_self | AssertionFailed |
+| test_scope_block_var_no_collision_001_ws_self | 出力不一致 |
+| test_scope_disabled_scope_block_var_001_ws_self | AssertionFailed |
+| test_scope_scope_block_001_ws_self | AssertionFailed |
+| test_scope_scope_nested_blocks_001_ws_self | AssertionFailed |
+| test_scope_scope_shadow_multi_001_ws_self | AssertionFailed |
+| test_scope_scope_shadowing_002_ws_self | AssertionFailed |
+| test_literals_comment_japanese_001_ws_self | AssertionFailed |
+| test_scope_block_expr_nested_001_ws_self | AssertionFailed (Bug D + 式の値返却) |
+| test_scope_block_expr_value_001_ws_self | AssertionFailed (Bug D + 式の値返却) |
+
+**注**: block_expr_nested_001 と block_expr_value_001 は Bug D に加えてブロック式の値返却問題もあるため、
+Bug D だけの修正では不十分な可能性あり。
+
+### Bug D 修正では解決しないテスト (5件)
+
+以下のテストは Bug D とは別の根本原因を持つ:
+
+| テスト名 | 原因 |
+|----------|------|
+| test_control_flow_if_expr_value_001_ws_self | if/while 式の値返却が WS コンパイラ未実装 |
+| test_control_flow_while_expr_value_001_ws_self | 同上 |
+| test_scope_scope_static_mixed_001_ws_self | static 変数 + ネスト関数のスコープ問題 |
+| test_scope_scope_static_multi_decl_001_ws_self | 同上 |
+| test_scope_scope_static_nested_001_ws_self | 同上 |
+
 ### テスト計画
 
-1. `test_example_qsort_ws_self` が成功に変わること
-2. 既存の 114/115 ws_self テストが引き続き成功すること
+1. Bug D 修正後、上記 13 テスト（11件確実 + 2件条件付き）を検証
+2. 既存の成功テスト (259件) が引き続き成功すること
 3. 他のテストスイート（unit, compile_test, large tests）が引き続き成功すること
 
 ### リスク評価
