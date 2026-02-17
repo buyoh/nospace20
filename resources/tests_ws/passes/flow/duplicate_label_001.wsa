@@ -1,0 +1,14 @@
+# Define label "ABC" first time
+NSS STN
+# Push 1
+SSSTN
+# OutputNumber
+TNST
+# Define label "ABC" again (duplicate)
+NSS STN
+# Push 2  
+SSSTTN
+# OutputNumber
+TNST
+# Exit
+NNN
