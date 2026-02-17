@@ -464,6 +464,11 @@ tests:
     path: scope/scope_static_counter_factory_001
     comment: "Counter factory pattern with static variable"
 
+  - name: test_scope_scope_static_init_value_persist_001
+    type: success
+    path: scope/scope_static_init_value_persist_001
+    comment: "Function static variable with initial value persists across calls"
+
   # Function shadowing tests
   - name: test_scope_func_shadowing_global_001
     type: success

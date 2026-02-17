@@ -1,7 +1,7 @@
 # デバッグ用シンボルテーブルによる識別子名管理の設計
 
 作成日: 2026-02-10
-**ステータス**: 🚧 進行中（ステップ1-4完了、ステップ5-6の詳細設計完了）
+**ステータス**: ✅ 完了（全ステップ完了）
 
 ## 詳細設計ドキュメント
 
@@ -17,8 +17,8 @@
 | 2 | Variable.identifier → slot_index | ✅ 完了 | 2026-02-11 | [variable-identifier-to-slot-index.md](../done-task/variable-identifier-to-slot-index.md) |
 | 3 | ExecExpression::Function のインデックス化 | ✅ 完了 | 2026-02-11 | [builtin-function-indexing.md](../done-task/builtin-function-indexing.md) |
 | 4 | Scope.identifier_map の縮小 | ✅ 完了 | 2026-02-11 | [main-function-indexing.md](../done-task/main-function-indexing.md) |
-| 5 | function_static_storage のインデックスキー化 | ⏳ 未着手 | - | 本ドキュメント参照 |
-| 6 | SymbolTable の導入 | ⏳ 未着手 | - | 本ドキュメント参照 |
+| 5 | function_static_storage のインデックスキー化 | ✅ 完了 | 2026-02-17 | 本ドキュメント参照 |
+| 6 | SymbolTable の導入 | ✅ 完了 | 2026-02-17 | 本ドキュメント参照 |
 （2026-02-11更新）
 
 | 構造体 / フィールド | 型 | ステータス | 備考 |
@@ -233,4 +233,14 @@ pub struct Scope {
   - 残りのステップ（4-6）の詳細設計を展開
 - 2026-02-17: ステップ5・6の詳細設計を `symbol-table-impl/` に記述
   - ステップ5: function_static_storage のキー不整合バグを発見・修正方針を策定
-  - ステップ6: SymbolTable 構造体の設計、サブステップ 6a-6e を定義
+  - ステップ6: SymbolTable 構造体の設計、サブステップ 6a-6e を定義- 2026-02-17: ステップ5「function_static_storage のインデックスキー化」実装完了
+  - `Environment.function_static_storage` の型を `BTreeMap<String, Vec<i64>>` → `BTreeMap<usize, Vec<i64>>` に変更
+  - 初期化時とランタイム時のキー不整合バグを修正
+  - 関数名ではなく関数インデックスをキーとして使用
+  - 新規テストケース `scope_static_init_value_persist_001` を追加（interpreter では成功、Whitespace では失敗）
+- 2026-02-17: ステップ6「SymbolTable の導入」実装完了
+  - `SymbolTable` 構造体を定義（`function_names`, `function_name_to_index`）
+  - `Scope.function_names` を `Scope.symbol_table.function_names` に移動
+  - `Scope.get_function()` / `has_function()` を `symbol_table` 経由に変更
+  - compiler_ws が `symbol_table.function_names` を参照するように変更
+  - interpreter はインデックスベースのみで動作し、`symbol_table` に依存しない

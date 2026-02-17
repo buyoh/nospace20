@@ -64,8 +64,8 @@ pub struct Environment {
     /// ルートスコープの変数をインデックスベースで保持
     pub(crate) global_variables: Vec<i64>,
     /// 関数内 static 変数の永続化ストレージ
-    /// 関数名 → 関数スコープの変数配列（static 変数の値が保持される）
-    pub(crate) function_static_storage: BTreeMap<String, Vec<i64>>,
+    /// 関数インデックス → 関数スコープの変数配列（static 変数の値が保持される）
+    pub(crate) function_static_storage: BTreeMap<usize, Vec<i64>>,
 }
 
 impl Environment {

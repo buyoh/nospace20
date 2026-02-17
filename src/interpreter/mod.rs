@@ -110,9 +110,8 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) {
             vec![0i64; func.block.scope.variable_count]
         };
 
-        // Phase 6: 関数名ではなくインデックスを使用
-        let func_name = &scope.function_names[func_idx];
-        env.function_static_storage.insert(func_name.clone(), storage);
+        // Phase 6: 関数インデックスをキーとして使用
+        env.function_static_storage.insert(func_idx, storage);
     }
 }
 

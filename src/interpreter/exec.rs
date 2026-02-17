@@ -218,9 +218,8 @@ impl LocalEnvironment<'_, '_> {
         let mut variables = vec![0; func.block.scope.variable_count];
 
         // static 変数があり、永続ストレージが存在する場合は値を復元
-        // 注: 関数名がないため、func_ref を使ってストレージのキーを生成する
-        // 簡易実装として、関数のインデックスを使用
-        let func_key = format!("__func_{}_{}", func_ref.scope_depth, func_ref.local_index);
+        // 関数インデックスをキーとして使用
+        let func_key = func_ref.local_index;
         if has_static {
             if let Some(storage) = self.env.function_static_storage.get(&func_key) {
                 for var in &func.block.scope.variables {

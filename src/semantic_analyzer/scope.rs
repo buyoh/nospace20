@@ -19,6 +19,18 @@ pub(super) enum Identifier {
     Variable(VariableIndex),
 }
 
+/// デバッグ用シンボルテーブル
+///
+/// インデックスから識別子名への逆引きを提供する。
+/// ランタイム動作には不要だが、デバッグ出力・エラーメッセージ・
+/// コンパイラのラベル生成で使用される。
+pub struct SymbolTable {
+    /// 関数インデックス → 関数名
+    pub function_names: Vec<String>,
+    /// 関数名 → 関数インデックス（逆引き）
+    pub function_name_to_index: BTreeMap<String, usize>,
+}
+
 /// 関数情報
 pub struct Function {
     /// 事前計算された引数のインデックス（最適化）
@@ -60,8 +72,8 @@ pub struct Scope {
     /// Phase 5: 関数リストを pub(crate) に変更（interpreter からアクセスするため）
     pub(crate) functions: Vec<Function>,
 
-    /// 関数名のリスト（関数のイテレーションに使用）
-    pub(crate) function_names: Vec<String>,
+    /// デバッグ用シンボルテーブル
+    pub symbol_table: SymbolTable,
 
     /// main 関数のインデックス（存在する場合）
     /// Phase 6: 関数名による検索を排除し、インデックスベースでアクセス
@@ -79,16 +91,13 @@ pub struct Scope {
 
 impl Scope {
     pub(crate) fn get_function(&self, id: &str) -> Option<&Function> {
-        if let Some(Identifier::Function(info)) = self.identifier_map.get(id) {
-            Some(&self.functions[info.0])
-        } else {
-            None
-        }
+        let idx = self.symbol_table.function_name_to_index.get(id)?;
+        Some(&self.functions[*idx])
     }
 
     /// 指定した名前の関数が存在するかチェックする
     pub fn has_function(&self, id: &str) -> bool {
-        self.get_function(id).is_some()
+        self.symbol_table.function_name_to_index.contains_key(id)
     }
 }
 
@@ -316,6 +325,16 @@ impl ScopeBuilder {
             .iter()
             .position(|name| name == "main");
 
+        // Phase 6: SymbolTable を構築
+        let mut function_name_to_index = BTreeMap::new();
+        for (idx, name) in function_names.iter().enumerate() {
+            function_name_to_index.insert(name.clone(), idx);
+        }
+        let symbol_table = SymbolTable {
+            function_names,
+            function_name_to_index,
+        };
+
         Scope {
             identifier_map: self.identifier_map,
             variable_indices,
@@ -323,7 +342,7 @@ impl ScopeBuilder {
             variables: self.variables,
             variable_count,
             functions,
-            function_names,
+            symbol_table,
             main_function_index,
             static_init_statements: self.static_init_statements,
             root_statements,

@@ -52,9 +52,9 @@ pub fn generate_expression(
             }
 
             // 関数名を取得
-            // scope.function_names[func_ref.local_index] で関数名が取得できる
+            // scope.symbol_table.function_names[func_ref.local_index] で関数名が取得できる
             let scope = ctx.scope();
-            let func_name = &scope.function_names[func_ref.local_index];
+            let func_name = &scope.symbol_table.function_names[func_ref.local_index];
             
             // 関数ラベルを取得または作成
             let func_label = ctx.get_or_create_function_label(func_name);

@@ -1,0 +1,13 @@
+# Function static variable initial value persists across calls #
+func: counter() {
+  static: count(100);
+  count = count + 1;
+  return: count;
+}
+
+func: main() {
+  __assert(counter() == 101);
+  __assert(counter() == 102);
+  __assert(counter() == 103);
+  __trace(0);
+}
