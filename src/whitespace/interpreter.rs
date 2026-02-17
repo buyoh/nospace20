@@ -236,7 +236,9 @@ impl WhitespaceVM {
     }
 
     /// ラベル収集（重複チェック付き）
-    fn collect_labels(instructions: &[Instruction]) -> Result<HashMap<i64, usize>, super::ParseError> {
+    fn collect_labels(
+        instructions: &[Instruction],
+    ) -> Result<HashMap<i64, usize>, super::ParseError> {
         let mut labels = HashMap::new();
         for (i, inst) in instructions.iter().enumerate() {
             if let Instruction::Label(id) = inst {
@@ -585,7 +587,8 @@ mod tests {
             Instruction::Push(WsNumber(3)),
             Instruction::Add,
             Instruction::Exit,
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
         assert_eq!(vm.data_stack(), &[5]);
@@ -600,7 +603,8 @@ mod tests {
             Instruction::Add,
             Instruction::Add,
             Instruction::Exit,
-        ]).unwrap();
+        ])
+        .unwrap();
         // budget=2 で中断
         let result = vm.step(2);
         assert_eq!(result, StepResult::Suspended);
@@ -625,7 +629,8 @@ mod tests {
             Instruction::Label(LabelId(1)),
             Instruction::Call(LabelId(2)),
             Instruction::Exit,
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
         assert_eq!(vm.data_stack(), &[42]);
@@ -639,7 +644,8 @@ mod tests {
             Instruction::Push(WsNumber(7)),
             Instruction::Store,
             Instruction::Exit,
-        ]).unwrap()
+        ])
+        .unwrap()
         .with_debug_ext(true);
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
@@ -655,7 +661,8 @@ mod tests {
             Instruction::Push(WsNumber(100)), // addr
             Instruction::Retrieve,
             Instruction::Exit,
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
         assert_eq!(vm.data_stack(), &[42]);
@@ -668,7 +675,8 @@ mod tests {
             Instruction::Push(WsNumber(0)),
             Instruction::Div,
             Instruction::Exit,
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Error(RuntimeError::DivisionByZero));
     }
@@ -678,7 +686,8 @@ mod tests {
         let mut vm = WhitespaceVM::from_instructions(vec![
             Instruction::Add, // スタックが空なのに Add
             Instruction::Exit,
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Error(RuntimeError::StackUnderflow));
     }

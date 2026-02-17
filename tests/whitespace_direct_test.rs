@@ -150,7 +150,10 @@ fn test_ws_parse_error_base(test_name: &str) {
                 test_name
             );
         }
-        Ok(_) => panic!("Test {} expected parse error but parsing succeeded", test_name),
+        Ok(_) => panic!(
+            "Test {} expected parse error but parsing succeeded",
+            test_name
+        ),
     }
 }
 

@@ -77,7 +77,7 @@ pub fn run_whitespace(ws_code: &str, stdin_input: &str) -> Result<String, String
     // wsc で実行
     let mut child = Command::new(&wsc_path)
         .arg(file.path())
-        .args(["--unchecked-heap"])  // heap は0クリアで開始とみなす
+        .args(["--unchecked-heap"]) // heap は0クリアで開始とみなす
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
