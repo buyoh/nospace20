@@ -3,7 +3,8 @@ use std::{fmt::Result, fs, io};
 mod common;
 
 use nospace20::{
-    compile_to_whitespace, interpret_func_testing, interpret_func_with_io, parse_to_tokens,
+    compile_to_whitespace, compile_to_whitespace_with_options,
+    interpret_func_testing, interpret_func_with_io, parse_to_tokens,
     parse_to_tree, syntactic_analyze,
 };
 use nospace20::whitespace::{StepResult, WhitespaceVM};
@@ -502,6 +503,10 @@ fn test_whitespace_io_base(test_name: &str) {
 }
 
 fn test_whitespace_self_base(test_name: &str) {
+    test_whitespace_self_base_debug(test_name, false);
+}
+
+fn test_whitespace_self_base_debug(test_name: &str, debug_ext: bool) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -510,7 +515,7 @@ fn test_whitespace_self_base(test_name: &str) {
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+    let ws_code = compile_to_whitespace_with_options(&a, debug_ext).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -521,7 +526,8 @@ fn test_whitespace_self_base(test_name: &str) {
 
     // 独自 WhitespaceVM で実行
     let mut vm = WhitespaceVM::from_source(&ws_code)
-        .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e));
+        .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e))
+        .with_debug_ext(debug_ext);
 
     let result = vm.run(1_000_000);
 
@@ -533,6 +539,10 @@ fn test_whitespace_self_base(test_name: &str) {
 }
 
 fn test_whitespace_self_io_base(test_name: &str) {
+    test_whitespace_self_io_base_debug(test_name, false);
+}
+
+fn test_whitespace_self_io_base_debug(test_name: &str, debug_ext: bool) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -552,7 +562,7 @@ fn test_whitespace_self_io_base(test_name: &str) {
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+    let ws_code = compile_to_whitespace_with_options(&a, debug_ext).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -592,7 +602,8 @@ fn test_whitespace_self_io_base(test_name: &str) {
 
         // 独自 WhitespaceVM で実行
         let mut vm = WhitespaceVM::from_source(&ws_code)
-            .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e));
+            .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e))
+            .with_debug_ext(debug_ext);
 
         let stdin_cursor: Box<dyn io::BufRead> =
             Box::new(io::Cursor::new(stdin_content.into_bytes()));

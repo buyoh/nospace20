@@ -19,6 +19,8 @@ struct TestCase {
     comment: Option<String>,
     #[serde(default)]
     exclude_targets: Option<Vec<String>>,
+    #[serde(default)]
+    std_ext: Option<Vec<String>>,
 }
 
 fn main() {
@@ -54,6 +56,11 @@ fn main() {
         let has_interpreter = !exclude_targets.iter().any(|t| t == "interpreter");
         let has_whitespace = !exclude_targets.iter().any(|t| t == "whitespace");
         let has_whitespace_self = !exclude_targets.iter().any(|t| t == "whitespace-self");
+        
+        // std_ext の有無を確認
+        let has_debug_ext = test.std_ext.as_ref()
+            .map(|exts| exts.iter().any(|e| e == "debug"))
+            .unwrap_or(false);
 
         match test.test_type.as_str() {
             "success" => {
@@ -85,16 +92,29 @@ fn {}_ws() {{
                 }
 
                 if has_whitespace_self {
-                    writeln!(
-                        f,
-                        r#"{}#[test]
+                    if has_debug_ext {
+                        writeln!(
+                            f,
+                            r#"{}#[test]
 fn {}_ws_self() {{
-    test_whitespace_self_base("{}")
+    test_whitespace_self_base_debug("{}", true)
 }}
 "#,
-                        comment_line, test.name, test.path
-                    )
-                    .unwrap();
+                            comment_line, test.name, test.path
+                        )
+                        .unwrap();
+                    } else {
+                        writeln!(
+                            f,
+                            r#"{}#[test]
+fn {}_ws_self() {{
+    test_whitespace_self_base_debug("{}", false)
+}}
+"#,
+                            comment_line, test.name, test.path
+                        )
+                        .unwrap();
+                    }
                 }
             }
             "success_io" => {
@@ -126,16 +146,29 @@ fn {}_ws() {{
                 }
 
                 if has_whitespace_self {
-                    writeln!(
-                        f,
-                        r#"{}#[test]
+                    if has_debug_ext {
+                        writeln!(
+                            f,
+                            r#"{}#[test]
 fn {}_ws_self() {{
-    test_whitespace_self_io_base("{}")
+    test_whitespace_self_io_base_debug("{}", true)
 }}
 "#,
-                        comment_line, test.name, test.path
-                    )
-                    .unwrap();
+                            comment_line, test.name, test.path
+                        )
+                        .unwrap();
+                    } else {
+                        writeln!(
+                            f,
+                            r#"{}#[test]
+fn {}_ws_self() {{
+    test_whitespace_self_io_base_debug("{}", false)
+}}
+"#,
+                            comment_line, test.name, test.path
+                        )
+                        .unwrap();
+                    }
                 }
             }
             "syntax_error" => {

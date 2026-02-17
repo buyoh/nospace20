@@ -217,16 +217,19 @@ tests:
     type: success_io
     path: builtins/debug_assert_pass_001
     comment: "__assert should pass with non-zero value"
+    std_ext: [debug]
 
   - name: test_builtins_debug_assert_not_pass_001
     type: success_io
     path: builtins/debug_assert_not_pass_001
     comment: "__assert_not should pass with zero value"
+    std_ext: [debug]
 
   - name: test_builtins_debug_trace_multi_001
     type: success
     path: builtins/debug_trace_multi_001
     comment: "Multiple __trace with same value"
+    std_ext: [debug]
 
   # ========================================
   # Variables
