@@ -48,7 +48,13 @@ impl WsProgram {
     pub fn to_debug_string(&self) -> String {
         self.instructions
             .iter()
-            .map(|inst| inst.to_mnemonic())
+            .map(|inst| {
+                if matches!(inst, Instruction::Label(_)) {
+                    inst.to_mnemonic()
+                } else {
+                    format!("    {}", inst.to_mnemonic())
+                }
+            })
             .collect::<Vec<_>>()
             .join("\n")
     }

@@ -160,4 +160,39 @@ label_17:
 
 ## ステータス
 
-- 未着手
+- **完了** (2026-02-18)
+
+## 実施内容
+
+1. `src/compiler_ws/instruction.rs` の `to_mnemonic()` を修正
+   - 命令名をリネーム: `discard` → `pop`, `store` → `set`, `retrieve` → `get`
+   - I/O 命令をリネーム: `printc` → `pchr`, `printi` → `pnum`, `readc` → `ichr`, `readi` → `inum`
+   - ラベル宣言フォーマットを変更: `label_N` → `label_N:`
+
+2. `src/compiler_ws/program.rs` の `to_debug_string()` を修正
+   - ラベル以外の命令に4スペースのインデントを追加
+
+3. テスト実行
+   - `cargo test` で既存テスト40件すべて成功
+   - 手動確認で出力形式が wsc 互換になっていることを確認
+
+## 出力例（変更後）
+
+```
+    push 2
+    push 8
+    set
+label_0:
+    jmp label_17
+label_16:
+    push 42
+    pnum
+    push 10
+    pchr
+    ret
+label_17:
+    call label_16
+    exit
+```
+
+wsc のアセンブリ形式に完全準拠。
