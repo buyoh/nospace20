@@ -507,6 +507,12 @@ tests:
     path: scope/disabled_scope_static_persist_001
     comment: "Function-local static variable persists across calls"
 
+  - name: test_scope_scope_static_init_func_001
+    type: success
+    path: scope/disabled_scope_static_init_func_001
+    comment: "Function-local static variable with initial value is restored on first call (BUG: fails due to function_static_storage key mismatch)"
+    exclude_targets: [whitespace]
+
   # ========================================
   # Integration
   # ========================================

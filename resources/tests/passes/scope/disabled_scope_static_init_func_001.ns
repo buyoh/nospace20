@@ -1,0 +1,24 @@
+# 関数内 static 変数に初期値を設定し、呼び出し時に初期値が保持されることを確認 #
+# BUG: function_static_storage のキー不整合により初期値が復元されない #
+
+func: get_initial() {
+  static: val(42);
+  return: val;
+}
+
+func: accumulator(x) {
+  static: total(100);
+  total = total + x;
+  return: total;
+}
+
+func: main() {
+  # get_initial(): static val は 42 に初期化されているはず #
+  __assert(get_initial() == 42);
+
+  # accumulator(): static total は 100 に初期化されているはず #
+  __assert(accumulator(5) == 105);
+  __assert(accumulator(10) == 115);
+
+  __trace(0);
+}
