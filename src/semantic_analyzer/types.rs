@@ -41,6 +41,10 @@ pub struct IdentifierRef {
     /// true の場合、Environment.global_variables でアクセス
     /// false の場合、LocalEnvironment.scope_stack でアクセス
     pub is_global: bool,
+    /// static 変数を所有する関数のグローバルインデックス
+    /// ネストされた関数から親関数の static 変数にアクセスする場合に使用。
+    /// None の場合、現在の関数の static 変数として扱う。
+    pub owning_func_index: Option<usize>,
 }
 
 /// 変数情報

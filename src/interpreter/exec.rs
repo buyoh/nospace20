@@ -576,6 +576,7 @@ func: main() {
             is_global: false,
             scope_depth: 0,
             local_index: 0,
+            owning_func_index: None,
         };
         let addr_x = local_env.resolve_address(&id_x);
         assert_eq!(addr_x, 0, "x should be at address 0");
@@ -584,6 +585,7 @@ func: main() {
             is_global: false,
             scope_depth: 0,
             local_index: 1,
+            owning_func_index: None,
         };
         let addr_p = local_env.resolve_address(&id_p);
         assert_eq!(addr_p, 1, "p should be at address 1");

@@ -120,6 +120,7 @@ fn convert_to_exec_expression_with_resolver(
                 // だだし、型の一貫性のために仮の可変参照を渡す
                 &mut Vec::new(),
                 &mut Vec::new(),
+                None,
             )?;
             let (s2, es2) = analyze_internal_with_parent(
                 stat2,
@@ -128,6 +129,7 @@ fn convert_to_exec_expression_with_resolver(
                 Some(parent_resolver),
                 &mut Vec::new(),
                 &mut Vec::new(),
+                None,
             )?;
             Ok(Box::new(ExecExpression::If(
                 convert_to_exec_expression_with_resolver(cond, parent_resolver)?,
@@ -149,6 +151,7 @@ fn convert_to_exec_expression_with_resolver(
                 Some(parent_resolver),
                 &mut Vec::new(),
                 &mut Vec::new(),
+                None,
             )?;
             Ok(Box::new(ExecExpression::While(
                 convert_to_exec_expression_with_resolver(expr, parent_resolver)?,
@@ -166,6 +169,7 @@ fn convert_to_exec_expression_with_resolver(
                 Some(parent_resolver),
                 &mut Vec::new(),
                 &mut Vec::new(),
+                None,
             )?;
             Ok(Box::new(ExecExpression::Block(Block {
                 scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
@@ -271,7 +275,7 @@ fn analyze_internal(
     global_functions: &mut Vec<Function>,
     global_function_names: &mut Vec<String>,
 ) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
-    analyze_internal_with_parent(statements, scope_type, Vec::new(), None, global_functions, global_function_names)
+    analyze_internal_with_parent(statements, scope_type, Vec::new(), None, global_functions, global_function_names, None)
 }
 
 /// 初期変数と親のresolve rを指定して解析する
@@ -283,6 +287,7 @@ fn analyze_internal_with_parent(
     parent_resolver: Option<&ScopeResolver>,
     global_functions: &mut Vec<Function>,
     global_function_names: &mut Vec<String>,
+    func_global_index: Option<usize>,
 ) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
     let mut scope = ScopeBuilder::new();
 
@@ -412,6 +417,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.variables,
             &temporary_scope.identifier_map,
             is_function_scope,
+            func_global_index,
         );
         new_resolver
     } else {
@@ -422,6 +428,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.variables,
             &temporary_scope.identifier_map,
             is_function_scope,
+            func_global_index,
         );
         new_resolver
     };
@@ -447,8 +454,17 @@ fn analyze_internal_with_parent(
                 }
             }
             Statement::FunctionDeclaration(name, args, block) => {
+                // Phase 5: パス1aで登録済みの関数のグローバルインデックスを取得
+                let global_idx = if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
+                    info.0
+                } else {
+                    panic!("internal error: function should be pre-registered in pass 1a");
+                };
+
                 // 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
                 // Phase 5: global_functions と global_function_names を渡す
+                // func_global_index を渡すことで、ネストされた関数から
+                // この関数の static 変数にアクセスする際に正しいオフセットを参照可能にする
                 let (s, es) = analyze_internal_with_parent(
                     block,
                     ScopeType::Function,
@@ -456,6 +472,7 @@ fn analyze_internal_with_parent(
                     Some(&resolver),
                     global_functions,
                     global_function_names,
+                    Some(global_idx),
                 )?;
                 // Phase 5: 非ルートスコープの build() には空の functions/function_names を渡す
                 let built_scope = s.build(Vec::new(), Vec::new(), Vec::new()); // root_statementsは空
@@ -470,14 +487,6 @@ fn analyze_internal_with_parent(
                             .expect("argument must be registered as variable")
                     })
                     .collect();
-
-                // Phase 5: パス1aで登録済みの関数を更新
-                // identifier_map にはグローバルインデックスが格納されている
-                let global_idx = if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
-                    info.0
-                } else {
-                    panic!("internal error: function should be pre-registered in pass 1a");
-                };
 
                 global_functions[global_idx] = Function {
                     arg_indices,

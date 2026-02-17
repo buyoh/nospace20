@@ -207,16 +207,21 @@ impl<'a> CodeGenContext<'a> {
             }
         } else {
             // static 変数チェック（関数スコープ直下の変数のみ）
+            // owning_func_index がある場合は親関数の static 変数へのアクセス
+            // （ネストされた関数から親関数の static 変数にアクセスする場合）
+            // owning_func_index がない場合は current_func_index を使用
             if let (Some(func_idx), Some(_func_scope)) =
                 (self.current_func_index, self.current_func_scope)
             {
-                // scope_depth == 0 で関数スコープ直下の変数を参照している場合
+                let lookup_func_idx = var_ref.owning_func_index.unwrap_or(func_idx);
+                // scope_depth == 0 で関数スコープ直下の変数を参照している場合、
+                // または scope_depth >= scope_offsets.len() で親関数の変数を参照している場合
                 if var_ref.scope_depth == 0 || var_ref.scope_depth >= self.scope_offsets.len() {
                     // var_ref.local_index はスロットインデックスなので、
                     // static_var_global_offsets で検索
                     if let Some(global_offset) = self
                         .static_var_global_offsets
-                        .get(&(func_idx, var_ref.local_index))
+                        .get(&(lookup_func_idx, var_ref.local_index))
                     {
                         return VarInfo {
                             scope: VarScope::Global,

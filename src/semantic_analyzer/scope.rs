@@ -125,6 +125,9 @@ pub(super) struct ScopeInfo<'a> {
     pub func_map: &'a BTreeMap<String, Identifier>,
     /// このスコープが関数スコープかどうか
     pub is_function_scope: bool,
+    /// この関数スコープのグローバル関数インデックス
+    /// ネストされた関数から親の static 変数にアクセスする際に使用
+    pub func_global_index: Option<usize>,
 }
 
 /// スコープ解決のためのコンテキスト
@@ -153,6 +156,7 @@ impl<'a> ScopeResolver<'a> {
         variables: &'a Vec<Variable>,
         func_map: &'a BTreeMap<String, Identifier>,
         is_function_scope: bool,
+        func_global_index: Option<usize>,
     ) {
         self.scope_stack.push(ScopeInfo {
             var_indices,
@@ -160,6 +164,7 @@ impl<'a> ScopeResolver<'a> {
             variables,
             func_map,
             is_function_scope,
+            func_global_index,
         });
     }
 
@@ -212,10 +217,19 @@ impl<'a> ScopeResolver<'a> {
                         .map(|s| s.is_function_scope)
                         .unwrap_or(false);
 
+                // 関数境界を越えた static 変数アクセスの場合、
+                // 変数を所有する関数のグローバルインデックスを記録
+                let owning_func_index = if crossed_function_boundary && var.is_static {
+                    scope_info.func_global_index
+                } else {
+                    None
+                };
+
                 return Some(IdentifierRef {
                     scope_depth: depth,
                     local_index,
                     is_global,
+                    owning_func_index,
                 });
             }
         }
@@ -256,6 +270,7 @@ impl<'a> ScopeResolver<'a> {
                     scope_depth: 0,
                     local_index: info.0,
                     is_global: true,
+                    owning_func_index: None,
                 });
             }
         }
