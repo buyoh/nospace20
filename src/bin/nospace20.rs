@@ -14,6 +14,7 @@ use nospace20::{
     Environment,
     ExecutionMode,
     LanguageStd,
+    TargetExtension,
     TextCode,
 };
 use unicode_width::UnicodeWidthStr;
@@ -60,8 +61,6 @@ enum CliTarget {
     #[default]
     Ws,
     Mnemonic,
-    #[value(name = "ex-ws")]
-    ExWs,
     Json,
 }
 
@@ -70,8 +69,21 @@ impl From<CliTarget> for CompileTarget {
         match cli {
             CliTarget::Ws => CompileTarget::Ws,
             CliTarget::Mnemonic => CompileTarget::Mnemonic,
-            CliTarget::ExWs => CompileTarget::ExWs,
             CliTarget::Json => CompileTarget::Json,
+        }
+    }
+}
+
+/// ターゲット拡張
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum CliTargetExt {
+    Debug,
+}
+
+impl From<CliTargetExt> for TargetExtension {
+    fn from(cli: CliTargetExt) -> Self {
+        match cli {
+            CliTargetExt::Debug => TargetExtension::Debug,
         }
     }
 }
@@ -96,6 +108,10 @@ struct Args {
     /// Compile target (only with --mode=compile)
     #[arg(long, value_enum, default_value_t = CliTarget::Ws)]
     target: CliTarget,
+
+    /// Target extensions (only with --mode=compile, can be specified multiple times)
+    #[arg(long = "target-ext", value_enum)]
+    target_ext: Vec<CliTargetExt>,
 
     /// Output file (only with --mode=compile, stdout if not specified)
     #[arg(short, long)]
@@ -156,6 +172,7 @@ fn main() {
         std: args.std.into(),
         mode: args.mode.into(),
         target: args.target.into(),
+        target_extensions: args.target_ext.into_iter().map(|e| e.into()).collect(),
         output: args.output,
         debug: args.debug,
         ignore_debug: args.ignore_debug,

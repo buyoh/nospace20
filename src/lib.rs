@@ -24,7 +24,7 @@ pub mod whitespace;
 #[cfg(feature = "wasm")]
 mod wasm_api;
 
-pub use compile_property::{CompileProperty, CompileTarget, ExecutionMode, LanguageStd};
+pub use compile_property::{CompileProperty, CompileTarget, ExecutionMode, LanguageStd, TargetExtension};
 
 pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
     match token_parser::parse_to_tokens(text) {

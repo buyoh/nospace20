@@ -32,10 +32,17 @@ pub enum CompileTarget {
     Ws,
     /// ニーモニック表記へコンパイル
     Mnemonic,
-    /// 拡張 Whitespace へコンパイル（未対応）
-    ExWs,
     /// 中間表現 (JSON) へコンパイル（未対応）
     Json,
+}
+
+/// ターゲット拡張
+///
+/// コンパイル時に有効化する追加の拡張機能。複数同時指定可能。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TargetExtension {
+    /// デバッグ拡張
+    Debug,
 }
 
 /// コンパイルプロパティ
@@ -49,6 +56,8 @@ pub struct CompileProperty {
     pub mode: ExecutionMode,
     /// コンパイルターゲット（mode=Compile 時のみ使用）
     pub target: CompileTarget,
+    /// ターゲット拡張（mode=Compile 時のみ使用、複数指定可能）
+    pub target_extensions: Vec<TargetExtension>,
     /// 出力ファイルパス（mode=Compile 時、None なら stdout）
     pub output: Option<String>,
     /// デバッグモード
@@ -79,9 +88,6 @@ impl CompileProperty {
 
             // 未対応のターゲット
             match self.target {
-                CompileTarget::ExWs => {
-                    return Err("--target=ex-ws is not yet implemented".to_string());
-                }
                 CompileTarget::Json => {
                     return Err("--target=json is not yet implemented".to_string());
                 }
