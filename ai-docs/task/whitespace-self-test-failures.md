@@ -170,7 +170,20 @@ fn generate_return(ctx: &CodeGenContext, expr: &...) -> Result<...> {
 
 ## ステータス
 
-調査完了 - 修正作業を開始可能
+**ラベル重複バグ**: ✅ 修正完了 → [fix-ws-self-label-duplication.md](../done-task/fix-ws-self-label-duplication.md)  
+**呼び出し規約バグ (Fix A/B)**: ✅ 修正完了 → [remaining-ws-self-failures.md](../done-task/remaining-ws-self-failures.md)  
+**while ループスタックリーク (Fix C)**: ✅ 修正完了 → [fix-while-loop-stack-leak.md](../done-task/fix-while-loop-stack-leak.md)
+
+## 現在の失敗テスト (2026-02-17 更新)
+
+スコープ関連テスト追加により 18件に拡大。詳細は [qsort-ws-self-failure.md](qsort-ws-self-failure.md) を参照。
+
+| 根本原因 | 件数 | 対応タスク |
+|----------|------|-----------|
+| Bug D: ブロックスコープオフセット衝突 | 11件 | [fix-block-scope-offset/](fix-block-scope-offset/) |
+| ブロック/if/while 式の値返却未実装 | 2件 | 未作成 |
+| Bug D + 式の値返却の複合 | 2件 | 上記2つの修正が必要 |
+| static 変数 + ネスト関数のスコープ | 3件 | 未調査 |
 
 ## 動作検証結果
 

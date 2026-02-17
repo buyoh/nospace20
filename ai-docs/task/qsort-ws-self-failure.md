@@ -49,7 +49,66 @@ main() の内部ブロック `{ let: i(0); ... }` の `i` が `arr[0]` と同じ
 
 修正設計: [fix-block-scope-offset/](fix-block-scope-offset/)
 
+## スコープテスト追加による失敗テスト拡大 (2026-02-17)
+
+ブロックスコープ関連のテストが追加された結果、Bug D に起因する失敗が大幅に増加した。
+現在の ws_self テスト失敗は **18件** (以前は 1件)。
+
+### 失敗分類
+
+| 根本原因 | 件数 | テスト |
+|----------|------|--------|
+| **Bug D: ブロックスコープオフセット衝突** | 11件 | 下記参照 |
+| **ブロック/if/while 式の値返却未実装** | 2件 | 下記参照 |
+| **Bug D + 式の値返却の複合** | 2件 | 下記参照 |
+| **static 変数 + ネスト関数のスコープ** | 3件 | 下記参照 |
+
+#### Bug D のみ (11件)
+
+| テスト名 | 説明 |
+|----------|------|
+| test_example_qsort_ws_self | main 内ブロック `{ let:i }` が arr[0] と衝突 |
+| test_ok_coding_c004_ws_self | if ブロック内 `let:x` が親の x と衝突 |
+| test_scope_block_expr_basic_001_ws_self | ブロック内 `let:y` が親変数と衝突 |
+| test_scope_block_expr_parent_scope_001_ws_self | ブロック内 `let:y` が親の x と衝突 |
+| test_scope_block_var_no_collision_001_ws_self | Bug D の直接的な回帰テスト |
+| test_scope_disabled_scope_block_var_001_ws_self | if ブロック内 `let:y` |
+| test_scope_scope_block_001_ws_self | if ブロック内 `let:x; let:y` |
+| test_scope_scope_nested_blocks_001_ws_self | 2段ネストブロック |
+| test_scope_scope_shadow_multi_001_ws_self | 3段ネストでシャドーイング |
+| test_scope_scope_shadowing_002_ws_self | ネストされたシャドーイング |
+| test_literals_comment_japanese_001_ws_self | 日本語コメント + `if:1{ let:y }` (Bug D) |
+
+#### ブロック/if/while 式の値返却 (2件)
+
+`generate_block` が常に `push 0` を返すため、式の値が正しく伝播しない。
+
+| テスト名 | 説明 |
+|----------|------|
+| test_control_flow_if_expr_value_001_ws_self | `x = if: 1 { 5; } else: { 10; };` |
+| test_control_flow_while_expr_value_001_ws_self | `x = while: ... { i; };` |
+
+#### Bug D + 式の値返却の複合 (2件)
+
+| テスト名 | 説明 |
+|----------|------|
+| test_scope_block_expr_nested_001_ws_self | `result = { let:a; ... { let:b; a+b; }; };` |
+| test_scope_block_expr_value_001_ws_self | `x = { let:a; a=3; a; };` |
+
+#### static 変数 + ネスト関数 (3件)
+
+ブロックスコープ変数を使用していないが AssertionFailed で失敗。
+ラベル重複修正後の別のバグ（ネスト関数からの static 変数アクセスの WS コンパイル問題）。
+
+| テスト名 | 説明 |
+|----------|------|
+| test_scope_scope_static_mixed_001_ws_self | static + let 混在、ネスト関数 |
+| test_scope_scope_static_multi_decl_001_ws_self | 複数 static 宣言、ネスト関数 |
+| test_scope_scope_static_nested_001_ws_self | ネスト関数から static アクセス |
+
 ## 関連ドキュメント
 
-- [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) - 修正設計（Fix C）
-- [remaining-ws-self-failures.md](remaining-ws-self-failures.md) - Fix A/B の実装記録
+- [fix-block-scope-offset/](fix-block-scope-offset/) - Bug D 修正設計
+- [fix-while-loop-stack-leak.md](../done-task/fix-while-loop-stack-leak.md) - 修正設計（Fix C）
+- [remaining-ws-self-failures.md](../done-task/remaining-ws-self-failures.md) - Fix A/B の実装記録
+- [whitespace-self-test-failures.md](whitespace-self-test-failures.md) - 全体の失敗テスト管理
