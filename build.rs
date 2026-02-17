@@ -21,6 +21,8 @@ struct TestCase {
     exclude_targets: Option<Vec<String>>,
     #[serde(default)]
     std_ext: Option<Vec<String>>,
+    #[serde(default)]
+    exclude_std_ext: Option<Vec<String>>,
 }
 
 fn main() {
@@ -57,10 +59,10 @@ fn main() {
         let has_whitespace = !exclude_targets.iter().any(|t| t == "whitespace");
         let has_whitespace_self = !exclude_targets.iter().any(|t| t == "whitespace-self");
         
-        // std_ext の有無を確認
-        let has_debug_ext = test.std_ext.as_ref()
-            .map(|exts| exts.iter().any(|e| e == "debug"))
-            .unwrap_or(false);
+        // デフォルトで debug_ext は常に true、exclude_std_ext: [debug] で除外された場合のみ false
+        let has_debug_ext = test.exclude_std_ext.as_ref()
+            .map(|exts| !exts.iter().any(|e| e == "debug"))
+            .unwrap_or(true);
 
         match test.test_type.as_str() {
             "success" => {
