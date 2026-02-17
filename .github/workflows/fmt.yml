@@ -1,4 +1,4 @@
-name: cargo-test
+name: cargo-fmt
 
 on: [push]
 
@@ -24,9 +24,14 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build
         run: cargo build --verbose
+      - name: Run fmt
+        run: cargo fmt --verbose
       - name: Run tests
         run: cargo test --verbose
-      - name: Run tests2
+      - name: commit
         run: |
-          bash tools/setup-wsc.sh
-          cargo test -- --ignored
+          git add .
+          git commit -m 'refactor by Github Actions' ||:
+      - uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
