@@ -2,7 +2,43 @@
 
 作成日: 2026-02-17  
 更新日: 2026-02-18  
-ステータス: 📐 設計完了
+ステータス: ✅ 実装完了（一部制限あり）
+
+## 実装完了サマリー
+
+**日時**: 2026-02-18  
+**実装内容**: static 変数のグローバルヒープ配置と初期化コード生成
+
+### 実装した変更
+
+1. **`src/compiler_ws/context.rs`**
+   - `static_var_global_offsets: HashMap<(usize, usize), i64>` フィールド追加
+   - `static_var_total_size: i64` フィールド追加
+   - `current_func_index: Option<usize>` フィールド追加
+   - `current_func_scope: Option<&'a Scope>` フィールド追加
+   - `compute_static_var_offsets()` 関数追加
+   - `enter_function()` に関数インデックスと関数スコープ引数を追加
+   - `enter_function_for_static_init()` 関数追加
+   - `get_var_info()` での static 変数判定ロジック追加
+   - `global_heap_size()` に static 変数領域サイズを加算
+
+2. **`src/compiler_ws/statement.rs`**
+   - `generate_scope()` に関数内 static 変数の初期化コード生成を追加
+   - `generate_function_definition()` に `func_index` 引数を追加
+
+### テスト結果
+
+✅ **成功**: `test_scope_scope_static_init_value_persist_001_ws_self`  
+   - 関数内 static 変数の値が呼び出しをまたいで永続化されることを確認
+
+⚠️ **新たな失敗**: `test_scope_scope_static_mixed_001_ws_self`  
+   - ネストされた関数から親関数の static 変数にアクセスする際に失敗
+   - 調査ドキュメント: [whitespace-static-nested-function-issue.md](./whitespace-static-nested-function-issue.md)
+
+### 制限事項
+
+現在の実装では、ルートレベルの関数の static 変数のみサポート。  
+ネストされた関数（関数内で定義された関数）の static 変数や、ネストされた関数から親関数の static 変数へのアクセスは未対応。
 
 ## 問題の概要
 

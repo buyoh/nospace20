@@ -18,6 +18,27 @@ pub struct VarInfo {
     pub offset: i64,
 }
 
+/// static 変数のグローバルオフセットを計算する
+///
+/// 戻り値: (オフセットマップ, 合計サイズ)
+fn compute_static_var_offsets(scope: &Scope) -> (HashMap<(usize, usize), i64>, i64) {
+    let mut offsets = HashMap::new();
+    let mut next_offset = scope.variable_count as i64; // グローバル変数の直後
+
+    for (func_idx, func) in scope.functions.iter().enumerate() {
+        for var in &func.block.scope.variables {
+            if var.is_static {
+                let slot_count = var.array_size.unwrap_or(1);
+                offsets.insert((func_idx, var.slot_index), next_offset);
+                next_offset += slot_count as i64;
+            }
+        }
+    }
+
+    let total_size = next_offset - scope.variable_count as i64;
+    (offsets, total_size)
+}
+
 /// コード生成コンテキスト
 #[derive(Clone)]
 pub struct CodeGenContext<'a> {
@@ -53,6 +74,20 @@ pub struct CodeGenContext<'a> {
 
     /// 次のブロックスコープに割り当てる開始オフセット
     next_var_offset: i64,
+
+    /// 関数内 static 変数のグローバルオフセット
+    /// キー: (関数インデックス, ローカル変数スロットインデックス)
+    /// 値: グローバルヒープ上のオフセット（GLOBAL_PTR からの相対）
+    static_var_global_offsets: HashMap<(usize, usize), i64>,
+
+    /// static 変数領域の合計サイズ
+    static_var_total_size: i64,
+
+    /// 現在処理中の関数インデックス (関数内でのみ Some)
+    current_func_index: Option<usize>,
+
+    /// 現在処理中の関数のスコープ (関数内でのみ Some)
+    current_func_scope: Option<&'a Scope>,
 }
 
 impl<'a> CodeGenContext<'a> {
@@ -61,6 +96,7 @@ impl<'a> CodeGenContext<'a> {
     }
 
     pub fn new_with_options(scope: &'a Scope, debug_ext: bool) -> Self {
+        let (static_var_global_offsets, static_var_total_size) = compute_static_var_offsets(scope);
         Self {
             scope,
             labels: LabelAllocator::new(),
@@ -71,16 +107,24 @@ impl<'a> CodeGenContext<'a> {
             debug_ext,
             scope_offsets: vec![0],
             next_var_offset: 0,
+            static_var_global_offsets,
+            static_var_total_size,
+            current_func_index: None,
+            current_func_scope: None,
         }
     }
 
     /// ローカル（関数内）コンテキストを作成
     /// total_var_count: 関数内の全ブロック（ネスト含む）の変数合計数
     /// func_scope_var_count: 関数スコープ直下の変数数
+    /// func_index: 関数のインデックス
+    /// func_scope: 関数のスコープ（Variable 情報参照用）
     pub fn enter_function(
         &self,
         total_var_count: usize,
         func_scope_var_count: usize,
+        func_index: usize,
+        func_scope: &'a Scope,
     ) -> CodeGenContext<'a> {
         CodeGenContext {
             scope: self.scope,
@@ -92,12 +136,45 @@ impl<'a> CodeGenContext<'a> {
             debug_ext: self.debug_ext,
             scope_offsets: vec![0],
             next_var_offset: func_scope_var_count as i64,
+            static_var_global_offsets: self.static_var_global_offsets.clone(),
+            static_var_total_size: self.static_var_total_size,
+            current_func_index: Some(func_index),
+            current_func_scope: Some(func_scope),
+        }
+    }
+
+    /// static 変数初期化用のコンテキストを作成
+    /// 
+    /// static 初期化では、変数への書き込みはグローバルヒープ上で行われるため、
+    /// ローカルヒープの allocate/deallocate は不要。
+    /// それ以外は enter_function と同じ動作でアドレス解決を行う。
+    pub fn enter_function_for_static_init(
+        &self,
+        _total_var_count: usize,
+        func_scope_var_count: usize,
+        func_index: usize,
+        func_scope: &'a Scope,
+    ) -> CodeGenContext<'a> {
+        CodeGenContext {
+            scope: self.scope,
+            labels: self.labels.clone(),
+            is_global: false,
+            local_heap_size: 0, // フレーム不要
+            variables: HashMap::new(),
+            loop_labels: Vec::new(),
+            debug_ext: self.debug_ext,
+            scope_offsets: vec![0],
+            next_var_offset: func_scope_var_count as i64,
+            static_var_global_offsets: self.static_var_global_offsets.clone(),
+            static_var_total_size: self.static_var_total_size,
+            current_func_index: Some(func_index),
+            current_func_scope: Some(func_scope),
         }
     }
 
     /// グローバルヒープサイズを取得
     pub fn global_heap_size(&self) -> i64 {
-        self.scope.variable_count as i64
+        self.scope.variable_count as i64 + self.static_var_total_size
     }
 
     /// 新しいラベルを確保
@@ -129,6 +206,26 @@ impl<'a> CodeGenContext<'a> {
                 offset: var_ref.local_index as i64,
             }
         } else {
+            // static 変数チェック（関数スコープ直下の変数のみ）
+            if let (Some(func_idx), Some(_func_scope)) =
+                (self.current_func_index, self.current_func_scope)
+            {
+                // scope_depth == 0 で関数スコープ直下の変数を参照している場合
+                if var_ref.scope_depth == 0 || var_ref.scope_depth >= self.scope_offsets.len() {
+                    // var_ref.local_index はスロットインデックスなので、
+                    // static_var_global_offsets で検索
+                    if let Some(global_offset) = self
+                        .static_var_global_offsets
+                        .get(&(func_idx, var_ref.local_index))
+                    {
+                        return VarInfo {
+                            scope: VarScope::Global,
+                            offset: *global_offset,
+                        };
+                    }
+                }
+            }
+
             // scope_depth が scope_offsets の範囲を超える場合はグローバル変数として扱う
             // （static 変数などで発生する可能性がある）
             let scope_offsets_len = self.scope_offsets.len();

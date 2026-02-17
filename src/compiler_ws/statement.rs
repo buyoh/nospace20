@@ -10,21 +10,39 @@ use crate::semantic_analyzer::{Block, ExecStatement, Scope};
 pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
-    // static 変数の初期化を先に実行
+    // ① ルートレベルの static 変数の初期化を先に実行
     for stmt in &scope.static_init_statements {
         prog.append(generate_statement(ctx, stmt)?);
     }
 
-    // グローバル変数の初期化（root_statements）
+    // ② 関数内 static 変数の初期化
+    for (func_idx, func) in scope.functions.iter().enumerate() {
+        if !func.block.scope.static_init_statements.is_empty() {
+            let func_scope_var_count = func.block.scope.variable_count;
+            let total_var_count = calculate_total_variable_count(&func.block);
+            let mut static_ctx = ctx.enter_function_for_static_init(
+                total_var_count,
+                func_scope_var_count,
+                func_idx,
+                &func.block.scope,
+            );
+            for stmt in &func.block.scope.static_init_statements {
+                prog.append(generate_statement(&mut static_ctx, stmt)?);
+            }
+            ctx.sync_labels_from(&static_ctx);
+        }
+    }
+
+    // ③ グローバル変数の初期化（root_statements）
     for stmt in &scope.root_statements {
         prog.append(generate_statement(ctx, stmt)?);
     }
 
-    // Phase 7: 全ての関数定義を生成
+    // ④ Phase 7: 全ての関数定義を生成
     // 関数は symbol_table.function_names と functions が対応している
     for (i, func_name) in scope.symbol_table.function_names.iter().enumerate() {
         let func = &scope.functions[i];
-        prog.append(generate_function_definition(ctx, func_name, func)?);
+        prog.append(generate_function_definition(ctx, func_name, func, i)?);
     }
 
     Ok(prog)
@@ -137,6 +155,7 @@ fn generate_function_definition(
     ctx: &mut CodeGenContext,
     func_name: &str,
     func: &crate::semantic_analyzer::Function,
+    func_index: usize,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
     let label = ctx.get_or_create_function_label(func_name);
@@ -150,7 +169,12 @@ fn generate_function_definition(
     // ローカル変数領域確保
     let func_scope_var_count = func.block.scope.variable_count;
     let total_var_count = calculate_total_variable_count(&func.block);
-    let mut local_ctx = ctx.enter_function(total_var_count, func_scope_var_count);
+    let mut local_ctx = ctx.enter_function(
+        total_var_count,
+        func_scope_var_count,
+        func_index,
+        &func.block.scope,
+    );
 
     // 引数をローカル変数にコピー
     // 引数はスタックから取得（逆順）
