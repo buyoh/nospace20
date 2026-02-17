@@ -4,16 +4,16 @@ func: main() {
   let:x;
   let:i;
   
-  # while 式は最後のイテレーションの最後の式の値を返す #
+  # while 式は常に 0 を返す #
   i = 0;
   x = while: i - 3 {
     i = i + 1;
     i;
   };
   __trace(1);
-  __assert(x == 3);
+  __assert(x == 0);
   
-  # ループしない場合は 0 を返す #
+  # ループしない場合も 0 を返す #
   __trace(2);
   x = while: 0 {
     42;
@@ -21,7 +21,7 @@ func: main() {
   __trace(3);
   __assert(x == 0);
   
-  # break で抜けた場合は 0 を返す #
+  # break で抜けた場合も 0 を返す #
   i = 0;
   x = while: 1 {
     i = i + 1;

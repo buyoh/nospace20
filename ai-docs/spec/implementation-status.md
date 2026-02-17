@@ -87,7 +87,7 @@
 
 ### interpreter
 
-- if/while は式だが、常に 0 を返す (仕様通りだが将来改善予定)
+- (なし)
 
 ### compiler_ws (Whitespace コンパイラ)
 

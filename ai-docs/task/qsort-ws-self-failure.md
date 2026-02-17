@@ -63,14 +63,17 @@ Bug D (ブロックスコープオフセット衝突）と static 変数関連�
 | **Bug D + 式の値返却の複合** | 2件 | ⚠️ Bug D 部分は修正、値返却は未修正 (Bug E) |
 | **static 変数 + ネスト関数のスコープ** | 3件 | ✅ 修正済み |
 
-### 残り 4件の失敗テスト (Bug E)
+### 残り 3件の失敗テスト (Bug E)
 
-| テスト名 | 説明 |
-|----------|------|
-| test_control_flow_if_expr_value_001_ws_self | `x = if: 1 { 5; } else: { 10; };` |
-| test_control_flow_while_expr_value_001_ws_self | `x = while: ... { i; };` |
-| test_scope_block_expr_nested_001_ws_self | `result = { let:a; ... { let:b; a+b; }; };` |
-| test_scope_block_expr_value_001_ws_self | `x = { let:a; a=3; a; };` |
+仕様見直し (2026-02-17) により while 式は常に 0 を返すことが確定し、
+while テストケースを修正・インタプリタも変更した結果、while_expr_value_001_ws_self は PASS に。
+
+| テスト名 | 説明 | 状態 |
+|----------|------|------|
+| test_control_flow_if_expr_value_001_ws_self | `x = if: 1 { 5; } else: { 10; };` | ❌ FAIL |
+| test_scope_block_expr_nested_001_ws_self | `result = { let:a; ... { let:b; a+b; }; };` | ❌ FAIL |
+| test_scope_block_expr_value_001_ws_self | `x = { let:a; a=3; a; };` | ❌ FAIL |
+| test_control_flow_while_expr_value_001_ws_self | while 式は常に 0（仕様確定） | ✅ PASS |
 
 ## Bug E 特定 (2026-02-17): ブロック/if/while 式の値返却未実装
 
@@ -146,16 +149,17 @@ __assert(x == 3);  # x は 0 になるため AssertionFailed #
 ```
 ループ本体の `i;` が Discard され `generate_block` が `push 0`、それも Discard されてループ終了後 `push 0` → `x = 0`
 
-### 仕様との関係
+### 仕様との関係 (仕様見直し後)
 
-| 式の種類 | spec.md | インタプリタ | compiler_ws (現状) |
-|----------|---------|-------------|-------------------|
+| 式の種類 | spec.md (確定) | インタプリタ | compiler_ws (現状) |
+|----------|---------------|-------------|-------------------|
 | ブロック式 (§6.5) | 最後の式の値を返す | ✅ 正しく実装 | ❌ 常に 0 |
-| if 式 (§6.2) | 常に 0 (TODO) | ✅ 最後の式の値を返す | ❌ 常に 0 |
-| while 式 (§6.1) | 常に 0 (TODO) | ✅ 最後の式の値を返す | ❌ 常に 0 |
+| if 式 (§6.2) | 最後に評価した値を返す。else なし+条件偽で 0 | ✅ 正しく実装 | ❌ 常に 0 |
+| while 式 (§6.1) | 常に 0 を返す | ✅ 修正済み (常に 0) | ✅ 常に 0 |
 
 - **ブロック式**: spec.md §6.5 は「最後に評価された式の値」と明記。コンパイラの修正が必須。
-- **if / while 式**: spec.md §6.1/§6.2 は「常に 0」だが TODO が付いており、インタプリタは既に値返却を実装済み。テストケースも値返却を期待している。
+- **if 式**: spec.md §6.2 は「最後に評価した値を返す」に確定。コンパイラの修正が必要。
+- **while 式**: spec.md §6.1 は「常に 0」で確定。インタプリタ・コンパイラともに正しい。
 
 ### 修正方針案
 
@@ -169,12 +173,12 @@ __assert(x == 3);  # x は 0 になるため AssertionFailed #
 具体的な変更箇所:
 - `statement.rs`: `generate_block` を「最後の文を特別扱い」するロジックに変更
 - `statement.rs`: `generate_statement` に「値を残すモード」を追加するか、最後の文だけ直接 `generate_expression` を呼ぶ
-- `expression.rs`: `generate_while_expression` でループ本体の値を `last_value` 変数的に管理する設計が必要（while 式の値返却には追加のヒープ変数が必要な可能性あり）
+- while 式は常に 0 を返すため、コンパイラ修正は不要 (既に正しい)
 
 ### 修正の複雑度
 
 - **ブロック式・if 式**: 比較的単純。`generate_block` の最後の文のみ `Discard` を省略すればよい。
-- **while 式**: やや複雑。ループの各イテレーションで値を保持する必要がある。break 時は 0 を返す仕様。Whitespace のスタックマシンでは「前回イテレーションの値を保持」するために一時変数（ヒープ）の使用が必要。
+- **while 式**: 修正不要。仕様により常に 0 を返す（現在のコンパイラ実装で正しい）。
 
 ## 関連ドキュメント
 

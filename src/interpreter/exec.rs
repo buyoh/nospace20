@@ -263,8 +263,8 @@ impl LocalEnvironment<'_, '_> {
         result
     }
 
+    /// while 式は常に 0 を返す (spec §6.1)
     fn interpret_while(&mut self, cond: &Box<ExecExpression>, block: &Block) -> ExpressionFlow {
-        let mut last_value = 0;
         loop {
             let cond = match self.interpret_expression(cond) {
                 ExpressionFlow::Value(e) => e,
@@ -285,20 +285,12 @@ impl LocalEnvironment<'_, '_> {
                 break;
             }
             self.enter_block(&block.scope);
-            let (flow, value) = self.interpret_statements_with_value(&block.statements);
+            let (flow, _value) = self.interpret_statements_with_value(&block.statements);
             let result = match flow {
-                Flow::Proceed => {
-                    last_value = value;
-                    None
-                }
+                Flow::Proceed => None,
                 Flow::Return(v) => Some(ExpressionFlow::Jump(Flow::Return(v))),
-                Flow::Continue => {
-                    last_value = value;
-                    None
-                }
+                Flow::Continue => None,
                 Flow::Break => {
-                    // break で抜けた場合は 0 を返す仕様とする
-                    last_value = 0;
                     self.leave_block();
                     break;
                 }
@@ -308,7 +300,7 @@ impl LocalEnvironment<'_, '_> {
                 return r;
             }
         }
-        ExpressionFlow::Value(last_value)
+        ExpressionFlow::Value(0)
     }
 
     fn interpret_if(
