@@ -43,13 +43,11 @@
 ### アクティブ
 
 - [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
-- [remaining-ws-self-failures.md](remaining-ws-self-failures.md) - 残りの _ws_self テスト失敗 (5件) の調査（より複雑なラベル重複パターンまたは別の問題）
-- [qsort-ws-self-failure.md](qsort-ws-self-failure.md) - test_example_qsort_ws_self 失敗調査（原因特定済み：Bug C → Bug D）
-- [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) - while ループ本体のスタックリーク修正設計（Fix C: generate_while_expression で Discard 追加）
 - [fix-block-scope-offset/](fix-block-scope-offset/) - ブロックスコープ変数のヒープオフセット衝突修正設計（Bug D: scope_depth 無視による変数衝突）
 
 ### 完了済み (done-task/ に移動)
 
+- [qsort-ws-self-failure.md](../done-task/qsort-ws-self-failure.md) - test_example_qsort_ws_self 失敗調査・修正（Bug C/D/E を解決、ws_self 全テスト PASS、121件）(2026-02-17完了)
 - [fix-ws-self-label-duplication.md](../done-task/fix-ws-self-label-duplication.md) - compiler_ws ラベル ID 重複バグ修正（10/15件成功、256 passed; 5 failed）(2026-02-17完了)
 - [whitespace-test-failures-investigation.md](../done-task/whitespace-test-failures-investigation.md) - Whitespace インタプリタテスト失敗調査（全39テスト成功確認、12件の失敗すべて解決）(2026-02-17完了)
 - [fix-whitespace-vm-test-failures.md](../done-task/fix-whitespace-vm-test-failures.md) - WhitespaceVM テスト失敗修正（WSAエンコーディング誤り11箇所 + マニフェストパス誤り4件）(2026-02-17完了)
