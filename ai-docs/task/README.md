@@ -18,6 +18,7 @@
 
 ### アクティブなタスク
 
+- [index-operator-on-non-array.md](index-operator-on-non-array.md) - 非配列変数への `[]` 演算子適用（`arr[i]` は `*(&arr + i)` と同義、semantic_analyzer のチェック緩和）
 - [std-ext-debug-whitespace/](std-ext-debug-whitespace/) - `--std-ext debug` による Whitespace デバッグ拡張 API 対応（コンパイラ・VM・API の3 Phase 設計）
 - [error-test-coverage/](error-test-coverage/) - エラーテストケース網羅性向上（18件のテスト追加計画、字句解析6件・構文解析7件・意味解析5件）
 - [multi-error-reporting.md](multi-error-reporting.md) - 意味解析における複数エラー報告（semantic_analyzer で複数箇所のコンパイルエラーを収集・表示）
