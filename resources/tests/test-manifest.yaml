@@ -659,11 +659,6 @@ tests:
     path: func_duplicate_main_001
     comment: "Error: duplicate main function definition"
 
-  - name: test_compile_error_not_an_array_001
-    type: compile_error
-    path: not_an_array_001
-    comment: "Error: subscript access on non-array variable"
-
   - name: test_compile_error_ref_non_variable_001
     type: compile_error
     path: ref_non_variable_001
@@ -963,3 +958,21 @@ tests:
     type: compile_error
     path: builtin_arg_too_many_001
     comment: "Error: builtin function called with too many arguments"
+
+  # ========================================
+  # Index operator on non-array variables
+  # ========================================
+  - name: test_index_operator_non_array_001
+    type: success_io
+    path: index_operator_non_array_001
+    comment: "Index operator on non-array variable (read)"
+
+  - name: test_index_operator_non_array_002
+    type: success_io
+    path: index_operator_non_array_002
+    comment: "Index operator on non-array variable (write)"
+
+  - name: test_index_operator_non_array_003
+    type: success_io
+    path: index_operator_non_array_003
+    comment: "Index operator with & for address calculation"

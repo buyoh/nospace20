@@ -150,3 +150,31 @@ Expression::ArrayAccess(name, index_expr) => {
 - **インタプリタ・コンパイラへの変更は不要**: `array_size` は全箇所で無視されており、ランタイム動作に影響なし
 - **メモリ安全性**: `x[i]` で `i != 0` の場合、隣接変数のメモリにアクセスすることになる。これは仕様通りの動作（C言語のポインタ演算と同等、境界チェックなし）
 - **既存テストへの影響**: `not_an_array_001` 以外の既存テストには影響なし
+
+## 進捗
+
+### 2026-02-17
+
+- [x] `src/semantic_analyzer/mod.rs` の2箇所を修正
+- [x] `src/semantic_analyzer/tests.rs` の `test_error_array_access_non_array` を正常系テストに変更
+- [x] `resources/tests/fails/compile/not_an_array_001` を削除
+- [x] 新テストケースを `resources/tests/passes/` に追加
+  - `index_operator_non_array_001.ns`: 非配列変数への `[]` 読み取り
+  - `index_operator_non_array_002.ns`: 非配列変数への `[]` 書き込み
+  - `index_operator_non_array_003.ns`: `&x[i]` が参照演算と一致することの確認
+- [x] テストを実行
+  - Unit テスト: すべて成功
+  - Large テスト: 新規追加の3テストが失敗
+
+### 失敗したテスト
+
+新規に追加した以下のテストが失敗:
+- `test_index_operator_non_array_001` / `test_index_operator_non_array_001_ws_self`
+- `test_index_operator_non_array_002` / `test_index_operator_non_array_002_ws_self`
+- `test_index_operator_non_array_003` / `test_index_operator_non_array_003_ws_self`
+
+失敗原因:
+- `__clog` の出力が標準出力ではなく標準エラー出力に出力されている可能性
+- または、期待値の設定に問題がある可能性
+
+調査ドキュメント: `ai-docs/task/investigate-index-operator-tests.md` に記録

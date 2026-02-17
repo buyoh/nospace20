@@ -49,15 +49,13 @@ fn convert_to_exec_expression_with_resolver(
                         vec![code_parse_error!(format!("undefined variable: {}", name))]
                     })?;
 
-                    // 配列変数であることを確認
+                    // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
                     let array_size = parent_resolver
                         .get_array_size(name)
                         .ok_or_else(|| {
                             vec![code_parse_error!(format!("undefined variable: {}", name))]
                         })?
-                        .ok_or_else(|| {
-                            vec![code_parse_error!(format!("'{}' is not an array", name))]
-                        })?;
+                        .unwrap_or(1);
 
                     let exec_index = convert_to_exec_expression_with_resolver(index_expr, parent_resolver)?;
 
@@ -250,11 +248,11 @@ fn convert_to_exec_expression_with_resolver(
                 .resolve_variable(name)
                 .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", name))])?;
 
-            // 配列変数であることを確認
+            // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
             let array_size = parent_resolver
                 .get_array_size(name)
                 .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", name))])?
-                .ok_or_else(|| vec![code_parse_error!(format!("'{}' is not an array", name))])?;
+                .unwrap_or(1);
 
             let exec_index = convert_to_exec_expression_with_resolver(index_expr, parent_resolver)?;
 

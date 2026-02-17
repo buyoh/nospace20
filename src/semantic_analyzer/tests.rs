@@ -519,6 +519,7 @@ fn test_success_array_assignment() {
 
 #[test]
 fn test_error_array_access_non_array() {
+    // arr[i] は *(&arr + i) と同義。非配列変数へのアクセスも許可される。
     // func: main() { let: x; x[0]; return:0; }
     let var_decl = LocatedStatement {
         statement: Statement::VariableDeclaration(
@@ -554,13 +555,8 @@ fn test_error_array_access_non_array() {
 
     let statements = vec![func];
     let result = analyze(&statements);
-    assert!(result.is_err());
-
-    let errors = match result {
-        Err(e) => e,
-        Ok(_) => panic!("Expected error"),
-    };
-    assert!(errors[0].message.contains("is not an array"));
+    // 非配列変数へのインデックスアクセスは合法
+    assert!(result.is_ok());
 }
 
 #[test]
