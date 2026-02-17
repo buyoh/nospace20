@@ -1,7 +1,13 @@
 # デバッグ用シンボルテーブルによる識別子名管理の設計
 
 作成日: 2026-02-10
-**ステータス**: 🚧 進行中（ステップ1-4完了、ステップ5-6未完了）
+**ステータス**: 🚧 進行中（ステップ1-4完了、ステップ5-6の詳細設計完了）
+
+## 詳細設計ドキュメント
+
+- [symbol-table-impl/](symbol-table-impl/) — ステップ5・6の詳細設計
+  - [step5-static-storage-indexing.md](symbol-table-impl/step5-static-storage-indexing.md)
+  - [step6-symbol-table.md](symbol-table-impl/step6-symbol-table.md)
 
 ## 実装状況
 
@@ -110,7 +116,19 @@ impl Scope {
 **依存関係**: ステップ3（組み込み関数のインデックス化）の完了が前提
 
 ### ⏳ ステップ5: function_static_storage のインデックスキー化
+
+**詳細設計**: [symbol-table-impl/step5-static-storage-indexing.md](symbol-table-impl/step5-static-storage-indexing.md)
+
+`Environment.function_static_storage` のキーを `String` → `usize`（関数インデックス）に変更する。
+現在、初期化時（関数名をキー）とランタイム時（`__func_X_Y` 形式をキー）でキーが不整合になっているバグも同時に修正される。
+
+変更量: 小（3ファイル）
+
 ---
+
+### ⏳ ステップ6: SymbolTable の導入
+
+**詳細設計**: [symbol-table-impl/step6-symbol-table.md](symbol-table-impl/step6-symbol-table.md)
 
 ## 提案: SymbolTable 構造体
 **目的**: ステップ1-5で削除された全ての文字列情報を、デバッグ用の別構造体に集約する。
@@ -213,3 +231,6 @@ pub struct Scope {
   - 実装状況テーブルを追加
   - 完了済みステップの詳細説明を簡略化し done-task へのリンクを強化
   - 残りのステップ（4-6）の詳細設計を展開
+- 2026-02-17: ステップ5・6の詳細設計を `symbol-table-impl/` に記述
+  - ステップ5: function_static_storage のキー不整合バグを発見・修正方針を策定
+  - ステップ6: SymbolTable 構造体の設計、サブステップ 6a-6e を定義

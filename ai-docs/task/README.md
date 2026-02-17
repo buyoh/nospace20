@@ -10,7 +10,8 @@
 - [unimplemented-type-system.md](unimplemented-type-system.md) - 未実装の型システム（int, void, function, tuple）
 - [unimplemented-compiler-features.md](unimplemented-compiler-features.md) - 未実装のコンパイラ機能（compiler, grayspace）
 - [unused-code-cleanup.md](unused-code-cleanup.md) - 未使用コードの整理（17件の警告調査・分類済み、Phase 1-3 の対処方針）
-- [symbol-table-design.md](symbol-table-design.md) - デバッグ用シンボルテーブル設計（識別子のインデックス化・文字列分離）- ステップ2完了 (2026-02-11)
+- [symbol-table-design.md](symbol-table-design.md) - デバッグ用シンボルテーブル設計（識別子のインデックス化・文字列分離）- ステップ1-4完了、ステップ5-6の詳細設計完了 (2026-02-17)
+  - [symbol-table-impl/](symbol-table-impl/) - ステップ5・6の詳細設計
 - [error-message-improvement.md](error-message-improvement.md) - エラーメッセージ型の改善（Cow<'static, str> 導入設計）
 - [implement-getcv-builtin.md](implement-getcv-builtin.md) - __getcv 組み込み関数の実装（変数アドレスへの入力）
 - [implement-multi-variable-declaration.md](implement-multi-variable-declaration.md) - 複数変数宣言の実装（let:a, b;）
