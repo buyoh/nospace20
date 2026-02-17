@@ -109,9 +109,9 @@ struct Args {
     #[arg(long, value_enum, default_value_t = CliTarget::Ws)]
     target: CliTarget,
 
-    /// Target extensions (only with --mode=compile, can be specified multiple times)
-    #[arg(long = "target-ext", value_enum)]
-    target_ext: Vec<CliTargetExt>,
+    /// Standard extensions (only with --mode=compile, can be specified multiple times)
+    #[arg(long = "std-ext", value_enum)]
+    std_ext: Vec<CliTargetExt>,
 
     /// Output file (only with --mode=compile, stdout if not specified)
     #[arg(short, long)]
@@ -172,7 +172,7 @@ fn main() {
         std: args.std.into(),
         mode: args.mode.into(),
         target: args.target.into(),
-        target_extensions: args.target_ext.into_iter().map(|e| e.into()).collect(),
+        target_extensions: args.std_ext.into_iter().map(|e| e.into()).collect(),
         output: args.output,
         debug: args.debug,
         ignore_debug: args.ignore_debug,
