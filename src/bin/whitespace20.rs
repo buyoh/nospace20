@@ -1,10 +1,25 @@
 //! whitespace20 - A Whitespace language interpreter
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use nospace20::whitespace::{RuntimeError, StepResult, WhitespaceVM};
+use nospace20::TargetExtension;
 use std::fs;
 use std::io::{BufReader, Write};
 use std::process;
+
+/// ターゲット拡張
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum CliTargetExt {
+    Debug,
+}
+
+impl From<CliTargetExt> for TargetExtension {
+    fn from(cli: CliTargetExt) -> Self {
+        match cli {
+            CliTargetExt::Debug => TargetExtension::Debug,
+        }
+    }
+}
 
 /// whitespace20 - A Whitespace language interpreter
 #[derive(Parser, Debug)]
@@ -30,10 +45,17 @@ struct Args {
     /// Show execution metrics after run
     #[arg(long)]
     debug: bool,
+
+    /// Standard extensions (can be specified multiple times, for compatibility with nospace20)
+    #[arg(long = "std-ext", value_enum)]
+    std_ext: Vec<CliTargetExt>,
 }
 
 fn main() {
     let args = Args::parse();
+
+    // std_ext は現時点では未使用（将来の拡張のために受け付ける）
+    let _target_extensions: Vec<TargetExtension> = args.std_ext.into_iter().map(|e| e.into()).collect();
 
     // ファイル読み込み
     let source = match fs::read_to_string(&args.file) {
