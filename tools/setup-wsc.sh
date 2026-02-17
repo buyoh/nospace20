@@ -9,4 +9,4 @@ cargo install whitespacers --root "$INSTALL_DIR"
 
 echo "Done. wsc is available at: $INSTALL_DIR/bin/wsc"
 echo "Version:"
-"$INSTALL_DIR/bin/wsc" --version
+"$INSTALL_DIR/bin/wsc" --help || :
