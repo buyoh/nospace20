@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [compiler-implementation-record.md](compiler-implementation-record.md) | コンパイラ実装状況記録（Whitespace コンパイラほぼ完成、98.9%テスト成功率、grayspace未着手） | 2026-02-18 |
 | [symbol-table-design.md](symbol-table-design.md) | デバッグ用シンボルテーブルによる識別子名管理の完全実装（ステップ1-6全て完了：静的ストレージのインデックスキー化、SymbolTable導入） | 2026-02-17 |
 | [whitespace-interpreter/](whitespace-interpreter/) | Whitespace インタプリタ実装完了（Phase 1-2完了、wsc クロスバリデーション、39テスト全成功）| 2026-02-17 |
 | [fix-block-scope-offset/](fix-block-scope-offset/) | ブロックスコープ変数のメモリアドレス衝突修正（Bug D: 変数衝突バグ、4件のテスト修正、273 passed; 4 failed）| 2026-02-17 |
