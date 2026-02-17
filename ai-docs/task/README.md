@@ -19,6 +19,7 @@
 
 ### アクティブなタスク
 
+- [whitespace-duplicate-label-check.md](whitespace-duplicate-label-check.md) - Whitespace 重複ラベル定義のエラー検出（パース時の重複チェック、ws_parse_error テストタイプ追加）
 - [fix-function-arg-count-check.md](fix-function-arg-count-check.md) - 関数呼び出し引数数チェックの実装（意味解析でのコンパイルエラー検出）
 - [index-operator-on-non-array.md](index-operator-on-non-array.md) - 非配列変数への `[]` 演算子適用（`arr[i]` は `*(&arr + i)` と同義、semantic_analyzer のチェック緩和）
 - [std-ext-debug-whitespace/](std-ext-debug-whitespace/) - `--std-ext debug` による Whitespace デバッグ拡張 API 対応（コンパイラ・VM・API の3 Phase 設計）
