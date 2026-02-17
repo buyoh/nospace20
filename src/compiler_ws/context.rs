@@ -189,13 +189,13 @@ impl<'a> CodeGenContext<'a> {
     }
 
     /// 関数ラベルを取得
-    pub fn get_function_label(&self, name: &str) -> Option<LabelId> {
-        self.labels.get_function_label(name)
+    pub fn get_function_label(&self, func_index: usize) -> Option<LabelId> {
+        self.labels.get_function_label(func_index)
     }
 
     /// 関数ラベルを取得または作成
-    pub fn get_or_create_function_label(&mut self, name: &str) -> LabelId {
-        self.labels.get_or_create_function_label(name)
+    pub fn get_or_create_function_label(&mut self, func_index: usize) -> LabelId {
+        self.labels.get_or_create_function_label(func_index)
     }
 
     /// 変数参照からアドレス情報を取得

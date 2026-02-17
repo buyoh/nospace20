@@ -158,7 +158,7 @@ fn generate_function_definition(
     func_index: usize,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
-    let label = ctx.get_or_create_function_label(func_name);
+    let label = ctx.get_or_create_function_label(func_index);
 
     // 関数本体をスキップするジャンプ
     prog.push(Instruction::Jump(label.offset(1)));

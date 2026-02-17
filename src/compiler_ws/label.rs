@@ -36,8 +36,10 @@ pub mod reserved_labels {
 pub struct LabelAllocator {
     /// 次に割り当てるラベルID
     next_id: u32,
-    /// 関数名 → ラベルID のマッピング
-    function_labels: HashMap<String, LabelId>,
+    /// 関数インデックス → ラベルID のマッピング
+    /// 関数名ではなくインデックスをキーにすることで、
+    /// 同名関数のシャドーイング時にもラベルの一意性を保証する。
+    function_labels: HashMap<usize, LabelId>,
 }
 
 impl LabelAllocator {
@@ -65,25 +67,26 @@ impl LabelAllocator {
 
     /// 関数用ラベルを取得または作成
     /// 関数は2つのラベルを使用 (エントリ点 + スキップ先)
-    pub fn get_or_create_function_label(&mut self, name: &str) -> LabelId {
-        if let Some(&label) = self.function_labels.get(name) {
+    /// キーは関数のグローバルインデックスで、同名関数のシャドーイング時にも一意性を保証する。
+    pub fn get_or_create_function_label(&mut self, func_index: usize) -> LabelId {
+        if let Some(&label) = self.function_labels.get(&func_index) {
             label
         } else {
             let label = self.allocate_range(2);
-            self.function_labels.insert(name.to_string(), label);
+            self.function_labels.insert(func_index, label);
             label
         }
     }
 
     /// 関数ラベルが存在するか確認
     #[cfg(test)]
-    pub fn has_function(&self, name: &str) -> bool {
-        self.function_labels.contains_key(name)
+    pub fn has_function(&self, func_index: usize) -> bool {
+        self.function_labels.contains_key(&func_index)
     }
 
     /// 関数ラベルを取得（存在する場合）
-    pub fn get_function_label(&self, name: &str) -> Option<LabelId> {
-        self.function_labels.get(name).copied()
+    pub fn get_function_label(&self, func_index: usize) -> Option<LabelId> {
+        self.function_labels.get(&func_index).copied()
     }
 
     /// 子アロケータで消費されたラベル ID を同期する。
@@ -94,8 +97,8 @@ impl LabelAllocator {
             self.next_id = other.next_id;
         }
         // 子コンテキストで作成された関数ラベルをマージ
-        for (name, label) in &other.function_labels {
-            self.function_labels.entry(name.clone()).or_insert(*label);
+        for (func_index, label) in &other.function_labels {
+            self.function_labels.entry(*func_index).or_insert(*label);
         }
     }
 }
@@ -133,23 +136,23 @@ mod tests {
     fn test_function_label() {
         let mut alloc = LabelAllocator::new();
 
-        let f1 = alloc.get_or_create_function_label("foo");
+        let f1 = alloc.get_or_create_function_label(0);
         assert_eq!(f1.0, 16);
 
-        let f1_again = alloc.get_or_create_function_label("foo");
+        let f1_again = alloc.get_or_create_function_label(0);
         assert_eq!(f1_again.0, 16); // 同じラベル
 
-        let f2 = alloc.get_or_create_function_label("bar");
-        assert_eq!(f2.0, 18); // foo が 16-17 を使用、bar は 18-19
+        let f2 = alloc.get_or_create_function_label(1);
+        assert_eq!(f2.0, 18); // 0 が 16-17 を使用、1 は 18-19
     }
 
     #[test]
     fn test_has_function() {
         let mut alloc = LabelAllocator::new();
 
-        assert!(!alloc.has_function("test"));
-        alloc.get_or_create_function_label("test");
-        assert!(alloc.has_function("test"));
+        assert!(!alloc.has_function(0));
+        alloc.get_or_create_function_label(0);
+        assert!(alloc.has_function(0));
     }
 
     #[test]
@@ -168,15 +171,15 @@ mod tests {
     #[test]
     fn test_sync_function_labels() {
         let mut parent = LabelAllocator::new();
-        parent.get_or_create_function_label("main"); // label_16
+        parent.get_or_create_function_label(0); // label_16
 
         let mut child = parent.clone();
-        child.get_or_create_function_label("helper"); // label_18
+        child.get_or_create_function_label(1); // label_18
 
         parent.sync_next_id(&child);
 
         // 子で作成された関数ラベルが親にマージされることを確認
-        assert_eq!(parent.get_function_label("helper"), Some(LabelId(18)));
+        assert_eq!(parent.get_function_label(1), Some(LabelId(18)));
         // 次のラベルは 20 から
         assert_eq!(parent.allocate().0, 20);
     }
@@ -222,25 +225,25 @@ mod tests {
         // 関数1で制御構造のラベルを使用し、その後関数2を定義
         let mut parent = LabelAllocator::new();
 
-        // 関数1 (puts) を定義開始
-        let func1_label = parent.get_or_create_function_label("puts"); // label_16, 17
+        // 関数0 (puts) を定義開始
+        let func1_label = parent.get_or_create_function_label(0); // label_16, 17
         assert_eq!(func1_label.0, 16);
 
-        // 関数1の本体を生成 (子コンテキスト)
+        // 関数0の本体を生成 (子コンテキスト)
         let mut child1 = parent.clone();
         let loop_start = child1.allocate(); // label_18 (while ループ開始)
         let loop_end = child1.allocate(); // label_19 (while ループ終了)
         assert_eq!(loop_start.0, 18);
         assert_eq!(loop_end.0, 19);
 
-        // 関数1完了後、ラベルを同期 ← これがバグ修正
+        // 関数0完了後、ラベルを同期 ← これがバグ修正
         parent.sync_next_id(&child1);
 
-        // 関数2 (main) を定義
-        let func2_label = parent.get_or_create_function_label("main"); // label_20, 21
+        // 関数1 (main) を定義
+        let func2_label = parent.get_or_create_function_label(1); // label_20, 21
         assert_eq!(func2_label.0, 20); // label_18 ではなく label_20 (重複回避成功!)
 
-        // 関数2の本体
+        // 関数1の本体
         let mut child2 = parent.clone();
         let if_else_label = child2.allocate(); // label_22
         assert_eq!(if_else_label.0, 22);
@@ -249,5 +252,36 @@ mod tests {
 
         // 最終的に全てのラベルが一意であることを確認
         assert_eq!(parent.allocate().0, 23);
+    }
+
+    #[test]
+    fn test_shadowed_function_labels_are_unique() {
+        // 関数シャドーイングのシナリオ:
+        // 同名の関数が異なるスコープに存在する場合、異なるラベルが割り当てられるべき。
+        // 例: グローバルの foo (index=0) とネストされた foo (index=2) は別ラベル。
+        let mut alloc = LabelAllocator::new();
+
+        // グローバル foo (func_index=0) → label_16, 17
+        let foo_global = alloc.get_or_create_function_label(0);
+        assert_eq!(foo_global.0, 16);
+
+        // outer (func_index=1) → label_18, 19
+        let outer = alloc.get_or_create_function_label(1);
+        assert_eq!(outer.0, 18);
+
+        // ネストされた foo (func_index=2) → label_20, 21 (重複しない!)
+        let foo_nested = alloc.get_or_create_function_label(2);
+        assert_eq!(foo_nested.0, 20);
+
+        // グローバル foo を再度取得しても同じラベル
+        let foo_global_again = alloc.get_or_create_function_label(0);
+        assert_eq!(foo_global_again.0, 16);
+
+        // ネストされた foo を再度取得しても同じラベル
+        let foo_nested_again = alloc.get_or_create_function_label(2);
+        assert_eq!(foo_nested_again.0, 20);
+
+        // 全ラベルが一意であることを確認
+        assert_ne!(foo_global, foo_nested);
     }
 }

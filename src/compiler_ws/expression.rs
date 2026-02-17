@@ -49,13 +49,9 @@ pub fn generate_expression(
                 prog.append(generate_expression(ctx, arg)?);
             }
 
-            // 関数名を取得
-            // scope.symbol_table.function_names[func_ref.local_index] で関数名が取得できる
-            let scope = ctx.scope();
-            let func_name = &scope.symbol_table.function_names[func_ref.local_index];
-
-            // 関数ラベルを取得または作成
-            let func_label = ctx.get_or_create_function_label(func_name);
+            // 関数ラベルを関数インデックスで取得または作成
+            // func_ref.local_index はグローバル関数インデックスに対応
+            let func_label = ctx.get_or_create_function_label(func_ref.local_index);
 
             // Call 命令を生成
             prog.push(Instruction::Call(func_label));

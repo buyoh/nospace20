@@ -46,8 +46,13 @@ pub fn generate_footer(ctx: &CodeGenContext) -> Result<WsProgram, CompileError> 
     let mut prog = WsProgram::new();
 
     // main 関数呼び出し
+    // main_function_index を使用してラベルを取得（関数名ではなくインデックスで管理）
+    let main_idx = ctx
+        .scope()
+        .main_function_index
+        .ok_or(CompileError::MainNotFound)?;
     let main_label = ctx
-        .get_function_label("main")
+        .get_function_label(main_idx)
         .ok_or(CompileError::MainNotFound)?;
     prog.push(Instruction::Call(main_label));
 
