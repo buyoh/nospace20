@@ -8,6 +8,8 @@
 |----------|------|--------|
 | [symbol-table-design.md](symbol-table-design.md) | デバッグ用シンボルテーブルによる識別子名管理の完全実装（ステップ1-6全て完了：静的ストレージのインデックスキー化、SymbolTable導入） | 2026-02-17 |
 | [whitespace-interpreter/](whitespace-interpreter/) | Whitespace インタプリタ実装完了（Phase 1-2完了、wsc クロスバリデーション、39テスト全成功）| 2026-02-17 |
+| [fix-block-scope-offset/](fix-block-scope-offset/) | ブロックスコープ変数のメモリアドレス衝突修正（Bug D: 変数衝突バグ、4件のテスト修正、273 passed; 4 failed）| 2026-02-17 |
+| [whitespace-self-test-failures.md](whitespace-self-test-failures.md) | whitespace-self テスト15件の失敗調査・修正完了（ラベル重複バグ、呼び出し規約バグ、whileループスタックリーク、ブロックスコープオフセット衝突）| 2026-02-18 |
 | [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) | while ループ本体のスタックリーク修正（Bug C: Discard 追加、114/115 ws_self テスト成功）| 2026-02-17 |
 | [add-whitespace-self-target.md](add-whitespace-self-target.md) | whitespace-self テストターゲット追加（独自 WhitespaceVM で nospace コンパイル結果を実行・検証）| 2026-02-17 |
 | [whitespace-test-failures-investigation.md](whitespace-test-failures-investigation.md) | Whitespace インタプリタテスト失敗調査（全39テスト成功確認、12件の失敗すべて解決）| 2026-02-17 |
