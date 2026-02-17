@@ -6,8 +6,9 @@ func: main() {
   y = 200;
   # x[0] = value は *(&x + 0) = value と同義 #
   x[0] = 111;
-  __clog(x);
+  __puti(x);
+  __putc(10);
   # x[1] = value は *(&x + 1) = value でメモリ上の次の変数に書き込み #
   x[1] = 222;
-  __clog(y);
+  __puti(y);
 }
