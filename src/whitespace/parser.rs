@@ -18,6 +18,12 @@ pub enum ParseError {
     InvalidNumber { position: usize },
     /// ラベルリテラルのパースエラー
     InvalidLabel { position: usize },
+    /// 重複したラベル定義
+    DuplicateLabel {
+        label_id: i64,
+        first_position: usize,
+        second_position: usize,
+    },
 }
 
 /// Whitespace テキストを命令列にパースする

@@ -312,6 +312,19 @@ fn {}_wsc() {{
                 )
                 .unwrap();
             }
+            "ws_parse_error" => {
+                // パースエラーテスト
+                writeln!(
+                    f,
+                    r#"{}#[test]
+fn {}() {{
+    test_ws_parse_error_base("{}")
+}}
+"#,
+                    comment_line, test.name, test.path
+                )
+                .unwrap();
+            }
             _ => {
                 panic!("Unknown Whitespace test type: {}", test.test_type);
             }

@@ -97,14 +97,14 @@ impl WhitespaceVM {
     /// Whitespace テキストから VM を構築
     pub fn from_source(source: &str) -> Result<Self, super::ParseError> {
         let instructions = super::parse(source)?;
-        Ok(Self::from_instructions(instructions))
+        Self::from_instructions(instructions)
     }
 
-    /// 命令列から VM を構築（compiler_ws のパイプライン用）
-    pub fn from_instructions(instructions: Vec<Instruction>) -> Self {
-        let labels = Self::collect_labels(&instructions);
+    /// 命令列から VM を構築（重複ラベルチェック付き）
+    pub fn from_instructions(instructions: Vec<Instruction>) -> Result<Self, super::ParseError> {
+        let labels = Self::collect_labels(&instructions)?;
 
-        Self {
+        Ok(Self {
             instructions,
             labels,
             pc: 0,
@@ -117,7 +117,7 @@ impl WhitespaceVM {
             traced: BTreeMap::new(),
             debug_ext: false,
             completed: false,
-        }
+        })
     }
 
     /// I/O バッファを指定して構築
@@ -235,17 +235,23 @@ impl WhitespaceVM {
         String::from_utf8_lossy(bytes).to_string()
     }
 
-    // === 内部処理 ===
-
-    /// ラベル収集
-    fn collect_labels(instructions: &[Instruction]) -> HashMap<i64, usize> {
+    /// ラベル収集（重複チェック付き）
+    fn collect_labels(instructions: &[Instruction]) -> Result<HashMap<i64, usize>, super::ParseError> {
         let mut labels = HashMap::new();
         for (i, inst) in instructions.iter().enumerate() {
             if let Instruction::Label(id) = inst {
-                labels.insert(id.to_ws_value(), i);
+                let label_value = id.to_ws_value();
+                if let Some(&first_pos) = labels.get(&label_value) {
+                    return Err(super::ParseError::DuplicateLabel {
+                        label_id: label_value,
+                        first_position: first_pos,
+                        second_position: i,
+                    });
+                }
+                labels.insert(label_value, i);
             }
         }
-        labels
+        Ok(labels)
     }
 
     /// 1命令を実行する
@@ -579,7 +585,7 @@ mod tests {
             Instruction::Push(WsNumber(3)),
             Instruction::Add,
             Instruction::Exit,
-        ]);
+        ]).unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
         assert_eq!(vm.data_stack(), &[5]);
@@ -594,7 +600,7 @@ mod tests {
             Instruction::Add,
             Instruction::Add,
             Instruction::Exit,
-        ]);
+        ]).unwrap();
         // budget=2 で中断
         let result = vm.step(2);
         assert_eq!(result, StepResult::Suspended);
@@ -619,7 +625,7 @@ mod tests {
             Instruction::Label(LabelId(1)),
             Instruction::Call(LabelId(2)),
             Instruction::Exit,
-        ]);
+        ]).unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
         assert_eq!(vm.data_stack(), &[42]);
@@ -633,7 +639,7 @@ mod tests {
             Instruction::Push(WsNumber(7)),
             Instruction::Store,
             Instruction::Exit,
-        ])
+        ]).unwrap()
         .with_debug_ext(true);
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
@@ -649,7 +655,7 @@ mod tests {
             Instruction::Push(WsNumber(100)), // addr
             Instruction::Retrieve,
             Instruction::Exit,
-        ]);
+        ]).unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
         assert_eq!(vm.data_stack(), &[42]);
@@ -662,7 +668,7 @@ mod tests {
             Instruction::Push(WsNumber(0)),
             Instruction::Div,
             Instruction::Exit,
-        ]);
+        ]).unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Error(RuntimeError::DivisionByZero));
     }
@@ -672,7 +678,7 @@ mod tests {
         let mut vm = WhitespaceVM::from_instructions(vec![
             Instruction::Add, // スタックが空なのに Add
             Instruction::Exit,
-        ]);
+        ]).unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Error(RuntimeError::StackUnderflow));
     }

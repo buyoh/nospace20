@@ -2,7 +2,7 @@
 
 mod common;
 
-use nospace20::whitespace::{RuntimeError, StepResult, WhitespaceVM};
+use nospace20::whitespace::{ParseError, RuntimeError, StepResult, WhitespaceVM};
 use std::fs;
 use std::io;
 
@@ -43,7 +43,7 @@ fn test_ws_io_base(test_name: &str) {
             test_name
         ));
 
-    let mut vm = WhitespaceVM::from_source(&ws_code)
+    let vm = WhitespaceVM::from_source(&ws_code)
         .expect(&format!("Failed to parse Whitespace for {}", test_name));
 
     let stdin_cursor: Box<dyn io::BufRead> =
@@ -111,6 +111,46 @@ fn test_ws_runtime_error_base(test_name: &str) {
             );
         }
         _ => panic!("Test {} expected error but got: {:?}", test_name, result),
+    }
+}
+
+/// ws_parse_error テスト: パースエラー検証
+fn test_ws_parse_error_base(test_name: &str) {
+    let path_base = format!("resources/tests_ws/fails/parse/{}", test_name);
+    let wsa_content = fs::read_to_string(format!("{}.wsa", path_base))
+        .expect(&format!("Failed to read {}.wsa", test_name));
+    let ws_code = decode_wsa(&wsa_content);
+
+    let check: serde_json::Value = serde_json::from_reader(io::BufReader::new(
+        fs::File::open(format!("{}.check.json", path_base))
+            .expect(&format!("Failed to read {}.check.json", test_name)),
+    ))
+    .expect(&format!("Failed to parse check.json for {}", test_name));
+
+    let expected_error = check
+        .get("error")
+        .and_then(|v| v.as_str())
+        .expect(&format!("No 'error' field in check.json for {}", test_name));
+
+    let result = WhitespaceVM::from_source(&ws_code);
+
+    match result {
+        Err(e) => {
+            let error_name = match e {
+                ParseError::DuplicateLabel { .. } => "DuplicateLabel",
+                ParseError::InvalidImp { .. } => "InvalidImp",
+                ParseError::InvalidCommand { .. } => "InvalidCommand",
+                ParseError::UnexpectedEof { .. } => "UnexpectedEof",
+                ParseError::InvalidNumber { .. } => "InvalidNumber",
+                ParseError::InvalidLabel { .. } => "InvalidLabel",
+            };
+            assert_eq!(
+                expected_error, error_name,
+                "Test {} error type mismatch",
+                test_name
+            );
+        }
+        Ok(_) => panic!("Test {} expected parse error but parsing succeeded", test_name),
     }
 }
 

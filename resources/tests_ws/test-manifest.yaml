@@ -201,6 +201,6 @@ tests:
     path: undefined_label_001
     comment: "Jump to undefined label"
   - name: test_ws_errors_duplicate_label_001
-    type: ws_io
-    path: flow/duplicate_label_001
-    comment: "Duplicate label definition"
+    type: ws_parse_error
+    path: duplicate_label_001
+    comment: "Duplicate label definition (should be parse error)"
