@@ -4,6 +4,8 @@ use clap::{Parser, ValueEnum};
 use nospace20::{
     compile_to_whitespace,
     compile_to_whitespace_debug,
+    compile_to_whitespace_with_options,
+    compile_to_whitespace_debug_with_options,
     interpret_with_env,
     parse_to_tokens,
     parse_to_tree,
@@ -243,9 +245,10 @@ fn main() {
         }
         ExecutionMode::Compile => {
             // コンパイルモード
+            let debug_ext = property.target_extensions.contains(&TargetExtension::Debug);
             let compiled = match property.target {
-                CompileTarget::Ws => compile_to_whitespace(&a),
-                CompileTarget::Mnemonic => compile_to_whitespace_debug(&a),
+                CompileTarget::Ws => compile_to_whitespace_with_options(&a, debug_ext),
+                CompileTarget::Mnemonic => compile_to_whitespace_debug_with_options(&a, debug_ext),
                 _ => unreachable!("Unsupported target should be caught by validation"),
             };
 

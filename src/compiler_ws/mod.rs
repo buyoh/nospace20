@@ -54,9 +54,9 @@ impl std::fmt::Display for CompileError {
 
 impl std::error::Error for CompileError {}
 
-/// Scope を Whitespace プログラムにコンパイル
-pub fn compile(scope: &Scope) -> Result<WsProgram, CompileError> {
-    let mut ctx = CodeGenContext::new(scope);
+/// Scope を Whitespace プログラムにコンパイル（拡張オプション付き）
+pub fn compile_with_options(scope: &Scope, debug_ext: bool) -> Result<WsProgram, CompileError> {
+    let mut ctx = CodeGenContext::new_with_options(scope, debug_ext);
     let mut program = WsProgram::new();
 
     // 1. ヘッダー（初期化・組み込みルーチン）を生成
@@ -69,4 +69,9 @@ pub fn compile(scope: &Scope) -> Result<WsProgram, CompileError> {
     program.append(builtin::generate_footer(&ctx)?);
 
     Ok(program)
+}
+
+/// Scope を Whitespace プログラムにコンパイル（従来互換）
+pub fn compile(scope: &Scope) -> Result<WsProgram, CompileError> {
+    compile_with_options(scope, false)
 }

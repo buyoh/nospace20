@@ -1,0 +1,6 @@
+# __assert should pass with non-zero value #
+func:main(){
+  __assert(1);
+  __assert(42);
+  __puti(1);
+}

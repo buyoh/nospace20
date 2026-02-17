@@ -459,11 +459,29 @@ fn generate_function_call(
         BuiltinFunctionKind::Putc => generate_builtin_putc(ctx, args),
         BuiltinFunctionKind::Geti => generate_builtin_geti(ctx, args),
         BuiltinFunctionKind::Getc => generate_builtin_getc(ctx, args),
-        // デバッグ用組み込み関数は Whitespace では無視（引数は評価して値を返す）
+        // デバッグ用組み込み関数: --std-ext debug 時は拡張 API を使用
         BuiltinFunctionKind::Clog => generate_builtin_debug_noop(ctx, args),
-        BuiltinFunctionKind::Trace => generate_builtin_debug_noop(ctx, args),
-        BuiltinFunctionKind::Assert => generate_builtin_debug_noop(ctx, args),
-        BuiltinFunctionKind::AssertNot => generate_builtin_debug_noop(ctx, args),
+        BuiltinFunctionKind::Trace => {
+            if ctx.is_debug_ext() {
+                generate_builtin_debug_store(ctx, args, heap_layout::EXT_TRACE_ADDR)
+            } else {
+                generate_builtin_debug_noop(ctx, args)
+            }
+        }
+        BuiltinFunctionKind::Assert => {
+            if ctx.is_debug_ext() {
+                generate_builtin_debug_store(ctx, args, heap_layout::EXT_ASSERT_ADDR)
+            } else {
+                generate_builtin_debug_noop(ctx, args)
+            }
+        }
+        BuiltinFunctionKind::AssertNot => {
+            if ctx.is_debug_ext() {
+                generate_builtin_debug_store(ctx, args, heap_layout::EXT_ASSERT_NOT_ADDR)
+            } else {
+                generate_builtin_debug_noop(ctx, args)
+            }
+        }
     }
 }
 
@@ -576,6 +594,48 @@ fn generate_builtin_debug_noop(
         prog.append(generate_expression(ctx, &args[0])?);
 
         // 残りの引数を評価（副作用のため）して破棄
+        for arg in &args[1..] {
+            prog.append(generate_expression(ctx, arg)?);
+            prog.push(Instruction::Discard);
+        }
+    }
+
+    Ok(prog)
+}
+
+/// デバッグ用組み込み関数（--std-ext debug 有効時）
+/// __trace(n), __assert(n), __assert_not(n)
+/// 引数を評価し、その値を返しつつ、指定された負ヒープアドレスに Store する
+fn generate_builtin_debug_store(
+    ctx: &mut CodeGenContext,
+    args: &[Box<ExecExpression>],
+    addr: i64,
+) -> Result<WsProgram, CompileError> {
+    let mut prog = WsProgram::new();
+
+    if args.is_empty() {
+        // 引数なし: 0 を Store して 0 を返す
+        prog.push(Instruction::Push(WsNumber(addr)));
+        prog.push(Instruction::Push(WsNumber(0)));
+        prog.push(Instruction::Store);
+        prog.push(Instruction::Push(WsNumber(0)));
+    } else {
+        // 最初の引数を評価 → スタック: [..., val]
+        prog.append(generate_expression(ctx, &args[0])?);
+
+        // 値を複製（戻り値用） → スタック: [..., val, val]
+        prog.push(Instruction::Duplicate);
+
+        // アドレスをプッシュ → スタック: [..., val, val, addr]
+        prog.push(Instruction::Push(WsNumber(addr)));
+
+        // swap → スタック: [..., val, addr, val]
+        prog.push(Instruction::Swap);
+
+        // store: heap[addr] = val → スタック: [..., val]
+        prog.push(Instruction::Store);
+
+        // 残りの引数を評価して破棄（副作用のため）
         for arg in &args[1..] {
             prog.append(generate_expression(ctx, arg)?);
             prog.push(Instruction::Discard);

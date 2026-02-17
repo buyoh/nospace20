@@ -76,6 +76,11 @@ pub mod heap_layout {
     pub const LOCAL_HEAP_END: i64 = MemoryLayout::LOCAL_HEAP_END.0;
     pub const TEMP_PTR: i64 = MemoryLayout::TEMP_PTR.0;
     pub const GLOBAL_PTR: i64 = MemoryLayout::GLOBAL_PTR.0;
+
+    // 拡張 API 用負ヒープアドレス (--std-ext debug)
+    pub const EXT_TRACE_ADDR: i64 = -10;
+    pub const EXT_ASSERT_ADDR: i64 = -11;
+    pub const EXT_ASSERT_NOT_ADDR: i64 = -12;
 }
 
 #[cfg(test)]

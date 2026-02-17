@@ -126,16 +126,32 @@ pub fn interpret_func_with_io(
     (env.traced, stdout_string)
 }
 
-/// Whitespace にコンパイル
-pub fn compile_to_whitespace(scope: &Scope) -> Result<String, String> {
-    compiler_ws::compile(scope)
+/// Whitespace にコンパイル（拡張オプション付き）
+pub fn compile_to_whitespace_with_options(
+    scope: &Scope,
+    debug_ext: bool,
+) -> Result<String, String> {
+    compiler_ws::compile_with_options(scope, debug_ext)
         .map(|prog| prog.to_whitespace())
         .map_err(|e| e.to_string())
 }
 
-/// Whitespace にコンパイル（デバッグ用ニーモニック）
-pub fn compile_to_whitespace_debug(scope: &Scope) -> Result<String, String> {
-    compiler_ws::compile(scope)
+/// Whitespace にコンパイル（デバッグ用ニーモニック、拡張オプション付き）
+pub fn compile_to_whitespace_debug_with_options(
+    scope: &Scope,
+    debug_ext: bool,
+) -> Result<String, String> {
+    compiler_ws::compile_with_options(scope, debug_ext)
         .map(|prog| prog.to_debug_string())
         .map_err(|e| e.to_string())
+}
+
+/// Whitespace にコンパイル（従来互換）
+pub fn compile_to_whitespace(scope: &Scope) -> Result<String, String> {
+    compile_to_whitespace_with_options(scope, false)
+}
+
+/// Whitespace にコンパイル（デバッグ用ニーモニック、従来互換）
+pub fn compile_to_whitespace_debug(scope: &Scope) -> Result<String, String> {
+    compile_to_whitespace_debug_with_options(scope, false)
 }

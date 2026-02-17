@@ -1,0 +1,10 @@
+# Multiple __trace with same value #
+func:main(){
+  let:i;
+  i=0;
+  while:i-3{
+    __trace(0);
+    __trace(i);
+    i=i+1;
+  };
+}

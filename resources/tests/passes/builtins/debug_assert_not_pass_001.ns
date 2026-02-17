@@ -1,0 +1,5 @@
+# __assert_not should pass with zero value #
+func:main(){
+  __assert_not(0);
+  __puti(1);
+}

@@ -83,6 +83,8 @@ pub struct WhitespaceVM {
     // === 拡張 API ===
     /// トレース記録（__trace 拡張 API の出力先）
     pub traced: BTreeMap<i64, i64>,
+    /// デバッグ拡張 API が有効か (--std-ext debug)
+    debug_ext: bool,
 
     // === 実行状態フラグ ===
     /// 実行完了済みかどうか
@@ -113,6 +115,7 @@ impl WhitespaceVM {
             stdout: Box::new(Vec::<u8>::new()),
             total_steps: 0,
             traced: BTreeMap::new(),
+            debug_ext: false,
             completed: false,
         }
     }
@@ -121,6 +124,12 @@ impl WhitespaceVM {
     pub fn with_io(mut self, stdin: Box<dyn BufRead>, stdout: Box<dyn Write>) -> Self {
         self.stdin = stdin;
         self.stdout = stdout;
+        self
+    }
+
+    /// デバッグ拡張を有効にして構築
+    pub fn with_debug_ext(mut self, enabled: bool) -> Self {
+        self.debug_ext = enabled;
         self
     }
 
@@ -493,34 +502,37 @@ impl WhitespaceVM {
 
     /// ヒープへの書き込み（拡張 API フック付き）
     fn heap_store(&mut self, addr: i64, val: i64) -> Result<(), RuntimeError> {
-        match addr {
-            // 拡張 API: 負アドレスへの書き込みを特殊操作として解釈
-            -10 => {
-                // __trace(val)
-                let traced = &mut self.traced;
-                if let Some(v) = traced.get_mut(&val) {
-                    *v += 1;
-                } else {
-                    traced.insert(val, 1);
+        if self.debug_ext {
+            match addr {
+                -10 => {
+                    // __trace(val)
+                    let traced = &mut self.traced;
+                    if let Some(v) = traced.get_mut(&val) {
+                        *v += 1;
+                    } else {
+                        traced.insert(val, 1);
+                    }
+                    return Ok(());
                 }
-            }
-            -11 => {
-                // __assert(val): val == 0 ならエラー
-                if val == 0 {
-                    return Err(RuntimeError::AssertionFailed(val));
+                -11 => {
+                    // __assert(val): val == 0 ならエラー
+                    if val == 0 {
+                        return Err(RuntimeError::AssertionFailed(val));
+                    }
+                    return Ok(());
                 }
-            }
-            -12 => {
-                // __assert_not(val): val != 0 ならエラー
-                if val != 0 {
-                    return Err(RuntimeError::AssertionFailed(val));
+                -12 => {
+                    // __assert_not(val): val != 0 ならエラー
+                    if val != 0 {
+                        return Err(RuntimeError::AssertionFailed(val));
+                    }
+                    return Ok(());
                 }
-            }
-            _ => {
-                // 通常のヒープ書き込み
-                self.heap.insert(addr, val);
+                _ => {}
             }
         }
+        // 通常のヒープ書き込み（debug_ext 無効時、または上記にマッチしないアドレス）
+        self.heap.insert(addr, val);
         Ok(())
     }
 
@@ -618,7 +630,8 @@ mod tests {
             Instruction::Push(WsNumber(7)),
             Instruction::Store,
             Instruction::Exit,
-        ]);
+        ])
+        .with_debug_ext(true);
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
         assert_eq!(vm.traced.get(&7), Some(&1));

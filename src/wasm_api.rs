@@ -11,7 +11,9 @@ use std::io::Cursor;
 use std::rc::Rc;
 
 use crate::{
-    compile_to_whitespace, compile_to_whitespace_debug, interpret_func_with_io, parse_to_tokens,
+    compile_to_whitespace, compile_to_whitespace_debug,
+    compile_to_whitespace_with_options, compile_to_whitespace_debug_with_options,
+    interpret_func_with_io, parse_to_tokens,
     parse_to_tree, syntactic_analyze, CodeParseError, CompileTarget, LanguageStd, TextCode,
 };
 use crate::whitespace::{WhitespaceVM, StepResult};
@@ -406,7 +408,7 @@ impl WasmWhitespaceVM {
         // VM を構築
         let vm_result = WhitespaceVM::from_source(ws_source);
         let vm = match vm_result {
-            Ok(v) => v,
+            Ok(v) => v.with_debug_ext(false),
             Err(e) => {
                 let result = ResultErr {
                     success: false,

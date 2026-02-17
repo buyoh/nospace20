@@ -52,3 +52,40 @@
 ### 公開 API (`lib.rs`)
 - `compile_to_whitespace(&Scope)`: 拡張情報を受け取らない
 - `compile_to_whitespace_debug(&Scope)`: 同上
+
+## 実装進捗
+
+### 2026-02-17: 実装完了
+
+**Phase 1: コンパイラ変更**
+- ✅ `memory.rs`: 拡張 API アドレス定数 (`EXT_TRACE_ADDR`, `EXT_ASSERT_ADDR`, `EXT_ASSERT_NOT_ADDR`) を追加
+- ✅ `context.rs`: `CodeGenContext` に `debug_ext` フラグと `is_debug_ext()` アクセサを追加
+- ✅ `mod.rs`: `compile_with_options(scope, debug_ext)` 関数を追加、既存の `compile()` は従来互換として維持
+- ✅ `expression.rs`: デバッグ組み込み関数のコード生成を条件分岐に変更、`generate_builtin_debug_store()` 関数を追加
+
+**Phase 2: VM 変更**
+- ✅ `interpreter.rs`: `WhitespaceVM` に `debug_ext` フラグと `with_debug_ext()` ビルダーメソッドを追加
+- ✅ `heap_store()`: `debug_ext` が true の場合のみ負ヒープアドレスを拡張 API として処理
+- ✅ `whitespace20.rs`: `--std-ext debug` を VM に渡すように変更
+- ✅ Unit テスト `test_trace_extension` を修正して `.with_debug_ext(true)` を呼び出すように変更
+
+**Phase 3: 公開 API・CLI・WASM 変更**
+- ✅ `lib.rs`: `compile_to_whitespace_with_options()` と `compile_to_whitespace_debug_with_options()` を追加
+- ✅ `nospace20.rs`: `target_extensions` をコンパイラに渡すように変更
+- ✅ `wasm_api.rs`: import に新しい API を追加、`from_whitespace()` で `.with_debug_ext(false)` を明示的に呼び出すように変更
+
+**Phase 4: テストケース追加**
+- ✅ `debug_assert_pass_001`: `__assert` が非ゼロ値で正常に通過することを確認
+- ✅ `debug_assert_not_pass_001`: `__assert_not` がゼロ値で正常に通過することを確認
+- ✅ `debug_trace_multi_001`: 複数の `__trace` が正しくカウントされることを確認
+- ✅ `test-manifest.yaml` に 3 つのテストを追加
+
+**Phase 5: テスト実行**
+- ✅ 新規テストが全て成功
+- ✅ 既存テストへの影響なし（失敗している 2 つのテスト `test_example_qsort_ws_self`, `test_scope_block_var_no_collision_001_ws_self` は元々失敗していたもの）
+
+**結果**
+- 全 3 フェーズの実装が完了
+- 新規テストが全て成功
+- 既存テストに新たな影響なし（元々失敗していたテストは 2 つ）
+- 後方互換性を維持（`debug_ext=false` がデフォルト）

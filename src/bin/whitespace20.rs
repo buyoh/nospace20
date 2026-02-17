@@ -54,8 +54,8 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    // std_ext は現時点では未使用（将来の拡張のために受け付ける）
-    let _target_extensions: Vec<TargetExtension> = args.std_ext.into_iter().map(|e| e.into()).collect();
+    let target_extensions: Vec<TargetExtension> = args.std_ext.into_iter().map(|e| e.into()).collect();
+    let debug_ext = target_extensions.contains(&TargetExtension::Debug);
 
     // ファイル読み込み
     let source = match fs::read_to_string(&args.file) {
@@ -68,7 +68,7 @@ fn main() {
 
     // VM 初期化
     let mut vm = match WhitespaceVM::from_source(&source) {
-        Ok(vm) => vm,
+        Ok(vm) => vm.with_debug_ext(debug_ext),
         Err(e) => {
             eprintln!("Parse error: {:?}", e);
             process::exit(1);

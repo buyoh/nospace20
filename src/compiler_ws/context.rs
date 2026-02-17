@@ -42,10 +42,17 @@ pub struct CodeGenContext<'a> {
     /// ループラベルスタック (break/continue のため)
     /// (loop_start, loop_end) のペア
     loop_labels: Vec<(LabelId, LabelId)>,
+
+    /// デバッグ拡張 API が有効か (--std-ext debug)
+    debug_ext: bool,
 }
 
 impl<'a> CodeGenContext<'a> {
     pub fn new(scope: &'a Scope) -> Self {
+        Self::new_with_options(scope, false)
+    }
+
+    pub fn new_with_options(scope: &'a Scope, debug_ext: bool) -> Self {
         Self {
             scope,
             labels: LabelAllocator::new(),
@@ -53,6 +60,7 @@ impl<'a> CodeGenContext<'a> {
             local_heap_size: 0,
             variables: HashMap::new(),
             loop_labels: Vec::new(),
+            debug_ext,
         }
     }
 
@@ -65,6 +73,7 @@ impl<'a> CodeGenContext<'a> {
             local_heap_size: local_var_count as i64,
             variables: HashMap::new(),
             loop_labels: Vec::new(),
+            debug_ext: self.debug_ext,
         }
     }
 
@@ -143,6 +152,11 @@ impl<'a> CodeGenContext<'a> {
     /// 子コンテキストで消費されたラベルカウンタを親に同期する。
     pub fn sync_labels_from(&mut self, child: &CodeGenContext) {
         self.labels.sync_next_id(&child.labels);
+    }
+
+    /// デバッグ拡張が有効かどうかを取得
+    pub fn is_debug_ext(&self) -> bool {
+        self.debug_ext
     }
 }
 
