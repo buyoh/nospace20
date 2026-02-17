@@ -18,6 +18,7 @@
 
 ### アクティブなタスク
 
+- [std-ext-debug-whitespace/](std-ext-debug-whitespace/) - `--std-ext debug` による Whitespace デバッグ拡張 API 対応（コンパイラ・VM・API の3 Phase 設計）
 - [error-test-coverage/](error-test-coverage/) - エラーテストケース網羅性向上（18件のテスト追加計画、字句解析6件・構文解析7件・意味解析5件）
 - [multi-error-reporting.md](multi-error-reporting.md) - 意味解析における複数エラー報告（semantic_analyzer で複数箇所のコンパイルエラーを収集・表示）
 - [duplicate-function-check.md](duplicate-function-check.md) - 同一スコープ内の関数重複定義の検出（semantic error）
