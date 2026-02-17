@@ -1,4 +1,8 @@
-# Whitespace インタプリタ (`src/whitespace/interpreter`)
+# Whitespace インタプリタ (`src/whitespace/interpreter`) - 完了
+
+**完了日**: 2026-02-17
+
+**状況**: Phase 1 & 2 完了、Phase 3 基本完了（残りは低優先度タスク）
 
 ## 概要
 
@@ -53,18 +57,50 @@ Whitespace はフラットな命令セットのスタックマシンであるた
 
 注: 拡張 API の動作確認は compiler_ws の対応が必要
 
-### Phase 3: 統合テスト (wsc 比較)
+### Phase 3: 統合テスト (wsc 比較) ✅ 基本完了
 
-- [ ] 既存 large テストの Whitespace VM 経由実行
-- [ ] wsc と whitespace20 の出力比較テスト
+- [x] wsc と whitespace20 の出力比較テスト
+  - 完了レポート: [wsc-cross-validation.md](../../done-task/wsc-cross-validation.md)
+  - `tests/whitespace_direct_test.rs` に wsc クロスバリデーション実装
+  - 39 テスト全て成功 (自前 VM + wsc 両方)
+
+**低優先度タスク（将来の拡張）:**
 - [ ] `test-manifest.yaml` に `whitespace_vm` ターゲット追加
+- [ ] 既存 large テストの Whitespace VM 経由実行
+
+**備考**: compiler_ws の正確性は既に `whitespace` (wsc) と `whitespace-self` ターゲットで十分検証されている。
+Whitespace VM 自体も 39 テストで網羅的にテスト済み。`whitespace_vm` ターゲット追加は
+テスト数を大幅に増やす (280件追加) ため、必要性が明確になるまで保留。
 
 ## 関連タスク
 
 - [suspendable-interpreter/](../suspendable-interpreter/) — nospace インタプリタ自体の中断機能（本タスクにより優先度低下）
-- [whitespace-integration-test.md](../whitespace-integration-test.md) — Whitespace コンパイラ統合テスト（wsc を使った既存テスト基盤）
+- [wsc-cross-validation.md](wsc-cross-validation.md) — wsc によるクロスバリデーション（完了、39テスト全成功）
 
 ## 関連ドキュメント
 
 - [whitespace-runtime.md](../../architecture/whitespace-runtime.md) — Whitespace 実行環境アーキテクチャ
 - [spec-whitespace.md](../../../spec-whitespace.md) — Whitespace 言語仕様
+
+---
+
+## 完了サマリー
+
+### 実装済み機能
+- ✅ Whitespace テキストパーサ (`src/whitespace/parser.rs`)
+- ✅ 中断可能な VM 実行エンジン (`src/whitespace/interpreter.rs`)
+- ✅ CLI バイナリ `whitespace20` (`src/bin/whitespace20.rs`)
+- ✅ 拡張 API (`__trace`, `__assert`, `__assert_not`)
+- ✅ I/O 命令の完全実装
+- ✅ 39 件の Whitespace 直接テスト (`tests/whitespace_direct_test.rs`)
+- ✅ wsc クロスバリデーション (39 テスト全成功)
+
+### テスト結果
+- `cargo test --test whitespace_direct_test`: **39 passed; 0 failed**
+- wsc クロスバリデーション (`--ignored`): **39 passed; 0 failed**
+
+### 低優先度タスク (保留)
+- `test-manifest.yaml` に `whitespace_vm` ターゲット追加
+  - 理由: compiler_ws の正確性は既に `whitespace` (wsc) と `whitespace-self` で十分検証済み
+  - 影響: テスト数が 280 件追加され、実行時間が増加
+  - 判断: 必要性が明確になるまで保留

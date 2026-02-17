@@ -26,7 +26,6 @@
 - [duplicate-function-check.md](duplicate-function-check.md) - 同一スコープ内の関数重複定義の検出（semantic error）
 - [block-scope-expression.md](block-scope-expression.md) - ブロックスコープ式 `{ ... }` の実装（独立したスコープ機能）
 - [reference-dereference-compiler-ws.md](reference-dereference-compiler-ws.md) - 参照(`&`)・デリファレンス(`*`)のWhitespaceコンパイラ実装（Phase 4、インタプリタは完了済み）
-- [whitespace-interpreter/](whitespace-interpreter/) - Whitespace インタプリタ（明示的スタックマシン、中断可能実行）
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [wasm-compile-error-location.md](wasm-compile-error-location.md) - WASM版コンパイルエラーの位置情報表示（compiler_ws の CompileError に SourceLocation 付与）

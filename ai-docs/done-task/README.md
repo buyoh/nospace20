@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [whitespace-interpreter/](whitespace-interpreter/) | Whitespace インタプリタ実装完了（Phase 1-2完了、wsc クロスバリデーション、39テスト全成功）| 2026-02-17 |
 | [fix-while-loop-stack-leak.md](fix-while-loop-stack-leak.md) | while ループ本体のスタックリーク修正（Bug C: Discard 追加、114/115 ws_self テスト成功）| 2026-02-17 |
 | [add-whitespace-self-target.md](add-whitespace-self-target.md) | whitespace-self テストターゲット追加（独自 WhitespaceVM で nospace コンパイル結果を実行・検証）| 2026-02-17 |
 | [whitespace-test-failures-investigation.md](whitespace-test-failures-investigation.md) | Whitespace インタプリタテスト失敗調査（全39テスト成功確認、12件の失敗すべて解決）| 2026-02-17 |
