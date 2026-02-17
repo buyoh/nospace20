@@ -495,7 +495,7 @@ impl WhitespaceVM {
     fn heap_store(&mut self, addr: i64, val: i64) -> Result<(), RuntimeError> {
         match addr {
             // 拡張 API: 負アドレスへの書き込みを特殊操作として解釈
-            -1 => {
+            -10 => {
                 // __trace(val)
                 let traced = &mut self.traced;
                 if let Some(v) = traced.get_mut(&val) {
@@ -504,13 +504,13 @@ impl WhitespaceVM {
                     traced.insert(val, 1);
                 }
             }
-            -2 => {
+            -11 => {
                 // __assert(val): val == 0 ならエラー
                 if val == 0 {
                     return Err(RuntimeError::AssertionFailed(val));
                 }
             }
-            -3 => {
+            -12 => {
                 // __assert_not(val): val != 0 ならエラー
                 if val != 0 {
                     return Err(RuntimeError::AssertionFailed(val));
@@ -613,8 +613,8 @@ mod tests {
     #[test]
     fn test_trace_extension() {
         let mut vm = WhitespaceVM::from_instructions(vec![
-            // __trace(7): push -1, push 7, store
-            Instruction::Push(WsNumber(-1)),
+            // __trace(7): push -10, push 7, store
+            Instruction::Push(WsNumber(-10)),
             Instruction::Push(WsNumber(7)),
             Instruction::Store,
             Instruction::Exit,

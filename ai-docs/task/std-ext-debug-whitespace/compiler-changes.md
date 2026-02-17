@@ -19,9 +19,9 @@
 
 ```rust
 // 拡張 API 用負ヒープアドレス (--std-ext debug)
-pub const EXT_TRACE_ADDR: HeapAddress = HeapAddress(-1);
-pub const EXT_ASSERT_ADDR: HeapAddress = HeapAddress(-2);
-pub const EXT_ASSERT_NOT_ADDR: HeapAddress = HeapAddress(-3);
+pub const EXT_TRACE_ADDR: HeapAddress = HeapAddress(-10);
+pub const EXT_ASSERT_ADDR: HeapAddress = HeapAddress(-11);
+pub const EXT_ASSERT_NOT_ADDR: HeapAddress = HeapAddress(-12);
 ```
 
 ### 2. `context.rs`: `CodeGenContext` に拡張フラグ追加

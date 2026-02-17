@@ -46,7 +46,7 @@ impl WhitespaceVM {
 fn heap_store(&mut self, addr: i64, val: i64) -> Result<(), RuntimeError> {
     if self.debug_ext {
         match addr {
-            -1 => {
+            -10 => {
                 // __trace(val)
                 let traced = &mut self.traced;
                 if let Some(v) = traced.get_mut(&val) {
@@ -56,14 +56,14 @@ fn heap_store(&mut self, addr: i64, val: i64) -> Result<(), RuntimeError> {
                 }
                 return Ok(());
             }
-            -2 => {
+            -11 => {
                 // __assert(val): val == 0 ならエラー
                 if val == 0 {
                     return Err(RuntimeError::AssertionFailed(val));
                 }
                 return Ok(());
             }
-            -3 => {
+            -12 => {
                 // __assert_not(val): val != 0 ならエラー
                 if val != 0 {
                     return Err(RuntimeError::AssertionFailed(val));

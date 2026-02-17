@@ -14,11 +14,9 @@
 
 | ヒープアドレス | nospace 関数 | 動作 |
 |---|---|---|
-| `-1` | `__trace(n)` | `traced[n] += 1` |
-| `-2` | `__assert(n)` | `n == 0` → `RuntimeError::AssertionFailed` |
-| `-3` | `__assert_not(n)` | `n != 0` → `RuntimeError::AssertionFailed` |
-
-> **注意**: `spec-whitespace.md` の API 仕様テーブルにはアドレス `-10`/`-11`/`-12` と記載されているが、同ドキュメントの詳細仕様セクションおよび既存コード実装ではアドレス `-1`/`-2`/`-3` が使用されている。本設計ではコード実装に合わせて `-1`/`-2`/`-3` を使用する。仕様書のテーブルは修正が必要。
+| `-10` | `__trace(n)` | `traced[n] += 1` |
+| `-11` | `__assert(n)` | `n == 0` → `RuntimeError::AssertionFailed` |
+| `-12` | `__assert_not(n)` | `n != 0` → `RuntimeError::AssertionFailed` |
 
 ## ドキュメント
 
