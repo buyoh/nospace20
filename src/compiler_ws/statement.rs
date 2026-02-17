@@ -31,23 +31,43 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
 }
 
 /// ブロックのコードを生成
+/// ブロック式の値は最後に評価された式の値となる (spec §6.5)
 pub fn generate_block(ctx: &mut CodeGenContext, block: &Block) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
-    // ブロックスコープのオフセットを設定
     ctx.enter_block_scope(block.scope.variable_count);
 
-    // ブロック内の文を順次実行
-    for stmt in &block.statements {
-        prog.append(generate_statement(ctx, stmt)?);
+    let stmt_count = block.statements.len();
+
+    if stmt_count == 0 {
+        // 空ブロックは 0 を返す
+        ctx.leave_block_scope();
+        prog.push(Instruction::Push(WsNumber(0)));
+        return Ok(prog);
     }
 
-    // ブロックスコープから退出
+    // 最後の文以外を処理（式の値は Discard）
+    for i in 0..stmt_count - 1 {
+        prog.append(generate_statement(ctx, &block.statements[i])?);
+    }
+
+    // 最後の文を処理
+    let last_stmt = &block.statements[stmt_count - 1];
+    match last_stmt {
+        ExecStatement::Expression(expr) => {
+            // 式文の場合: 値をスタックに残す（Discard しない）
+            prog.append(expression::generate_expression(ctx, expr)?);
+        }
+        _ => {
+            // return/break/continue の場合: 通常処理
+            // これらはフロー制御を行うため、ブロック式の値は使われないが、
+            // スタック整合性のため 0 を push する
+            prog.append(generate_statement(ctx, last_stmt)?);
+            prog.push(Instruction::Push(WsNumber(0)));
+        }
+    }
+
     ctx.leave_block_scope();
-
-    // ブロックの値として 0 を返す（必要に応じて）
-    prog.push(Instruction::Push(WsNumber(0)));
-
     Ok(prog)
 }
 

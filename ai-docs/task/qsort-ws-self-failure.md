@@ -180,6 +180,33 @@ __assert(x == 3);  # x は 0 になるため AssertionFailed #
 - **ブロック式・if 式**: 比較的単純。`generate_block` の最後の文のみ `Discard` を省略すればよい。
 - **while 式**: 修正不要。仕様により常に 0 を返す（現在のコンパイラ実装で正しい）。
 
+## Bug E 修正完了 (2026-02-17)
+
+### 実装内容
+
+`src/compiler_ws/statement.rs` の `generate_block` を修正:
+
+1. ブロックが空の場合: `push 0` を返す
+2. 最後の文以外: 従来通り `generate_statement` で処理（式の値は `Discard`）
+3. 最後の文が式文の場合: `generate_expression` を直接呼んで値をスタックに残す
+4. 最後の文が return/break/continue の場合: `generate_statement` で処理後、`push 0` を追加
+
+### テスト結果
+
+修正後、Bug E に起因する3件の失敗テストが全て PASS:
+
+```
+test_control_flow_if_expr_value_001_ws_self      ... ok
+test_scope_block_expr_nested_001_ws_self          ... ok
+test_scope_block_expr_value_001_ws_self           ... ok
+```
+
+ws_self 全体: **121 passed, 0 failed** (修正前: 117 passed, 4 failed)
+
+全テストスイート: **492 passed, 0 failed, 167 ignored**
+
+リグレッションなし。qsort を含む全ての ws_self テストが PASS になりました。
+
 ## 関連ドキュメント
 
 - [fix-block-scope-offset/](fix-block-scope-offset/) - Bug D 修正設計
