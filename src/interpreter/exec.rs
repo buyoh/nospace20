@@ -39,7 +39,6 @@ fn uninit_fill_value(randomize: bool) -> i64 {
     }
 }
 
-
 /// 1つのfunction scopeの`実行時インスタンス`を管理する
 ///
 /// scope_stack を BTreeMap<String, i64> から Vec<i64> に変更。

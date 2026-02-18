@@ -77,7 +77,10 @@ fn main() {
 
     // VM 初期化
     let mut vm = match WhitespaceVM::from_source(&source) {
-        Ok(vm) => vm.with_debug_ext(debug_ext).with_strict_heap(args.strict_heap).with_randomize_heap(args.randomize_heap),
+        Ok(vm) => vm
+            .with_debug_ext(debug_ext)
+            .with_strict_heap(args.strict_heap)
+            .with_randomize_heap(args.randomize_heap),
         Err(e) => {
             eprintln!("Parse error: {:?}", e);
             process::exit(1);
