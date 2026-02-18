@@ -22,6 +22,8 @@ func: main() {
 }
 ```
 
+WebEdtior: https://buyoh.github.io/nospace20/
+
 If you want to see more examples, please check the [test cases](./resources/tests/passes/examples).
 
 ## CLI Usage
