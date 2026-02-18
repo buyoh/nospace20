@@ -37,7 +37,6 @@
 - [whitespace-interpreter-tests.md](whitespace-interpreter-tests.md) - Whitespace インタプリタ直接テスト設計（resources/tests_ws/, WSA記法, 29テストケース計画）
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
-- [strict-heap-mode/](strict-heap-mode/) - WhitespaceVM strict-heap モード（未初期化ヒープアクセスのエラー検出、VM・CLI・テスト基盤の4 Phase 設計）
 
 ## 現在のタスク
 

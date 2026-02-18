@@ -50,3 +50,8 @@
   - Phase 6: `whitespace20` CLI に `--randomize-heap` オプションを追加
   - Phase 6: `interpreter-randomize` / `whitespace-self-randomize` テストターゲットをテスト基盤に追加
   - randomize テストで失敗した 11 件（未初期化変数依存）は `exclude_targets` に追加せず TODO として管理（[調査ドキュメント](strict-heap-test-failures.md)）
+- 2026-02-18: Phase 4 対応完了（テストコード修正 + exclude_targets 解除）
+  - `c001.ns`, `c002.ns`, `var_basic_001.ns`, `var_init_hoisting.ns`, `disabled_scope_static_persist_001.ns`, `e1-01-queue.ns` を仕様変更に追従して修正（変数初期値を明示的に `0` で初期化）
+  - 修正後、全6テストの `exclude_targets: [whitespace-self-strict]` を削除
+  - 全テストターゲット（interpreter, whitespace-self-strict, interpreter-randomize, whitespace-self-randomize）で 622 件パス
+  - wsc の `--unchecked-heap` 除去は対象外（Phase 4 スキップ相当、`wsc-test-changes.md` を参照）
