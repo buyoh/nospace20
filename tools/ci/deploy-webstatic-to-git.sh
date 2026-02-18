@@ -47,10 +47,10 @@ cd webui
 cp "$REPO_ROOT_DIR/pkg/"*.wasm "$REPO_ROOT_DIR/pkg/"*.js "$REPO_ROOT_DIR/pkg/"*.ts \
   "$WEBUI_WASM_DEST_DIR/"
 
-cat > .local.env <<EOL
+cat > .env.local <<EOL
 NODE_ENV=production
 VITE_APPLICATION_FLAVOR=wasm
-VITE_BASE_PATH="/nospace20/editor/"
+VITE_BASE_PATH="/nospace20/"
 EOL
 
 npm ci
