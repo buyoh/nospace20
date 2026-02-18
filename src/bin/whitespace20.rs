@@ -46,6 +46,10 @@ struct Args {
     #[arg(long)]
     debug: bool,
 
+    /// Treat uninitialized heap access as an error (like wsc default behavior)
+    #[arg(long)]
+    strict_heap: bool,
+
     /// Standard extensions (can be specified multiple times, for compatibility with nospace20)
     #[arg(long = "std-ext", value_enum)]
     std_ext: Vec<CliTargetExt>,
@@ -69,7 +73,7 @@ fn main() {
 
     // VM 初期化
     let mut vm = match WhitespaceVM::from_source(&source) {
-        Ok(vm) => vm.with_debug_ext(debug_ext),
+        Ok(vm) => vm.with_debug_ext(debug_ext).with_strict_heap(args.strict_heap),
         Err(e) => {
             eprintln!("Parse error: {:?}", e);
             process::exit(1);

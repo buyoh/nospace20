@@ -58,6 +58,8 @@ fn main() {
         let has_interpreter = !exclude_targets.iter().any(|t| t == "interpreter");
         let has_whitespace = !exclude_targets.iter().any(|t| t == "whitespace");
         let has_whitespace_self = !exclude_targets.iter().any(|t| t == "whitespace-self");
+        let has_whitespace_self_strict =
+            !exclude_targets.iter().any(|t| t == "whitespace-self-strict");
 
         // デフォルトで debug_ext は常に true、exclude_std_ext: [debug] で除外された場合のみ false
         let has_debug_ext = test
@@ -120,6 +122,22 @@ fn {}_ws_self() {{
                         .unwrap();
                     }
                 }
+
+                if has_whitespace_self_strict {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
+fn {}_ws_self_strict() {{
+    test_whitespace_self_base_strict("{}", {})
+}}
+"#,
+                        comment_line,
+                        test.name,
+                        test.path,
+                        has_debug_ext
+                    )
+                    .unwrap();
+                }
             }
             "success_io" => {
                 if has_interpreter {
@@ -173,6 +191,22 @@ fn {}_ws_self() {{
                         )
                         .unwrap();
                     }
+                }
+
+                if has_whitespace_self_strict {
+                    writeln!(
+                        f,
+                        r#"{}#[test]
+fn {}_ws_self_strict() {{
+    test_whitespace_self_io_base_strict("{}", {})
+}}
+"#,
+                        comment_line,
+                        test.name,
+                        test.path,
+                        has_debug_ext
+                    )
+                    .unwrap();
                 }
             }
             "syntax_error" => {

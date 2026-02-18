@@ -86,6 +86,10 @@ pub struct WhitespaceVM {
     /// デバッグ拡張 API が有効か (--std-ext debug)
     debug_ext: bool,
 
+    // === 実行モード ===
+    /// 未初期化ヒープアクセスをエラーにするか（wsc のデフォルト動作と同等）
+    strict_heap: bool,
+
     // === 実行状態フラグ ===
     /// 実行完了済みかどうか
     completed: bool,
@@ -116,6 +120,7 @@ impl WhitespaceVM {
             total_steps: 0,
             traced: BTreeMap::new(),
             debug_ext: false,
+            strict_heap: false,
             completed: false,
         })
     }
@@ -130,6 +135,15 @@ impl WhitespaceVM {
     /// デバッグ拡張を有効にして構築
     pub fn with_debug_ext(mut self, enabled: bool) -> Self {
         self.debug_ext = enabled;
+        self
+    }
+
+    /// strict-heap モードを有効にして構築
+    ///
+    /// 有効時、Store されていないアドレスへの Retrieve は UninitializedHeap エラーになる。
+    /// wsc のデフォルト動作と同等の挙動を提供する。
+    pub fn with_strict_heap(mut self, enabled: bool) -> Self {
+        self.strict_heap = enabled;
         self
     }
 
@@ -549,8 +563,18 @@ impl WhitespaceVM {
 
     /// ヒープからの読み出し
     fn heap_retrieve(&self, addr: i64) -> Result<i64, RuntimeError> {
-        // 未初期化アドレスは 0 を返す（Whitespace の一般的な挙動）
-        Ok(*self.heap.get(&addr).unwrap_or(&0))
+        match self.heap.get(&addr) {
+            Some(&val) => Ok(val),
+            None => {
+                if self.strict_heap {
+                    // strict-heap モード: 未初期化アドレスへのアクセスはエラー
+                    Err(RuntimeError::UninitializedHeap(addr))
+                } else {
+                    // 通常モード: 未初期化アドレスは 0 を返す（Whitespace の一般的な挙動）
+                    Ok(0)
+                }
+            }
+        }
     }
 
     /// 標準入力から1文字を読み取り、その文字コードを返す
@@ -690,5 +714,52 @@ mod tests {
         .unwrap();
         let result = vm.run(100);
         assert_eq!(result, StepResult::Error(RuntimeError::StackUnderflow));
+    }
+
+    #[test]
+    fn test_strict_heap_uninitialized_error() {
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(100)), // addr
+            Instruction::Retrieve,            // 未初期化
+            Instruction::Exit,
+        ])
+        .unwrap()
+        .with_strict_heap(true);
+        let result = vm.run(100);
+        assert_eq!(
+            result,
+            StepResult::Error(RuntimeError::UninitializedHeap(100))
+        );
+    }
+
+    #[test]
+    fn test_strict_heap_initialized_ok() {
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(100)), // addr
+            Instruction::Push(WsNumber(42)),  // value
+            Instruction::Store,
+            Instruction::Push(WsNumber(100)), // addr
+            Instruction::Retrieve,
+            Instruction::Exit,
+        ])
+        .unwrap()
+        .with_strict_heap(true);
+        let result = vm.run(100);
+        assert_eq!(result, StepResult::Complete);
+        assert_eq!(vm.data_stack(), &[42]);
+    }
+
+    #[test]
+    fn test_non_strict_heap_uninitialized_returns_zero() {
+        // 既存動作の確認: strict-heap 無効時は未初期化アドレスに 0 を返す
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(100)),
+            Instruction::Retrieve,
+            Instruction::Exit,
+        ])
+        .unwrap();
+        let result = vm.run(100);
+        assert_eq!(result, StepResult::Complete);
+        assert_eq!(vm.data_stack(), &[0]);
     }
 }

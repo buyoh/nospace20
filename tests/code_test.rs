@@ -506,6 +506,14 @@ fn test_whitespace_self_base(test_name: &str) {
 }
 
 fn test_whitespace_self_base_debug(test_name: &str, debug_ext: bool) {
+    test_whitespace_self_base_impl(test_name, debug_ext, false);
+}
+
+fn test_whitespace_self_base_strict(test_name: &str, debug_ext: bool) {
+    test_whitespace_self_base_impl(test_name, debug_ext, true);
+}
+
+fn test_whitespace_self_base_impl(test_name: &str, debug_ext: bool, strict_heap: bool) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -527,7 +535,8 @@ fn test_whitespace_self_base_debug(test_name: &str, debug_ext: bool) {
     // 独自 WhitespaceVM で実行
     let mut vm = WhitespaceVM::from_source(&ws_code)
         .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e))
-        .with_debug_ext(debug_ext);
+        .with_debug_ext(debug_ext)
+        .with_strict_heap(strict_heap);
 
     let result = vm.run(1_000_000);
 
@@ -546,6 +555,14 @@ fn test_whitespace_self_io_base(test_name: &str) {
 }
 
 fn test_whitespace_self_io_base_debug(test_name: &str, debug_ext: bool) {
+    test_whitespace_self_io_base_impl(test_name, debug_ext, false);
+}
+
+fn test_whitespace_self_io_base_strict(test_name: &str, debug_ext: bool) {
+    test_whitespace_self_io_base_impl(test_name, debug_ext, true);
+}
+
+fn test_whitespace_self_io_base_impl(test_name: &str, debug_ext: bool, strict_heap: bool) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -607,7 +624,8 @@ fn test_whitespace_self_io_base_debug(test_name: &str, debug_ext: bool) {
         // 独自 WhitespaceVM で実行
         let mut vm = WhitespaceVM::from_source(&ws_code)
             .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e))
-            .with_debug_ext(debug_ext);
+            .with_debug_ext(debug_ext)
+            .with_strict_heap(strict_heap);
 
         let stdin_cursor: Box<dyn io::BufRead> =
             Box::new(io::Cursor::new(stdin_content.into_bytes()));

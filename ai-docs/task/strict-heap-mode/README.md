@@ -38,3 +38,8 @@
 ## 更新履歴
 
 - 2026-02-18: 初版作成
+- 2026-02-18: Phase 1〜3 実装完了
+  - Phase 1: `WhitespaceVM` に `strict_heap` フィールド、`with_strict_heap()` builder、`heap_retrieve` の strict モード対応を追加
+  - Phase 2: `whitespace20` CLI に `--strict-heap` オプションを追加
+  - Phase 3: `tests/code_test.rs` にヘルパー関数（`test_whitespace_self_base_strict`、`test_whitespace_self_io_base_strict`）を追加、`build.rs` に `whitespace-self-strict` ターゲット生成ロジックを追加
+  - 失敗した 6 件のテストを `exclude_targets: [whitespace-self-strict]` で除外（[調査ドキュメント](strict-heap-test-failures.md)）
