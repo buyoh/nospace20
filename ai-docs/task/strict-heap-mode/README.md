@@ -25,12 +25,15 @@
 | 2 | CLI に `--strict-heap` オプションを追加 | [cli-changes.md](cli-changes.md) | 1 |
 | 3 | テスト基盤に strict-heap テスト実行を追加 | [test-infrastructure.md](test-infrastructure.md) | 1 |
 | 4 | wsc テストの `--unchecked-heap` 除去を検討 | [wsc-test-changes.md](wsc-test-changes.md) | 3 |
+| 5 | 変数の初期値を「未定義」に仕様変更 | [undefined-variable-init.md](undefined-variable-init.md) | - |
+| 6 | ランダム初期化モードの追加 | [randomize-uninit-mode.md](randomize-uninit-mode.md) | 5 |
 
 ## 設計方針
 
 - `--std-ext` ではなく専用の `--strict-heap` フラグとする（`wsc` と同様に独立したオプション）
 - テストでは `test-manifest.yaml` に strict-heap テストバリアントを生成する仕組みを追加
 - 既存テストを壊さないよう、strict-heap はデフォルト無効
+- 変数の初期値は仕様上「未定義」とし、インタプリタ・VM の両方でランダム初期化モードによる検出手段を提供
 
 ## 更新履歴
 
