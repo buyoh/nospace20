@@ -50,6 +50,10 @@ struct Args {
     #[arg(long)]
     strict_heap: bool,
 
+    /// Return a deterministic non-zero value for uninitialized heap access (for detecting zero-init dependency bugs)
+    #[arg(long)]
+    randomize_heap: bool,
+
     /// Standard extensions (can be specified multiple times, for compatibility with nospace20)
     #[arg(long = "std-ext", value_enum)]
     std_ext: Vec<CliTargetExt>,
@@ -73,7 +77,7 @@ fn main() {
 
     // VM 初期化
     let mut vm = match WhitespaceVM::from_source(&source) {
-        Ok(vm) => vm.with_debug_ext(debug_ext).with_strict_heap(args.strict_heap),
+        Ok(vm) => vm.with_debug_ext(debug_ext).with_strict_heap(args.strict_heap).with_randomize_heap(args.randomize_heap),
         Err(e) => {
             eprintln!("Parse error: {:?}", e);
             process::exit(1);

@@ -86,6 +86,22 @@ pub fn interpret_func_testing(scope: &Scope, func_name: &str) -> BTreeMap<i64, i
     env.traced
 }
 
+/// テスト用インタプリタ実行（randomize_uninit モード）
+///
+/// 未初期化変数にランダム値を設定して実行する。初期値 0 依存のバグを検出するために使用する。
+pub fn interpret_func_testing_randomize(scope: &Scope, func_name: &str) -> BTreeMap<i64, i64> {
+    use std::io::Cursor;
+    let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(Vec::<u8>::new())));
+    let stdout_buf: Box<dyn std::io::Write> = Box::new(Vec::<u8>::new());
+    let mut config = EnvironmentConfig::with_max_expression_count(100000);
+    config.randomize_uninit = true;
+    let mut env = Environment::new_with_config(stdin_cursor, stdout_buf, config);
+
+    interpreter::interpret_global(&mut env, scope);
+    interpreter::interpret_func(&mut env, scope, func_name);
+    env.traced
+}
+
 pub fn interpret_func_with_io(
     scope: &Scope,
     func_name: &str,

@@ -21,7 +21,7 @@ tests:
     type: success
     path: c001
     comment: "Legacy test"
-    exclude_targets: [whitespace-self-strict]
+    exclude_targets: [whitespace-self-strict, interpreter-randomize, whitespace-self-randomize]
 
   # Phase 7: break/continue をサポートしたため有効化
   # Note: インタプリタでは無限ループが発生するため、whitespace のみで有効化
@@ -29,7 +29,7 @@ tests:
     type: success
     path: c002
     comment: "Legacy test: break/continue"
-    exclude_targets: [whitespace-self-strict]
+    exclude_targets: [whitespace-self-strict, interpreter-randomize, whitespace-self-randomize]
 
   - name: test_ok_coding_c003
     type: success
@@ -244,7 +244,7 @@ tests:
     type: success
     path: variables/var_basic_001
     comment: "Basic variable declaration and assignment"
-    exclude_targets: [whitespace-self-strict]
+    exclude_targets: [whitespace-self-strict, interpreter-randomize, whitespace-self-randomize]
 
   - name: test_variables_var_hoist_001
     type: success
@@ -265,7 +265,7 @@ tests:
     type: success
     path: variables/var_init_hoisting
     comment: "Hoisting with initialization"
-    exclude_targets: [whitespace-self-strict]
+    exclude_targets: [whitespace-self-strict, interpreter-randomize, whitespace-self-randomize]
 
   - name: test_variables_var_init_expr
     type: success
@@ -515,7 +515,7 @@ tests:
     type: success
     path: scope/disabled_scope_static_persist_001
     comment: "Function-local static variable persists across calls"
-    exclude_targets: [whitespace-self-strict]
+    exclude_targets: [whitespace-self-strict, interpreter-randomize, whitespace-self-randomize]
 
   - name: test_scope_scope_static_init_func_001
     type: success
@@ -951,7 +951,7 @@ tests:
     type: success_io
     path: examples/e1-01-queue
     comment: ""
-    exclude_targets: [whitespace-self-strict]
+    exclude_targets: [whitespace-self-strict, whitespace-self-randomize]
 
   # ========================================
   # Function argument count checks

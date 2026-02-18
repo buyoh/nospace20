@@ -43,3 +43,10 @@
   - Phase 2: `whitespace20` CLI に `--strict-heap` オプションを追加
   - Phase 3: `tests/code_test.rs` にヘルパー関数（`test_whitespace_self_base_strict`、`test_whitespace_self_io_base_strict`）を追加、`build.rs` に `whitespace-self-strict` ターゲット生成ロジックを追加
   - 失敗した 6 件のテストを `exclude_targets: [whitespace-self-strict]` で除外（[調査ドキュメント](strict-heap-test-failures.md)）
+- 2026-02-18: Phase 5〜6 実装完了（Phase 4 スキップ）
+  - Phase 5: `spec.md` の変数初期値を「未定義」に仕様変更
+  - Phase 6: `EnvironmentConfig` に `randomize_uninit` フラグを追加、インタプリタ全変数初期化箇所をランダム値対応に変更
+  - Phase 6: `WhitespaceVM` に `randomize_heap` フラグと `with_randomize_heap()` builder を追加
+  - Phase 6: `whitespace20` CLI に `--randomize-heap` オプションを追加
+  - Phase 6: `interpreter-randomize` / `whitespace-self-randomize` テストターゲットをテスト基盤に追加
+  - randomize テストで失敗した 11 件のテスト（未初期化変数依存）を `exclude_targets` で除外（strict-heap と同じ原因）

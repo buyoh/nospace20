@@ -5,7 +5,8 @@ mod common;
 use nospace20::whitespace::{StepResult, WhitespaceVM};
 use nospace20::{
     compile_to_whitespace, compile_to_whitespace_with_options, interpret_func_testing,
-    interpret_func_with_io, parse_to_tokens, parse_to_tree, syntactic_analyze,
+    interpret_func_testing_randomize, interpret_func_with_io, parse_to_tokens, parse_to_tree,
+    syntactic_analyze,
 };
 use serde::{Deserialize, Serialize};
 
@@ -141,6 +142,54 @@ fn test_ok_coding_base(test_name: &str) -> Result {
                 panic!("Failed to parse test config");
             }
         }
+    };
+
+    match check_json {
+        TestConfig::Success {
+            trace_hit_counts: expected_trace_hit_counts,
+        } => {
+            let expected_iter = expected_trace_hit_counts.into_iter();
+            for (i, expected) in expected_iter.enumerate() {
+                let key = i as i64;
+                if let Some(actual) = trace.get(&key) {
+                    assert_eq!(expected, *actual, "trace(idx:{}) failed", key);
+                } else {
+                    panic!("idx:{} trace doesn't exist", key);
+                }
+            }
+        }
+        _ => panic!("Expected success test config"),
+    }
+    Ok(())
+}
+
+/// インタプリタのランダム初期化モードで success テストを実行する
+///
+/// 未初期化変数にランダム値を設定して実行し、trace の結果が一致するか確認する。
+/// 初期値 0 に依存したコードの場合は失敗する。
+fn test_ok_coding_base_randomize(test_name: &str) -> Result {
+    let path_base = "resources/tests/passes/".to_owned() + test_name;
+    let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
+        .expect("Something went wrong reading the file");
+
+    let t = parse_to_tokens(&ns_cnt).ok().unwrap();
+    let s = parse_to_tree(&t).ok().unwrap();
+    let a = syntactic_analyze(&s).ok().unwrap();
+    // randomize モードで実行
+    let trace = interpret_func_testing_randomize(&a, "main");
+
+    let check_json_value: serde_json::Value = serde_json::from_reader(io::BufReader::new(
+        fs::File::open(path_base.to_owned() + ".check.json")
+            .ok()
+            .unwrap(),
+    ))
+    .ok()
+    .unwrap();
+
+    let check_json = if let Some(legacy) = TestConfig::from_legacy(&check_json_value) {
+        legacy
+    } else {
+        serde_json::from_value(check_json_value).expect("Failed to parse test config")
     };
 
     match check_json {
@@ -506,14 +555,23 @@ fn test_whitespace_self_base(test_name: &str) {
 }
 
 fn test_whitespace_self_base_debug(test_name: &str, debug_ext: bool) {
-    test_whitespace_self_base_impl(test_name, debug_ext, false);
+    test_whitespace_self_base_impl(test_name, debug_ext, false, false);
 }
 
 fn test_whitespace_self_base_strict(test_name: &str, debug_ext: bool) {
-    test_whitespace_self_base_impl(test_name, debug_ext, true);
+    test_whitespace_self_base_impl(test_name, debug_ext, false, true);
 }
 
-fn test_whitespace_self_base_impl(test_name: &str, debug_ext: bool, strict_heap: bool) {
+fn test_whitespace_self_base_randomize(test_name: &str, debug_ext: bool) {
+    test_whitespace_self_base_impl(test_name, debug_ext, true, false);
+}
+
+fn test_whitespace_self_base_impl(
+    test_name: &str,
+    debug_ext: bool,
+    randomize_heap: bool,
+    strict_heap: bool,
+) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -536,7 +594,8 @@ fn test_whitespace_self_base_impl(test_name: &str, debug_ext: bool, strict_heap:
     let mut vm = WhitespaceVM::from_source(&ws_code)
         .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e))
         .with_debug_ext(debug_ext)
-        .with_strict_heap(strict_heap);
+        .with_strict_heap(strict_heap)
+        .with_randomize_heap(randomize_heap);
 
     let result = vm.run(1_000_000);
 
@@ -555,14 +614,23 @@ fn test_whitespace_self_io_base(test_name: &str) {
 }
 
 fn test_whitespace_self_io_base_debug(test_name: &str, debug_ext: bool) {
-    test_whitespace_self_io_base_impl(test_name, debug_ext, false);
+    test_whitespace_self_io_base_impl(test_name, debug_ext, false, false);
 }
 
 fn test_whitespace_self_io_base_strict(test_name: &str, debug_ext: bool) {
-    test_whitespace_self_io_base_impl(test_name, debug_ext, true);
+    test_whitespace_self_io_base_impl(test_name, debug_ext, false, true);
 }
 
-fn test_whitespace_self_io_base_impl(test_name: &str, debug_ext: bool, strict_heap: bool) {
+fn test_whitespace_self_io_base_randomize(test_name: &str, debug_ext: bool) {
+    test_whitespace_self_io_base_impl(test_name, debug_ext, true, false);
+}
+
+fn test_whitespace_self_io_base_impl(
+    test_name: &str,
+    debug_ext: bool,
+    randomize_heap: bool,
+    strict_heap: bool,
+) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -625,7 +693,8 @@ fn test_whitespace_self_io_base_impl(test_name: &str, debug_ext: bool, strict_he
         let mut vm = WhitespaceVM::from_source(&ws_code)
             .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e))
             .with_debug_ext(debug_ext)
-            .with_strict_heap(strict_heap);
+            .with_strict_heap(strict_heap)
+            .with_randomize_heap(randomize_heap);
 
         let stdin_cursor: Box<dyn io::BufRead> =
             Box::new(io::Cursor::new(stdin_content.into_bytes()));

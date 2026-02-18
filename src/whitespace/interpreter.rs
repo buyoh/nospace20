@@ -89,6 +89,9 @@ pub struct WhitespaceVM {
     // === 実行モード ===
     /// 未初期化ヒープアクセスをエラーにするか（wsc のデフォルト動作と同等）
     strict_heap: bool,
+    /// 未初期化ヒープアクセス時にランダム値を返すか（初期値 0 依存のバグ検出用）
+    /// strict_heap が true の場合はそちらが優先される
+    randomize_heap: bool,
 
     // === 実行状態フラグ ===
     /// 実行完了済みかどうか
@@ -121,6 +124,7 @@ impl WhitespaceVM {
             traced: BTreeMap::new(),
             debug_ext: false,
             strict_heap: false,
+            randomize_heap: false,
             completed: false,
         })
     }
@@ -144,6 +148,15 @@ impl WhitespaceVM {
     /// wsc のデフォルト動作と同等の挙動を提供する。
     pub fn with_strict_heap(mut self, enabled: bool) -> Self {
         self.strict_heap = enabled;
+        self
+    }
+
+    /// randomize-heap モードを有効にして構築
+    ///
+    /// 有効時、Store されていないアドレスへの Retrieve はランダム値を返す。
+    /// strict_heap が有効の場合はそちらが優先される。
+    pub fn with_randomize_heap(mut self, enabled: bool) -> Self {
+        self.randomize_heap = enabled;
         self
     }
 
@@ -567,8 +580,11 @@ impl WhitespaceVM {
             Some(&val) => Ok(val),
             None => {
                 if self.strict_heap {
-                    // strict-heap モード: 未初期化アドレスへのアクセスはエラー
+                    // strict-heap モード: 未初期化アドレスへのアクセスはエラー。strict_heap が最優先
                     Err(RuntimeError::UninitializedHeap(addr))
+                } else if self.randomize_heap {
+                    // randomize-heap モード: アドレスベースの決定論的な非自明値を返す
+                    Ok(random_heap_fill(addr))
                 } else {
                     // 通常モード: 未初期化アドレスは 0 を返す（Whitespace の一般的な挙動）
                     Ok(0)
@@ -597,6 +613,16 @@ impl WhitespaceVM {
             .parse::<i64>()
             .map_err(|e| RuntimeError::IoError(e.to_string()))
     }
+}
+
+/// 未初期化ヒープのフィル値（アドレスベースの決定論的な値）
+///
+/// 同じアドレスには常に同じ値を返す。
+/// 初期値 0 への暗黙依存バグを検出しやすくするため、0 ではない非自明値を生成する。
+fn random_heap_fill(addr: i64) -> i64 {
+    (addr as u64)
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407) as i64
 }
 
 #[cfg(test)]

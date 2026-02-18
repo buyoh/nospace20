@@ -7,6 +7,8 @@ pub struct EnvironmentConfig {
     pub max_expression_count: Option<usize>,
     /// デバッグ用組み込み関数を無視する
     pub ignore_debug: bool,
+    /// 未初期化変数をランダム値で埋める（初期値依存のバグ検出用）
+    pub randomize_uninit: bool,
 }
 
 impl EnvironmentConfig {
@@ -14,6 +16,7 @@ impl EnvironmentConfig {
         EnvironmentConfig {
             max_expression_count: None,
             ignore_debug: false,
+            randomize_uninit: false,
         }
     }
 
@@ -21,6 +24,7 @@ impl EnvironmentConfig {
         EnvironmentConfig {
             max_expression_count: Some(max_count),
             ignore_debug: false,
+            randomize_uninit: false,
         }
     }
 }

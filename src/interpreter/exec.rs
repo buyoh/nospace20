@@ -6,6 +6,40 @@ use crate::{
 use super::environment::Environment;
 use super::types::{bool_to_int, try_expr, ExpressionFlow, Flow};
 
+use std::cell::RefCell;
+
+thread_local! {
+    static UNINIT_COUNTER: RefCell<u64> = RefCell::new(0);
+}
+
+/// 未初期化変数のフィル値を生成する（決定論的な非自明値）
+///
+/// 0 でない値を返すことで、初期値 0 への暗黙依存バグを検出しやすくする。
+/// スレッドローカルなカウンタを使い、外部 crate なしで生成する。
+pub(super) fn random_uninit_value() -> i64 {
+    UNINIT_COUNTER.with(|c| {
+        let mut count = c.borrow_mut();
+        *count = count.wrapping_add(1);
+        // 簡易ハッシュ: 0 を避けつつ決定論的な非自明値を生成
+        let v = (*count)
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        v as i64
+    })
+}
+
+/// 変数領域の初期フィル値を返す
+///
+/// `randomize` が true のときランダム値、false のとき 0 を返す。
+fn uninit_fill_value(randomize: bool) -> i64 {
+    if randomize {
+        random_uninit_value()
+    } else {
+        0
+    }
+}
+
+
 /// 1つのfunction scopeの`実行時インスタンス`を管理する
 ///
 /// scope_stack を BTreeMap<String, i64> から Vec<i64> に変更。
@@ -26,7 +60,10 @@ impl LocalEnvironment<'_, '_> {
     ) -> LocalEnvironment<'a, 'aenv> {
         // Vec<i64> ベースの変数管理
         // 変数の数だけ領域を確保し、引数で初期化
-        let mut variables = vec![0; func.block.scope.variable_count];
+        let randomize = env.config.randomize_uninit;
+        let mut variables: Vec<i64> = (0..func.block.scope.variable_count)
+            .map(|_| uninit_fill_value(randomize))
+            .collect();
 
         // 引数を対応する変数にセット（最適化: 事前計算されたインデックスを使用）
         for (i, arg_val) in args.iter().enumerate() {
@@ -45,8 +82,12 @@ impl LocalEnvironment<'_, '_> {
 
     /// ブロックに入る
     fn enter_block(&mut self, scope: &Scope) {
-        // 変数の数だけ Vec を初期化
-        self.scope_stack.push(vec![0; scope.variable_count]);
+        // 変数の数だけ Vec を初期化（randomize_uninit モードではランダム値で埋める）
+        let randomize = self.env.config.randomize_uninit;
+        let vars: Vec<i64> = (0..scope.variable_count)
+            .map(|_| uninit_fill_value(randomize))
+            .collect();
+        self.scope_stack.push(vars);
     }
 
     /// ブロックから出る
@@ -214,8 +255,11 @@ impl LocalEnvironment<'_, '_> {
         // Phase 4: static 変数の永続化対応
         let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
 
-        // 新しい scope を既存の scope_stack に push
-        let mut variables = vec![0; func.block.scope.variable_count];
+        // 新しい scope を既存の scope_stack に push（randomize_uninit モードではランダム値で初期化）
+        let randomize = self.env.config.randomize_uninit;
+        let mut variables: Vec<i64> = (0..func.block.scope.variable_count)
+            .map(|_| uninit_fill_value(randomize))
+            .collect();
 
         // static 変数があり、永続ストレージが存在する場合は値を復元
         // 関数インデックスをキーとして使用
