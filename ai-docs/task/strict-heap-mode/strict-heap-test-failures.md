@@ -1,53 +1,74 @@
-# strict-heap テスト失敗調査
+# 未初期化変数アクセス - テスト失敗 TODO
 
 ## 概要
 
-Phase 3 で `whitespace-self-strict` テストを追加した結果、6件のテストが `UninitializedHeap` エラーで失敗した。
-これらは `exclude_targets: [whitespace-self-strict]` で除外済み。
+Phase 3 (strict-heap) および Phase 6 (randomize-uninit) のテストで、同じ原因により複数のテストが失敗する。
+Phase 5 の仕様変更（変数初期値を「未定義」に変更）に伴い、これらの失敗は**仕様上の期待動作**を示す可能性がある。
+`exclude_targets` による除外は行わず、コンパイラ/インタプリタの修正 TODO として管理する。
 
-## 失敗したテスト
+## 失敗するテストと失敗モード
 
-| テスト名 | パス | エラー |
-|---------|------|--------|
-| `test_ok_coding_c001_ws_self_strict` | `c001` | `UninitializedHeap(8)` |
-| `test_ok_coding_c002_ws_self_strict` | `c002` | `UninitializedHeap(8)` |
-| `test_scope_scope_static_persist_001_ws_self_strict` | `scope/disabled_scope_static_persist_001` | `UninitializedHeap(8)` |
-| `test_variables_var_basic_001_ws_self_strict` | `variables/var_basic_001` | `UninitializedHeap(8)` |
-| `test_variables_var_init_hoisting_ws_self_strict` | `variables/var_init_hoisting` | `UninitializedHeap(8)` |
-| `test_example_queue_ws_self_strict` | `examples/e1-01-queue` | `UninitializedHeap(14)` |
+| テスト名 | パス | strict-heap | interpreter-randomize | ws-self-randomize |
+|---------|------|:-----------:|:---------------------:|:-----------------:|
+| `test_ok_coding_c001` | `c001` | `UninitializedHeap(8)` | trace mismatch | `UninitializedHeap(8)` |
+| `test_ok_coding_c002` | `c002` | `UninitializedHeap(8)` | trace mismatch | `UninitializedHeap(8)` |
+| `test_scope_scope_static_persist_001` | `scope/disabled_scope_static_persist_001` | `UninitializedHeap(8)` | trace mismatch | `UninitializedHeap(8)` |
+| `test_variables_var_basic_001` | `variables/var_basic_001` | `UninitializedHeap(8)` | trace mismatch | `UninitializedHeap(8)` |
+| `test_variables_var_init_hoisting` | `variables/var_init_hoisting` | `UninitializedHeap(8)` | trace mismatch | `UninitializedHeap(8)` |
+| `test_example_queue` | `examples/e1-01-queue` | `UninitializedHeap(14)` | - | `UninitializedHeap(14)` |
 
-## 原因分析
+※ `whitespace-self-strict` のみ `exclude_targets` で除外中（コンパイラバグが確定しているため）
 
-### アドレス 8 への UninitializedHeap
+## 根本原因
 
-アドレス 8 は nospace コンパイラの内部アドレス体系で「ローカル変数領域の先頭付近」にあたると推定される。
-アドレス 2〜6 あたりは予約アドレス:
-- 0: global heap pointer
-- 1: local heap pointer
-- 2: LOCAL_HEAP_BEGIN
-- 3: LOCAL_HEAP_END
-- 4〜: 使用されるアドレス
+### Whitespace コンパイラ: 変数ゼロクリア未実装
 
-`var_basic_001` や `var_init_hoisting` では変数宣言時にヒープ領域を確保するが、
-`generate_local_allocate` はヒープポインタを進めるだけでゼロクリアを行わないため、
-確保した領域への最初の `retrieve`（読み出し）が未初期化となる。
+`generate_local_allocate` はヒープポインタを進めるだけで、確保した変数領域のゼロクリアを行わない。
+このため、strict-heap モード・randomize-heap モードでは未初期化ヒープアクセスとして検出される。
 
-例: `var x;` → ヒープアドレス確保 → `retrieve x` → UninitializedHeap
+```
+var x;  →  ヒープアドレス確保（ポインタ +1）
+x を読む →  retrieve → UninitializedHeap / ランダム値
+```
 
-### アドレス 14 への UninitializedHeap（queue テスト）
+### nospace インタプリタ: 初期値 0 への暗黙依存
 
-`e1-01-queue` は配列やキューを使う複雑なテスト。
-アドレス 14 も同様に未初期化変数の読み出しによるものと推定。
+`c001`, `c002`, `var_basic_001`, `var_init_hoisting`, `scope_static_persist_001` は、
+`var x;` 宣言後に x を明示的に初期化せずに読み出している（初期値 0 を前提としたコード）。
+randomize-uninit モードではランダム値が入るため trace の結果が変わり、テストが失敗する。
 
-## 対処方針
+## 修正 TODO
 
-これらの失敗は「コンパイラが変数確保後に初期値 0 で初期化するコードを生成していない」ことに起因する。
-修正方法:
-1. `generate_local_allocate` でゼロクリアコードを生成する（別タスク）
-2. または仕様として「変数の初期値は未定義」とし、ユーザが明示的に初期化することを要求する（`undefined-variable-init.md` 参照）
+### TODO-1: Whitespace コンパイラの変数ゼロクリア
 
-現状は上記が別タスク（Phase 5/6）で対応予定のため、これらのテストを除外する。
+`generate_local_allocate` で変数領域を確保した後、Store 命令でゼロクリアするコードを生成する。
+
+```
+# 現在
+heap_ptr += 1  # アドレス確保のみ
+
+# 修正後
+heap_ptr += 1
+heap[heap_ptr - 1] = 0  # ゼロクリア
+```
+
+これにより strict-heap・randomize テストが通るようになる。
+対象ファイル: `src/compiler_ws/` (generate_local_allocate 関連)
+
+### TODO-2: テストコードの修正（仕様変更への追従）
+
+`var x;` で初期値 0 を暗黙的に前提しているテストは、仕様変更に従い `let: x(0);` のように
+明示的な初期化を追加するか、テストの期待値を更新する。
+
+対象テスト:
+- `resources/tests/passes/c001.ns`
+- `resources/tests/passes/c002.ns`
+- `resources/tests/passes/variables/var_basic_001.ns`
+- `resources/tests/passes/variables/var_init_hoisting.ns`
+- `resources/tests/passes/scope/disabled_scope_static_persist_001.ns`
+- `resources/tests/passes/examples/e1-01-queue.ns`
 
 ## 更新履歴
 
-- 2026-02-18: 初版作成（Phase 3 実装時に発見）
+- 2026-02-18: 初版作成（Phase 3 実装時に発見、strict-heap のみ）
+- 2026-02-18: Phase 5 仕様変更・Phase 6 randomize 実装後に更新。`exclude_targets` から除外設定を削除し TODO として管理

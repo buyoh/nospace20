@@ -49,4 +49,4 @@
   - Phase 6: `WhitespaceVM` に `randomize_heap` フラグと `with_randomize_heap()` builder を追加
   - Phase 6: `whitespace20` CLI に `--randomize-heap` オプションを追加
   - Phase 6: `interpreter-randomize` / `whitespace-self-randomize` テストターゲットをテスト基盤に追加
-  - randomize テストで失敗した 11 件のテスト（未初期化変数依存）を `exclude_targets` で除外（strict-heap と同じ原因）
+  - randomize テストで失敗した 11 件（未初期化変数依存）は `exclude_targets` に追加せず TODO として管理（[調査ドキュメント](strict-heap-test-failures.md)）
