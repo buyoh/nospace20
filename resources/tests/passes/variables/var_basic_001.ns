@@ -1,8 +1,8 @@
 # 変数の基本: 定義と代入 #
 func: main() {
   __trace(0);
-  let:x;
-  __assert_not(x);  # 初期値は0 #
+  let:x(0);
+  __assert_not(x);  # 明示的に0で初期化 #
   x = x + 3;
   __assert_not(x - 3);
   let:y;

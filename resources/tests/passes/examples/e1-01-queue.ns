@@ -1,7 +1,7 @@
 let: size(5);
 let: data[5];
-let: idx_head;
-let: idx_tail;
+let: idx_head(0);
+let: idx_tail(0);
 
 func: push(val) {
   data[idx_head] = val;

@@ -1,6 +1,6 @@
 func: main() {
   __trace(0);
-  let:x;
+  let:x(0);
   __assert_not(x);
   x=x+3;
   # x=x+1; #

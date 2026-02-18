@@ -1,6 +1,6 @@
 # 関数内の static 変数が main 前に初期化され、関数呼び出し時に再初期化されない #
 func: counter() {
-  static: count;
+  static: count(0);
   count = count + 1;
   return: count;
 }
