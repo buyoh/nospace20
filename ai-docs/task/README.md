@@ -39,7 +39,7 @@
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
 - [wasm-vm-interactive-stdin/](wasm-vm-interactive-stdin/) - WASM WhitespaceVM の interactive stdin 一時停止機能（InputChar/InputNumber でバッファ不足時に WaitingForInput を返す）
-- [memory-allocator/](memory-allocator/) - メモリアロケータ実装（`--std-ext alloc` によるフリーリストアロケータ、スタックフレーム統合、`__alloc`/`__free` 組み込み関数）
+- [memory-allocator/](memory-allocator/) - メモリアロケータ実装（`--std-ext alloc` による二層アロケータ: FSBA + 汎用 First-Fit、スタックフレーム統合、`__alloc`/`__free` 組み込み関数）
 
 ## 現在のタスク
 

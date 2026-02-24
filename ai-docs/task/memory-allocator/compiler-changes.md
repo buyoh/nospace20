@@ -6,7 +6,7 @@
 
 1. **memory.rs**: 新しい定数の追加
 2. **context.rs**: `alloc_ext` フラグの追加
-3. **builtin.rs**: ヘッダー生成とフレーム管理の分岐、アロケータサブルーチン生成
+3. **builtin.rs**: ヘッダー生成とフレーム管理の分岐、FSBA + 汎用アロケータサブルーチン生成
 4. **statement.rs**: 関数定義のフレーム確保方式の分岐
 5. **expression.rs**: `__alloc`/`__free` 組み込み関数のコード生成
 6. **mod.rs**: `compile_with_options` への alloc_ext パラメータ追加
@@ -39,7 +39,19 @@ enum CliTargetExt {
 
 変換ロジックに `CliTargetExt::Alloc => TargetExtension::Alloc` を追加。
 
-### 1.3 context.rs
+### 1.3 memory.rs
+
+`FSBA_TABLE_PTR` 定数を追加:
+
+```rust
+impl MemoryLayout {
+    pub const ALLOC_FREE_HEAD: HeapAddress = HeapAddress(5);
+    pub const ALLOC_HEAP_TOP: HeapAddress = HeapAddress(6);
+    pub const FSBA_TABLE_PTR: HeapAddress = HeapAddress(7);
+}
+```
+
+### 1.4 context.rs
 
 `CodeGenContext` に `alloc_ext: bool` フラグを追加:
 
@@ -66,7 +78,7 @@ impl<'a> CodeGenContext<'a> {
 }
 ```
 
-### 1.4 mod.rs
+### 1.5 mod.rs
 
 ```rust
 pub fn compile_with_options(scope: &Scope, debug_ext: bool) -> Vec<WhitespaceInstruction> {
@@ -78,7 +90,7 @@ pub fn compile_with_options(scope: &Scope, debug_ext: bool) -> Vec<WhitespaceIns
 pub fn compile_with_options(scope: &Scope, debug_ext: bool, alloc_ext: bool) -> Vec<WhitespaceInstruction> {
 ```
 
-### 1.5 lib.rs
+### 1.6 lib.rs
 
 公開 API に alloc 対応版を追加:
 
@@ -88,6 +100,10 @@ pub fn compile_to_whitespace_with_options(scope: &Scope, debug_ext: bool, alloc_
 
 ## Phase 2: アロケータサブルーチンのコード生成
 
+アロケータは二層アーキテクチャで実装する（詳細は [fixed-size-block-allocator.md](fixed-size-block-allocator.md) 参照）:
+- **第 1 層**: 固定サイズブロックアロケータ (FSBA) — サイズクラス [2, 4, 8, 16, 32] 毎のフリーリストで O(1) alloc/free
+- **第 2 層**: 汎用アロケータ (First-Fit + バンプ) — >32 セルの大きなブロック用
+
 ### 2.1 builtin.rs への追加
 
 新しい関数を追加:
@@ -95,6 +111,7 @@ pub fn compile_to_whitespace_with_options(scope: &Scope, debug_ext: bool, alloc_
 ```rust
 /// アロケータランタイムのサブルーチンを生成
 /// alloc_ext == true の場合のみ呼び出される
+/// FSBA + 汎用アロケータの両方を含む
 pub fn generate_allocator_runtime(
     instructions: &mut Vec<WhitespaceInstruction>,
     ctx: &mut CodeGenContext,
@@ -107,6 +124,12 @@ pub fn generate_allocator_runtime(
 
 **入力**: スタックトップに `requested_size`
 **出力**: スタックトップに `ptr` (ユーザーデータ先頭)
+
+**フロー**:
+1. `total = max(requested_size + 1, 2)` を計算
+2. FSBA サイズクラス選択 (5 段カスケード比較: 2, 4, 8, 16, 32)
+3. サイズクラス該当時: FSBA フリーリストからポップ or バンプ拡張
+4. 非該当時 (>32 セル): 汎用 First-Fit フリーリスト走査、なければバンプ拡張
 
 Whitespace 命令列 (擬似ニーモニック):
 
@@ -265,22 +288,87 @@ _alloc_bump:
 
 #### `__runtime_free` サブルーチン
 
+**フロー**:
+1. `block = ptr - 1` でヘッダー取得
+2. `block_size = heap[block]` を読み取り
+3. サイズクラス判定 (block_size == 2/4/8/16/32 ?)
+4. FSBA 該当: 該当クラスのフリーリストにプッシュ
+5. 非該当: 汎用フリーリストにプッシュ
+
 ```
 __rt_free:
     # stack: [ptr]
     push 1
     sub                     # block = ptr - 1
-    # heap[block + 1] = heap[ALLOC_FREE_HEAD]
+    dup
+    retrieve                # block_size = heap[block]
+
+    # サイズクラス判定 (カスケード比較)
+    dup
+    push 2
+    sub
+    jz _free_class0         # block_size == 2 → class 0
+
+    dup
+    push 4
+    sub
+    jz _free_class1         # block_size == 4 → class 1
+
+    dup
+    push 8
+    sub
+    jz _free_class2         # block_size == 8 → class 2
+
+    dup
+    push 16
+    sub
+    jz _free_class3         # block_size == 16 → class 3
+
+    dup
+    push 32
+    sub
+    jz _free_class4         # block_size == 32 → class 4
+
+    pop                     # block_size を破棄
+    # 汎用フリーリストへプッシュ
     dup
     push 1
     add                     # block + 1
     push 5                  # ALLOC_FREE_HEAD
     retrieve                # old_head
     store                   # heap[block + 1] = old_head
-    # heap[ALLOC_FREE_HEAD] = block
-    push 5                  # ALLOC_FREE_HEAD
-    swap                    # [5, block]
+    push 5
+    swap
     store                   # heap[ALLOC_FREE_HEAD] = block
+    ret
+
+_free_class0:
+    pop                     # block_size を破棄
+    # FSBA class 0 フリーリストへプッシュ
+    # free_head_addr = heap[FSBA_TABLE_PTR] + 0
+    push 7
+    retrieve                # table_ptr
+    # (class index 0 なのでオフセット加算不要)
+    # heap[block + 1] = heap[free_head_addr]
+    # heap[free_head_addr] = block
+    # ... (各クラス共通ヘルパーへ)
+    jmp _free_fsba_push
+
+# _free_class1 ... _free_class4 も同様パターン
+# class index をスタックに積んで _free_fsba_push へジャンプ
+
+_free_fsba_push:
+    # stack: [block, free_head_addr]
+    # heap[block + 1] = heap[free_head_addr]
+    copy 1                  # block
+    push 1
+    add                     # block + 1
+    copy 1                  # free_head_addr
+    retrieve                # heap[free_head_addr]
+    store                   # heap[block + 1] = heap[free_head_addr]
+    # heap[free_head_addr] = block
+    swap                    # [free_head_addr, block]
+    store                   # heap[free_head_addr] = block
     ret
 ```
 
@@ -430,11 +518,11 @@ semantic_analyzer は `--std-ext` を知らないため、関数名が未定義�
 |---|---|---|
 | `src/compile_property.rs` | 1 | `TargetExtension::Alloc` 追加 |
 | `src/bin/nospace20.rs` | 1 | `CliTargetExt::Alloc` 追加 |
-| `src/compiler_ws/memory.rs` | 1 | 定数追加 (`ALLOC_FREE_HEAD`, `ALLOC_HEAP_TOP`) |
+| `src/compiler_ws/memory.rs` | 1 | 定数追加 (`ALLOC_FREE_HEAD`, `ALLOC_HEAP_TOP`, `FSBA_TABLE_PTR`) |
 | `src/compiler_ws/context.rs` | 1 | `alloc_ext` フラグ、`CodeGenOptions` 構造体 |
 | `src/compiler_ws/mod.rs` | 1 | `compile_with_options` 引数拡張 |
 | `src/lib.rs` | 1 | 公開 API 更新 |
-| `src/compiler_ws/builtin.rs` | 2 | `generate_allocator_runtime` 追加 |
+| `src/compiler_ws/builtin.rs` | 2 | `generate_allocator_runtime` 追加 (FSBA + 汎用アロケータ) |
 | `src/compiler_ws/builtin.rs` | 3 | `generate_local_allocate/deallocate` の分岐 |
 | `src/compiler_ws/statement.rs` | 3 | 関数定義の引数配置ロジック変更 |
 | `src/compiler_ws/expression.rs` | 4 | `__alloc`/`__free` のコード生成 |

@@ -28,6 +28,7 @@ Whitespace コンパイラにランタイムメモリアロケータを導入す
 | ドキュメント | 内容 |
 |---|---|
 | [allocator-design.md](allocator-design.md) | コアアロケータのアルゴリズムとデータ構造 |
+| [fixed-size-block-allocator.md](fixed-size-block-allocator.md) | 固定サイズブロックアロケータ (FSBA) の詳細設計 |
 | [heap-layout.md](heap-layout.md) | 新しいヒープメモリレイアウト設計 |
 | [compiler-changes.md](compiler-changes.md) | compiler_ws モジュールへの変更設計 |
 | [std-ext-integration.md](std-ext-integration.md) | `--std-ext alloc` の統合と条件分岐 |
@@ -53,3 +54,4 @@ Whitespace コンパイラにランタイムメモリアロケータを導入す
 ## 現状
 
 - 2026-02-24: 設計ドキュメント作成
+- 2026-02-24: 固定サイズブロックアロケータ (FSBA) 設計追加。二層アーキテクチャ (FSBA + 汎用 First-Fit) に変更

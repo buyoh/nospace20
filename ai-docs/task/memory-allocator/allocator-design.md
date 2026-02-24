@@ -8,15 +8,23 @@
 |---|---|---|---|---|
 | バンプアロケータ | ◎ 非常に簡単 | × 解放不可 | × | ◎ |
 | フリーリスト (First-Fit) | ○ 中程度 | △ | ○ | ○ |
+| 固定サイズブロック (FSBA) | ○ 中程度 | ○ (内部frag小) | ○ | ◎ |
 | バディアロケータ | × 複雑 | ○ | ○ | △ |
 
-### 採用: フリーリスト (First-Fit) + バンプフォールバック
+### 採用: 二層アーキテクチャ — FSBA + 汎用フリーリスト (First-Fit) + バンプフォールバック
+
+**構成**:
+- **第 1 層: 固定サイズブロックアロケータ (FSBA)** — 小さなサイズ (≤32 セル) の高速割り当て。サイズクラス (2, 4, 8, 16, 32) ごとにフリーリストを持ち、O(1) で alloc/free
+- **第 2 層: 汎用 First-Fit + バンプ** — 大きなサイズ (>32 セル) のフォールバック。フリーリストを First-Fit で走査し、見つからなければバンプ拡張
 
 **理由**:
 - `__free` をサポートするにはフリーリストが必要
 - Whitespace のスタックマシンで実装可能な複雑度
-- First-Fit は実装がシンプルで、小規模プログラムには十分
+- FSBA によりスタックフレームなど頻繁な小サイズ割り当てが O(1) で完了
+- 同一サイズクラスのブロックは完璧に再利用でき、外部フラグメンテーションが発生しない
 - フリーリストに適合するブロックがない場合、ヒープ末尾をバンプ拡張
+
+**詳細設計**: [fixed-size-block-allocator.md](fixed-size-block-allocator.md) を参照
 
 ## ブロック構造
 
@@ -54,24 +62,30 @@
 
 ## メタデータ
 
-アロケータは以下の 2 つのメタデータアドレスを使用する:
+アロケータは以下のメタデータアドレスを使用する:
 
 | アドレス | 名前 | 説明 |
 |---|---|---|
-| 5 | `ALLOC_FREE_HEAD` | フリーリストの先頭ブロックアドレス (0 = 空) |
+| 5 | `ALLOC_FREE_HEAD` | 汎用フリーリストの先頭ブロックアドレス (0 = 空) |
 | 6 | `ALLOC_HEAP_TOP` | マネージドヒープの現在の末尾（バンプ拡張用） |
+| 7 | `FSBA_TABLE_PTR` | FSBA フリーリストテーブルへのポインタ |
 
 現在アドレス 5-7 は予約済み未使用領域のため、ここに配置する。
 
+FSBA テーブル自体はマネージドヒープの先頭に配置される（詳細は [fixed-size-block-allocator.md](fixed-size-block-allocator.md) および [heap-layout.md](heap-layout.md) を参照）。
+
 ## 擬似コード
 
-### alloc(requested_size) → ptr
+alloc/free の全体フロー（FSBA 統合版）は [fixed-size-block-allocator.md](fixed-size-block-allocator.md) を参照。
+以下は汎用アロケータ (第 2 層) の擬似コードである。
+
+### general_alloc(total) → ptr
+
+total は既にヘッダー込みの値（`max(requested_size + 1, 2)` 済み）で、かつ total > 32 のケース。
 
 ```
-function alloc(requested_size):
-    total = max(requested_size + 1, 2)   // ヘッダー 1 セル + 最小 1 セル
-
-    // フリーリストを First-Fit で探索
+function general_alloc(total):
+    // 汎用フリーリストを First-Fit で探索
     prev_addr = &ALLOC_FREE_HEAD  // メタデータアドレス(5)を prev として扱う
     curr = heap[ALLOC_FREE_HEAD]
 
@@ -105,22 +119,34 @@ function alloc(requested_size):
     return ptr + 1
 ```
 
-### free(ptr)
+### general_free(ptr)
+
+total > 32 のブロック、または FSBA サイズクラスに該当しないブロック用。
 
 ```
-function free(ptr):
+function general_free(ptr):
     block = ptr - 1
-    // フリーリストの先頭に追加 (LIFO)
+    // 汎用フリーリストの先頭に追加 (LIFO)
     heap[block + 1] = heap[ALLOC_FREE_HEAD]
     heap[ALLOC_FREE_HEAD] = block
 ```
 
 ### 初期化
 
+FSBA テーブルをマネージドヒープの先頭に配置し、その直後からバンプ拡張を開始する。
+
 ```
 function init_allocator():
-    heap[ALLOC_FREE_HEAD] = 0  // フリーリスト空
-    heap[ALLOC_HEAP_TOP] = GLOBAL_PTR + global_heap_size  // グローバル領域直後
+    managed_start = GLOBAL_PTR + global_heap_size
+
+    // FSBA テーブル初期化
+    heap[FSBA_TABLE_PTR] = managed_start   // アドレス 7
+    for i in 0..FSBA_CLASS_COUNT:
+        heap[managed_start + i] = 0        // 各サイズクラスのフリーリスト空
+
+    // 汎用アロケータ初期化
+    heap[ALLOC_FREE_HEAD] = 0              // 汎用フリーリスト空
+    heap[ALLOC_HEAP_TOP] = managed_start + FSBA_CLASS_COUNT  // テーブル直後
 ```
 
 ## Whitespace サブルーチンとしての実装
@@ -167,21 +193,20 @@ loop_start:
 loop_end:
 ```
 
-### 複雑度の見積り
-
-alloc サブルーチンの命令数概算:
+### 複雑度の見積り（二層統合）
 
 | 処理 | 概算命令数 |
 |---|---|
 | total 計算 (max, +1) | ~10 |
-| フリーリスト走査ループ初期化 | ~5 |
-| ループ本体 (サイズ比較 + 条件分岐) | ~20 |
-| ブロック分割処理 | ~15 |
-| フリーリストからの切り離し | ~10 |
-| バンプフォールバック | ~10 |
-| **合計** | **~70 命令** |
+| FSBA サイズクラス選択 (5 段カスケード) | ~25 |
+| FSBA alloc (フリーリスト pop / バンプ) | ~20 |
+| 汎用 alloc (First-Fit ループ + バンプ) | ~50 |
+| **alloc 合計** | **~105 命令** |
+| free: ヘッダ読取 + サイズクラス判定 | ~30 |
+| free: FSBA push / 汎用 push | ~10 |
+| **free 合計** | **~40 命令** |
 
-free サブルーチンは ~10 命令で実装可能。
+※ FSBA ヒット時の実行パスは alloc ~35 命令、free ~20 命令程度でショートカットされる。
 
 ## 将来の改善
 

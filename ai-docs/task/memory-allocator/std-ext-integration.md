@@ -113,7 +113,7 @@ expression.rs: ctx.is_alloc_ext() → __alloc/__free 生成
 - `debug_ext`: デバッグ組み込み関数 (`__trace` 等) の負ヒープアドレス Store 生成
 - `alloc_ext`: アロケータサブルーチン生成、フレーム管理方式変更、`__alloc`/`__free` 生成
 
-干渉する部分はない（メタデータアドレスも重複しない: debug は負アドレス、alloc は正アドレス 5,6）。
+干渉する部分はない（メタデータアドレスも重複しない: debug は負アドレス、alloc は正アドレス 5,6,7）。
 
 ## whitespace20 (VM) への影響
 

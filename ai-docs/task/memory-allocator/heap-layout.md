@@ -36,12 +36,12 @@
    2     LOCAL_HEAP_BEGIN  ← 現フレーム開始位置 (変更なし)
    3     (未使用: フレーム管理はアロケータに委譲)
    4     TEMP_PTR          ← I/O 一時領域 (変更なし)
-   5     ALLOC_FREE_HEAD   ← フリーリスト先頭アドレス (新規)
+   5     ALLOC_FREE_HEAD   ← 汎用フリーリスト先頭アドレス (新規)
    6     ALLOC_HEAP_TOP    ← マネージドヒープ末尾 (新規)
-   7     (予約未使用)
+   7     FSBA_TABLE_PTR    ← FSBA テーブルポインタ (新規)
    8     GLOBAL_PTR        ← グローバル変数領域の開始 (変更なし)
    8+G   (static変数領域の開始) (変更なし)
-   8+G+S (マネージドヒープの開始 → アロケータが管理)
+   8+G+S (FSBAテーブルの開始 → その後マネージドヒープ)
 ```
 
 ### 変更点
@@ -49,8 +49,9 @@
 | アドレス | 変更前 | 変更後 |
 |---|---|---|
 | 3 | `LOCAL_HEAP_END` (フレーム終了位置) | 未使用 (アロケータがフレームサイズを管理) |
-| 5 | 予約未使用 | `ALLOC_FREE_HEAD` (フリーリスト先頭) |
+| 5 | 予約未使用 | `ALLOC_FREE_HEAD` (汎用フリーリスト先頭) |
 | 6 | 予約未使用 | `ALLOC_HEAP_TOP` (ヒープ末尾) |
+| 7 | 予約未使用 | `FSBA_TABLE_PTR` (FSBA フリーリストテーブルポインタ) |
 
 ### `LOCAL_HEAP_END` の廃止
 
@@ -78,19 +79,20 @@ low address                                                  high address
 
 ```
 low address                                                  high address
-┌───────────┬───────────┬──────────┬───────────────────────────────────┐
-│ Reserved  │ Globals   │ Statics  │ Managed Heap (allocator管理)      │
-│ addr 0-7  │ addr 8+   │          │ ← ALLOC_HEAP_TOP, ALLOC_FREE_HEAD│
-│ +alloc    │           │          │                                   │
-│ metadata  │           │          │ [Frame A][Free][Frame B][Heap X]  │
-│ at 5,6    │           │          │                                   │
-└───────────┴───────────┴──────────┴───────────────────────────────────┘
+┌───────────┬───────────┬──────────┬────────┬──────────────────────┐
+│ Reserved  │ Globals   │ Statics  │ FSBA   │ Managed Heap           │
+│ addr 0-7  │ addr 8+   │          │ Table  │ (allocator管理)          │
+│ +alloc    │           │          │ (5 cel)│                        │
+│ metadata  │           │          │        │ [Frame A][Free][Heap X]│
+│ at 5,6,7  │           │          │        │                        │
+└───────────┴───────────┴──────────┴────────┴──────────────────────┘
 ```
 
 マネージドヒープ内はアロケータが自由に配置:
+- FSBA テーブル (5 セル): 各サイズクラスのフリーリスト先頭ポインタ
 - スタックフレーム (関数呼び出しごとに alloc で確保)
 - ユーザー指定のヒープブロック (`__alloc()` で確保)
-- フリーブロック (解放済み、フリーリストで管理)
+- フリーブロック (解放済み、FSBA または汎用フリーリストで管理)
 
 ## 初期化の変更
 
@@ -105,8 +107,12 @@ heap[LOCAL_HEAP_END]   = GLOBAL_PTR + global_heap_size
 
 ```
 heap[LOCAL_HEAP_BEGIN] = 0               // 未確保（main 関数呼び出し時に alloc）
-heap[ALLOC_FREE_HEAD]  = 0               // フリーリスト空
-heap[ALLOC_HEAP_TOP]   = GLOBAL_PTR + global_heap_size  // マネージドヒープ開始
+heap[ALLOC_FREE_HEAD]  = 0               // 汎用フリーリスト空
+heap[ALLOC_HEAP_TOP]   = GLOBAL_PTR + global_heap_size + FSBA_CLASS_COUNT  // FSBAテーブル直後
+heap[FSBA_TABLE_PTR]   = GLOBAL_PTR + global_heap_size  // FSBAテーブル先頭
+// FSBA テーブル初期化 (5 クラス分)
+for i in 0..FSBA_CLASS_COUNT:
+    heap[FSBA_TABLE_PTR + i] = 0         // 各サイズクラスのフリーリスト空
 ```
 
 ## memory.rs への変更
@@ -124,6 +130,7 @@ impl MemoryLayout {
     // 新規 (--std-ext alloc)
     pub const ALLOC_FREE_HEAD: HeapAddress = HeapAddress(5);
     pub const ALLOC_HEAP_TOP: HeapAddress = HeapAddress(6);
+    pub const FSBA_TABLE_PTR: HeapAddress = HeapAddress(7);
 }
 ```
 
@@ -140,5 +147,10 @@ pub mod heap_layout {
     // 新規 (--std-ext alloc)
     pub const ALLOC_FREE_HEAD: i64 = 5;
     pub const ALLOC_HEAP_TOP: i64 = 6;
+    pub const FSBA_TABLE_PTR: i64 = 7;
+
+    // FSBA サイズクラス数
+    pub const FSBA_CLASS_COUNT: i64 = 5;
+    // FSBA サイズクラス: [2, 4, 8, 16, 32]
 }
 ```
