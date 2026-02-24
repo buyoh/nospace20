@@ -9,6 +9,7 @@
 - [unimplemented-variable-features.md](unimplemented-variable-features.md) - 未実装の変数関連機能（初期値指定、final/const変数）
 - [unimplemented-type-system.md](unimplemented-type-system.md) - 未実装の型システム（int, void, function, tuple）
 - [unused-code-cleanup.md](unused-code-cleanup.md) - 未使用コードの整理（17件の警告調査・分類済み、Phase 1-3 の対処方針）
+- [fix-build-warnings.md](fix-build-warnings.md) - ビルド時 warning の調査・修正計画（14件の warning 分類・修正方針、2026-02-25 調査）
 - [symbol-table-design.md](symbol-table-design.md) - デバッグ用シンボルテーブル設計（識別子のインデックス化・文字列分離）- ステップ1-4完了、ステップ5-6の詳細設計完了 (2026-02-17)
   - [symbol-table-impl/](symbol-table-impl/) - ステップ5・6の詳細設計
 - [error-message-improvement.md](error-message-improvement.md) - エラーメッセージ型の改善（Cow<'static, str> 導入設計）
