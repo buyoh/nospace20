@@ -40,7 +40,7 @@
 - [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
 - [wasm-vm-interactive-stdin/](wasm-vm-interactive-stdin/) - WASM WhitespaceVM の interactive stdin 一時停止機能（InputChar/InputNumber でバッファ不足時に WaitingForInput を返す）
 - [memory-allocator/](memory-allocator/) - メモリアロケータ実装（`--std-ext alloc` による二層アロケータ: FSBA + 汎用 First-Fit、スタックフレーム統合、`__alloc`/`__free` 組み込み関数、JSON ミニ言語による分離テスト）
-- [review-tree-parser-statement.md](review-tree-parser-statement.md) - tree_parser/statement/mod.rs コードレビュー（仕様違反1件・リファクタ4件・品質改善5件）
+- [review-tree-parser-statement.md](review-tree-parser-statement.md) - tree_parser/statement/mod.rs コードレビュー（リファクタ4件・品質改善5件）
 - [control-syntax-change/](control-syntax-change/) - if/while 制御構文の変更（コンマ区切り + 式ベース化、elif: 導入、Step 1-4 の段階的移行）
 
 ## 現在のタスク

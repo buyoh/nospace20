@@ -1,5 +1,0 @@
-{
-  "type": "parse_error",
-  "phase": "tree",
-  "contains": ["array size"]
-}

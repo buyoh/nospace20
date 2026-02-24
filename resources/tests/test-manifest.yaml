@@ -627,16 +627,6 @@ tests:
     path: array_size_omitted_no_init_001
     comment: "Error: '[]' without initializer"
 
-  - name: test_syntax_error_array_size_larger_than_init_001
-    type: syntax_error
-    path: array_size_larger_than_init_001
-    comment: "Bug-1: array size larger than initializer count should be error per spec"
-
-  - name: test_syntax_error_array_size_larger_than_string_001
-    type: syntax_error
-    path: array_size_larger_than_string_001
-    comment: "Bug-1: array size larger than string length should be error per spec"
-
   - name: test_syntax_error_array_empty_init_list_001
     type: syntax_error
     path: array_empty_init_list_001

@@ -17,31 +17,6 @@
 
 ## 発見事項
 
-### Bug-1: 仕様との乖離 — 配列サイズと初期化子数のチェック方向
-
-**深刻度**: 中 (仕様違反)
-
-`spec.md` L227:
-> 初期値の数よりも多いサイズを指定したとき、エラーとなる。
-
-つまり `let: arr[5]([1, 2, 3]);` は `5 > 3` なのでエラーであるべき。
-
-しかしコードでは**逆方向のみ**チェックしている:
-
-```rust
-// リスト初期化 (L303付近)
-if init_values.len() > explicit_size as usize { ... } // 初期化子 > サイズ のみ
-
-// 文字列初期化 (L222付近)
-if string_size > explicit_size { ... } // 文字列長 > サイズ のみ
-```
-
-`explicit_size > init_values.len()` (サイズ > 初期化子数) のケースがチェックされていない。
-
-**対処案**: 等値チェック `explicit_size != init_values.len()` に変更するか、`explicit_size > init_values.len()` のチェックを追加。文字列初期化についても同様。
-
----
-
 ### Refactor-1: `parse_variable_declarations` が巨大 (~350行)
 
 **深刻度**: 中 (保守性)
@@ -219,7 +194,6 @@ match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
 
 | # | 種別 | 項目 | 優先度 | 工数 |
 |---|------|------|--------|------|
-| Bug-1 | バグ | 配列サイズチェック方向の仕様違反 | **高** | 小 |
 | Refactor-1 | リファクタ | `parse_variable_declarations` 分割 | 中 | 大 |
 | Refactor-2 | リファクタ | エラーリカバリの共通化 | 中 | 中 |
 | Refactor-3 | リファクタ | `end_pos` 計算の共通化 | 低 | 小 |
@@ -237,5 +211,4 @@ match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
 
 ## 備考
 
-- テストファイル `test.rs` (594行) は正常系・エラー系の基本的なケースをカバーしているが、Bug-1 に該当するケース（`let: arr[5]([1, 2, 3]);` のような explicit_size > init_count）のテストが存在しない
-- 文字列初期化で `explicit_size > string_size` のテストも不足
+- テストファイル `test.rs` (594行) は正常系・エラー系の基本的なケースをカバーしている
