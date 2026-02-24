@@ -10,6 +10,7 @@ use super::types::{Block, ExecStatement, IdentifierRef, Variable};
 pub(super) struct FunctionIndex(pub usize, pub usize); // (global_index, arg_count)
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 pub(super) struct VariableIndex(pub usize);
 
 #[derive(Clone)]

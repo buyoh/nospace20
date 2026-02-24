@@ -91,10 +91,6 @@ pub struct CodeGenContext<'a> {
 }
 
 impl<'a> CodeGenContext<'a> {
-    pub fn new(scope: &'a Scope) -> Self {
-        Self::new_with_options(scope, false)
-    }
-
     pub fn new_with_options(scope: &'a Scope, debug_ext: bool) -> Self {
         let (static_var_global_offsets, static_var_total_size) = compute_static_var_offsets(scope);
         Self {

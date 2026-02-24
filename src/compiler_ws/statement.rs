@@ -153,7 +153,7 @@ fn generate_return(
 /// 関数定義のコード生成
 fn generate_function_definition(
     ctx: &mut CodeGenContext,
-    func_name: &str,
+    _func_name: &str,
     func: &crate::semantic_analyzer::Function,
     func_index: usize,
 ) -> Result<WsProgram, CompileError> {

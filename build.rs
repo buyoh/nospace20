@@ -19,6 +19,7 @@ struct TestCase {
     comment: Option<String>,
     #[serde(default)]
     exclude_targets: Option<Vec<String>>,
+    #[allow(dead_code)]
     #[serde(default)]
     std_ext: Option<Vec<String>>,
     #[serde(default)]

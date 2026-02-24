@@ -1,4 +1,5 @@
 // Test utilities for running Whitespace code
+#![allow(dead_code)]
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

@@ -550,6 +550,7 @@ fn test_whitespace_io_base(test_name: &str) {
     }
 }
 
+#[allow(dead_code)]
 fn test_whitespace_self_base(test_name: &str) {
     test_whitespace_self_base_debug(test_name, false);
 }
@@ -613,6 +614,7 @@ fn test_whitespace_self_base_impl(
     }
 }
 
+#[allow(dead_code)]
 fn test_whitespace_self_io_base(test_name: &str) {
     test_whitespace_self_io_base_debug(test_name, false);
 }

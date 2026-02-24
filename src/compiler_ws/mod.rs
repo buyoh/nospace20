@@ -36,6 +36,7 @@ use context::CodeGenContext;
 pub enum CompileError {
     #[allow(dead_code)]
     UndefinedVariable(String),
+    #[allow(dead_code)]
     UndefinedFunction(String),
     MainNotFound,
     InvalidOperation(String),
@@ -71,7 +72,3 @@ pub fn compile_with_options(scope: &Scope, debug_ext: bool) -> Result<WsProgram,
     Ok(program)
 }
 
-/// Scope を Whitespace プログラムにコンパイル（従来互換）
-pub fn compile(scope: &Scope) -> Result<WsProgram, CompileError> {
-    compile_with_options(scope, false)
-}

@@ -94,7 +94,7 @@ impl Default for WsProgram {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compiler_ws::types::{LabelId, WsNumber};
+    use crate::compiler_ws::types::WsNumber;
 
     #[test]
     fn test_program_creation() {

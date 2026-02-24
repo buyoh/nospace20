@@ -28,7 +28,7 @@
 - **メッセージ**: `unused variable: 'func_name'`
 - **原因**: `generate_function_definition` 関数の引数 `func_name` が関数本体で使用されていない。
 - **対処**: `_func_name` にリネーム、または将来デバッグラベル生成等で使用するなら `#[allow(unused_variables)]` を付与。
-- **推奨**: `_func_name` にリネーム（最もシンプル）
+- **推奨**: 削除（現状はデバッグラベル等で使用する予定がないため、引数自体を削除しても問題ない）
 
 ### W3. `src/compiler_ws/mod.rs:39` — `CompileError::UndefinedFunction` 未構築
 
@@ -36,7 +36,7 @@
 - **メッセージ**: `variant 'UndefinedFunction' is never constructed`
 - **原因**: 以前は `expression.rs` で使用されていたが、意味解析（semantic_analyzer）で事前にキャッチされるようになり不要になった。`UndefinedVariable` には既に `#[allow(dead_code)]` が付いているが、`UndefinedFunction` には付いていない。
 - **対処**: `#[allow(dead_code)]` を付与、または削除。
-- **推奨**: `#[allow(dead_code)]` を付与（`UndefinedVariable` と同様、防御的エラーバリアントとして残す）
+- **推奨**: `UndefinedVariable` と `UndefinedFunction`を削除
 - **関連**: [done-task/builtin-function-indexing.md](../done-task/builtin-function-indexing.md) で「互換性のため残す」と判断済み
 
 ### W4. `src/compiler_ws/mod.rs:75` — 関数 `compile` 未使用
@@ -120,6 +120,25 @@
 | W13-W14 | `#[allow(dead_code)]` 付与 | 低 |
 
 全て低難易度の修正で、機能への影響はない。
+
+## 修正結果
+
+2026-02-25 に全 14 件の warning を修正した。
+
+| # | ファイル | 対処内容 | 結果 |
+|---|---------|---------|------|
+| W1 | `build.rs` | `std_ext` フィールドに `#[allow(dead_code)]` 付与 | ✅ |
+| W2 | `src/compiler_ws/statement.rs` | `func_name` → `_func_name` にリネーム | ✅ |
+| W3 | `src/compiler_ws/mod.rs` | `UndefinedFunction` に `#[allow(dead_code)]` 付与 | ✅ |
+| W4 | `src/compiler_ws/mod.rs` | `compile` 関数を削除 | ✅ |
+| W5 | `src/compiler_ws/context.rs` | `CodeGenContext::new` を削除 | ✅ |
+| W6 | `src/semantic_analyzer/scope.rs` | `VariableIndex` に `#[allow(dead_code)]` 付与 | ✅ |
+| W7 | `src/bin/nospace20.rs` | 未使用 import 削除 (`compile_to_whitespace`, `compile_to_whitespace_debug`) | ✅ |
+| W8 | `src/compiler_ws/program.rs` | 未使用 import 削除 (`LabelId`) | ✅ |
+| W9-W12 | `tests/common/mod.rs` | `#![allow(dead_code)]` をモジュール先頭に付与 | ✅ |
+| W13-W14 | `tests/code_test.rs` | `test_whitespace_self_base`・`test_whitespace_self_io_base` に `#[allow(dead_code)]` 付与 | ✅ |
+
+`cargo build` および `cargo test --no-run` で warning がゼロになったことを確認済み。
 
 ## 関連ドキュメント
 
