@@ -10,7 +10,7 @@ func: main() {
     __puti(arr[2]);
     __putc(10);
 
-    let: arr2[3](100, 200, 300);
+    let: arr2[3]([100, 200, 300]);
     __puti(arr2[0]);
     __putc(10);
     __puti(arr2[1]);

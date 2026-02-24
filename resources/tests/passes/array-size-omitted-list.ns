@@ -1,0 +1,9 @@
+func: main() {
+    let: arr[]([1, 2, 3]);
+    __puti(arr[0]);
+    __putc(10);
+    __puti(arr[1]);
+    __putc(10);
+    __puti(arr[2]);
+    __putc(10);
+}

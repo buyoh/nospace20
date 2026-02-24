@@ -10,7 +10,7 @@ func:rev(arr, n){
 }
 
 func:main(){
-    let:x[5](1,2,3,4,5);
+    let:x[5]([1,2,3,4,5]);
 
     rev(&x, 5);
     

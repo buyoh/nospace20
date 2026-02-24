@@ -1,0 +1,9 @@
+func: main() {
+    let: str[]("ABC");
+    __putc(str[0]);
+    __putc(str[1]);
+    __putc(str[2]);
+    __putc(10);
+    __puti(str[3]);
+    __putc(10);
+}

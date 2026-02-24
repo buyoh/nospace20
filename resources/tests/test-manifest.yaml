@@ -622,6 +622,16 @@ tests:
     path: string_too_long_for_array_001
     comment: "Error: string literal too long for array"
 
+  - name: test_syntax_error_array_size_omitted_no_init_001
+    type: syntax_error
+    path: array_size_omitted_no_init_001
+    comment: "Error: '[]' without initializer"
+
+  - name: test_syntax_error_array_empty_init_list_001
+    type: syntax_error
+    path: array_empty_init_list_001
+    comment: "Error: empty initializer list"
+
   # ========================================
   # Compile Errors
   # ========================================
@@ -904,6 +914,16 @@ tests:
     path: array-reference
     comment: "Array reference operations and pointer arithmetic"
     exclude_targets: [whitespace]  # Whitespace: requires & operator (not yet implemented)
+
+  - name: test_array_size_omitted_list
+    type: success_io
+    path: array-size-omitted-list
+    comment: "Array with size omitted, inferred from initializer list"
+
+  - name: test_array_size_omitted_string
+    type: success_io
+    path: array-size-omitted-string
+    comment: "Array with size omitted, inferred from string literal"
 
   - name: test_array_static
     type: success_io

@@ -444,10 +444,56 @@ let: str[]("Hello");
 
 ## 実装後の検証項目
 
-- [ ] すべてのテストがパスする
-- [ ] エラーメッセージが適切
-- [ ] spec.md が更新されている
-- [ ] tutorial.md が更新されている
-- [ ] grammar.bnf が更新されている
-- [ ] サイズ省略の動作確認
-- [ ] エラーケースの動作確認
+- [x] すべてのテストがパスする
+- [x] エラーメッセージが適切
+- [x] spec.md が更新されている
+- [x] tutorial.md が更新されている
+- [x] grammar.bnf が更新されている
+- [x] サイズ省略の動作確認
+- [x] エラーケースの動作確認
+
+## 実装結果
+
+### 実装日: 2026-02-24
+
+**完了した作業:**
+
+1. **仕様書・BNFの更新**
+   - `spec.md` §4.2（配列）・§4.3（文字列）を更新、TODOセクションを削除
+   - `tutorial.md` のサンプルコードを更新（`let: arr[]([3,1,4,1,5,9,2,6,5])`）
+   - `docs/grammar.bnf` の `let_decl` 定義を更新、`array_init`・`string_init` 定義を追加
+
+2. **パーサーの実装** (`src/tree_parser/statement/mod.rs`)
+   - `parse_variable_declarations` 関数を修正
+   - `bracket_specified` フラグを導入し `[]` と `[N]` を区別
+   - `([v1, v2, ...])` 形式の数値リスト初期化をサポート
+   - `[]` でサイズ省略時のサイズ推論ロジックを実装
+   - エラーチェック追加: サイズ省略で初期値なし、空の初期化リスト
+
+3. **ユニットテスト** (`src/tree_parser/statement/test.rs`)
+   - `test_parse_array_declaration_with_init`: 新構文 `([...])` に更新
+   - 新規追加: `test_parse_array_declaration_size_omitted_with_init`
+   - 新規追加: `test_parse_array_declaration_size_omitted_string`
+   - 新規追加: `test_parse_array_declaration_size_omitted_no_init_error`
+   - 新規追加: `test_parse_array_declaration_empty_init_error`
+
+4. **既存テストの修正**
+   - `passes/array-basic.ns`: `(100, 200, 300)` → `([100, 200, 300])`
+   - `passes/array-reference.ns`: `(1, 2, 3)` → `([1, 2, 3])`
+   - `passes/legacy/legacy_021.ns`: `(2,3)` → `([2,3])`
+   - `passes/legacy/legacy_022.ns`: `(1,2,3,4,5)` → `([1,2,3,4,5])`
+   - `passes/legacy/legacy_024.ns`: `(3,4,5)` → `([3,4,5])`, `(0,1,2)` → `([0,1,2])`
+   - `passes/string-basic.ns`: `let: s("Hello")` → `let: s[]("Hello")` 等
+   - `passes/string-escape.ns`: `let: esc(...)` → `let: esc[](...)` 等
+   - `passes/array-static.ns`: `(10, 20)` → `([10, 20])`
+   - `fails/syntax/array_init_overflow_001.ns`: `= {1, 2, 3}` → `([1, 2, 3])`
+   - `fails/syntax/string_too_long_for_array_001.ns`: `= "hello"` → `("hello")`
+
+5. **新規テストケースの追加**
+   - `passes/array-size-omitted-list.ns`: サイズ省略 + 数値リスト初期化
+   - `passes/array-size-omitted-string.ns`: サイズ省略 + 文字列初期化
+   - `fails/syntax/array_size_omitted_no_init_001.ns`: エラー: サイズ省略で初期値なし
+   - `fails/syntax/array_empty_init_list_001.ns`: エラー: 空の初期化リスト
+   - `test-manifest.yaml` にすべて登録済み
+
+**テスト結果**: 632 passed; 0 failed; 126 ignored

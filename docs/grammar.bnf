@@ -72,9 +72,9 @@ let ::=
 static ::=
     | "static" ":" let_decl ("," let_decl)* ";"
 
-# 配列宣言は未実装
-let_decl ::= ident ("(" expr ")")?
-# let_decl ::= ident ("[" integer "]")?           # 未実装: 配列
+let_decl ::= ident ("[" integer? "]")?  ("(" array_init | string_init | expr ")")?
+array_init ::= "[" expr ("," expr)* "]"
+string_init ::= string_literal
 
 stmt ::=
     | if_stmt

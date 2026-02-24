@@ -16,7 +16,7 @@ func: main() {
     __puti(arr[2]);
     __putc(10);
 
-    let: arr2[3](1, 2, 3);
+    let: arr2[3]([1, 2, 3]);
     let: ptr;
     let: i;
     ptr = &arr2;

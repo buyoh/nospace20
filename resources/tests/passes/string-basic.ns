@@ -1,5 +1,5 @@
 func: main() {
-    let: s("Hello");
+    let: s[]("Hello");
     __puti(s[0]);
     __putc(10);
     __puti(s[1]);
@@ -13,7 +13,7 @@ func: main() {
     __puti(s[5]);
     __putc(10);
 
-    let: s2("A\sB");
+    let: s2[]("A\sB");
     __puti(s2[0]);
     __putc(10);
     __puti(s2[1]);
@@ -23,7 +23,7 @@ func: main() {
     __puti(s2[3]);
     __putc(10);
 
-    let: empty("");
+    let: empty[]("");
     __puti(empty[0]);
     __putc(10);
 

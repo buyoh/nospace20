@@ -116,66 +116,76 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             };
 
             // 配列サイズのチェック
-            let array_size = if let Some((Token::BracketL, _)) = self.iter.peek() {
+            // bracket_specified: '[' が指定されていたかどうか（'[]' の場合も true）
+            let (bracket_specified, array_size) = if let Some((Token::BracketL, _)) =
+                self.iter.peek()
+            {
                 self.iter.next(); // '[' を消費
 
-                // サイズは定数（Number）のみ
-                let size = match self.iter.next() {
-                    Some((Token::Number(n), _)) => {
-                        if *n <= 0 {
-                            // エラー: 配列サイズは正の整数
-                            let err_idx = self.add_parse_error(
-                                &TokenInfo {
-                                    code_pointer: start_pos,
-                                },
-                                "array size must be positive",
-                            );
+                if let Some((Token::BracketR, _)) = self.iter.peek() {
+                    // "[]" - サイズ省略（初期化から推論）
+                    self.iter.next(); // ']' を消費
+                    (true, None)
+                } else {
+                    // "[N]" - サイズ指定（定数のみ）
+                    let size = match self.iter.next() {
+                        Some((Token::Number(n), _)) => {
+                            if *n <= 0 {
+                                // エラー: 配列サイズは正の整数
+                                let err_idx = self.add_parse_error(
+                                    &TokenInfo {
+                                        code_pointer: start_pos,
+                                    },
+                                    "array size must be positive",
+                                );
+                                results.push(LocatedStatement {
+                                    statement: Statement::Invalid(err_idx),
+                                    location: SourceLocation::from_single(start_pos),
+                                });
+                                // エラー後はセミコロンまでスキップ
+                                while let Some((token, _)) = self.iter.peek() {
+                                    if matches!(token, Token::Semicolon) {
+                                        break;
+                                    }
+                                    self.iter.next();
+                                }
+                                self.iter.next(); // セミコロンを消費
+                                return results;
+                            }
+                            *n
+                        }
+                        Some((_, token_info)) => {
+                            let err_idx =
+                                self.add_parse_error(token_info, "expected array size or ']'");
                             results.push(LocatedStatement {
                                 statement: Statement::Invalid(err_idx),
                                 location: SourceLocation::from_single(start_pos),
                             });
-                            // エラー後はセミコロンまでスキップ
                             while let Some((token, _)) = self.iter.peek() {
                                 if matches!(token, Token::Semicolon) {
                                     break;
                                 }
                                 self.iter.next();
                             }
-                            self.iter.next(); // セミコロンを消費
+                            self.iter.next();
                             return results;
                         }
-                        *n
-                    }
-                    Some((_, token_info)) => {
-                        let err_idx = self.add_parse_error(token_info, "expected array size");
-                        results.push(LocatedStatement {
-                            statement: Statement::Invalid(err_idx),
-                            location: SourceLocation::from_single(start_pos),
-                        });
-                        while let Some((token, _)) = self.iter.peek() {
-                            if matches!(token, Token::Semicolon) {
-                                break;
-                            }
-                            self.iter.next();
+                        None => {
+                            let err_idx = self.add_end_error("unexpected end of input");
+                            results.push(LocatedStatement {
+                                statement: Statement::Invalid(err_idx),
+                                location: SourceLocation::from_single(start_pos),
+                            });
+                            return results;
                         }
-                        self.iter.next();
-                        return results;
-                    }
-                    None => {
-                        let err_idx = self.add_end_error("unexpected end of input");
-                        results.push(LocatedStatement {
-                            statement: Statement::Invalid(err_idx),
-                            location: SourceLocation::from_single(start_pos),
-                        });
-                        return results;
-                    }
-                };
+                    };
 
-                // ']' を消費
-                match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
-                Some(size)
+                    // ']' を消費
+                    match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
+                    (true, Some(size))
+                }
             } else {
-                None
+                (false, None)
             };
 
             // 初期化式のチェック
@@ -183,12 +193,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 // "(" を消費
                 self.iter.next();
 
-                if let Some(arr_size) = array_size {
-                    // 配列の初期化: (val1, val2, val3, ...) または ("string")
+                if bracket_specified {
+                    // 配列の初期化: ("string") または ([val1, val2, ...])
 
-                    // 最初のトークンが文字列リテラルか確認
                     if let Some((Token::StringLiteral(chars), _)) = self.iter.peek() {
-                        // 文字列リテラル → 配列に展開
+                        // 文字列初期化: ("Hello")
                         let chars = chars.clone();
                         self.iter.next(); // StringLiteral を消費
 
@@ -198,180 +207,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                         // 文字列サイズ = 文字数 + 1（ヌル終端）
                         let string_size = (chars.len() + 1) as i64;
 
-                        // サイズチェック
-                        if string_size > arr_size {
-                            let err_idx = self.add_parse_error(
-                                &TokenInfo {
-                                    code_pointer: start_pos,
-                                },
-                                format!(
-                                    "string literal too long for array of size {}: needs {}",
-                                    arr_size, string_size
-                                ),
-                            );
-                            results.push(LocatedStatement {
-                                statement: Statement::Invalid(err_idx),
-                                location: SourceLocation::from_single(start_pos),
-                            });
-                            while let Some((token, _)) = self.iter.peek() {
-                                if matches!(token, Token::Semicolon) {
-                                    break;
-                                }
-                                self.iter.next();
-                            }
-                            self.iter.next();
-                            return results;
-                        }
-
-                        let end_pos = self
-                            .iter
-                            .peek()
-                            .map(|(_, info)| info.code_pointer)
-                            .unwrap_or(start_pos);
-
-                        // 配列宣言を追加
-                        results.push(LocatedStatement {
-                            statement: Statement::VariableDeclaration(
-                                id.clone(),
-                                Box::new(Expression::Factor(0)),
-                                is_static,
-                                Some(arr_size),
-                            ),
-                            location: SourceLocation::new(start_pos, end_pos),
-                        });
-
-                        // 各文字を配列要素に代入
-                        let null_idx = chars.len();
-                        for (i, char_val) in chars.into_iter().enumerate() {
-                            let assign_expr = Box::new(Expression::Operation2(
-                                Operator2::Assign,
-                                Box::new(Expression::ArrayAccess(
-                                    id.clone(),
-                                    Box::new(Expression::Factor(i as i64)),
-                                )),
-                                Box::new(Expression::Factor(char_val)),
-                            ));
-                            results.push(LocatedStatement {
-                                statement: Statement::Expression(assign_expr),
-                                location: SourceLocation::new(start_pos, end_pos),
-                            });
-                        }
-
-                        // ヌル終端を追加
-
-                        let assign_expr = Box::new(Expression::Operation2(
-                            Operator2::Assign,
-                            Box::new(Expression::ArrayAccess(
-                                id.clone(),
-                                Box::new(Expression::Factor(null_idx as i64)),
-                            )),
-                            Box::new(Expression::Factor(0)),
-                        ));
-                        results.push(LocatedStatement {
-                            statement: Statement::Expression(assign_expr),
-                            location: SourceLocation::new(start_pos, end_pos),
-                        });
-                    } else {
-                        // 通常の配列初期化: (val1, val2, val3, ...)
-                        let mut init_values = Vec::new();
-
-                        // 初期化値を読み取る
-                        loop {
-                            if let Some((Token::ParenthesisR, _)) = self.iter.peek() {
-                                break;
-                            }
-
-                            let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
-                            self.code_parse_error.append(&mut errs);
-                            init_values.push(expr);
-
-                            if let Some((Token::Comma, _)) = self.iter.peek() {
-                                self.iter.next(); // カンマを消費
-                            } else {
-                                break;
-                            }
-                        }
-
-                        // ")" を消費
-                        match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
-
-                        // サイズチェック
-                        if init_values.len() > arr_size as usize {
-                            let err_idx = self.add_parse_error(
-                                &TokenInfo {
-                                    code_pointer: start_pos,
-                                },
-                                format!(
-                                    "too many initializers for array of size {}: got {}",
-                                    arr_size,
-                                    init_values.len()
-                                ),
-                            );
-                            results.push(LocatedStatement {
-                                statement: Statement::Invalid(err_idx),
-                                location: SourceLocation::from_single(start_pos),
-                            });
-                            while let Some((token, _)) = self.iter.peek() {
-                                if matches!(token, Token::Semicolon) {
-                                    break;
-                                }
-                                self.iter.next();
-                            }
-                            self.iter.next();
-                            return results;
-                        }
-
-                        // 配列宣言を追加
-                        let end_pos = self
-                            .iter
-                            .peek()
-                            .map(|(_, info)| info.code_pointer)
-                            .unwrap_or(start_pos);
-
-                        results.push(LocatedStatement {
-                            statement: Statement::VariableDeclaration(
-                                id.clone(),
-                                Box::new(Expression::Factor(0)),
-                                is_static,
-                                array_size,
-                            ),
-                            location: SourceLocation::new(start_pos, end_pos),
-                        });
-
-                        // 各要素への代入文を生成: arr[0] = val0, arr[1] = val1, ...
-                        for (i, val_expr) in init_values.into_iter().enumerate() {
-                            let assign_expr = Box::new(Expression::Operation2(
-                                Operator2::Assign,
-                                Box::new(Expression::ArrayAccess(
-                                    id.clone(),
-                                    Box::new(Expression::Factor(i as i64)),
-                                )),
-                                val_expr,
-                            ));
-                            results.push(LocatedStatement {
-                                statement: Statement::Expression(assign_expr),
-                                location: SourceLocation::new(start_pos, end_pos),
-                            });
-                        }
-                    }
-                } else {
-                    // 通常変数の初期化: (expr)
-                    // ただし、文字列リテラルの場合は配列に展開
-
-                    // 最初のトークンを確認
-                    if let Some((Token::StringLiteral(chars), _)) = self.iter.peek() {
-                        // 文字列リテラル → 配列に展開
-                        let chars = chars.clone();
-                        self.iter.next(); // StringLiteral を消費
-
-                        // ")" を消費
-                        match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
-
-                        // 配列サイズ = 文字数 + 1（ヌル終端）
-                        let string_size = (chars.len() + 1) as i64;
-
-                        // 配列サイズのチェック（明示的に指定されている場合）
-                        if let Some(explicit_size) = array_size {
+                        // サイズチェック or 推論
+                        let actual_size = if let Some(explicit_size) = array_size {
                             if string_size > explicit_size {
                                 let err_idx = self.add_parse_error(
                                     &TokenInfo {
@@ -395,9 +232,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                                 self.iter.next();
                                 return results;
                             }
-                        }
-
-                        let actual_size = array_size.unwrap_or(string_size);
+                            explicit_size
+                        } else {
+                            // '[]' の場合: 文字列長から推論
+                            string_size
+                        };
 
                         let end_pos = self
                             .iter
@@ -416,7 +255,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             location: SourceLocation::new(start_pos, end_pos),
                         });
 
-                        // 各文字を配列要素に代入: arr[0] = 'H', arr[1] = 'e', ...
+                        // 各文字を配列要素に代入
                         let null_idx = chars.len();
                         for (i, char_val) in chars.into_iter().enumerate() {
                             let assign_expr = Box::new(Expression::Operation2(
@@ -433,8 +272,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             });
                         }
 
-                        // ヌル終端を追加: arr[len] = 0
-
+                        // ヌル終端を追加
                         let assign_expr = Box::new(Expression::Operation2(
                             Operator2::Assign,
                             Box::new(Expression::ArrayAccess(
@@ -447,21 +285,89 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             statement: Statement::Expression(assign_expr),
                             location: SourceLocation::new(start_pos, end_pos),
                         });
-                    } else {
-                        // 通常の式をパース
-                        let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
-                        self.code_parse_error.append(&mut errs);
+                    } else if let Some((Token::BracketL, _)) = self.iter.peek() {
+                        // 数値リスト初期化: ([val1, val2, val3])
+                        self.iter.next(); // '[' を消費
 
-                        // ")" を消費
+                        let mut init_values = Vec::new();
+
+                        // ']' になるまで初期化値を読み取る
+                        loop {
+                            if let Some((Token::BracketR, _)) = self.iter.peek() {
+                                break;
+                            }
+
+                            let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+                            self.code_parse_error.append(&mut errs);
+                            init_values.push(expr);
+
+                            if let Some((Token::Comma, _)) = self.iter.peek() {
+                                self.iter.next(); // カンマを消費
+                            } else {
+                                break;
+                            }
+                        }
+
+                        // ']' を消費
+                        match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
+                        // ')' を消費
                         match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
 
-                        // 代入式を構築: id = expr
-                        let init_expr = Box::new(Expression::Operation2(
-                            Operator2::Assign,
-                            Box::new(Expression::Variable(id.clone())),
-                            expr,
-                        ));
+                        // 空の初期化リストはエラー
+                        if init_values.is_empty() {
+                            let err_idx = self.add_parse_error(
+                                &TokenInfo {
+                                    code_pointer: start_pos,
+                                },
+                                "empty initializer list: array size cannot be 0",
+                            );
+                            results.push(LocatedStatement {
+                                statement: Statement::Invalid(err_idx),
+                                location: SourceLocation::from_single(start_pos),
+                            });
+                            while let Some((token, _)) = self.iter.peek() {
+                                if matches!(token, Token::Semicolon) {
+                                    break;
+                                }
+                                self.iter.next();
+                            }
+                            self.iter.next();
+                            return results;
+                        }
 
+                        // サイズチェック or 推論
+                        let actual_size = if let Some(explicit_size) = array_size {
+                            if init_values.len() > explicit_size as usize {
+                                let err_idx = self.add_parse_error(
+                                    &TokenInfo {
+                                        code_pointer: start_pos,
+                                    },
+                                    format!(
+                                        "too many initializers for array of size {}: got {}",
+                                        explicit_size,
+                                        init_values.len()
+                                    ),
+                                );
+                                results.push(LocatedStatement {
+                                    statement: Statement::Invalid(err_idx),
+                                    location: SourceLocation::from_single(start_pos),
+                                });
+                                while let Some((token, _)) = self.iter.peek() {
+                                    if matches!(token, Token::Semicolon) {
+                                        break;
+                                    }
+                                    self.iter.next();
+                                }
+                                self.iter.next();
+                                return results;
+                            }
+                            explicit_size
+                        } else {
+                            // '[]' の場合: リスト長から推論
+                            init_values.len() as i64
+                        };
+
+                        // 配列宣言を追加
                         let end_pos = self
                             .iter
                             .peek()
@@ -471,16 +377,104 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                         results.push(LocatedStatement {
                             statement: Statement::VariableDeclaration(
                                 id.clone(),
-                                init_expr,
+                                Box::new(Expression::Factor(0)),
                                 is_static,
-                                None,
+                                Some(actual_size),
                             ),
                             location: SourceLocation::new(start_pos, end_pos),
                         });
+
+                        // 各要素への代入文を生成: arr[0] = val0, arr[1] = val1, ...
+                        for (i, val_expr) in init_values.into_iter().enumerate() {
+                            let assign_expr = Box::new(Expression::Operation2(
+                                Operator2::Assign,
+                                Box::new(Expression::ArrayAccess(
+                                    id.clone(),
+                                    Box::new(Expression::Factor(i as i64)),
+                                )),
+                                val_expr,
+                            ));
+                            results.push(LocatedStatement {
+                                statement: Statement::Expression(assign_expr),
+                                location: SourceLocation::new(start_pos, end_pos),
+                            });
+                        }
+                    } else {
+                        // エラー: 配列初期化には '[' か文字列リテラルが必要
+                        let err_idx = self.add_parse_error(
+                            &TokenInfo {
+                                code_pointer: start_pos,
+                            },
+                            "expected '[' or string literal for array initialization",
+                        );
+                        results.push(LocatedStatement {
+                            statement: Statement::Invalid(err_idx),
+                            location: SourceLocation::from_single(start_pos),
+                        });
+                        while let Some((token, _)) = self.iter.peek() {
+                            if matches!(token, Token::Semicolon) {
+                                break;
+                            }
+                            self.iter.next();
+                        }
+                        self.iter.next();
+                        return results;
                     }
+                } else {
+                    // 通常変数の初期化: (expr)
+                    let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+                    self.code_parse_error.append(&mut errs);
+
+                    // ")" を消費
+                    match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
+
+                    // 代入式を構築: id = expr
+                    let init_expr = Box::new(Expression::Operation2(
+                        Operator2::Assign,
+                        Box::new(Expression::Variable(id.clone())),
+                        expr,
+                    ));
+
+                    let end_pos = self
+                        .iter
+                        .peek()
+                        .map(|(_, info)| info.code_pointer)
+                        .unwrap_or(start_pos);
+
+                    results.push(LocatedStatement {
+                        statement: Statement::VariableDeclaration(
+                            id.clone(),
+                            init_expr,
+                            is_static,
+                            None,
+                        ),
+                        location: SourceLocation::new(start_pos, end_pos),
+                    });
                 }
             } else {
                 // 初期化式なし
+                if bracket_specified && array_size.is_none() {
+                    // エラー: '[]' でサイズ省略しているのに初期値なし
+                    let err_idx = self.add_parse_error(
+                        &TokenInfo {
+                            code_pointer: start_pos,
+                        },
+                        "array size not specified and no initializer: use '[N]' or '[]([...])' or '[](...)'",
+                    );
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(err_idx),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    while let Some((token, _)) = self.iter.peek() {
+                        if matches!(token, Token::Semicolon) {
+                            break;
+                        }
+                        self.iter.next();
+                    }
+                    self.iter.next(); // セミコロンを消費
+                    return results;
+                }
+
                 let end_pos = self
                     .iter
                     .peek()

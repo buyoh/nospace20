@@ -1,5 +1,5 @@
 func: main() {
-    let: esc("\n\t\\");
+    let: esc[]("\n\t\\");
     __puti(esc[0]);
     __putc(10);
     __puti(esc[1]);
@@ -9,7 +9,7 @@ func: main() {
     __puti(esc[3]);
     __putc(10);
 
-    static: s("Test");
+    static: s[]("Test");
     __puti(s[0]);
     __putc(10);
     __puti(s[1]);

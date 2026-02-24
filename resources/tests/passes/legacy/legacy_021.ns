@@ -1,4 +1,4 @@
-let:g[2](2,3);
+let:g[2]([2,3]);
 
 func:main(){
     let:a(1);
