@@ -135,35 +135,66 @@ enum StdinSource {
 }
 
 struct InteractiveBuffer {
-    data: Vec<u8>,
-    position: usize,
+    data: VecDeque<u8>,
+    /// ストリーム終端が通知済みか
+    closed: bool,
+}
+
+/// InteractiveBuffer の読み取り結果
+enum ReadStatus<T> {
+    /// データを読み取れた
+    Ok(T),
+    /// バッファ不足（入力待ち）
+    WouldBlock,
+    /// ストリーム終端（EOF）
+    EndOfStream,
 }
 
 impl InteractiveBuffer {
-    fn append(&mut self, data: &[u8]) {
-        self.data.extend_from_slice(data);
-    }
-
-    /// 1バイト読み取り。バッファ不足時は None を返す
-    fn read_byte(&mut self) -> Option<u8> {
-        if self.position < self.data.len() {
-            let b = self.data[self.position];
-            self.position += 1;
-            Some(b)
-        } else {
-            None
+    fn new() -> Self {
+        Self {
+            data: VecDeque::new(),
+            closed: false,
         }
     }
 
-    /// 1行読み取り。改行を含む行がバッファにない場合は None を返す
-    fn read_line(&mut self) -> Option<String> {
-        let remaining = &self.data[self.position..];
-        if let Some(newline_pos) = remaining.iter().position(|&b| b == b'\n') {
-            let line = String::from_utf8_lossy(&remaining[..=newline_pos]).to_string();
-            self.position += newline_pos + 1;
-            Some(line)
+    fn append(&mut self, data: &[u8]) {
+        self.data.extend(data);
+    }
+
+    /// ストリーム終端を通知する。以降、バッファが空になったら EOF を返す
+    fn close(&mut self) {
+        self.closed = true;
+    }
+
+    /// 1バイト読み取り
+    fn read_byte(&mut self) -> ReadStatus<u8> {
+        match self.data.pop_front() {
+            Some(b) => ReadStatus::Ok(b),
+            None if self.closed => ReadStatus::EndOfStream,
+            None => ReadStatus::WouldBlock,
+        }
+    }
+
+    /// 1行読み取り。改行を含む行がバッファにない場合は WouldBlock / EndOfStream
+    fn read_line(&mut self) -> ReadStatus<String> {
+        if let Some(newline_pos) = self.data.iter().position(|&b| b == b'\n') {
+            let line: String = self.data.drain(..=newline_pos)
+                .map(|b| b as char)
+                .collect();
+            ReadStatus::Ok(line)
+        } else if self.closed {
+            if self.data.is_empty() {
+                ReadStatus::EndOfStream
+            } else {
+                // closed 後、残りのデータを最終行として返す
+                let line: String = self.data.drain(..)
+                    .map(|b| b as char)
+                    .collect();
+                ReadStatus::Ok(line)
+            }
         } else {
-            None
+            ReadStatus::WouldBlock
         }
     }
 }
@@ -228,8 +259,9 @@ fn read_char(&mut self) -> Result<i64, ReadResult> {
         }
         StdinSource::Interactive(buffer) => {
             match buffer.read_byte() {
-                Some(b) => Ok(b as i64),
-                None => Err(ReadResult::WouldBlock),
+                ReadStatus::Ok(b) => Ok(b as i64),
+                ReadStatus::EndOfStream => Ok(0), // EOF と同じ
+                ReadStatus::WouldBlock => Err(ReadResult::WouldBlock),
             }
         }
     }
@@ -246,11 +278,14 @@ fn read_number(&mut self) -> Result<i64, ReadResult> {
         }
         StdinSource::Interactive(buffer) => {
             match buffer.read_line() {
-                Some(line) => {
+                ReadStatus::Ok(line) => {
                     line.trim().parse::<i64>()
                         .map_err(|e| ReadResult::IoError(e.to_string()))
                 }
-                None => Err(ReadResult::WouldBlock),
+                ReadStatus::EndOfStream => {
+                    Err(ReadResult::IoError("end of stream".to_string()))
+                }
+                ReadStatus::WouldBlock => Err(ReadResult::WouldBlock),
             }
         }
     }
@@ -309,6 +344,16 @@ pub fn with_interactive_stdin(mut self) -> Self {
 pub fn provide_stdin(&mut self, data: &str) {
     if let StdinSource::Interactive(buffer) = &mut self.stdin {
         buffer.append(data.as_bytes());
+    }
+}
+
+/// Interactive stdin のストリーム終端を通知する
+///
+/// 以降、バッファが空の状態で入力命令に到達すると EOF として扱われる。
+/// InputChar → 0 (EOF)、InputNumber → IoError。
+pub fn close_stdin(&mut self) {
+    if let StdinSource::Interactive(buffer) = &mut self.stdin {
+        buffer.close();
     }
 }
 ```
@@ -381,6 +426,14 @@ impl WasmWhitespaceVM {
     #[wasm_bindgen(js_name = "provideStdin")]
     pub fn provide_stdin(&mut self, data: &str) {
         self.vm.provide_stdin(data);
+    }
+
+    /// stdin のストリーム終端を通知する（interactive モード用）
+    ///
+    /// 以降、バッファが空の状態で入力命令に到達すると EOF として処理される。
+    #[wasm_bindgen(js_name = "closeStdin")]
+    pub fn close_stdin(&mut self) {
+        self.vm.close_stdin();
     }
 }
 ```
@@ -489,20 +542,25 @@ pub fn with_io(mut self, stdin: Box<dyn BufRead>, stdout: Box<dyn Write>) -> Sel
 
 `InputNumber` は `read_line` を使うため、改行（`\n`）がバッファにない限り `WaitingForInput` を返し続ける。JS 側で `provide_stdin("42\n")` のように改行付きでデータを投入する必要がある。これは TypeScript 型定義のドキュメントコメントで明示する。
 
-### 9.3 消費済みバッファの解放
+### 9.3 バッファのメモリ管理
 
-`InteractiveBuffer` の `data: Vec<u8>` は追記され続けるため、長時間実行ではメモリ使用量が増加する。定期的に消費済みデータを解放するメソッドを検討:
+`InteractiveBuffer` は `VecDeque<u8>` を使用し、消費済みデータは `pop_front()` / `drain()` で即座に破棄される。`Vec` + `position` 方式と異なり、明示的な compact 処理は不要。
 
-```rust
-impl InteractiveBuffer {
-    /// 消費済みデータを解放してメモリを回収
-    fn compact(&mut self) {
-        if self.position > 0 {
-            self.data.drain(..self.position);
-            self.position = 0;
-        }
-    }
-}
+### 9.4 EOS (End of Stream) の扱い
+
+`InteractiveBuffer` に `closed` フラグを持たせ、ストリーム終端を明示的に通知する設計とする。
+
+- `close_stdin()` 呼び出し前: バッファ空 → `WouldBlock`（入力待ち）
+- `close_stdin()` 呼び出し後: バッファ空 → `EndOfStream`（EOF）
+
+これにより JS 側で以下の制御が可能:
+
+```javascript
+// ユーザーが入力を終了（Ctrl+D 相当）
+vm.closeStdin();
+vm.step(1000);
+// → InputChar は EOF (0) を返す
+// → InputNumber は IoError ("end of stream") を返す
 ```
 
-`provide_stdin()` 呼び出し時に自動で compact するのが妥当。
+**注意**: `close_stdin()` 後でも `provide_stdin()` でデータを追加可能（closed フラグはリセットしない）。ただし追加データを全て消費した後は再び EOF になる。この挙動が不要であれば `provide_stdin()` で `closed = false` にリセットする選択肢もあるが、まずは単純な片方向（close のみ）で実装し、必要に応じて拡張する。

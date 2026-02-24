@@ -21,7 +21,8 @@
 2. JS 側から追加の stdin データを提供できる
 3. 提供後に `step()` を再呼び出しすると、入力命令をリトライして実行継続する
 4. 一時停止の種別（文字入力待ち / 数値入力待ち）を JS 側で区別できる
-5. 既存の非 interactive な使い方（stdin 事前全提供）は動作を変えない
+5. ストリーム終端（EOS）を通知して EOF として処理できる（入力待ちと EOF を区別）
+6. 既存の非 interactive な使い方（stdin 事前全提供）は動作を変えない
 
 ## ドキュメント
 
@@ -37,8 +38,9 @@ WhitespaceVM 内部（`src/whitespace/interpreter.rs`）に入力待ちの概念
 
 - [ ] `StepResult::WaitingForInput` バリアントの追加
 - [ ] `ExecuteResult::WaitingForInput` バリアントの追加
-- [ ] stdin を追記可能なバッファ（`InteractiveStdin`）の実装
-- [ ] `InputChar` / `InputNumber` 命令の分岐: バッファ不足時に WaitingForInput を返す
+- [ ] stdin を追記可能なバッファ（`InteractiveBuffer`、`VecDeque` ベース）の実装
+- [ ] `InteractiveBuffer` の EOS（ストリーム終端）サポート（`close()` メソッド）
+- [ ] `InputChar` / `InputNumber` 命令の分岐: バッファ不足時に WaitingForInput、EOS 時に EOF を返す
 - [ ] `WhitespaceVM::with_interactive_stdin()` ビルダーメソッドの追加
 - [ ] ユニットテスト
 
@@ -48,6 +50,7 @@ JS 側から利用可能な API を追加する。
 
 - [ ] `VmStepResult` TypeScript 型に `"waiting_for_input"` ステータスと `inputType` フィールド追加
 - [ ] `WasmWhitespaceVM::provide_stdin(data: &str)` メソッドの追加
+- [ ] `WasmWhitespaceVM::close_stdin()` メソッドの追加（EOS 通知）
 - [ ] コンストラクタで interactive stdin を利用するモードの追加
 - [ ] `VmStepResult` のシリアライズ更新
 
