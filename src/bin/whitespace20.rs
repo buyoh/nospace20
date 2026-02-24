@@ -170,5 +170,10 @@ fn main() {
             eprintln!("Runtime error: {}", error_msg);
             process::exit(1);
         }
+        StepResult::WaitingForInput(_) => {
+            // CLI は interactive stdin を使わないため通常到達しない
+            eprintln!("Error: Unexpected input wait in non-interactive mode");
+            process::exit(1);
+        }
     }
 }

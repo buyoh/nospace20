@@ -606,6 +606,10 @@ fn test_whitespace_self_base_impl(
             test_name
         ),
         StepResult::Error(e) => panic!("Whitespace execution failed for {}: {:?}", test_name, e),
+        StepResult::WaitingForInput(t) => panic!(
+            "Whitespace execution unexpectedly waiting for input ({:?}) for {}",
+            t, test_name
+        ),
     }
 }
 
@@ -712,6 +716,10 @@ fn test_whitespace_self_io_base_impl(
             StepResult::Error(e) => panic!(
                 "Whitespace execution failed for {}, case '{}': {:?}",
                 test_name, case_name, e
+            ),
+            StepResult::WaitingForInput(t) => panic!(
+                "Whitespace execution unexpectedly waiting for input ({:?}) for {}, case '{}'",
+                t, test_name, case_name
             ),
         }
 

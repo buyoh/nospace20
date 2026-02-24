@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::Rc;
 
-use crate::whitespace::{StepResult, WhitespaceVM};
+use crate::whitespace::{InputWaitType, StepResult, WhitespaceVM};
 use crate::{
     compile_to_whitespace, compile_to_whitespace_debug, compile_to_whitespace_debug_with_options,
     compile_to_whitespace_with_options, interpret_func_with_io, parse_to_tokens, parse_to_tree,
@@ -57,8 +57,9 @@ interface ParseResultOk {
 type ParseResult = ParseResultOk | ResultErr;
 
 interface VmStepResult {
-    status: "suspended" | "complete" | "error";
+    status: "suspended" | "complete" | "error" | "waiting_for_input";
     error?: string;
+    inputType?: "char" | "number";
 }
 "#;
 
@@ -332,9 +333,12 @@ pub fn parse(source: &str) -> JsParseResult {
 /// Whitespace VM の実行結果型
 #[derive(Serialize)]
 struct VmStepResult {
-    status: String, // "suspended" | "complete" | "error"
+    status: String, // "suspended" | "complete" | "error" | "waiting_for_input"
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "inputType")]
+    input_type: Option<String>,
 }
 
 /// SharedWriter: Rc<RefCell<Vec<u8>>> をラップして Write トレイトを実装
@@ -363,7 +367,11 @@ pub struct WasmWhitespaceVM {
 impl WasmWhitespaceVM {
     /// nospace ソースをコンパイルし、Whitespace VM を構築する
     #[wasm_bindgen(constructor)]
-    pub fn new(nospace_source: &str, stdin: &str) -> Result<WasmWhitespaceVM, JsValue> {
+    pub fn new(
+        nospace_source: &str,
+        stdin: &str,
+        interactive: Option<bool>,
+    ) -> Result<WasmWhitespaceVM, JsValue> {
         let text = TextCode::new(nospace_source);
         let source_string = nospace_source.to_string();
 
@@ -397,7 +405,11 @@ impl WasmWhitespaceVM {
             }
         };
 
-        Self::from_whitespace(&ws_source, stdin)
+        if interactive.unwrap_or(false) {
+            Self::from_whitespace_interactive(&ws_source, stdin)
+        } else {
+            Self::from_whitespace(&ws_source, stdin)
+        }
     }
 
     /// Whitespace ソースコードから直接 VM を構築する
@@ -436,9 +448,66 @@ impl WasmWhitespaceVM {
         })
     }
 
+    /// Interactive モードで Whitespace ソースから VM を構築する
+    ///
+    /// stdin バッファが空の場合、WaitingForInput で一時停止する。
+    /// provide_stdin() で後からデータを追加可能。
+    #[wasm_bindgen(js_name = "fromWhitespaceInteractive")]
+    pub fn from_whitespace_interactive(
+        ws_source: &str,
+        initial_stdin: &str,
+    ) -> Result<WasmWhitespaceVM, JsValue> {
+        let vm_result = WhitespaceVM::from_source(ws_source);
+        let vm = match vm_result {
+            Ok(v) => v.with_debug_ext(false).with_interactive_stdin(),
+            Err(e) => {
+                let result = ResultErr {
+                    success: false,
+                    errors: vec![WasmError {
+                        message: format!("Whitespace parse error: {:?}", e),
+                        line: None,
+                        column: None,
+                    }],
+                };
+                return Err(serde_wasm_bindgen::to_value(&result).unwrap());
+            }
+        };
+
+        let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
+        let stdout_clone = Rc::clone(&stdout_buf);
+        let mut vm_with_io = vm.with_stdout(Box::new(SharedWriter(stdout_clone)));
+
+        // 初期データがあれば投入
+        if !initial_stdin.is_empty() {
+            vm_with_io.provide_stdin(initial_stdin);
+        }
+
+        Ok(WasmWhitespaceVM {
+            vm: vm_with_io,
+            stdout_buffer: stdout_buf,
+        })
+    }
+
+    /// stdin にデータを追加する（interactive モード用）
+    ///
+    /// WaitingForInput 状態の際に呼び出し、次の step() で入力を再試行する。
+    /// InputNumber の場合、改行（\n）付きで投入する必要がある。
+    #[wasm_bindgen(js_name = "provideStdin")]
+    pub fn provide_stdin(&mut self, data: &str) {
+        self.vm.provide_stdin(data);
+    }
+
+    /// stdin のストリーム終端を通知する（interactive モード用）
+    ///
+    /// 以降、バッファが空の状態で入力命令に到達すると EOF として処理される。
+    #[wasm_bindgen(js_name = "closeStdin")]
+    pub fn close_stdin(&mut self) {
+        self.vm.close_stdin();
+    }
+
     /// 指定ステップ数だけ実行する
     ///
-    /// 戻り値: { status: "suspended" | "complete" | "error", error?: string }
+    /// 戻り値: { status: "suspended" | "complete" | "error" | "waiting_for_input", error?: string, inputType?: string }
     pub fn step(&mut self, budget: u32) -> JsVmStepResult {
         let result = self.vm.step(budget as usize);
 
@@ -446,14 +515,25 @@ impl WasmWhitespaceVM {
             StepResult::Suspended => VmStepResult {
                 status: "suspended".to_string(),
                 error: None,
+                input_type: None,
             },
             StepResult::Complete => VmStepResult {
                 status: "complete".to_string(),
                 error: None,
+                input_type: None,
             },
             StepResult::Error(e) => VmStepResult {
                 status: "error".to_string(),
                 error: Some(format!("{:?}", e)),
+                input_type: None,
+            },
+            StepResult::WaitingForInput(input_type) => VmStepResult {
+                status: "waiting_for_input".to_string(),
+                error: None,
+                input_type: Some(match input_type {
+                    InputWaitType::Char => "char".to_string(),
+                    InputWaitType::Number => "number".to_string(),
+                }),
             },
         };
 

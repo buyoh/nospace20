@@ -8,6 +8,15 @@ use crate::compiler_ws::types::LabelId;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{BufRead, Write};
 
+/// 入力待ちの種別
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum InputWaitType {
+    /// InputChar 命令（1文字入力待ち）
+    Char,
+    /// InputNumber 命令（数値入力待ち＝1行入力待ち）
+    Number,
+}
+
 /// VM の実行結果
 #[derive(Debug, PartialEq, Eq)]
 pub enum StepResult {
@@ -17,6 +26,8 @@ pub enum StepResult {
     Complete,
     /// 実行時エラー
     Error(RuntimeError),
+    /// stdin バッファ不足による一時停止
+    WaitingForInput(InputWaitType),
 }
 
 /// 実行時エラー
@@ -40,6 +51,90 @@ pub enum RuntimeError {
     AssertionFailed(i64),
 }
 
+/// read_char / read_number の失敗種別（内部使用）
+#[derive(Debug)]
+enum ReadResult {
+    /// stdin バッファ不足（interactive モード用）
+    WouldBlock,
+    /// I/O エラー
+    IoError(String),
+}
+
+/// stdin ソースの種別（内部使用）
+enum StdinSource {
+    /// 従来の BufRead ベース（非 interactive / テスト用）
+    Buffered(Box<dyn BufRead>),
+    /// Interactive モード（追記可能バッファ）
+    Interactive(InteractiveBuffer),
+}
+
+/// 追記可能な stdin バッファ（interactive モード用）
+///
+/// バッファが空の場合は WouldBlock を返す。
+/// close() でストリーム終端を通知すると、その後バッファが空になった時点で EOF を返す。
+struct InteractiveBuffer {
+    data: std::collections::VecDeque<u8>,
+    /// ストリーム終端が通知済みか
+    closed: bool,
+}
+
+impl InteractiveBuffer {
+    fn new() -> Self {
+        Self {
+            data: std::collections::VecDeque::new(),
+            closed: false,
+        }
+    }
+
+    fn append(&mut self, data: &[u8]) {
+        self.data.extend(data);
+    }
+
+    /// ストリーム終端を通知する。以降、バッファが空になったら EOF を返す
+    fn close(&mut self) {
+        self.closed = true;
+    }
+
+    /// 1バイト読み取り
+    ///
+    /// - バッファにデータがある → Ok(byte)
+    /// - バッファ空 + closed → EndOfStream(0)
+    /// - バッファ空 + !closed → Err(WouldBlock)
+    fn read_byte(&mut self) -> Result<Option<u8>, ReadResult> {
+        match self.data.pop_front() {
+            Some(b) => Ok(Some(b)),
+            None if self.closed => Ok(None), // EOF
+            None => Err(ReadResult::WouldBlock),
+        }
+    }
+
+    /// 改行を含む1行を読み取る
+    ///
+    /// - バッファに '\n' を含む行がある → Ok(line)
+    /// - closed 後でバッファに残りデータ → Ok(残り全行)
+    /// - closed 後でバッファ空 → Err(IoError("end of stream"))
+    /// - バッファ不足 → Err(WouldBlock)
+    fn read_line(&mut self) -> Result<String, ReadResult> {
+        if let Some(newline_pos) = self.data.iter().position(|&b| b == b'\n') {
+            let line: String = self
+                .data
+                .drain(..=newline_pos)
+                .map(|b| b as char)
+                .collect();
+            return Ok(line);
+        }
+        if self.closed {
+            if self.data.is_empty() {
+                return Err(ReadResult::IoError("end of stream".to_string()));
+            }
+            // closed 後、残りのデータを最終行として返す
+            let line: String = self.data.drain(..).map(|b| b as char).collect();
+            return Ok(line);
+        }
+        Err(ReadResult::WouldBlock)
+    }
+}
+
 /// 1命令の実行結果（内部使用）
 #[derive(Debug)]
 enum ExecuteResult {
@@ -49,6 +144,8 @@ enum ExecuteResult {
     Exit,
     /// 実行時エラー
     Error(RuntimeError),
+    /// 入力待ちで一時停止
+    WaitingForInput(InputWaitType),
 }
 
 /// Whitespace 仮想マシン
@@ -73,7 +170,7 @@ pub struct WhitespaceVM {
     heap: HashMap<i64, i64>,
 
     // === I/O ===
-    stdin: Box<dyn BufRead>,
+    stdin: StdinSource,
     stdout: Box<dyn Write>,
 
     // === メトリクス ===
@@ -118,7 +215,7 @@ impl WhitespaceVM {
             data_stack: Vec::new(),
             call_stack: Vec::new(),
             heap: HashMap::new(),
-            stdin: Box::new(std::io::Cursor::new(Vec::new())),
+            stdin: StdinSource::Buffered(Box::new(std::io::Cursor::new(Vec::new()))),
             stdout: Box::new(Vec::<u8>::new()),
             total_steps: 0,
             traced: BTreeMap::new(),
@@ -131,9 +228,44 @@ impl WhitespaceVM {
 
     /// I/O バッファを指定して構築
     pub fn with_io(mut self, stdin: Box<dyn BufRead>, stdout: Box<dyn Write>) -> Self {
-        self.stdin = stdin;
+        self.stdin = StdinSource::Buffered(stdin);
         self.stdout = stdout;
         self
+    }
+
+    /// stdout のみを設定する（interactive stdin モードと併用）
+    pub fn with_stdout(mut self, stdout: Box<dyn Write>) -> Self {
+        self.stdout = stdout;
+        self
+    }
+
+    /// Interactive stdin モードで構築（WASM 用）
+    ///
+    /// stdin バッファが空の場合に WaitingForInput を返し、VM を一時停止する。
+    /// provide_stdin() で後からデータを追加可能。
+    pub fn with_interactive_stdin(mut self) -> Self {
+        self.stdin = StdinSource::Interactive(InteractiveBuffer::new());
+        self
+    }
+
+    /// Interactive stdin にデータを追加
+    ///
+    /// WaitingForInput 状態の後に呼び出し、次の step() で入力をリトライする。
+    /// interactive モード以外では無効。
+    pub fn provide_stdin(&mut self, data: &str) {
+        if let StdinSource::Interactive(buffer) = &mut self.stdin {
+            buffer.append(data.as_bytes());
+        }
+    }
+
+    /// Interactive stdin のストリーム終端を通知する
+    ///
+    /// 以降、バッファが空の状態で入力命令に到達すると EOF として扱われる。
+    /// interactive モード以外では無効。
+    pub fn close_stdin(&mut self) {
+        if let StdinSource::Interactive(buffer) = &mut self.stdin {
+            buffer.close();
+        }
     }
 
     /// デバッグ拡張を有効にして構築
@@ -187,6 +319,9 @@ impl WhitespaceVM {
                 }
                 ExecuteResult::Error(e) => {
                     return StepResult::Error(e);
+                }
+                ExecuteResult::WaitingForInput(input_type) => {
+                    return StepResult::WaitingForInput(input_type);
                 }
             }
         }
@@ -479,24 +614,41 @@ impl WhitespaceVM {
                     Ok(v) => v,
                     Err(e) => return ExecuteResult::Error(e),
                 };
-                let val = match self.read_char() {
-                    Ok(v) => v,
-                    Err(e) => return ExecuteResult::Error(e),
-                };
-                self.heap.insert(addr, val);
-                self.pc += 1;
+                match self.read_char() {
+                    Ok(v) => {
+                        self.heap.insert(addr, v);
+                        self.pc += 1;
+                    }
+                    Err(ReadResult::WouldBlock) => {
+                        // バッファ不足: スタックにアドレスを戻して一時停止
+                        // 次の step() で同一命令をリトライする
+                        self.data_stack.push(addr);
+                        return ExecuteResult::WaitingForInput(InputWaitType::Char);
+                    }
+                    Err(ReadResult::IoError(e)) => {
+                        return ExecuteResult::Error(RuntimeError::IoError(e));
+                    }
+                }
             }
             Instruction::InputNumber => {
                 let addr = match self.stack_pop() {
                     Ok(v) => v,
                     Err(e) => return ExecuteResult::Error(e),
                 };
-                let val = match self.read_number() {
-                    Ok(v) => v,
-                    Err(e) => return ExecuteResult::Error(e),
-                };
-                self.heap.insert(addr, val);
-                self.pc += 1;
+                match self.read_number() {
+                    Ok(v) => {
+                        self.heap.insert(addr, v);
+                        self.pc += 1;
+                    }
+                    Err(ReadResult::WouldBlock) => {
+                        // バッファ不足: スタックにアドレスを戻して一時停止
+                        self.data_stack.push(addr);
+                        return ExecuteResult::WaitingForInput(InputWaitType::Number);
+                    }
+                    Err(ReadResult::IoError(e)) => {
+                        return ExecuteResult::Error(RuntimeError::IoError(e));
+                    }
+                }
             }
         }
 
@@ -594,24 +746,44 @@ impl WhitespaceVM {
     }
 
     /// 標準入力から1文字を読み取り、その文字コードを返す
-    fn read_char(&mut self) -> Result<i64, RuntimeError> {
-        let mut buf = [0u8; 1];
-        match self.stdin.read(&mut buf) {
-            Ok(1) => Ok(buf[0] as i64),
-            Ok(_) => Ok(0), // EOF
-            Err(e) => Err(RuntimeError::IoError(e.to_string())),
+    fn read_char(&mut self) -> Result<i64, ReadResult> {
+        match &mut self.stdin {
+            StdinSource::Buffered(reader) => {
+                let mut buf = [0u8; 1];
+                match reader.read(&mut buf) {
+                    Ok(1) => Ok(buf[0] as i64),
+                    Ok(_) => Ok(0), // EOF
+                    Err(e) => Err(ReadResult::IoError(e.to_string())),
+                }
+            }
+            StdinSource::Interactive(buffer) => match buffer.read_byte() {
+                Ok(Some(b)) => Ok(b as i64),
+                Ok(None) => Ok(0), // EOF
+                Err(e) => Err(e),
+            },
         }
     }
 
     /// 標準入力から整数を読み取る
-    fn read_number(&mut self) -> Result<i64, RuntimeError> {
-        let mut line = String::new();
-        self.stdin
-            .read_line(&mut line)
-            .map_err(|e| RuntimeError::IoError(e.to_string()))?;
-        line.trim()
-            .parse::<i64>()
-            .map_err(|e| RuntimeError::IoError(e.to_string()))
+    fn read_number(&mut self) -> Result<i64, ReadResult> {
+        match &mut self.stdin {
+            StdinSource::Buffered(reader) => {
+                let mut line = String::new();
+                reader
+                    .read_line(&mut line)
+                    .map_err(|e| ReadResult::IoError(e.to_string()))?;
+                line.trim()
+                    .parse::<i64>()
+                    .map_err(|e| ReadResult::IoError(e.to_string()))
+            }
+            StdinSource::Interactive(buffer) => match buffer.read_line() {
+                Ok(line) => line
+                    .trim()
+                    .parse::<i64>()
+                    .map_err(|e| ReadResult::IoError(e.to_string())),
+                Err(e) => Err(e),
+            },
+        }
     }
 }
 
@@ -787,5 +959,137 @@ mod tests {
         let result = vm.run(100);
         assert_eq!(result, StepResult::Complete);
         assert_eq!(vm.data_stack(), &[0]);
+    }
+
+    // ===== interactive stdin テスト =====
+
+    /// InputChar: interactive モードでバッファにデータがある場合は正常読み取り
+    #[test]
+    fn test_interactive_stdin_input_char_ok() {
+        // InputChar: スタックトップのアドレスへ文字コードを格納する
+        // addr=10 に 'A'(65) が格納されることを確認
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(10)), // addr
+            Instruction::InputChar,
+            Instruction::Push(WsNumber(10)), // addr
+            Instruction::Retrieve,
+            Instruction::Exit,
+        ])
+        .unwrap()
+        .with_interactive_stdin();
+
+        vm.provide_stdin("A");
+        let result = vm.run(100);
+        assert_eq!(result, StepResult::Complete);
+        assert_eq!(vm.data_stack(), &[65]); // 'A' = 65
+    }
+
+    /// InputChar: バッファが空の場合は WaitingForInput(Char) を返す
+    #[test]
+    fn test_interactive_stdin_input_char_waiting() {
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(10)),
+            Instruction::InputChar,
+            Instruction::Exit,
+        ])
+        .unwrap()
+        .with_interactive_stdin();
+
+        // バッファ空で実行 → WaitingForInput
+        let result = vm.step(100);
+        assert_eq!(result, StepResult::WaitingForInput(InputWaitType::Char));
+
+        // データ追加後に resume → Complete
+        vm.provide_stdin("B");
+        let result = vm.step(100);
+        assert_eq!(result, StepResult::Complete);
+        assert_eq!(*vm.heap().get(&10).unwrap(), 66); // 'B' = 66
+    }
+
+    /// InputNumber: interactive モードでバッファに改行付き数値がある場合は正常読み取り
+    #[test]
+    fn test_interactive_stdin_input_number_ok() {
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(20)), // addr
+            Instruction::InputNumber,
+            Instruction::Push(WsNumber(20)),
+            Instruction::Retrieve,
+            Instruction::Exit,
+        ])
+        .unwrap()
+        .with_interactive_stdin();
+
+        vm.provide_stdin("42\n");
+        let result = vm.run(100);
+        assert_eq!(result, StepResult::Complete);
+        assert_eq!(vm.data_stack(), &[42]);
+    }
+
+    /// InputNumber: バッファに改行なしは WaitingForInput(Number) を返す
+    #[test]
+    fn test_interactive_stdin_input_number_waiting() {
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(20)),
+            Instruction::InputNumber,
+            Instruction::Exit,
+        ])
+        .unwrap()
+        .with_interactive_stdin();
+
+        // バッファ空で実行 → WaitingForInput
+        let result = vm.step(100);
+        assert_eq!(result, StepResult::WaitingForInput(InputWaitType::Number));
+
+        // 改行なしでデータ追加しても WaitingForInput のまま
+        vm.provide_stdin("10");
+        let result = vm.step(100);
+        assert_eq!(result, StepResult::WaitingForInput(InputWaitType::Number));
+
+        // 改行追加で resume
+        vm.provide_stdin("\n");
+        let result = vm.step(100);
+        assert_eq!(result, StepResult::Complete);
+        assert_eq!(*vm.heap().get(&20).unwrap(), 10);
+    }
+
+    /// InputChar: close_stdin 後にバッファ空 → EOF (0)
+    #[test]
+    fn test_interactive_stdin_input_char_eof_after_close() {
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(10)),
+            Instruction::InputChar,
+            Instruction::Push(WsNumber(10)),
+            Instruction::Retrieve,
+            Instruction::Exit,
+        ])
+        .unwrap()
+        .with_interactive_stdin();
+
+        vm.close_stdin();
+        let result = vm.run(100);
+        assert_eq!(result, StepResult::Complete);
+        assert_eq!(*vm.heap().get(&10).unwrap(), 0); // EOF = 0
+    }
+
+    /// 非 interactive モードは動作変更なし（既存動作の確認）
+    #[test]
+    fn test_non_interactive_stdin_unaffected() {
+        let stdin_data = b"X".to_vec();
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(5)),
+            Instruction::InputChar,
+            Instruction::Push(WsNumber(5)),
+            Instruction::Retrieve,
+            Instruction::Exit,
+        ])
+        .unwrap()
+        .with_io(
+            Box::new(std::io::BufReader::new(std::io::Cursor::new(stdin_data))),
+            Box::new(Vec::<u8>::new()),
+        );
+
+        let result = vm.run(100);
+        assert_eq!(result, StepResult::Complete);
+        assert_eq!(*vm.heap().get(&5).unwrap(), 88); // 'X' = 88
     }
 }
