@@ -2,14 +2,15 @@
 
 ## 概要
 
-`--std-ext alloc` 有効時に、コンパイラが生成する Whitespace コードを変更する。主な変更箇所は以下の 5 領域:
+`--std-ext alloc` 有効時に、コンパイラが生成する Whitespace コードを変更する。主な変更箇所は以下の 6 領域:
 
 1. **memory.rs**: 新しい定数の追加
 2. **context.rs**: `alloc_ext` フラグの追加
-3. **builtin.rs**: ヘッダー生成とフレーム管理の分岐、FSBA + 汎用アロケータサブルーチン生成
-4. **statement.rs**: 関数定義のフレーム確保方式の分岐
-5. **expression.rs**: `__alloc`/`__free` 組み込み関数のコード生成
-6. **mod.rs**: `compile_with_options` への alloc_ext パラメータ追加
+3. **alloc_runtime.rs**: アロケータランタイムのコード生成（新規モジュール、分離テスト可能）
+4. **builtin.rs**: ヘッダー生成とフレーム管理の分岐、alloc_runtime の呼び出し
+5. **statement.rs**: 関数定義のフレーム確保方式の分岐
+6. **expression.rs**: `__alloc`/`__free` 組み込み関数のコード生成
+7. **mod.rs**: `compile_with_options` への alloc_ext パラメータ追加
 
 ## Phase 1: `--std-ext alloc` 基盤整備
 
@@ -104,18 +105,48 @@ pub fn compile_to_whitespace_with_options(scope: &Scope, debug_ext: bool, alloc_
 - **第 1 層**: 固定サイズブロックアロケータ (FSBA) — サイズクラス [2, 4, 8, 16, 32] 毎のフリーリストで O(1) alloc/free
 - **第 2 層**: 汎用アロケータ (First-Fit + バンプ) — >32 セルの大きなブロック用
 
-### 2.1 builtin.rs への追加
+### 2.1 alloc_runtime.rs（新規モジュール）
 
-新しい関数を追加:
+アロケータランタイムの WS コード生成を **独立したモジュール** として実装する。`CodeGenContext` に依存せず、分離テストから直接呼び出し可能な API を提供する。
 
 ```rust
-/// アロケータランタイムのサブルーチンを生成
-/// alloc_ext == true の場合のみ呼び出される
-/// FSBA + 汎用アロケータの両方を含む
-pub fn generate_allocator_runtime(
-    instructions: &mut Vec<WhitespaceInstruction>,
-    ctx: &mut CodeGenContext,
-)
+// src/compiler_ws/alloc_runtime.rs
+
+/// アロケータの初期化コード（ヘッダーに埋め込み）
+/// global_heap_size: グローバル変数領域のサイズ
+pub fn generate_allocator_header(global_heap_size: i64) -> Vec<WhitespaceInstruction> { ... }
+
+/// アロケータのサブルーチン定義
+/// __rt_alloc, __rt_free 等のラベル定義と実装
+pub fn generate_allocator_subroutines() -> Vec<WhitespaceInstruction> { ... }
+```
+
+**設計制約** ([isolated-testing.md](isolated-testing.md) 参照):
+- `CodeGenContext` を引数に取らない
+- 入出力は `Vec<WhitespaceInstruction>` のみ
+- ラベル名は予約プレフィックス `__rt_` を使用
+- 分離テスト (`tests/alloc_test.rs`) から直接呼び出し可能
+
+### 2.2 builtin.rs からの呼び出し
+
+builtin.rs の `generate_header` 内で alloc_runtime を呼び出す:
+
+```rust
+fn generate_header(...) {
+    // ... 既存コード ...
+    if ctx.is_alloc_ext() {
+        let header = alloc_runtime::generate_allocator_header(global_heap_size);
+        instructions.extend(header);
+    }
+}
+
+fn generate_footer(...) {
+    // ... 既存コード ...
+    if ctx.is_alloc_ext() {
+        let subroutines = alloc_runtime::generate_allocator_subroutines();
+        instructions.extend(subroutines);
+    }
+}
 ```
 
 内部で以下のサブルーチンを生成:
@@ -520,12 +551,15 @@ semantic_analyzer は `--std-ext` を知らないため、関数名が未定義�
 | `src/bin/nospace20.rs` | 1 | `CliTargetExt::Alloc` 追加 |
 | `src/compiler_ws/memory.rs` | 1 | 定数追加 (`ALLOC_FREE_HEAD`, `ALLOC_HEAP_TOP`, `FSBA_TABLE_PTR`) |
 | `src/compiler_ws/context.rs` | 1 | `alloc_ext` フラグ、`CodeGenOptions` 構造体 |
-| `src/compiler_ws/mod.rs` | 1 | `compile_with_options` 引数拡張 |
+| `src/compiler_ws/mod.rs` | 1 | `compile_with_options` 引数拡張、`alloc_runtime` 公開 |
 | `src/lib.rs` | 1 | 公開 API 更新 |
-| `src/compiler_ws/builtin.rs` | 2 | `generate_allocator_runtime` 追加 (FSBA + 汎用アロケータ) |
-| `src/compiler_ws/builtin.rs` | 3 | `generate_local_allocate/deallocate` の分岐 |
+| `src/compiler_ws/alloc_runtime.rs` | 2 | **新規**: アロケータランタイム生成（FSBA + 汎用）。分離テスト対応 |
+| `src/compiler_ws/builtin.rs` | 2, 3 | `alloc_runtime` 呼び出し、`generate_local_allocate/deallocate` の分岐 |
 | `src/compiler_ws/statement.rs` | 3 | 関数定義の引数配置ロジック変更 |
 | `src/compiler_ws/expression.rs` | 4 | `__alloc`/`__free` のコード生成 |
 | `src/semantic_analyzer/mod.rs` | 4 | `__alloc`/`__free` 組み込み関数認識（検討要） |
 | `spec.md` | 4 | `__alloc`/`__free` 仕様追記 |
 | `src/wasm_api.rs` | 1 | alloc_ext パラメータ対応（必要に応じて） |
+| `build.rs` | 2 | `generate_alloc_tests()` 追加 |
+| `tests/alloc_test.rs` | 2 | **新規**: 分離テストランナー + ミニコンパイラ |
+| `resources/tests_alloc/` | 2 | **新規**: JSON テスト仕様ファイル群 |

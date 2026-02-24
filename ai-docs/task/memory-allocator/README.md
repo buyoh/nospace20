@@ -32,17 +32,17 @@ Whitespace コンパイラにランタイムメモリアロケータを導入す
 | [heap-layout.md](heap-layout.md) | 新しいヒープメモリレイアウト設計 |
 | [compiler-changes.md](compiler-changes.md) | compiler_ws モジュールへの変更設計 |
 | [std-ext-integration.md](std-ext-integration.md) | `--std-ext alloc` の統合と条件分岐 |
-| [testing-strategy.md](testing-strategy.md) | テスト計画 |
+| [testing-strategy.md](testing-strategy.md) | テスト計画（4 層テスト構造） |
+| [isolated-testing.md](isolated-testing.md) | 分離テスト設計（JSON ミニ言語・ミニコンパイラ） |
 
 ## Phase 一覧
 
 | Phase | 内容 | 依存 | 規模 |
 |---|---|---|---|
 | Phase 1 | `--std-ext alloc` の追加と基盤整備 | なし | 小 |
-| Phase 2 | アロケータサブルーチンのコード生成 | Phase 1 | 大 |
-| Phase 3 | スタックフレーム確保をアロケータ経由に変更 | Phase 2 | 中 |
-| Phase 4 | `__alloc`/`__free` 組み込み関数の公開 | Phase 2 | 中 |
-| Phase 5 | テスト・検証 | Phase 3, 4 | 中 |
+| Phase 2 | アロケータサブルーチンのコード生成 + 分離テスト (L1/L2) | Phase 1 | 大 |
+| Phase 3 | スタックフレーム確保をアロケータ経由に変更 + 統合/回帰テスト (L3/L4) | Phase 2 | 中 |
+| Phase 4 | `__alloc`/`__free` 組み込み関数の公開 + E2E テスト (L3) | Phase 2 | 中 |
 
 ## 設計原則
 
@@ -55,3 +55,4 @@ Whitespace コンパイラにランタイムメモリアロケータを導入す
 
 - 2026-02-24: 設計ドキュメント作成
 - 2026-02-24: 固定サイズブロックアロケータ (FSBA) 設計追加。二層アーキテクチャ (FSBA + 汎用 First-Fit) に変更
+- 2026-02-24: 分離テスト設計追加。JSON ミニ言語によるアロケータ単体テスト。テスト 4 層構造 (L1-L4) に再構成。Phase 5 を廃止し、テストを各 Phase に統合
