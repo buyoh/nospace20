@@ -1329,6 +1329,330 @@ mod tests {
         assert_eq!(output, "14\n14\n");
     }
 
+    // ===== Reuse efficiency test helpers =====
+
+    /// alloc/free 操作を表す列挙型
+    enum AllocOp {
+        /// __rt_alloc(size), 結果のポインタをヒープ上の slot に保存
+        Alloc { size: i64, slot: i64 },
+        /// __rt_free(heap[slot])
+        Free { slot: i64 },
+    }
+
+    /// slot をヒープアドレスに変換（負のアドレスを使用して衝突を回避）
+    fn slot_addr(slot: i64) -> i64 {
+        -1000 - slot
+    }
+
+    /// alloc/free 操作列を受け取り、実行後の VM を返すヘルパー
+    fn run_alloc_free_sequence(
+        runtime: &dyn AllocRuntime,
+        global_heap_size: i64,
+        ops: &[AllocOp],
+    ) -> crate::whitespace::WhitespaceVM {
+        use crate::whitespace::{StepResult, WhitespaceVM};
+
+        let mut prog = WsProgram::new();
+        prog.append(runtime.generate_memory_init(global_heap_size));
+
+        for op in ops {
+            match op {
+                AllocOp::Alloc { size, slot } => {
+                    prog.extend([
+                        Instruction::Push(WsNumber(*size)),
+                        Instruction::Call(reserved_labels::RT_ALLOC),
+                        // stack: [ptr]
+                        Instruction::Push(WsNumber(slot_addr(*slot))),
+                        Instruction::Swap,
+                        Instruction::Store,
+                        // heap[slot_addr] = ptr
+                    ]);
+                }
+                AllocOp::Free { slot } => {
+                    prog.extend([
+                        Instruction::Push(WsNumber(slot_addr(*slot))),
+                        Instruction::Retrieve,
+                        // stack: [ptr]
+                        Instruction::Call(reserved_labels::RT_FREE),
+                    ]);
+                }
+            }
+        }
+
+        prog.push(Instruction::Exit);
+        prog.append(runtime.generate_subroutines());
+
+        let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
+            .unwrap()
+            .with_io(
+                Box::new(std::io::Cursor::new(Vec::new())),
+                Box::new(Vec::<u8>::new()),
+            );
+        let result = vm.run(1_000_000);
+        assert!(
+            matches!(result, StepResult::Complete),
+            "VM should exit normally, got: {:?}",
+            result
+        );
+        vm
+    }
+
+    // ===== BumpAllocRuntime reuse efficiency tests =====
+
+    /// LIFO 順で free→alloc したとき、LOCAL_HEAP_END が成長しないことを検証。
+    #[test]
+    fn test_bump_reuse_lifo_heap_stable() {
+        let bump = BumpAllocRuntime;
+        let ops = vec![
+            AllocOp::Alloc { size: 3, slot: 0 },
+            AllocOp::Alloc { size: 2, slot: 1 },
+            AllocOp::Free { slot: 1 },
+            AllocOp::Alloc { size: 2, slot: 2 },
+        ];
+        let vm = run_alloc_free_sequence(&bump, 0, &ops);
+        let heap = vm.heap();
+
+        // alloc(3): ptr=8, LHE=11
+        // alloc(2): ptr=11, LHE=13 (peak)
+        // free(11): LHE=11
+        // alloc(2): ptr=11, LHE=13 (no growth beyond peak)
+        let lhe = heap.get(&heap_layout::LOCAL_HEAP_END).copied().unwrap_or(0);
+        assert_eq!(
+            lhe,
+            heap_layout::GLOBAL_PTR + 3 + 2,
+            "LOCAL_HEAP_END should not grow beyond peak after LIFO free+alloc"
+        );
+    }
+
+    /// ループでの alloc/free（LIFO 順）で LOCAL_HEAP_END が一定に保たれることを検証。
+    #[test]
+    fn test_bump_reuse_loop_heap_stable() {
+        let bump = BumpAllocRuntime;
+        let mut ops = vec![AllocOp::Alloc { size: 5, slot: 0 }];
+        for _ in 0..10 {
+            ops.push(AllocOp::Alloc { size: 3, slot: 1 });
+            ops.push(AllocOp::Free { slot: 1 });
+        }
+        let vm = run_alloc_free_sequence(&bump, 0, &ops);
+        let heap = vm.heap();
+
+        // alloc(5): LHE = 8+5 = 13
+        // Each loop: alloc(3) → LHE=16, free → LHE=13
+        // After all loops LHE should be 13 (same as after alloc(A))
+        let lhe = heap.get(&heap_layout::LOCAL_HEAP_END).copied().unwrap_or(0);
+        assert_eq!(
+            lhe,
+            heap_layout::GLOBAL_PTR + 5,
+            "LOCAL_HEAP_END should remain stable after LIFO alloc/free loop"
+        );
+    }
+
+    // ===== FsbaFirstFitAllocRuntime reuse efficiency tests =====
+
+    /// class 0 (サイズ 1) の alloc→free→alloc で ALLOC_HEAP_TOP が成長しないことを検証。
+    #[test]
+    fn test_fsba_reuse_class0_heap_stable() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        let ops = vec![
+            AllocOp::Alloc { size: 1, slot: 0 },
+            AllocOp::Free { slot: 0 },
+            AllocOp::Alloc { size: 1, slot: 1 },
+        ];
+        let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+        let heap = vm.heap();
+
+        // managed_start=8, table at 8..12, AHT initial=13
+        // alloc(1): total=2, class 0, block_size=2, bump: AHT=15
+        // free → push to class 0 free list
+        // alloc(1): pop from class 0 free list, AHT still 15
+        let aht = heap.get(&heap_layout::ALLOC_HEAP_TOP).copied().unwrap_or(0);
+        assert_eq!(
+            aht, 15,
+            "ALLOC_HEAP_TOP should not grow after class 0 free+alloc"
+        );
+    }
+
+    /// 各サイズクラス (0-4) について alloc→free→alloc で ALLOC_HEAP_TOP が成長しないことを検証。
+    #[test]
+    fn test_fsba_reuse_each_class_heap_stable() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        // (user_size, block_size)
+        let classes: [(i64, i64); 5] = [
+            (1, 2),   // class 0
+            (3, 4),   // class 1
+            (7, 8),   // class 2
+            (15, 16), // class 3
+            (31, 32), // class 4
+        ];
+
+        for (user_size, block_size) in &classes {
+            let ops = vec![
+                AllocOp::Alloc { size: *user_size, slot: 0 },
+                AllocOp::Free { slot: 0 },
+                AllocOp::Alloc { size: *user_size, slot: 1 },
+            ];
+            let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+            let heap = vm.heap();
+
+            // AHT initial=13, after first alloc: 13+block_size
+            let expected_aht = 13 + block_size;
+            let aht = heap.get(&heap_layout::ALLOC_HEAP_TOP).copied().unwrap_or(0);
+            assert_eq!(
+                aht, expected_aht,
+                "ALLOC_HEAP_TOP should not grow for class with block_size={block_size}"
+            );
+        }
+    }
+
+    /// 異なるリクエストサイズでも同一サイズクラスに切り上げられる場合、
+    /// free→alloc で再利用されることを検証。
+    #[test]
+    fn test_fsba_reuse_roundup_heap_stable() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        // alloc(2) → total=3, class 1 (block_size=4)
+        // free → push to class 1 free list
+        // alloc(3) → total=4, class 1, pop from free list
+        let ops = vec![
+            AllocOp::Alloc { size: 2, slot: 0 },
+            AllocOp::Free { slot: 0 },
+            AllocOp::Alloc { size: 3, slot: 1 },
+        ];
+        let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+        let heap = vm.heap();
+
+        // AHT initial=13, after alloc(2): 13+4=17, after free+alloc(3): 17
+        let aht = heap.get(&heap_layout::ALLOC_HEAP_TOP).copied().unwrap_or(0);
+        assert_eq!(
+            aht, 17,
+            "ALLOC_HEAP_TOP should not grow when round-up reuses same class"
+        );
+    }
+
+    /// 100 回の alloc/free ループで ALLOC_HEAP_TOP が一定に保たれることを検証。
+    #[test]
+    fn test_fsba_reuse_loop_heap_stable() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        let mut ops = Vec::new();
+        for _ in 0..100 {
+            ops.push(AllocOp::Alloc { size: 3, slot: 0 });
+            ops.push(AllocOp::Free { slot: 0 });
+        }
+        let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+        let heap = vm.heap();
+
+        // alloc(3): total=4, class 1, block_size=4. AHT: 13→17
+        // Each loop: alloc pops free list (or bumps first time), free pushes
+        // After 100 loops AHT should be 17
+        let aht = heap.get(&heap_layout::ALLOC_HEAP_TOP).copied().unwrap_or(0);
+        assert_eq!(
+            aht, 17,
+            "ALLOC_HEAP_TOP should remain stable after 100 alloc/free loops"
+        );
+    }
+
+    /// free 後にフリーリストが正しく更新されていることを直接検証。
+    #[test]
+    fn test_fsba_reuse_freelist_populated() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        let ops = vec![
+            AllocOp::Alloc { size: 1, slot: 0 },
+            AllocOp::Free { slot: 0 },
+        ];
+        let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+        let heap = vm.heap();
+
+        // FSBA table for class 0 is at heap[table_ptr + 0]
+        let table_ptr = heap.get(&heap_layout::FSBA_TABLE_PTR).copied().unwrap_or(0);
+        let class0_head = heap.get(&(table_ptr + 0)).copied().unwrap_or(0);
+        assert_ne!(
+            class0_head, 0,
+            "Class 0 free list should be populated after free"
+        );
+    }
+
+    /// free→alloc でフリーリストからポップされ、リストが空に戻ることを検証。
+    #[test]
+    fn test_fsba_reuse_freelist_empty_after_realloc() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        let ops = vec![
+            AllocOp::Alloc { size: 1, slot: 0 },
+            AllocOp::Free { slot: 0 },
+            AllocOp::Alloc { size: 1, slot: 1 },
+        ];
+        let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+        let heap = vm.heap();
+
+        let table_ptr = heap.get(&heap_layout::FSBA_TABLE_PTR).copied().unwrap_or(0);
+        let class0_head = heap.get(&(table_ptr + 0)).copied().unwrap_or(0);
+        assert_eq!(
+            class0_head, 0,
+            "Class 0 free list should be empty after realloc"
+        );
+    }
+
+    /// 32 セル超（汎用アロケータ経由）の alloc→free→alloc で ALLOC_HEAP_TOP が成長しないことを検証。
+    #[test]
+    fn test_fsba_reuse_general_heap_stable() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        let ops = vec![
+            AllocOp::Alloc { size: 40, slot: 0 },
+            AllocOp::Free { slot: 0 },
+            AllocOp::Alloc { size: 40, slot: 1 },
+        ];
+        let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+        let heap = vm.heap();
+
+        // alloc(40): total=41, general bump. AHT: 13→54
+        // free → general free list
+        // alloc(40): first-fit from free list. AHT stays 54
+        let aht = heap.get(&heap_layout::ALLOC_HEAP_TOP).copied().unwrap_or(0);
+        assert_eq!(
+            aht, 54,
+            "ALLOC_HEAP_TOP should not grow after general free+alloc"
+        );
+    }
+
+    /// 汎用フリーリスト (>32 セル) の free 後に ALLOC_FREE_HEAD が正しく更新されていることを検証。
+    #[test]
+    fn test_fsba_reuse_general_freelist_populated() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        let ops = vec![
+            AllocOp::Alloc { size: 40, slot: 0 },
+            AllocOp::Free { slot: 0 },
+        ];
+        let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+        let heap = vm.heap();
+
+        let afh = heap.get(&heap_layout::ALLOC_FREE_HEAD).copied().unwrap_or(0);
+        assert_ne!(
+            afh, 0,
+            "ALLOC_FREE_HEAD should be non-zero after general free"
+        );
+    }
+
+    /// 異なるサイズクラスの free が互いのフリーリストに影響しないことを検証。
+    #[test]
+    fn test_fsba_reuse_mixed_class_independent() {
+        let fsba = FsbaFirstFitAllocRuntime;
+        let ops = vec![
+            AllocOp::Alloc { size: 1, slot: 0 }, // class 0
+            AllocOp::Alloc { size: 7, slot: 1 }, // class 2
+            AllocOp::Free { slot: 0 },
+            AllocOp::Free { slot: 1 },
+        ];
+        let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+        let heap = vm.heap();
+
+        let table_ptr = heap.get(&heap_layout::FSBA_TABLE_PTR).copied().unwrap_or(0);
+        let class0_head = heap.get(&(table_ptr + 0)).copied().unwrap_or(0);
+        let class1_head = heap.get(&(table_ptr + 1)).copied().unwrap_or(0);
+        let class2_head = heap.get(&(table_ptr + 2)).copied().unwrap_or(0);
+
+        assert_ne!(class0_head, 0, "Class 0 free list should be populated");
+        assert_eq!(class1_head, 0, "Class 1 free list should remain empty");
+        assert_ne!(class2_head, 0, "Class 2 free list should be populated");
+    }
+
     /// FSBA プロローグ → エピローグの完全フローをVM上で検証する。
     #[test]
     fn test_fsba_prologue_epilogue_on_vm() {
