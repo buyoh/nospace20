@@ -246,22 +246,18 @@ pub fn new_with_options(
 
 ## 現行実装との差分
 
-### 修正が必要な箇所
+### ~~修正が必要な箇所~~ (修正済み: 2026-02-26)
 
-現在の `BumpAllocRuntime` 実装（Phase 2 完了時点）は以下の点で本設計と乖離している:
+~~現在の `BumpAllocRuntime` 実装（Phase 2 完了時点）は以下の点で本設計と乖離している:~~
 
-1. **`generate_subroutines()` が空**: `__rt_alloc`/`__rt_free` サブルーチンを生成していない
-2. **プロローグがインライン割り当て**: `__rt_alloc` を呼ばず直接 LHE を操作
-3. **エピローグがインライン解放**: `__rt_free` を呼ばず直接 LHE を操作
+以下の修正は完了済み:
 
-#### 修正方針
-
-Phase 2 の BumpAllocRuntime を以下のように修正する（Phase 2 修正として扱う）:
-
-1. `generate_subroutines()` に `__rt_alloc`/`__rt_free` のサブルーチン定義を追加
-2. `generate_function_prologue()` を `__rt_alloc` 呼び出し方式に変更
-3. `generate_function_epilogue()` を `__rt_free` 呼び出し方式に変更
-4. 既存テスト全パスを確認（動作は等価）
+1. ~~**`generate_subroutines()` が空**~~ → `__rt_alloc`/`__rt_free` サブルーチンを生成するよう修正
+2. ~~**プロローグがインライン割り当て**~~ → `Call(RT_ALLOC)` を使用するよう修正
+3. ~~**エピローグがインライン解放**~~ → `Call(RT_FREE)` を使用するよう修正
+4. 予約ラベル `RT_ALLOC(12)` / `RT_FREE(13)` を `label.rs` に追加
+5. VM 統合テスト追加（alloc/free 単体テスト、prologue/epilogue フローテスト）
+6. 既存テスト全パス確認
 
 ## 設計原則
 

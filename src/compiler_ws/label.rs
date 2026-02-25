@@ -27,6 +27,11 @@ pub mod reserved_labels {
     pub const COMPARATOR_OR_2: LabelId = LabelId(9);
     pub const COMPARATOR_OR_3: LabelId = LabelId(10);
 
+    /// ランタイムアロケータ: __rt_alloc サブルーチン
+    pub const RT_ALLOC: LabelId = LabelId(12);
+    /// ランタイムアロケータ: __rt_free サブルーチン
+    pub const RT_FREE: LabelId = LabelId(13);
+
     /// ユーザーラベルのオフセット
     pub const LABEL_OFFSET: u32 = 16;
 }

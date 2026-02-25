@@ -112,3 +112,4 @@ nospace 組み込み関数として `__alloc(size)` / `__free(ptr)` を提供。
 - 2026-02-25: Phase 1 実装完了（`--std-ext alloc` フラグ追加）
 - 2026-02-25: Phase 2 実装完了（AllocRuntime trait + BumpAllocRuntime、既存テスト全パス）
 - 2026-02-26: 設計修正 — BumpAllocRuntime にも `__rt_alloc`/`__rt_free` サブルーチンを必須化。旧 Phase 5（スタックフレーム移行）を廃止し Phase 構成を 6→5 に縮小。Phase 2 の BumpAllocRuntime 実装を修正予定
+- 2026-02-26: Phase 2 修正実装完了 — BumpAllocRuntime が `__rt_alloc`/`__rt_free` サブルーチンを生成するよう変更。プロローグ/エピローグがサブルーチン呼び出しを使用。予約ラベル RT_ALLOC(12)/RT_FREE(13) を label.rs に追加。VM 統合テスト追加。既存テスト全パス確認
