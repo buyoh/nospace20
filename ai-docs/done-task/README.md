@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [memory-allocator/](memory-allocator/) | メモリアロケータ実装（Phase 1-5 全完了：`--std-ext alloc`、AllocRuntime trait、FSBA+First-Fit、`__alloc`/`__free` 組み込み関数、全916テスト通過） | 2026-02-27 |
 | [strict-heap-mode/](strict-heap-mode/) | Whitespace VM strict-heap モード（Phase 1-6 + テスト修正完了：未初期化ヒープ検出、randomize、変数初期値未定義仕様変更、6テスト修正後 622 件全パス） | 2026-02-18 |
 | [compiler-ws-duplicate-label-bug.md](compiler-ws-duplicate-label-bug.md) | コンパイラ生成コードの重複ラベルバグ修正（function_labelsキーをString→usizeに変更、同名関数シャドーイング対応） | 2026-02-18 |
 | [compiler-implementation-record.md](compiler-implementation-record.md) | コンパイラ実装状況記録（Whitespace コンパイラほぼ完成、98.9%テスト成功率、grayspace未着手） | 2026-02-18 |

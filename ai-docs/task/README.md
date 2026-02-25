@@ -40,7 +40,6 @@
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
 - [wasm-vm-interactive-stdin/](wasm-vm-interactive-stdin/) - WASM WhitespaceVM の interactive stdin 一時停止機能（InputChar/InputNumber でバッファ不足時に WaitingForInput を返す）
-- [memory-allocator/](memory-allocator/) - メモリアロケータ実装（`--std-ext alloc` による二層アロケータ: FSBA + 汎用 First-Fit、スタックフレーム統合、`__alloc`/`__free` 組み込み関数、JSON ミニ言語による分離テスト）
 - [ws-profiler/](ws-profiler/) - Whitespace VM プロファイラ（実行ステップ数・メモリアクセス範囲の統計収集、YAML 出力スクリプト）
 - [ws-profiler-html-report/](ws-profiler-html-report/) - プロファイラ HTML レポート（ws_profiler JSON 出力追加 + HTML サマリ・比較レポート生成スクリプト）
 - [review-tree-parser-statement.md](review-tree-parser-statement.md) - tree_parser/statement/mod.rs コードレビュー（リファクタ4件・品質改善5件）
@@ -58,6 +57,7 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [memory-allocator/](../done-task/memory-allocator/) - メモリアロケータ実装完了（Phase 1-5 全て完了：`--std-ext alloc`、AllocRuntime trait、分離テスト、FSBA+First-Fit、`__alloc`/`__free` 組み込み関数、全916テスト通過）(2026-02-27完了)
 - [qsort-ws-self-failure.md](../done-task/qsort-ws-self-failure.md) - test_example_qsort_ws_self 失敗調査・修正（Bug C/D/E を解決、ws_self 全テスト PASS、121件）(2026-02-17完了)
 - [fix-ws-self-label-duplication.md](../done-task/fix-ws-self-label-duplication.md) - compiler_ws ラベル ID 重複バグ修正（10/15件成功、256 passed; 5 failed）(2026-02-17完了)
 - [whitespace-test-failures-investigation.md](../done-task/whitespace-test-failures-investigation.md) - Whitespace インタプリタテスト失敗調査（全39テスト成功確認、12件の失敗すべて解決）(2026-02-17完了)
