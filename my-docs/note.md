@@ -57,43 +57,9 @@ if: cond {block} else: if: cond {block} else: {block};
     - `if` は出来ない。`if: cond, eval else: eval;` のように、evalとelseの区切りが曖昧になるため。
       - `;` で区切る？
         - `if` 全体で式なので、式の終了と勘違いする
+  - `,` の個数で判断すると、関数呼び出し内でのコンマ曖昧性が発生
   - `func` はいまいちな感じになる。そもそも式の`{}`と`func`の`{}`を区別しなくても良いようにできるか？
 
-else いらないか…
-
-```
-if: cond1, {block1}, cond2, {block2}, {block3};
-```
-
-cond1 にさらに if を入れることが出来るはずだが…
-`,` の個数で判断すると、境目が分からない。これはいけない。
-
-```
-if: if: cond, {b1}, {b2}, {b3}, cond, {b4}, {b5};
-```
-
-elseで後続を判断できるようにする。何なら `then:` も欲しい。
-まだ分かりにくいが、以前も `if` で1つのまとまりになっていないので、わかりにくさは以前と同じ
-
-```
-if: if: cond, {b1}, else: {b2}, {b3}, elif: cond, {b4}, else: {b5};
-```
-
-```
-if: cond1, {
-  block1
-}, elif: cond2, {
-  block2
-}, else: {
-  block3
-};
-```
-
-while も同じ感じにする。let, func などの宣言はそのまま。
-
-```
-while: cond, block;
-```
 
 ## 仕様の疑問点
 
