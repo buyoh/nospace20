@@ -61,6 +61,22 @@ interface VmStepResult {
     error?: string;
     inputType?: "char" | "number";
 }
+
+/** コンパイルターゲット */
+type CompileTarget = "ws" | "mnemonic";
+
+/** 言語サブセット */
+type LanguageStd = "standard" | "ws";
+
+/** ターゲット拡張 */
+type StdExtension = "debug" | "alloc";
+
+/** 利用可能なオプション定義 */
+interface OptionsDefinition {
+    readonly compileTargets: readonly CompileTarget[];
+    readonly languageStds: readonly LanguageStd[];
+    readonly stdExtensions: readonly StdExtension[];
+}
 "#;
 
 #[wasm_bindgen]
@@ -85,6 +101,9 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "string[]")]
     pub type JsStringArray;
+
+    #[wasm_bindgen(typescript_type = "OptionsDefinition")]
+    pub type JsOptionsDefinition;
 }
 
 #[derive(Serialize)]
@@ -670,4 +689,28 @@ pub fn compile_to_whitespace_string(source: &str) -> JsCompileResult {
 #[wasm_bindgen]
 pub fn compile_to_mnemonic_string(source: &str) -> JsCompileResult {
     compile(source, "mnemonic", "ws", None, None)
+}
+
+/// 利用可能なオプションの一覧を返す
+///
+/// compile() や WasmWhitespaceVM で指定可能なオプション値を取得できる。
+#[wasm_bindgen(js_name = "getOptions")]
+pub fn get_options() -> JsOptionsDefinition {
+    #[derive(Serialize)]
+    struct OptionsDefinition {
+        #[serde(rename = "compileTargets")]
+        compile_targets: Vec<&'static str>,
+        #[serde(rename = "languageStds")]
+        language_stds: Vec<&'static str>,
+        #[serde(rename = "stdExtensions")]
+        std_extensions: Vec<&'static str>,
+    }
+
+    let options = OptionsDefinition {
+        compile_targets: vec!["ws", "mnemonic"],
+        language_stds: vec!["standard", "ws"],
+        std_extensions: vec!["debug", "alloc"],
+    };
+    let js: JsValue = serde_wasm_bindgen::to_value(&options).unwrap();
+    js.into()
 }
