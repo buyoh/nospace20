@@ -8,6 +8,7 @@ nospace 言語に関するドキュメント群。
 |----------|------|
 | [grammar.bnf](grammar.bnf) | nospace 言語の BNF 文法定義 |
 | [bnf-validation.md](bnf-validation.md) | BNF の正当性検証ガイド |
+| [profiler.md](profiler.md) | Whitespace VM プロファイラの使い方 |
 
 ## 構文ハイライト
 
@@ -21,6 +22,7 @@ nospace 言語に関するドキュメント群。
 |----------|------|
 | [../tools/validate-grammar.sh](../tools/validate-grammar.sh) | BNF 検証スクリプト |
 | [../tools/vscode-ext/](../tools/vscode-ext/) | VSCode 拡張ツール群 |
+| [../tools/profile-report.py](../tools/profile-report.py) | プロファイル HTML レポート生成 |
 
 ```bash
 # BNF 検証
