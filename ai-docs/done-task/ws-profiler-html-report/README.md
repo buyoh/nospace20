@@ -30,18 +30,26 @@
 
 ## 実装計画
 
-### Phase 1: ws_profiler に JSON 出力を追加
+### Phase 1: ws_profiler に JSON 出力を追加（✅ 完了）
 
 - `--json` フラグで JSON 形式の出力をサポート
 - Python スクリプトが外部依存なし（stdlib の `json` モジュール）で読み込めるようにする
 - 既存の YAML 出力はデフォルトのまま維持
 
-### Phase 2: HTML レポート生成スクリプト
+### Phase 2: HTML レポート生成スクリプト（✅ 完了）
 
 - `tools/profile-report.py` を作成
 - JSON ファイルを1つ以上受け取り、比較可能な HTML レポートを生成
 - スタンドアロン HTML（外部 CSS/JS 依存なし）
 - 差分表示・色分け・ソート機能
+
+## 完了報告
+
+- 実装日: 2026-02-26
+- 変更ファイル:
+  - `examples/ws_profiler.rs`: `--json` フラグ追加・引数パース変更
+  - `tools/profile-report.py`: HTML レポート生成スクリプト新規作成
+- 既存テスト: すべてパス（`cargo test` 40 passed, 0 failed）
 
 ## 設計原則
 

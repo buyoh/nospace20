@@ -1,18 +1,21 @@
 //! Whitespace VM プロファイラ
 //!
 //! 指定されたテストケースを nospace → Whitespace にコンパイルし、
-//! プロファイリングモードで実行して統計を YAML 形式で出力する。
+//! プロファイリングモードで実行して統計を YAML 形式（デフォルト）または JSON 形式で出力する。
 //!
 //! # 使い方
 //! ```bash
-//! # デフォルトのテストケースをプロファイル
+//! # デフォルトのテストケースをプロファイル（YAML 出力）
 //! cargo run --example ws_profiler
+//!
+//! # JSON 形式で出力
+//! cargo run --example ws_profiler -- --json
 //!
 //! # 特定の .ns ファイルを指定
 //! cargo run --example ws_profiler -- path/to/file.ns
 //!
-//! # 出力をファイルに保存
-//! cargo run --example ws_profiler > profile-output.yaml
+//! # JSON 出力をファイルに保存
+//! cargo run --example ws_profiler -- --json > profile-output.json
 //! ```
 
 use serde::{Deserialize, Serialize};
@@ -158,9 +161,19 @@ const MAX_STEPS: usize = 10_000_000;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    let targets: Vec<ProfileTarget> = if args.len() > 1 {
+    let mut json_output = false;
+    let mut paths: Vec<String> = Vec::new();
+
+    for arg in &args[1..] {
+        match arg.as_str() {
+            "--json" => json_output = true,
+            _ => paths.push(arg.clone()),
+        }
+    }
+
+    let targets: Vec<ProfileTarget> = if !paths.is_empty() {
         // コマンドライン引数で指定されたファイルをそのままターゲットとして扱う
-        args[1..]
+        paths
             .iter()
             .map(|s| ProfileTarget {
                 path: s.clone(),
@@ -184,10 +197,16 @@ fn main() {
     }
 
     let report = ProfileReport { profiles };
-    // ヘッダーコメント付きで出力
-    println!("# Whitespace VM Profile Report");
-    let yaml = serde_yaml::to_string(&report).expect("Failed to serialize YAML");
-    print!("{}", yaml);
+    if json_output {
+        // JSON 形式で出力
+        let json = serde_json::to_string_pretty(&report).expect("Failed to serialize JSON");
+        println!("{}", json);
+    } else {
+        // ヘッダーコメント付きで YAML 出力（デフォルト）
+        println!("# Whitespace VM Profile Report");
+        let yaml = serde_yaml::to_string(&report).expect("Failed to serialize YAML");
+        print!("{}", yaml);
+    }
 }
 
 // ===== プロファイル実行 =====
