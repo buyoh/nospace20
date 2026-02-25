@@ -150,7 +150,9 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
         if let Some(code_pointer) = error.code_pointer {
             let (line_no, column) = text.char_index_to_line(code_pointer);
             let line_str = text.line(line_no);
-            println!("line:{} column:{}", line_no, column);
+            // NOTE: line_no, column は内部的には0-indexed。
+            // ユーザー向け表示では1-indexedにする。
+            println!("line:{} column:{}", line_no + 1, column + 1);
             println!("{}", line_str);
             println!(
                 "{}^",

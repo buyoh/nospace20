@@ -124,7 +124,8 @@ fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
         .map(|e| {
             let (line, column) = if let Some(p) = e.code_pointer {
                 let (l, c) = text.char_index_to_line(p);
-                (Some(l), Some(c))
+                // NOTE: char_index_to_line は0-indexed。ユーザー向けには1-indexedにする。
+                (Some(l + 1), Some(c + 1))
             } else {
                 (None, None)
             };
