@@ -14,14 +14,99 @@
 //! # 特定の .ns ファイルを指定
 //! cargo run --example ws_profiler -- path/to/file.ns
 //!
-//! # JSON 出力をファイルに保存
-//! cargo run --example ws_profiler -- --json > profile-output.json
+//! # std-ext オプションを指定（alloc 拡張を有効化）
+//! cargo run --example ws_profiler -- --std-ext alloc
+//!
+//! # 言語サブセットを指定
+//! cargo run --example ws_profiler -- --std ws
 //! ```
 
+use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
-use nospace20::whitespace::{ProfileStats, StepResult, WhitespaceVM};
+use nospace20::{
+    whitespace::{ProfileStats, StepResult, WhitespaceVM},
+    LanguageStd, TargetExtension,
+};
+
+// ===== CLI 引数 =====
+
+/// 言語サブセット（通常 CLI と同じ選択肢）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+enum CliStd {
+    #[default]
+    Standard,
+    Min,
+    Ws,
+}
+
+impl From<CliStd> for LanguageStd {
+    fn from(v: CliStd) -> Self {
+        match v {
+            CliStd::Standard => LanguageStd::Standard,
+            CliStd::Min => LanguageStd::Min,
+            CliStd::Ws => LanguageStd::Ws,
+        }
+    }
+}
+
+/// コンパイルターゲット拡張（通常 CLI と同じ選択肢）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum CliTargetExt {
+    Debug,
+    Alloc,
+}
+
+impl From<CliTargetExt> for TargetExtension {
+    fn from(v: CliTargetExt) -> Self {
+        match v {
+            CliTargetExt::Debug => TargetExtension::Debug,
+            CliTargetExt::Alloc => TargetExtension::Alloc,
+        }
+    }
+}
+
+/// Whitespace VM プロファイラ
+#[derive(Parser, Debug)]
+#[command(name = "ws_profiler")]
+#[command(about = "Profile nospace programs compiled to Whitespace")]
+struct Args {
+    /// .ns files to profile (reads from profile-targets.yaml if not specified)
+    files: Vec<String>,
+
+    /// Language subset
+    #[arg(long, value_enum, default_value_t = CliStd::Standard)]
+    std: CliStd,
+
+    /// Standard extensions (can be specified multiple times)
+    #[arg(long = "std-ext", value_enum)]
+    std_ext: Vec<CliTargetExt>,
+
+    /// Output in JSON format instead of YAML
+    #[arg(long)]
+    json: bool,
+}
+
+/// コンパイルオプション（run_profile に渡す）
+struct CompileOptions {
+    debug_ext: bool,
+    alloc_ext: bool,
+    /// 言語サブセット（将来の利用のために保持。現在は compile_to_whitespace_with_options に渡す API がないため未使用）
+    #[allow(dead_code)]
+    std: LanguageStd,
+}
+
+impl CompileOptions {
+    fn from_args(args: &Args) -> Self {
+        let exts: Vec<TargetExtension> = args.std_ext.iter().map(|e| (*e).into()).collect();
+        Self {
+            debug_ext: exts.contains(&TargetExtension::Debug),
+            alloc_ext: exts.contains(&TargetExtension::Alloc),
+            std: args.std.into(),
+        }
+    }
+}
 
 // ===== profile-targets.yaml 読み込み用構造体 =====
 
@@ -159,21 +244,12 @@ const MAX_STEPS: usize = 10_000_000;
 // ===== エントリポイント =====
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args = Args::parse();
+    let compile_opts = CompileOptions::from_args(&args);
 
-    let mut json_output = false;
-    let mut paths: Vec<String> = Vec::new();
-
-    for arg in &args[1..] {
-        match arg.as_str() {
-            "--json" => json_output = true,
-            _ => paths.push(arg.clone()),
-        }
-    }
-
-    let targets: Vec<ProfileTarget> = if !paths.is_empty() {
+    let targets: Vec<ProfileTarget> = if !args.files.is_empty() {
         // コマンドライン引数で指定されたファイルをそのままターゲットとして扱う
-        paths
+        args.files
             .iter()
             .map(|s| ProfileTarget {
                 path: s.clone(),
@@ -192,12 +268,12 @@ fn main() {
 
     let mut profiles = Vec::new();
     for target in &targets {
-        let entry = run_profile(target);
+        let entry = run_profile(target, &compile_opts);
         profiles.push(entry);
     }
 
     let report = ProfileReport { profiles };
-    if json_output {
+    if args.json {
         // JSON 形式で出力
         let json = serde_json::to_string_pretty(&report).expect("Failed to serialize JSON");
         println!("{}", json);
@@ -212,7 +288,7 @@ fn main() {
 // ===== プロファイル実行 =====
 
 /// 1テストケースをプロファイルして結果を返す
-fn run_profile(target: &ProfileTarget) -> ProfileEntry {
+fn run_profile(target: &ProfileTarget, opts: &CompileOptions) -> ProfileEntry {
     // --- ソースファイルのパスを解決 ---
     let (source_path, name) = resolve_source_path(&target.path);
 
@@ -231,7 +307,7 @@ fn run_profile(target: &ProfileTarget) -> ProfileEntry {
     };
 
     // --- nospace をパース → コンパイル ---
-    let ws_source = match compile_nospace(&source_code) {
+    let ws_source = match compile_nospace(&source_code, opts) {
         Ok(ws) => ws,
         Err(e) => {
             return ProfileEntry {
@@ -272,7 +348,7 @@ fn run_profile(target: &ProfileTarget) -> ProfileEntry {
             ))),
             Box::new(Vec::<u8>::new()),
         )
-        .with_debug_ext(true)
+        .with_debug_ext(opts.debug_ext)
         .with_profiling(true);
 
     let step_result = vm.run(MAX_STEPS);
@@ -362,7 +438,7 @@ fn resolve_source_path(path: &str) -> (String, String) {
 }
 
 /// nospace ソースコードを Whitespace テキストにコンパイルする
-fn compile_nospace(source: &str) -> Result<String, String> {
+fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String> {
     let source_string = source.to_string();
     let tokens = nospace20::parse_to_tokens(&source_string).map_err(|errors| {
         errors
@@ -385,7 +461,7 @@ fn compile_nospace(source: &str) -> Result<String, String> {
             .collect::<Vec<_>>()
             .join("; ")
     })?;
-    nospace20::compile_to_whitespace_with_options(&scope, true, false)
+    nospace20::compile_to_whitespace_with_options(&scope, opts.debug_ext, opts.alloc_ext)
 }
 
 /// Whitespace テキストの静的命令数を計算する（パースして命令列長を得る）
