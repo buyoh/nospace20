@@ -12,9 +12,9 @@ use std::rc::Rc;
 
 use crate::whitespace::{InputWaitType, StepResult, WhitespaceVM};
 use crate::{
-    compile_to_whitespace, compile_to_whitespace_debug, compile_to_whitespace_debug_with_options,
-    compile_to_whitespace_with_options, interpret_func_with_io, parse_to_tokens, parse_to_tree,
-    syntactic_analyze, CodeParseError, CompileTarget, LanguageStd, TextCode,
+    compile_to_whitespace_debug_with_options, compile_to_whitespace_with_options, interpret_with_env,
+    parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError, CompileTarget, Environment,
+    EnvironmentConfig, LanguageStd, TextCode,
 };
 
 // ========================================
@@ -146,8 +146,10 @@ fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
 
 /// nospace ソースコードを解析・実行する。
 /// CLI の `--mode=run` に相当。
+///
+/// - `ignore_debug`: デバッグ用組み込み関数（__assert, __trace 等）を無視する（CLI の `--ignore-debug` 相当）
 #[wasm_bindgen]
-pub fn run(source: &str, stdin: &str, debug: bool) -> JsRunResult {
+pub fn run(source: &str, stdin: &str, debug: bool, ignore_debug: Option<bool>) -> JsRunResult {
     let text = TextCode::new(source);
     let source_string = source.to_string();
 
@@ -170,12 +172,28 @@ pub fn run(source: &str, stdin: &str, debug: bool) -> JsRunResult {
     };
 
     // 実行
-    let (traced, stdout_str) = interpret_func_with_io(&scope, "main", stdin);
+    let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(
+        stdin.as_bytes().to_vec(),
+    )));
+    let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
+    let stdout_clone = Rc::clone(&stdout_buf);
+    let mut config = EnvironmentConfig::with_max_expression_count(100000);
+    config.ignore_debug = ignore_debug.unwrap_or(false);
+    let mut env = Environment::new_with_config(
+        stdin_cursor,
+        Box::new(SharedWriter(stdout_clone)),
+        config,
+    );
+    interpret_with_env(&mut env, &scope);
+    env.flush();
+
+    let stdout_vec = stdout_buf.borrow().clone();
+    let stdout_str = String::from_utf8(stdout_vec).unwrap_or_default();
 
     // trace を String キーに変換 (JSON 互換)
     let trace = if debug {
         Some(
-            traced
+            env.traced
                 .iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect(),
@@ -196,8 +214,17 @@ pub fn run(source: &str, stdin: &str, debug: bool) -> JsRunResult {
 
 /// nospace ソースコードをコンパイルする。
 /// CLI の `--mode=compile` に相当。
+///
+/// - `debug_ext`: デバッグ拡張を有効にする（CLI の `--std-ext debug` 相当）
+/// - `alloc_ext`: メモリアロケータ拡張を有効にする（CLI の `--std-ext alloc` 相当）
 #[wasm_bindgen]
-pub fn compile(source: &str, target: &str, lang_std: &str) -> JsCompileResult {
+pub fn compile(
+    source: &str,
+    target: &str,
+    lang_std: &str,
+    debug_ext: Option<bool>,
+    alloc_ext: Option<bool>,
+) -> JsCompileResult {
     let text = TextCode::new(source);
     let source_string = source.to_string();
 
@@ -267,9 +294,13 @@ pub fn compile(source: &str, target: &str, lang_std: &str) -> JsCompileResult {
     };
 
     // コンパイル
+    let debug_ext = debug_ext.unwrap_or(false);
+    let alloc_ext = alloc_ext.unwrap_or(false);
     let compiled = match compile_target {
-        CompileTarget::Ws => compile_to_whitespace(&scope),
-        CompileTarget::Mnemonic => compile_to_whitespace_debug(&scope),
+        CompileTarget::Ws => compile_to_whitespace_with_options(&scope, debug_ext, alloc_ext),
+        CompileTarget::Mnemonic => {
+            compile_to_whitespace_debug_with_options(&scope, debug_ext, alloc_ext)
+        }
         _ => unreachable!(),
     };
 
@@ -367,11 +398,16 @@ pub struct WasmWhitespaceVM {
 #[wasm_bindgen]
 impl WasmWhitespaceVM {
     /// nospace ソースをコンパイルし、Whitespace VM を構築する
+    ///
+    /// - `debug_ext`: デバッグ拡張を有効にする（CLI の `--std-ext debug` 相当）
+    /// - `alloc_ext`: メモリアロケータ拡張を有効にする（CLI の `--std-ext alloc` 相当）
     #[wasm_bindgen(constructor)]
     pub fn new(
         nospace_source: &str,
         stdin: &str,
         interactive: Option<bool>,
+        debug_ext: Option<bool>,
+        alloc_ext: Option<bool>,
     ) -> Result<WasmWhitespaceVM, JsValue> {
         let text = TextCode::new(nospace_source);
         let source_string = nospace_source.to_string();
@@ -391,7 +427,11 @@ impl WasmWhitespaceVM {
         };
 
         // コンパイル
-        let ws_source = match compile_to_whitespace(&scope) {
+        let ws_source = match compile_to_whitespace_with_options(
+            &scope,
+            debug_ext.unwrap_or(false),
+            alloc_ext.unwrap_or(false),
+        ) {
             Ok(output) => output,
             Err(err) => {
                 let result = ResultErr {
@@ -623,11 +663,11 @@ impl WasmWhitespaceVM {
 /// nospace ソースコードを Whitespace にコンパイル（ヘルパー関数）
 #[wasm_bindgen]
 pub fn compile_to_whitespace_string(source: &str) -> JsCompileResult {
-    compile(source, "ws", "ws")
+    compile(source, "ws", "ws", None, None)
 }
 
 /// nospace ソースコードをニーモニックにコンパイル（ヘルパー関数）
 #[wasm_bindgen]
 pub fn compile_to_mnemonic_string(source: &str) -> JsCompileResult {
-    compile(source, "mnemonic", "ws")
+    compile(source, "mnemonic", "ws", None, None)
 }
