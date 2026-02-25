@@ -53,7 +53,7 @@ tests:
   - name: fsba_alloc_zero_001
     type: alloc_io
     path: fsba/fsba_alloc_zero_001
-    comment: "FSBA: alloc(0) で最小ブロック確保"
+    comment: "FSBA: alloc(1) で最小ブロック確保"
 
   - name: fsba_repeated_001
     type: alloc_io

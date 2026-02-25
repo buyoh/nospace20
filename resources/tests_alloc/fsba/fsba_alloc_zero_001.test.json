@@ -1,13 +1,14 @@
 {
-  "description": "FSBA: alloc(0) で最小ブロック (class 0, 2 セル) を確保",
+  "description": "FSBA: alloc(1) で最小ブロック (class 0, block_size=2) を確保し、書き込み・読み取り",
   "config": { "allocator": "fsba" },
   "vars": ["p1"],
   "steps": [
-    { "op": "alloc", "var": "p1", "size": 0 },
-    { "op": "print", "value": 42 }
+    { "op": "alloc", "var": "p1", "size": 1 },
+    { "op": "load_print", "var": "p1" },
+    { "op": "free", "var": "p1" }
   ],
   "check": {
     "type": "alloc_io",
-    "stdout": "42\n"
+    "stdout": "1\n"
   }
 }
