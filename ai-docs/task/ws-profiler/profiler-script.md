@@ -71,33 +71,80 @@ profiles:
 
 ## デフォルトのテストケース
 
-以下のカテゴリから代表的なケースをピックアップ:
+プロファイル対象は `resources/tests/profile-targets.yaml` に YAML で定義する。ハードコードではなく外部ファイルとすることで、テストケースの追加・変更が容易になる。
+
+### profile-targets.yaml の形式
+
+```yaml
+# Whitespace VM プロファイル対象テストケース
+# path: resources/tests/passes/ からの相対パス（拡張子なし）
+# comment: (オプション) テストの説明
+# stdin: (オプション) stdin に渡す文字列。未指定時は check.json から取得、それもなければ空文字列
+
+targets:
+  # 基本
+  - path: c000
+    comment: "Legacy test - basic functionality"
+  - path: c001
+    comment: "Legacy test"
+
+  # Examples（complexity escalation）
+  - path: examples/e0-00-puts
+    comment: "puts example"
+  - path: examples/e0-01-fibonacci
+    comment: "Fibonacci example"
+  - path: examples/e1-00-qsort
+    comment: "Quicksort example"
+    stdin: "5\n3 1 4 1 5\n"
+  - path: examples/e1-01-queue
+    comment: "Queue example"
+    stdin: "5\n1 2 3 4 5\n"
+
+  # 配列操作
+  - path: array-basic
+    comment: "Basic array operations"
+  - path: array-static
+    comment: "Static array"
+  - path: array-reference
+    comment: "Array reference"
+
+  # 文字列
+  - path: string-basic
+    comment: "Basic string operations"
+
+  # 制御フロー
+  - path: control_flow/if_001
+    comment: "If statement"
+  - path: control_flow/while_001
+    comment: "While loop"
+
+  # 関数
+  - path: functions/func_001
+    comment: "Basic function"
+  - path: functions/func_recursive_001
+    comment: "Recursive function"
+
+  # 統合
+  - path: integration/integ_001
+    comment: "Integration test"
+```
+
+### YAML 読み込み用構造体
 
 ```rust
-const DEFAULT_TEST_CASES: &[&str] = &[
-    // 基本
-    "c000",
-    "c001",
-    // Examples（complexity escalation）
-    "examples/e0-00-puts",
-    "examples/e0-01-fibonacci",
-    "examples/e1-00-qsort",
-    "examples/e1-01-queue",
-    // 配列操作
-    "array-basic",
-    "array-static",
-    "array-reference",
-    // 文字列
-    "string-basic",
-    // 制御フロー
-    "control_flow/if_001",
-    "control_flow/while_001",
-    // 関数
-    "functions/func_001",
-    "functions/func_recursive_001",
-    // 統合
-    "integration/integ_001",
-];
+#[derive(Deserialize)]
+struct ProfileTargets {
+    targets: Vec<ProfileTarget>,
+}
+
+#[derive(Deserialize)]
+struct ProfileTarget {
+    path: String,
+    #[serde(default)]
+    comment: Option<String>,
+    #[serde(default)]
+    stdin: Option<String>,
+}
 ```
 
 ## 実装
@@ -122,20 +169,30 @@ required-features = ["cli"]
 ```rust
 // examples/ws_profiler.rs
 
+const PROFILE_TARGETS_PATH: &str = "resources/tests/profile-targets.yaml";
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    let test_cases = if args.len() > 1 {
-        // 引数で指定されたファイル
-        args[1..].to_vec()
+    let targets = if args.len() > 1 {
+        // 引数で指定されたファイル（path として扱う）
+        args[1..].iter().map(|s| ProfileTarget {
+            path: s.clone(),
+            comment: None,
+            stdin: None,
+        }).collect()
     } else {
-        // デフォルトのテストケース
-        DEFAULT_TEST_CASES.iter().map(|s| s.to_string()).collect()
+        // YAML からデフォルトのテストケースを読み込み
+        let yaml_content = fs::read_to_string(PROFILE_TARGETS_PATH)
+            .expect("Failed to read profile-targets.yaml");
+        let manifest: ProfileTargets = serde_yaml::from_str(&yaml_content)
+            .expect("Failed to parse profile-targets.yaml");
+        manifest.targets
     };
 
     let mut profiles = Vec::new();
-    for case in &test_cases {
-        let profile = run_profile(case);
+    for target in &targets {
+        let profile = run_profile(target);
         profiles.push(profile);
     }
 
@@ -144,12 +201,13 @@ fn main() {
     println!("{}", output);
 }
 
-fn run_profile(test_case: &str) -> ProfileEntry {
-    // 1. .ns ファイルを読み込み
+fn run_profile(target: &ProfileTarget) -> ProfileEntry {
+    // 1. .ns ファイルを読み込み（resources/tests/passes/{path}.ns）
     // 2. parse → compile_to_whitespace_with_options
     // 3. WhitespaceVM::from_source + with_profiling(true) + with_debug_ext(true)
-    // 4. vm.run(10_000_000)
-    // 5. ProfileStats から ProfileEntry を構築
+    // 4. stdin 設定: target.stdin > check.json の stdin/stdin_file > 空文字列
+    // 5. vm.run(10_000_000)
+    // 6. ProfileStats から ProfileEntry を構築
 }
 ```
 

@@ -37,9 +37,9 @@ whitespace20 VM に実行プロファイラ機能を追加し、実行統計（�
 
 ### Phase 2: YAML 出力スクリプト
 
+- `resources/tests/profile-targets.yaml` にプロファイル対象テストケースを定義
 - `examples/ws_profiler.rs` に Rust スクリプトを作成
-- テストケースの自動ピックアップ（`resources/tests/passes/` から）
-- nospace → Whitespace コンパイル → VM 実行 → 統計収集 → YAML 出力
+- YAML からテストケースを読み込み → nospace → Whitespace コンパイル → VM 実行 → 統計収集 → YAML 出力
 - serde_yaml を dev-dependencies に追加
 
 ## 設計原則
