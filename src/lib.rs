@@ -13,7 +13,7 @@ use tree_parser::LocatedStatement;
 
 mod base;
 mod compile_property;
-mod compiler_ws;
+pub mod compiler_ws;
 mod interpreter;
 mod logger;
 mod semantic_analyzer;

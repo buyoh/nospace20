@@ -1,0 +1,19 @@
+{
+  "description": "複数回 alloc で異なるブロック確保、データ非干渉を検証",
+  "vars": ["p1", "p2", "p3"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 2 },
+    { "op": "alloc", "var": "p2", "size": 2 },
+    { "op": "alloc", "var": "p3", "size": 2 },
+    { "op": "assert_var_ne", "var1": "p1", "var2": "p2" },
+    { "op": "assert_var_ne", "var1": "p2", "var2": "p3" },
+    { "op": "assert_var_ne", "var1": "p1", "var2": "p3" },
+    { "op": "load_print", "var": "p1" },
+    { "op": "load_print", "var": "p2" },
+    { "op": "load_print", "var": "p3" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "1\n2\n3\n4\n5\n6\n"
+  }
+}

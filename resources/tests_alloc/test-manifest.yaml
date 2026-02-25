@@ -1,0 +1,20 @@
+tests:
+  - name: alloc_basic_001
+    type: alloc_io
+    path: basic/alloc_basic_001
+    comment: "alloc(1) で 1 セル確保・読み取り"
+
+  - name: alloc_basic_002
+    type: alloc_io
+    path: basic/alloc_basic_002
+    comment: "alloc(10) で 10 セル確保・全セル読み取り"
+
+  - name: alloc_multi_001
+    type: alloc_io
+    path: basic/alloc_multi_001
+    comment: "複数回 alloc で非重複・データ非干渉検証"
+
+  - name: alloc_free_reuse_001
+    type: alloc_io
+    path: basic/alloc_free_reuse_001
+    comment: "alloc → free → alloc で再確保"
