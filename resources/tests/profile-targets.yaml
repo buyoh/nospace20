@@ -4,47 +4,18 @@
 # stdin: (オプション) stdin に渡す文字列。未指定時は check.json から取得、それもなければ空文字列
 
 targets:
-  # 基本
-  - path: c000
-    comment: "Legacy test - basic functionality"
-  - path: c001
-    comment: "Legacy test"
-
   # Examples（complexity escalation）
   - path: examples/e0-00-puts
     comment: "puts example"
   - path: examples/e0-01-fibonacci
     comment: "Fibonacci example"
+    stdin: "9\n"
   - path: examples/e1-00-qsort
     comment: "Quicksort example"
-    stdin: "5\n3\n1\n4\n1\n5\n"
+    stdin: "10\n3\n1\n4\n1\n5\n9\n2\n6\n5\n3\n"
   - path: examples/e1-01-queue
     comment: "Queue example"
-    stdin: "5\n1\n2\n3\n4\n5\n"
-
-  # 配列操作
-  - path: array-basic
-    comment: "Basic array operations"
-  - path: array-static
-    comment: "Static array"
-  - path: array-reference
-    comment: "Array reference"
-
-  # 文字列
-  - path: string-basic
-    comment: "Basic string operations"
-
-  # 制御フロー
-  - path: control_flow/if_001
-    comment: "If statement"
-  - path: control_flow/while_001
-    comment: "While loop"
-
-  # 関数
-  - path: functions/func_basic_001
-    comment: "Basic function"
-  - path: functions/func_args_001
-    comment: "Function with arguments"
+    stdin: "12p345pp6p7pppx"
 
   # 統合
   - path: integration/integ_001
