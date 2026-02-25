@@ -14,4 +14,7 @@ pub use crate::compiler_ws::types::{LabelId, WsChar, WsNumber};
 pub use parser::{parse, ParseError};
 
 // インタプリタ
-pub use interpreter::{InputWaitType, RuntimeError, StepResult, WhitespaceVM};
+pub use interpreter::{
+    HeapProfileStats, InstructionCounts, InputWaitType, ProfileStats, RuntimeError, StackProfileStats,
+    StepResult, WhitespaceVM,
+};

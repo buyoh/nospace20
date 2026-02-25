@@ -5,8 +5,98 @@
 
 use crate::compiler_ws::instruction::Instruction;
 use crate::compiler_ws::types::LabelId;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::{BufRead, Write};
+
+// ===== プロファイリング用データ構造 =====
+
+/// 命令別実行カウント（プロファイリング用）
+#[derive(Debug, Default, Clone)]
+pub struct InstructionCounts {
+    pub push: usize,
+    pub duplicate: usize,
+    pub copy: usize,
+    pub swap: usize,
+    pub discard: usize,
+    pub add: usize,
+    pub sub: usize,
+    pub mul: usize,
+    pub div: usize,
+    pub modulo: usize,
+    pub store: usize,
+    pub retrieve: usize,
+    pub label: usize,
+    pub call: usize,
+    pub jump: usize,
+    pub jump_if_zero: usize,
+    pub jump_if_negative: usize,
+    pub return_count: usize,
+    pub exit: usize,
+    pub output_char: usize,
+    pub output_number: usize,
+    pub input_char: usize,
+    pub input_number: usize,
+}
+
+/// ヒープアクセス統計（プロファイリング用）
+#[derive(Debug, Clone, Default)]
+pub struct HeapProfileStats {
+    /// Store 命令の実行回数
+    pub store_count: usize,
+    /// Retrieve 命令の実行回数
+    pub retrieve_count: usize,
+    /// Store したアドレスの (最小値, 最大値)。Store が0回なら None
+    pub store_range: Option<(i64, i64)>,
+    /// Retrieve したアドレスの (最小値, 最大値)。Retrieve が0回なら None
+    pub retrieve_range: Option<(i64, i64)>,
+    /// Store または Retrieve でアクセスしたユニークアドレス数
+    pub unique_address_count: usize,
+    /// ユニークアドレスを追跡する内部セット
+    unique_addresses: BTreeSet<i64>,
+}
+
+impl HeapProfileStats {
+    /// Store アドレスを記録する
+    fn record_store(&mut self, addr: i64) {
+        self.store_count += 1;
+        self.store_range = Some(match self.store_range {
+            None => (addr, addr),
+            Some((min, max)) => (min.min(addr), max.max(addr)),
+        });
+        if self.unique_addresses.insert(addr) {
+            self.unique_address_count += 1;
+        }
+    }
+
+    /// Retrieve アドレスを記録する
+    fn record_retrieve(&mut self, addr: i64) {
+        self.retrieve_count += 1;
+        self.retrieve_range = Some(match self.retrieve_range {
+            None => (addr, addr),
+            Some((min, max)) => (min.min(addr), max.max(addr)),
+        });
+        if self.unique_addresses.insert(addr) {
+            self.unique_address_count += 1;
+        }
+    }
+}
+
+/// スタック深さ統計（プロファイリング用）
+#[derive(Debug, Clone, Default)]
+pub struct StackProfileStats {
+    /// データスタックの最大深さ
+    pub max_data_stack_depth: usize,
+    /// コールスタックの最大深さ
+    pub max_call_stack_depth: usize,
+}
+
+/// VM 実行プロファイル統計
+#[derive(Debug, Clone, Default)]
+pub struct ProfileStats {
+    pub instruction_counts: InstructionCounts,
+    pub heap: HeapProfileStats,
+    pub stack: StackProfileStats,
+}
 
 /// 入力待ちの種別
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -193,6 +283,12 @@ pub struct WhitespaceVM {
     // === 実行状態フラグ ===
     /// 実行完了済みかどうか
     completed: bool,
+
+    // === プロファイリング ===
+    /// プロファイリングモードが有効か
+    profiling: bool,
+    /// プロファイリング統計（profiling == true のときのみ更新される）
+    profile_stats: ProfileStats,
 }
 
 impl WhitespaceVM {
@@ -223,6 +319,8 @@ impl WhitespaceVM {
             strict_heap: false,
             randomize_heap: false,
             completed: false,
+            profiling: false,
+            profile_stats: ProfileStats::default(),
         })
     }
 
@@ -292,6 +390,22 @@ impl WhitespaceVM {
         self
     }
 
+    /// プロファイリングモードを有効にして構築
+    ///
+    /// 有効時、命令カウント・ヒープアクセス統計・スタック深さを収集する。
+    /// 収集した統計は `profile_stats()` で取得する。
+    pub fn with_profiling(mut self, enabled: bool) -> Self {
+        self.profiling = enabled;
+        self
+    }
+
+    /// プロファイリング統計を取得する
+    ///
+    /// `with_profiling(true)` を指定した場合のみ有効なデータが返る。
+    pub fn profile_stats(&self) -> &ProfileStats {
+        &self.profile_stats
+    }
+
     // === 実行 ===
 
     /// 指定ステップ数だけ実行し、結果を返す
@@ -307,6 +421,20 @@ impl WhitespaceVM {
         for _ in 0..budget {
             if self.pc >= self.instructions.len() {
                 return StepResult::Error(RuntimeError::ProgramCounterOutOfBounds);
+            }
+
+            // プロファイリング有効時: 実行前に命令を記録
+            if self.profiling {
+                self.record_instruction_count(self.pc);
+                // スタック深さの最大値を更新
+                let ds = self.data_stack.len();
+                let cs = self.call_stack.len();
+                if ds > self.profile_stats.stack.max_data_stack_depth {
+                    self.profile_stats.stack.max_data_stack_depth = ds;
+                }
+                if cs > self.profile_stats.stack.max_call_stack_depth {
+                    self.profile_stats.stack.max_call_stack_depth = cs;
+                }
             }
 
             match self.execute_instruction() {
@@ -327,6 +455,36 @@ impl WhitespaceVM {
         }
 
         StepResult::Suspended
+    }
+
+    /// 命令ひとつのカウントを記録する（プロファイリング内部用）
+    fn record_instruction_count(&mut self, pc: usize) {
+        let counts = &mut self.profile_stats.instruction_counts;
+        match &self.instructions[pc] {
+            Instruction::Push(_) => counts.push += 1,
+            Instruction::Duplicate => counts.duplicate += 1,
+            Instruction::Copy(_) => counts.copy += 1,
+            Instruction::Swap => counts.swap += 1,
+            Instruction::Discard => counts.discard += 1,
+            Instruction::Add => counts.add += 1,
+            Instruction::Sub => counts.sub += 1,
+            Instruction::Mul => counts.mul += 1,
+            Instruction::Div => counts.div += 1,
+            Instruction::Mod => counts.modulo += 1,
+            Instruction::Store => counts.store += 1,
+            Instruction::Retrieve => counts.retrieve += 1,
+            Instruction::Label(_) => counts.label += 1,
+            Instruction::Call(_) => counts.call += 1,
+            Instruction::Jump(_) => counts.jump += 1,
+            Instruction::JumpIfZero(_) => counts.jump_if_zero += 1,
+            Instruction::JumpIfNegative(_) => counts.jump_if_negative += 1,
+            Instruction::Return => counts.return_count += 1,
+            Instruction::Exit => counts.exit += 1,
+            Instruction::OutputChar => counts.output_char += 1,
+            Instruction::OutputNumber => counts.output_number += 1,
+            Instruction::InputChar => counts.input_char += 1,
+            Instruction::InputNumber => counts.input_number += 1,
+        }
     }
 
     /// 完了まで一括実行（最大ステップ制限付き）
@@ -721,13 +879,21 @@ impl WhitespaceVM {
                 _ => {}
             }
         }
+        // プロファイリング: ヒープ Store アドレスを記録
+        if self.profiling {
+            self.profile_stats.heap.record_store(addr);
+        }
         // 通常のヒープ書き込み（debug_ext 無効時、または上記にマッチしないアドレス）
         self.heap.insert(addr, val);
         Ok(())
     }
 
     /// ヒープからの読み出し
-    fn heap_retrieve(&self, addr: i64) -> Result<i64, RuntimeError> {
+    fn heap_retrieve(&mut self, addr: i64) -> Result<i64, RuntimeError> {
+        // プロファイリング: ヒープ Retrieve アドレスを記録
+        if self.profiling {
+            self.profile_stats.heap.record_retrieve(addr);
+        }
         match self.heap.get(&addr) {
             Some(&val) => Ok(val),
             None => {
