@@ -126,6 +126,39 @@ fn parse_number<I: Iterator<Item = (usize, char)>>(
     Ok(Token::Number(value))
 }
 
+/// 16進数エスケープシーケンスをパースする。
+/// `\x` の直後から呼び出し、16進数文字を貪欲に読み取る（最低2桁必要）。
+fn parse_hex_escape<I: Iterator<Item = (usize, char)>>(
+    iter: &mut iter::Peekable<I>,
+    x_idx: usize,
+) -> Result<i64, CodeParseError> {
+    let mut hex_str = String::new();
+
+    // 16進数文字を貪欲に読み取る
+    while let Some(&(_, c)) = iter.peek() {
+        if c.is_ascii_hexdigit() {
+            hex_str.push(c);
+            iter.next();
+        } else {
+            break;
+        }
+    }
+
+    if hex_str.len() < 2 {
+        return Err(code_parse_error!(
+            x_idx,
+            "incomplete hex escape sequence: expected at least 2 hex digits after '\\x'"
+        ));
+    }
+
+    i64::from_str_radix(&hex_str, 16).map_err(|_| {
+        code_parse_error!(
+            x_idx,
+            format!("invalid hex escape sequence: \\x{}", hex_str)
+        )
+    })
+}
+
 /// 文字リテラルをパースする。'a' のような形式で、エスケープシーケンスも対応。
 /// 呼び出し時点で開始の `'` は既に消費されている必要がある。
 fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
@@ -143,39 +176,8 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
                 Some((_, '\\')) => 92, // バックスラッシュ
                 Some((_, '\'')) => 39, // シングルクォート
                 Some((idx, 'x')) => {
-                    // 16進数エスケープシーケンス \xHH
-                    let hex1_idx = idx;
-                    let hex1 = iter
-                        .next()
-                        .ok_or_else(|| {
-                            code_parse_error!(
-                                hex1_idx,
-                                "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
-                            )
-                        })?
-                        .1;
-
-                    let hex2_idx = hex1_idx + 1;
-                    let hex2 = iter
-                        .next()
-                        .ok_or_else(|| {
-                            code_parse_error!(
-                                hex2_idx,
-                                "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
-                            )
-                        })?
-                        .1;
-
-                    // 16進数文字列を構築
-                    let hex_str = format!("{}{}", hex1, hex2);
-
-                    // 16進数を i64 に変換
-                    i64::from_str_radix(&hex_str, 16).map_err(|_| {
-                        code_parse_error!(
-                            hex1_idx,
-                            format!("invalid hex escape sequence: \\x{}", hex_str)
-                        )
-                    })?
+                    // 16進数エスケープシーケンス \xHH...（可変長、最低2桁）
+                    parse_hex_escape(iter, idx)?
                 }
                 Some((idx, c)) => {
                     return Err(code_parse_error!(
@@ -242,36 +244,8 @@ fn parse_string_literal<I: Iterator<Item = (usize, char)>>(
                     Some((_, '"')) => chars.push(34),  // ダブルクォート
                     Some((_, '\'')) => chars.push(39), // シングルクォート
                     Some((idx, 'x')) => {
-                        // 16進数エスケープシーケンス \xHH
-                        let hex1_idx = idx;
-                        let hex1 = iter
-                            .next()
-                            .ok_or_else(|| {
-                                code_parse_error!(
-                                    hex1_idx,
-                                    "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
-                                )
-                            })?
-                            .1;
-
-                        let hex2_idx = hex1_idx + 1;
-                        let hex2 = iter
-                            .next()
-                            .ok_or_else(|| {
-                                code_parse_error!(
-                                    hex2_idx,
-                                    "incomplete hex escape sequence: expected 2 hex digits after '\\x'"
-                                )
-                            })?
-                            .1;
-
-                        let hex_str = format!("{}{}", hex1, hex2);
-                        let value = i64::from_str_radix(&hex_str, 16).map_err(|_| {
-                            code_parse_error!(
-                                hex1_idx,
-                                format!("invalid hex escape sequence: \\x{}", hex_str)
-                            )
-                        })?;
+                        // 16進数エスケープシーケンス \xHH...（可変長、最低2桁）
+                        let value = parse_hex_escape(iter, idx)?;
                         chars.push(value);
                     }
                     Some((idx, c)) => {

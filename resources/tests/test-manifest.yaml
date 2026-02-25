@@ -82,6 +82,11 @@ tests:
     path: literals/char_arith_001
     comment: "Character arithmetic operations"
 
+  - name: test_literals_char_hex_multi_001
+    type: success
+    path: literals/char_hex_multi_001
+    comment: "Variable-length hex escape sequences in character literals"
+
   # ========================================
   # Operators
   # ========================================

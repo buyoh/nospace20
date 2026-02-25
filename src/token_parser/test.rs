@@ -156,6 +156,19 @@ test_ok_parse_single!(test_char_literal_space, "'\\s'", Token::Number(n) if *n =
 test_ok_parse_single!(test_char_literal_backslash, "'\\\\'", Token::Number(n) if *n == 92);
 test_ok_parse_single!(test_char_literal_quote, "'\\''", Token::Number(n) if *n == 39);
 
+// Hex escape sequence tests (variable-length)
+test_ok_parse_single!(test_char_literal_hex_2digit, "'\\x41'", Token::Number(n) if *n == 65);       // 'A'
+test_ok_parse_single!(test_char_literal_hex_2digit_ff, "'\\xFF'", Token::Number(n) if *n == 255);
+test_ok_parse_single!(test_char_literal_hex_4digit, "'\\xFF03'", Token::Number(n) if *n == 0xFF03);  // 65283
+test_ok_parse_single!(test_char_literal_hex_5digit, "'\\x1F363'", Token::Number(n) if *n == 0x1F363); // 127843 (🍣)
+
+#[test]
+fn test_fail_hex_escape_too_few_digits() {
+    // \x の後に1桁しかない場合はエラー
+    let result = res_parse_to_tokens_internal(&mut to_iter("'\\xF'"));
+    assert!(result.is_err());
+}
+
 // Empty input test
 #[test]
 fn test_empty_input() {

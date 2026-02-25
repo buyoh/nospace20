@@ -1,0 +1,13 @@
+# 文字リテラル: 可変長16進数エスケープシーケンス #
+func: main() {
+    let: a; let: b; let: c; let: d;
+    a = '\x41';
+    b = '\xFF';
+    c = '\xFF03';
+    d = '\x1F363';
+    __trace(0); __assert(a == 65);
+    __trace(1); __assert(b == 255);
+    __trace(2); __assert(c == 65283);
+    __trace(3); __assert(d == 127843);
+    return: 0;
+}
