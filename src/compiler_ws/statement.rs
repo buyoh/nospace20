@@ -1,7 +1,7 @@
 //! 文のコード生成
 
 use crate::compiler_ws::{
-    builtin, context::CodeGenContext, expression, instruction::Instruction, program::WsProgram,
+    context::CodeGenContext, expression, instruction::Instruction, program::WsProgram,
     types::WsNumber, CompileError,
 };
 use crate::semantic_analyzer::{Block, ExecStatement, Scope};
@@ -141,8 +141,8 @@ fn generate_return(
     // stack: [old_LHB, return_value] -> [return_value, old_LHB]
     prog.push(Instruction::Swap);
 
-    // ローカル変数領域解放
-    prog.append(builtin::generate_local_deallocate());
+    // ローカル変数領域解放（AllocRuntime 経由）
+    prog.append(ctx.alloc_runtime().generate_function_epilogue());
 
     // 関数から戻る
     prog.push(Instruction::Return);
@@ -176,27 +176,17 @@ fn generate_function_definition(
         &func.block.scope,
     );
 
-    // 引数をローカル変数にコピー
-    // 引数はスタックから取得（逆順）
-    // allocate前のLOCAL_HEAP_ENDは新しいフレームのLOCAL_HEAP_BEGINと同じ値になる
-    for i in (0..func.arg_indices.len()).rev() {
-        // スタックから引数を取得してローカル変数に格納
-        let offset = func.arg_indices.get(i).copied().unwrap_or(i) as i64;
-        prog.extend([
-            Instruction::Push(WsNumber(offset)),
-            Instruction::Push(WsNumber(
-                crate::compiler_ws::memory::heap_layout::LOCAL_HEAP_END,
-            )),
-            Instruction::Retrieve,
-            Instruction::Add,
-            Instruction::Swap,
-            Instruction::Store,
-        ]);
-    }
+    // 引数オフセットを計算
+    let arg_offsets: Vec<i64> = (0..func.arg_indices.len())
+        .map(|i| func.arg_indices.get(i).copied().unwrap_or(i) as i64)
+        .collect();
 
-    prog.append(builtin::generate_local_allocate(
-        local_ctx.local_heap_size(),
-    ));
+    // 関数プロローグ: 引数コピー + フレーム確保（AllocRuntime 経由）
+    prog.append(
+        local_ctx
+            .alloc_runtime()
+            .generate_function_prologue(local_ctx.local_heap_size(), &arg_offsets),
+    );
 
     // 関数本体
     for stmt in &func.block.statements {
@@ -204,7 +194,7 @@ fn generate_function_definition(
     }
 
     // デフォルト return（値 0）
-    prog.append(builtin::generate_local_deallocate());
+    prog.append(local_ctx.alloc_runtime().generate_function_epilogue());
     prog.push(Instruction::Push(WsNumber(0)));
     prog.push(Instruction::Return);
 

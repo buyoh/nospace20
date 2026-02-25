@@ -1,5 +1,6 @@
 //! コード生成コンテキスト
 
+use crate::compiler_ws::alloc_runtime::AllocRuntime;
 use crate::compiler_ws::{label::LabelAllocator, types::LabelId};
 use crate::semantic_analyzer::{IdentifierRef, Scope};
 use std::collections::HashMap;
@@ -67,6 +68,9 @@ pub struct CodeGenContext<'a> {
     /// デバッグ拡張 API が有効か (--std-ext debug)
     debug_ext: bool,
 
+    /// ランタイムメモリアロケータ
+    alloc_runtime: &'a dyn AllocRuntime,
+
     /// スコープオフセットスタック
     /// 各エントリは、そのスコープの変数のヒープ内ベースオフセット
     /// 末尾が現在のスコープ
@@ -91,7 +95,11 @@ pub struct CodeGenContext<'a> {
 }
 
 impl<'a> CodeGenContext<'a> {
-    pub fn new_with_options(scope: &'a Scope, debug_ext: bool) -> Self {
+    pub fn new_with_options(
+        scope: &'a Scope,
+        debug_ext: bool,
+        alloc_runtime: &'a dyn AllocRuntime,
+    ) -> Self {
         let (static_var_global_offsets, static_var_total_size) = compute_static_var_offsets(scope);
         Self {
             scope,
@@ -101,6 +109,7 @@ impl<'a> CodeGenContext<'a> {
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext,
+            alloc_runtime,
             scope_offsets: vec![0],
             next_var_offset: 0,
             static_var_global_offsets,
@@ -130,6 +139,7 @@ impl<'a> CodeGenContext<'a> {
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext: self.debug_ext,
+            alloc_runtime: self.alloc_runtime,
             scope_offsets: vec![0],
             next_var_offset: func_scope_var_count as i64,
             static_var_global_offsets: self.static_var_global_offsets.clone(),
@@ -159,6 +169,7 @@ impl<'a> CodeGenContext<'a> {
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext: self.debug_ext,
+            alloc_runtime: self.alloc_runtime,
             scope_offsets: vec![0],
             next_var_offset: func_scope_var_count as i64,
             static_var_global_offsets: self.static_var_global_offsets.clone(),
@@ -298,6 +309,11 @@ impl<'a> CodeGenContext<'a> {
     /// デバッグ拡張が有効かどうかを取得
     pub fn is_debug_ext(&self) -> bool {
         self.debug_ext
+    }
+
+    /// ランタイムメモリアロケータを取得
+    pub fn alloc_runtime(&self) -> &dyn AllocRuntime {
+        self.alloc_runtime
     }
 }
 

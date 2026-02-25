@@ -2,7 +2,7 @@
 
 use crate::compiler_ws::context::CodeGenContext;
 use crate::compiler_ws::{
-    instruction::Instruction, label::reserved_labels, memory::heap_layout, program::WsProgram,
+    instruction::Instruction, label::reserved_labels, program::WsProgram,
     types::WsNumber, CompileError,
 };
 
@@ -10,21 +10,8 @@ use crate::compiler_ws::{
 pub fn generate_header(ctx: &CodeGenContext) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
-    // === メモリ初期化 ===
-
-    // heap[LOCAL_HEAP_BEGIN] = GLOBAL_PTR
-    prog.extend([
-        Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)),
-        Instruction::Push(WsNumber(heap_layout::GLOBAL_PTR)),
-        Instruction::Store,
-    ]);
-
-    // heap[LOCAL_HEAP_END] = GLOBAL_PTR + global_size
-    prog.extend([
-        Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_END)),
-        Instruction::Push(WsNumber(heap_layout::GLOBAL_PTR + ctx.global_heap_size())),
-        Instruction::Store,
-    ]);
+    // === メモリ初期化（AllocRuntime 経由） ===
+    prog.append(ctx.alloc_runtime().generate_memory_init(ctx.global_heap_size()));
 
     // === ユーザーコードへジャンプ ===
     prog.push(Instruction::Jump(reserved_labels::USER_CODE_BEGIN));
@@ -58,6 +45,9 @@ pub fn generate_footer(ctx: &CodeGenContext) -> Result<WsProgram, CompileError> 
 
     // プログラム終了
     prog.push(Instruction::Exit);
+
+    // アロケータサブルーチン定義
+    prog.append(ctx.alloc_runtime().generate_subroutines());
 
     Ok(prog)
 }
@@ -170,58 +160,6 @@ fn generate_comparator_or() -> WsProgram {
         Instruction::Label(COMPARATOR_OR_3),
         Instruction::Push(WsNumber(0)),
         Instruction::Return,
-    ]);
-
-    prog
-}
-
-/// 関数開始時のローカル変数領域確保
-pub fn generate_local_allocate(local_heap_size: i64) -> WsProgram {
-    let mut prog = WsProgram::new();
-
-    // 現在の local_begin をスタックに退避
-    prog.extend([
-        Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)),
-        Instruction::Retrieve,
-    ]);
-
-    // local_begin := local_end
-    prog.extend([
-        Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_END)),
-        Instruction::Duplicate,
-        Instruction::Retrieve,
-        Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)),
-        Instruction::Copy(WsNumber(1)),
-        Instruction::Store,
-    ]);
-
-    // local_end := local_begin + scope_size
-    prog.extend([
-        Instruction::Push(WsNumber(local_heap_size)),
-        Instruction::Add,
-        Instruction::Store,
-    ]);
-
-    prog
-}
-
-/// 関数終了時のローカル変数領域解放
-pub fn generate_local_deallocate() -> WsProgram {
-    let mut prog = WsProgram::new();
-
-    // local_end := local_begin
-    prog.extend([
-        Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_END)),
-        Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)),
-        Instruction::Retrieve,
-        Instruction::Store,
-    ]);
-
-    // local_begin := スタックから復元
-    prog.extend([
-        Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)),
-        Instruction::Swap,
-        Instruction::Store,
     ]);
 
     prog

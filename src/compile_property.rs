@@ -43,6 +43,8 @@ pub enum CompileTarget {
 pub enum TargetExtension {
     /// デバッグ拡張
     Debug,
+    /// メモリアロケータ拡張
+    Alloc,
 }
 
 /// コンパイルプロパティ
@@ -92,6 +94,15 @@ impl CompileProperty {
                     return Err("--target=json is not yet implemented".to_string());
                 }
                 _ => {}
+            }
+        }
+
+        // --std-ext alloc は --mode=compile --std=ws 時のみ有効
+        if self.target_extensions.contains(&TargetExtension::Alloc) {
+            if self.mode != ExecutionMode::Compile || self.std != LanguageStd::Ws {
+                return Err(
+                    "--std-ext alloc requires --mode=compile --std=ws".to_string(),
+                );
             }
         }
 

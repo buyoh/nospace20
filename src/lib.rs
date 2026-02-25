@@ -148,8 +148,9 @@ pub fn interpret_func_with_io(
 pub fn compile_to_whitespace_with_options(
     scope: &Scope,
     debug_ext: bool,
+    alloc_ext: bool,
 ) -> Result<String, String> {
-    compiler_ws::compile_with_options(scope, debug_ext)
+    compiler_ws::compile_with_options(scope, debug_ext, alloc_ext)
         .map(|prog| prog.to_whitespace())
         .map_err(|e| e.to_string())
 }
@@ -158,18 +159,19 @@ pub fn compile_to_whitespace_with_options(
 pub fn compile_to_whitespace_debug_with_options(
     scope: &Scope,
     debug_ext: bool,
+    alloc_ext: bool,
 ) -> Result<String, String> {
-    compiler_ws::compile_with_options(scope, debug_ext)
+    compiler_ws::compile_with_options(scope, debug_ext, alloc_ext)
         .map(|prog| prog.to_debug_string())
         .map_err(|e| e.to_string())
 }
 
 /// Whitespace にコンパイル（従来互換）
 pub fn compile_to_whitespace(scope: &Scope) -> Result<String, String> {
-    compile_to_whitespace_with_options(scope, false)
+    compile_to_whitespace_with_options(scope, false, false)
 }
 
 /// Whitespace にコンパイル（デバッグ用ニーモニック、従来互換）
 pub fn compile_to_whitespace_debug(scope: &Scope) -> Result<String, String> {
-    compile_to_whitespace_debug_with_options(scope, false)
+    compile_to_whitespace_debug_with_options(scope, false, false)
 }

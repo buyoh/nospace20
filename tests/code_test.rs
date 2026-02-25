@@ -581,7 +581,7 @@ fn test_whitespace_self_base_impl(
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace_with_options(&a, debug_ext)
+    let ws_code = compile_to_whitespace_with_options(&a, debug_ext, false)
         .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
 
     // Whitespace コードが空白文字のみであることを確認
@@ -656,7 +656,7 @@ fn test_whitespace_self_io_base_impl(
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace_with_options(&a, debug_ext)
+    let ws_code = compile_to_whitespace_with_options(&a, debug_ext, false)
         .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
 
     // Whitespace コードが空白文字のみであることを確認

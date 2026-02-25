@@ -25,6 +25,7 @@ mod memory;
 pub mod program;
 mod statement;
 pub mod types;
+pub mod alloc_runtime;
 
 pub use program::WsProgram;
 
@@ -56,8 +57,15 @@ impl std::fmt::Display for CompileError {
 impl std::error::Error for CompileError {}
 
 /// Scope を Whitespace プログラムにコンパイル（拡張オプション付き）
-pub fn compile_with_options(scope: &Scope, debug_ext: bool) -> Result<WsProgram, CompileError> {
-    let mut ctx = CodeGenContext::new_with_options(scope, debug_ext);
+pub fn compile_with_options(
+    scope: &Scope,
+    debug_ext: bool,
+    _alloc_ext: bool,
+) -> Result<WsProgram, CompileError> {
+    // 現時点では常に BumpAllocRuntime を使用。
+    // Phase 4 で alloc_ext に基づいて FsbaFirstFitAllocRuntime を選択可能にする。
+    let alloc_runtime = alloc_runtime::BumpAllocRuntime;
+    let mut ctx = CodeGenContext::new_with_options(scope, debug_ext, &alloc_runtime);
     let mut program = WsProgram::new();
 
     // 1. ヘッダー（初期化・組み込みルーチン）を生成

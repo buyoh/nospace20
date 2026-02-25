@@ -78,12 +78,14 @@ impl From<CliTarget> for CompileTarget {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum CliTargetExt {
     Debug,
+    Alloc,
 }
 
 impl From<CliTargetExt> for TargetExtension {
     fn from(cli: CliTargetExt) -> Self {
         match cli {
             CliTargetExt::Debug => TargetExtension::Debug,
+            CliTargetExt::Alloc => TargetExtension::Alloc,
         }
     }
 }
@@ -244,9 +246,12 @@ fn main() {
         ExecutionMode::Compile => {
             // コンパイルモード
             let debug_ext = property.target_extensions.contains(&TargetExtension::Debug);
+            let alloc_ext = property.target_extensions.contains(&TargetExtension::Alloc);
             let compiled = match property.target {
-                CompileTarget::Ws => compile_to_whitespace_with_options(&a, debug_ext),
-                CompileTarget::Mnemonic => compile_to_whitespace_debug_with_options(&a, debug_ext),
+                CompileTarget::Ws => compile_to_whitespace_with_options(&a, debug_ext, alloc_ext),
+                CompileTarget::Mnemonic => {
+                    compile_to_whitespace_debug_with_options(&a, debug_ext, alloc_ext)
+                }
                 _ => unreachable!("Unsupported target should be caught by validation"),
             };
 

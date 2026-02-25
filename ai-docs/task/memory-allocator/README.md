@@ -34,15 +34,69 @@ Whitespace コンパイラにランタイムメモリアロケータを導入す
 | [std-ext-integration.md](std-ext-integration.md) | `--std-ext alloc` の統合と条件分岐 |
 | [testing-strategy.md](testing-strategy.md) | テスト計画（4 層テスト構造） |
 | [isolated-testing.md](isolated-testing.md) | 分離テスト設計（JSON ミニ言語・ミニコンパイラ） |
+| [alloc-runtime-trait.md](alloc-runtime-trait.md) | AllocRuntime trait 設計 |
 
 ## Phase 一覧
 
 | Phase | 内容 | 依存 | 規模 |
 |---|---|---|---|
 | Phase 1 | `--std-ext alloc` の追加と基盤整備 | なし | 小 |
-| Phase 2 | アロケータサブルーチンのコード生成 + 分離テスト (L1/L2) | Phase 1 | 大 |
-| Phase 3 | スタックフレーム確保をアロケータ経由に変更 + 統合/回帰テスト (L3/L4) | Phase 2 | 中 |
-| Phase 4 | `__alloc`/`__free` 組み込み関数の公開 + E2E テスト (L3) | Phase 2 | 中 |
+| Phase 2 | AllocRuntime trait 抽象化 + BumpAllocRuntime 再実装 | Phase 1 | 中 |
+| Phase 3 | 分離テストフレームワーク設計・実装 | Phase 2 | 中 |
+| Phase 4 | FSBA + First-Fit アロケータ実装 + 分離テスト (L1/L2) | Phase 3 | 大 |
+| Phase 5 | スタックフレーム確保をアロケータ経由に変更 + 統合/回帰テスト (L3/L4) | Phase 4 | 中 |
+| Phase 6 | `__alloc`/`__free` 組み込み関数の公開 + E2E テスト (L3) | Phase 4 | 中 |
+
+### Phase 詳細
+
+#### Phase 1: `--std-ext alloc` の追加と基盤整備
+
+- `TargetExtension::Alloc` の追加（compile_property.rs）
+- CLI に `--std-ext alloc` オプション追加（nospace20.rs）
+- バリデーション（`--std=ws --mode=compile` 時のみ有効）
+- memory.rs に新しい定数追加（ALLOC_FREE_HEAD, ALLOC_HEAP_TOP, FSBA_TABLE_PTR）
+- context.rs に `alloc_ext` フラグ追加
+- compile_with_options に `alloc_ext` パラメータ追加
+
+#### Phase 2: AllocRuntime trait 抽象化 + BumpAllocRuntime 再実装
+
+現在の「stack のみ＋バンプ方式」を trait インターフェースとして再設計する。
+
+- `AllocRuntime` trait 定義（alloc_runtime.rs 新規モジュール）
+  - `generate_memory_init`: ヘッダーのメモリ初期化
+  - `generate_subroutines`: サブルーチン定義
+  - `generate_function_prologue`: 引数コピー + フレーム確保
+  - `generate_function_epilogue`: フレーム解放 + コンテキスト復元
+- `BumpAllocRuntime`: 現行動作の trait 実装
+- `CodeGenContext` に `&dyn AllocRuntime` を追加
+- `builtin.rs` / `statement.rs` を trait 経由に変更
+- **既存テスト全パス確認**（動作変更なしのリファクタリング）
+
+詳細は [alloc-runtime-trait.md](alloc-runtime-trait.md) を参照。
+
+#### Phase 3: 分離テストフレームワーク設計・実装
+
+アロケータ単体をテスト可能な JSON ミニ言語 + ミニコンパイラを実装する。
+
+- JSON テスト仕様フォーマット（[isolated-testing.md](isolated-testing.md) 参照）
+- テスト用ミニコンパイラ（tests/alloc_test.rs）
+- build.rs テスト生成
+- BumpAllocRuntime の基本テスト（alloc/free が無いため、フレーム確保のみ）
+
+#### Phase 4: FSBA + First-Fit アロケータ実装
+
+- `FsbaFirstFitAllocRuntime`: AllocRuntime trait の新しい実装
+- alloc_runtime.rs 内に WS サブルーチン生成コード
+- 分離テスト (L1/L2) 全件
+- `--std-ext alloc` 時に FsbaFirstFitAllocRuntime を選択
+
+#### Phase 5: スタックフレーム移行 + 統合/回帰テスト (L3/L4)
+
+`--std-ext alloc` 有効時のスタックフレーム管理を FsbaFirstFitAllocRuntime に移行。
+
+#### Phase 6: `__alloc`/`__free` 公開 + E2E テスト
+
+nospace 組み込み関数として `__alloc(size)` / `__free(ptr)` を提供。
 
 ## 設計原則
 
@@ -56,3 +110,6 @@ Whitespace コンパイラにランタイムメモリアロケータを導入す
 - 2026-02-24: 設計ドキュメント作成
 - 2026-02-24: 固定サイズブロックアロケータ (FSBA) 設計追加。二層アーキテクチャ (FSBA + 汎用 First-Fit) に変更
 - 2026-02-24: 分離テスト設計追加。JSON ミニ言語によるアロケータ単体テスト。テスト 4 層構造 (L1-L4) に再構成。Phase 5 を廃止し、テストを各 Phase に統合
+- 2026-02-25: Phase 細分化。AllocRuntime trait 抽象化フェーズ (Phase 2) を新設。分離テストフレームワークを独立フェーズ (Phase 3) に。旧 Phase 2-4 を Phase 4-6 に繰り下げ
+- 2026-02-25: Phase 1 実装完了（`--std-ext alloc` フラグ追加）
+- 2026-02-25: Phase 2 実装完了（AllocRuntime trait + BumpAllocRuntime、既存テスト全パス）
