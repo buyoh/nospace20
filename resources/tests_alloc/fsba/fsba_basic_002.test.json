@@ -1,0 +1,14 @@
+{
+  "description": "FSBA: alloc(10) で 10 セル確保 (class 3, block_size=16)、全セル読み取り",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 10 },
+    { "op": "load_print", "var": "p1" },
+    { "op": "free", "var": "p1" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
+  }
+}

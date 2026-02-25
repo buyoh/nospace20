@@ -151,7 +151,7 @@ heap[LOCAL_HEAP_BEGIN] = GLOBAL_PTR
 heap[LOCAL_HEAP_END] = GLOBAL_PTR + global_heap_size
 ```
 
-## FsbaFirstFitAllocRuntime（将来実装）
+## FsbaFirstFitAllocRuntime（実装済み: Phase 4）
 
 ### サブルーチン
 
@@ -182,7 +182,7 @@ BumpAllocRuntime と同じ高レベルフロー:
 ### メモリ初期化
 
 ```
-heap[LOCAL_HEAP_BEGIN] = 0
+heap[LOCAL_HEAP_BEGIN] = GLOBAL_PTR   // グローバルスコープ互換性のため（実装ではGLOBAL_PTRを使用）
 heap[ALLOC_FREE_HEAD] = 0
 heap[ALLOC_HEAP_TOP] = GLOBAL_PTR + global_heap_size + FSBA_CLASS_COUNT
 heap[FSBA_TABLE_PTR] = GLOBAL_PTR + global_heap_size

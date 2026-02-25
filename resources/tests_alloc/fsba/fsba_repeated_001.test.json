@@ -1,0 +1,17 @@
+{
+  "description": "FSBA: 100 回の alloc/free 繰り返しでメモリリークなく動作",
+  "config": { "allocator": "fsba", "max_steps": 1000000 },
+  "vars": ["p1"],
+  "steps": [
+    { "op": "loop", "count": 100, "body": [
+      { "op": "alloc", "var": "p1", "size": 1 },
+      { "op": "free", "var": "p1" }
+    ]},
+    { "op": "alloc", "var": "p1", "size": 1 },
+    { "op": "load_print", "var": "p1" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "101\n"
+  }
+}

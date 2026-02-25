@@ -1,0 +1,16 @@
+{
+  "description": "FSBA: 汎用アロケータのブロック分割 (First-Fit で大きいブロックを分割)",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1", "p2"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 40 },
+    { "op": "free", "var": "p1" },
+    { "op": "alloc", "var": "p2", "size": 33 },
+    { "op": "heap_print", "address": 5 },
+    { "op": "print", "value": 999 }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "50\n999\n"
+  }
+}

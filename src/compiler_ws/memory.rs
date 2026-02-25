@@ -83,15 +83,11 @@ pub mod heap_layout {
     pub const EXT_ASSERT_NOT_ADDR: i64 = -12;
 
     // メモリアロケータ用アドレス (--std-ext alloc)
-    #[allow(dead_code)]
     pub const ALLOC_FREE_HEAD: i64 = 5;
-    #[allow(dead_code)]
     pub const ALLOC_HEAP_TOP: i64 = 6;
-    #[allow(dead_code)]
     pub const FSBA_TABLE_PTR: i64 = 7;
 
     // FSBA サイズクラス数
-    #[allow(dead_code)]
     pub const FSBA_CLASS_COUNT: i64 = 5;
 }
 

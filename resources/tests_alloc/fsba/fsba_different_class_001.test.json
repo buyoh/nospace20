@@ -1,0 +1,17 @@
+{
+  "description": "FSBA: 異なるサイズクラスのフリーリストが独立に管理されることを検証",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1", "p2", "p3"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 1 },
+    { "op": "alloc", "var": "p2", "size": 3 },
+    { "op": "free", "var": "p1" },
+    { "op": "alloc", "var": "p3", "size": 3 },
+    { "op": "assert_var_ne", "var1": "p2", "var2": "p3" },
+    { "op": "load_print", "var": "p3" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "5\n6\n7\n"
+  }
+}

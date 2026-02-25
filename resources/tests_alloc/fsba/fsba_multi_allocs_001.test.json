@@ -1,0 +1,25 @@
+{
+  "description": "FSBA: 多数の小ブロック確保で全てのポインタが非重複であることを検証",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1", "p2", "p3", "p4", "p5"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 1 },
+    { "op": "alloc", "var": "p2", "size": 1 },
+    { "op": "alloc", "var": "p3", "size": 1 },
+    { "op": "alloc", "var": "p4", "size": 1 },
+    { "op": "alloc", "var": "p5", "size": 1 },
+    { "op": "assert_var_ne", "var1": "p1", "var2": "p2" },
+    { "op": "assert_var_ne", "var1": "p2", "var2": "p3" },
+    { "op": "assert_var_ne", "var1": "p3", "var2": "p4" },
+    { "op": "assert_var_ne", "var1": "p4", "var2": "p5" },
+    { "op": "load_print", "var": "p1" },
+    { "op": "load_print", "var": "p2" },
+    { "op": "load_print", "var": "p3" },
+    { "op": "load_print", "var": "p4" },
+    { "op": "load_print", "var": "p5" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "1\n2\n3\n4\n5\n"
+  }
+}

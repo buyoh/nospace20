@@ -1,0 +1,15 @@
+{
+  "description": "FSBA: 同一サイズクラスの alloc/free/alloc で再利用を検証 (class 0)",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1", "p2"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 1 },
+    { "op": "free", "var": "p1" },
+    { "op": "alloc", "var": "p2", "size": 1 },
+    { "op": "load_print", "var": "p2" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "2\n"
+  }
+}

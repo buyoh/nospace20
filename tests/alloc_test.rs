@@ -11,7 +11,7 @@ use std::fs;
 
 use serde::Deserialize;
 
-use nospace20::compiler_ws::alloc_runtime::{AllocRuntime, BumpAllocRuntime};
+use nospace20::compiler_ws::alloc_runtime::{AllocRuntime, BumpAllocRuntime, FsbaFirstFitAllocRuntime};
 use nospace20::compiler_ws::memory::heap_layout;
 use nospace20::compiler_ws::label::reserved_labels;
 use nospace20::whitespace::{Instruction, LabelId, StepResult, WhitespaceVM, WsNumber};
@@ -38,6 +38,9 @@ struct AllocTestConfig {
     global_heap_size: i64,
     #[serde(default = "default_max_steps")]
     max_steps: usize,
+    /// アロケータ種別: "bump" (デフォルト) または "fsba"
+    #[serde(default = "default_allocator")]
+    allocator: String,
 }
 
 impl Default for AllocTestConfig {
@@ -45,8 +48,13 @@ impl Default for AllocTestConfig {
         Self {
             global_heap_size: 0,
             max_steps: default_max_steps(),
+            allocator: default_allocator(),
         }
     }
+}
+
+fn default_allocator() -> String {
+    "bump".to_string()
 }
 
 fn default_max_steps() -> usize {
@@ -148,11 +156,18 @@ impl MiniCompiler {
 
     /// テスト仕様を WS プログラムにコンパイル
     fn compile(&mut self, spec: &AllocTestSpec) -> WsProgram {
-        let alloc_runtime = BumpAllocRuntime;
+        let bump_runtime = BumpAllocRuntime;
+        let fsba_runtime = FsbaFirstFitAllocRuntime;
+        let alloc_runtime: &dyn AllocRuntime = match spec.config.allocator.as_str() {
+            "fsba" => &fsba_runtime,
+            _ => &bump_runtime,
+        };
         let mut prog = WsProgram::new();
 
         // 1. アロケータ初期化
         prog.append(alloc_runtime.generate_memory_init(self.effective_global_size()));
+
+        // Note: FSBA uses ALLOC_HEAP_TOP instead of LOCAL_HEAP_END for bump pointer
 
         // 2. カウンタ初期化 (heap[counter_addr] = 1)
         prog.extend([
@@ -171,6 +186,7 @@ impl MiniCompiler {
 
         // 5. サブルーチン定義
         prog.append(alloc_runtime.generate_subroutines());
+        // Note: FSBA generates ~145 instructions for __rt_alloc + __rt_free
 
         // 6. テスト失敗ハンドラ
         //    __test_fail: Exit(異常終了 — VM の run が Error を返す代わりに

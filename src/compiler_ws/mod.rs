@@ -60,12 +60,17 @@ impl std::error::Error for CompileError {}
 pub fn compile_with_options(
     scope: &Scope,
     debug_ext: bool,
-    _alloc_ext: bool,
+    alloc_ext: bool,
 ) -> Result<WsProgram, CompileError> {
-    // 現時点では常に BumpAllocRuntime を使用。
-    // Phase 4 で alloc_ext に基づいて FsbaFirstFitAllocRuntime を選択可能にする。
-    let alloc_runtime = alloc_runtime::BumpAllocRuntime;
-    let mut ctx = CodeGenContext::new_with_options(scope, debug_ext, &alloc_runtime);
+    // alloc_ext に基づいてアロケータを選択
+    let bump_runtime = alloc_runtime::BumpAllocRuntime;
+    let fsba_runtime = alloc_runtime::FsbaFirstFitAllocRuntime;
+    let alloc_runtime: &dyn alloc_runtime::AllocRuntime = if alloc_ext {
+        &fsba_runtime
+    } else {
+        &bump_runtime
+    };
+    let mut ctx = CodeGenContext::new_with_options(scope, debug_ext, alloc_runtime);
     let mut program = WsProgram::new();
 
     // 1. ヘッダー（初期化・組み込みルーチン）を生成

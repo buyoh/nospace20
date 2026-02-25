@@ -1,0 +1,13 @@
+{
+  "description": "FSBA: alloc(0) で最小ブロック (class 0, 2 セル) を確保",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 0 },
+    { "op": "print", "value": 42 }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "42\n"
+  }
+}

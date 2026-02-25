@@ -1,0 +1,17 @@
+{
+  "description": "FSBA: 異なるサイズの確保・解放で各サイズクラスのフリーリストが独立に再利用される",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1", "p2", "p3"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 1 },
+    { "op": "alloc", "var": "p2", "size": 5 },
+    { "op": "free", "var": "p2" },
+    { "op": "free", "var": "p1" },
+    { "op": "alloc", "var": "p3", "size": 1 },
+    { "op": "load_print", "var": "p3" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "7\n"
+  }
+}

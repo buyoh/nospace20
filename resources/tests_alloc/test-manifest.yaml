@@ -18,3 +18,59 @@ tests:
     type: alloc_io
     path: basic/alloc_free_reuse_001
     comment: "alloc → free → alloc で再確保"
+
+  # FSBA テスト
+  - name: fsba_basic_001
+    type: alloc_io
+    path: fsba/fsba_basic_001
+    comment: "FSBA: alloc(1) class 0 確保・読み取り"
+
+  - name: fsba_basic_002
+    type: alloc_io
+    path: fsba/fsba_basic_002
+    comment: "FSBA: alloc(10) class 3 確保・全セル読み取り"
+
+  - name: fsba_class_reuse_001
+    type: alloc_io
+    path: fsba/fsba_class_reuse_001
+    comment: "FSBA: 同一サイズクラスの alloc/free/alloc 再利用"
+
+  - name: fsba_different_class_001
+    type: alloc_io
+    path: fsba/fsba_different_class_001
+    comment: "FSBA: 異なるサイズクラスの独立管理"
+
+  - name: fsba_roundup_001
+    type: alloc_io
+    path: fsba/fsba_roundup_001
+    comment: "FSBA: サイズ切り上げの正しさ"
+
+  - name: fsba_large_fallback_001
+    type: alloc_io
+    path: fsba/fsba_large_fallback_001
+    comment: "FSBA: 32 セル超の汎用フォールバック"
+
+  - name: fsba_alloc_zero_001
+    type: alloc_io
+    path: fsba/fsba_alloc_zero_001
+    comment: "FSBA: alloc(0) で最小ブロック確保"
+
+  - name: fsba_repeated_001
+    type: alloc_io
+    path: fsba/fsba_repeated_001
+    comment: "FSBA: 100 回の alloc/free 繰り返し"
+
+  - name: fsba_multi_allocs_001
+    type: alloc_io
+    path: fsba/fsba_multi_allocs_001
+    comment: "FSBA: 多数の小ブロック確保・非重複検証"
+
+  - name: fsba_split_001
+    type: alloc_io
+    path: fsba/fsba_split_001
+    comment: "FSBA: 汎用アロケータのブロック分割"
+
+  - name: fsba_free_reuse_002
+    type: alloc_io
+    path: fsba/fsba_free_reuse_002
+    comment: "FSBA: 異なるサイズの確保・解放後の再利用"

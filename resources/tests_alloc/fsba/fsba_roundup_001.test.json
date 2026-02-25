@@ -1,0 +1,15 @@
+{
+  "description": "FSBA: サイズ切り上げの正しさを検証 (alloc(2)→class1, free, alloc(3)→class1 で再利用)",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1", "p2"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 2 },
+    { "op": "free", "var": "p1" },
+    { "op": "alloc", "var": "p2", "size": 3 },
+    { "op": "load_print", "var": "p2" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "3\n4\n5\n"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "description": "FSBA: alloc(1) で 1 セル確保、自動初期化値を読み取り (class 0)",
+  "config": { "allocator": "fsba" },
+  "vars": ["p1"],
+  "steps": [
+    { "op": "alloc", "var": "p1", "size": 1 },
+    { "op": "load_print", "var": "p1" },
+    { "op": "free", "var": "p1" }
+  ],
+  "check": {
+    "type": "alloc_io",
+    "stdout": "1\n"
+  }
+}
