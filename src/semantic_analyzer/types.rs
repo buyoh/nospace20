@@ -21,6 +21,10 @@ pub enum BuiltinFunctionKind {
     AssertNot,
     /// __trace(x) - 実行回数をトレース
     Trace,
+    /// __alloc(size) - メモリ確保 (--std-ext alloc)
+    Alloc,
+    /// __free(ptr) - メモリ解放 (--std-ext alloc)
+    Free,
 }
 
 /// 解決済み識別子への参照

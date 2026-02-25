@@ -19,7 +19,6 @@ struct TestCase {
     comment: Option<String>,
     #[serde(default)]
     exclude_targets: Option<Vec<String>>,
-    #[allow(dead_code)]
     #[serde(default)]
     std_ext: Option<Vec<String>>,
     #[serde(default)]
@@ -54,6 +53,7 @@ struct TargetFlags {
     has_whitespace_self_strict: bool,
     has_whitespace_self_randomize: bool,
     has_debug_ext: bool,
+    has_alloc_ext: bool,
 }
 
 impl TargetFlags {
@@ -65,6 +65,11 @@ impl TargetFlags {
             .as_ref()
             .map(|exts| !exts.iter().any(|e| e == "debug"))
             .unwrap_or(true);
+        let has_alloc_ext = test
+            .std_ext
+            .as_ref()
+            .map(|exts| exts.iter().any(|e| e == "alloc"))
+            .unwrap_or(false);
         Self {
             has_interpreter: !exclude_targets.iter().any(|t| t == "interpreter"),
             has_interpreter_randomize: !exclude_targets
@@ -79,6 +84,7 @@ impl TargetFlags {
                 .iter()
                 .any(|t| t == "whitespace-self-randomize"),
             has_debug_ext,
+            has_alloc_ext,
         }
     }
 }
@@ -146,29 +152,55 @@ fn {}_ws() {{
     }
 
     if flags.has_whitespace_self {
-        writeln!(
-            f,
-            r#"{}#[test]
+        if flags.has_alloc_ext {
+            writeln!(
+                f,
+                r#"{}#[test]
+fn {}_ws_self() {{
+    test_whitespace_self_base_alloc("{}", {}, true)
+}}
+"#,
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                f,
+                r#"{}#[test]
 fn {}_ws_self() {{
     test_whitespace_self_base_debug("{}", {})
 }}
 "#,
-            comment_line, test.name, test.path, flags.has_debug_ext
-        )
-        .unwrap();
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        }
     }
 
     if flags.has_whitespace_self_strict {
-        writeln!(
-            f,
-            r#"{}#[test]
+        if flags.has_alloc_ext {
+            writeln!(
+                f,
+                r#"{}#[test]
+fn {}_ws_self_strict() {{
+    test_whitespace_self_base_alloc("{}", {}, true)
+}}
+"#,
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                f,
+                r#"{}#[test]
 fn {}_ws_self_strict() {{
     test_whitespace_self_base_strict("{}", {})
 }}
 "#,
-            comment_line, test.name, test.path, flags.has_debug_ext
-        )
-        .unwrap();
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        }
     }
 
     if flags.has_interpreter_randomize {
@@ -185,16 +217,29 @@ fn {}_randomize() -> std::fmt::Result {{
     }
 
     if flags.has_whitespace_self_randomize {
-        writeln!(
-            f,
-            r#"{}#[test]
+        if flags.has_alloc_ext {
+            writeln!(
+                f,
+                r#"{}#[test]
+fn {}_ws_self_randomize() {{
+    test_whitespace_self_base_alloc("{}", {}, true)
+}}
+"#,
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                f,
+                r#"{}#[test]
 fn {}_ws_self_randomize() {{
     test_whitespace_self_base_randomize("{}", {})
 }}
 "#,
-            comment_line, test.name, test.path, flags.has_debug_ext
-        )
-        .unwrap();
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        }
     }
 }
 
@@ -231,42 +276,81 @@ fn {}_ws() {{
     }
 
     if flags.has_whitespace_self {
-        writeln!(
-            f,
-            r#"{}#[test]
+        if flags.has_alloc_ext {
+            writeln!(
+                f,
+                r#"{}#[test]
+fn {}_ws_self() {{
+    test_whitespace_self_io_base_alloc("{}", {}, true)
+}}
+"#,
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                f,
+                r#"{}#[test]
 fn {}_ws_self() {{
     test_whitespace_self_io_base_debug("{}", {})
 }}
 "#,
-            comment_line, test.name, test.path, flags.has_debug_ext
-        )
-        .unwrap();
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        }
     }
 
     if flags.has_whitespace_self_strict {
-        writeln!(
-            f,
-            r#"{}#[test]
+        if flags.has_alloc_ext {
+            writeln!(
+                f,
+                r#"{}#[test]
+fn {}_ws_self_strict() {{
+    test_whitespace_self_io_base_alloc("{}", {}, true)
+}}
+"#,
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                f,
+                r#"{}#[test]
 fn {}_ws_self_strict() {{
     test_whitespace_self_io_base_strict("{}", {})
 }}
 "#,
-            comment_line, test.name, test.path, flags.has_debug_ext
-        )
-        .unwrap();
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        }
     }
 
     if flags.has_whitespace_self_randomize {
-        writeln!(
-            f,
-            r#"{}#[test]
+        if flags.has_alloc_ext {
+            writeln!(
+                f,
+                r#"{}#[test]
+fn {}_ws_self_randomize() {{
+    test_whitespace_self_io_base_alloc("{}", {}, true)
+}}
+"#,
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                f,
+                r#"{}#[test]
 fn {}_ws_self_randomize() {{
     test_whitespace_self_io_base_randomize("{}", {})
 }}
 "#,
-            comment_line, test.name, test.path, flags.has_debug_ext
-        )
-        .unwrap();
+                comment_line, test.name, test.path, flags.has_debug_ext
+            )
+            .unwrap();
+        }
     }
 }
 

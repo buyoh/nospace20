@@ -231,6 +231,12 @@ impl LocalEnvironment<'_, '_> {
                 let val = self.env.read_char();
                 ExpressionFlow::Value(val)
             }
+            BuiltinFunctionKind::Alloc | BuiltinFunctionKind::Free => {
+                panic!(
+                    "runtime error: __alloc/__free are not supported in interpreter mode. \
+                     Use --mode=compile --std=ws --std-ext alloc instead."
+                );
+            }
         }
     }
 

@@ -70,7 +70,7 @@ pub fn compile_with_options(
     } else {
         &bump_runtime
     };
-    let mut ctx = CodeGenContext::new_with_options(scope, debug_ext, alloc_runtime);
+    let mut ctx = CodeGenContext::new_with_options(scope, debug_ext, alloc_ext, alloc_runtime);
     let mut program = WsProgram::new();
 
     // 1. ヘッダー（初期化・組み込みルーチン）を生成

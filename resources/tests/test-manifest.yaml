@@ -1012,3 +1012,44 @@ tests:
     type: success_io
     path: index_operator_non_array_003
     comment: "Index operator with & for address calculation"
+
+  # ========================================
+  # __alloc / __free built-in functions (--std-ext alloc)
+  # ========================================
+  - name: test_builtin_alloc_basic_001
+    type: success_io
+    path: builtins/alloc_basic_001
+    comment: "__alloc(3) で確保し、ポインタ経由で書き込み・読み取り"
+    std_ext: ["alloc"]
+    exclude_targets: [interpreter, whitespace]
+
+  - name: test_builtin_alloc_array_001
+    type: success_io
+    path: builtins/alloc_array_001
+    comment: "__alloc(n) で動的配列をシミュレート"
+    std_ext: ["alloc"]
+    exclude_targets: [interpreter, whitespace]
+
+  - name: test_builtin_alloc_free_reuse_001
+    type: success_io
+    path: builtins/alloc_free_reuse_001
+    comment: "__alloc → 使用 → __free → 再確保"
+    std_ext: ["alloc"]
+    exclude_targets: [interpreter, whitespace]
+
+  - name: test_builtin_alloc_linked_list_001
+    type: success_io
+    path: builtins/alloc_linked_list_001
+    comment: "連結リストを __alloc で構築"
+    std_ext: ["alloc"]
+    exclude_targets: [interpreter, whitespace]
+
+  - name: test_builtin_alloc_not_enabled_001
+    type: compile_error
+    path: alloc_not_enabled_001
+    comment: "--std-ext alloc 未指定時の __alloc 使用→コンパイルエラー"
+
+  - name: test_builtin_free_not_enabled_001
+    type: compile_error
+    path: free_not_enabled_001
+    comment: "--std-ext alloc 未指定時の __free 使用→コンパイルエラー"

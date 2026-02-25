@@ -1,0 +1,28 @@
+# 連結リスト: ノード = [value, next_ptr] #
+func: new_node(val, next) {
+    let: ptr(__alloc(2));
+    *ptr = val;
+    *(ptr + 1) = next;
+    return: ptr;
+}
+
+func: sum_list(head) {
+    let: total(0);
+    let: curr(head);
+    while: curr != 0 {
+        total = total + *curr;
+        curr = *(curr + 1);
+    };
+    return: total;
+}
+
+func: main() {
+    let: list(0);
+    list = new_node(3, list);
+    list = new_node(2, list);
+    list = new_node(1, list);
+    # list: 1 -> 2 -> 3 -> 0 #
+    __puti(sum_list(list));
+    __putc(10);
+    return: 0;
+}

@@ -475,6 +475,8 @@ fn generate_function_call(
                 generate_builtin_debug_noop(ctx, args)
             }
         }
+        BuiltinFunctionKind::Alloc => generate_builtin_alloc(ctx, args),
+        BuiltinFunctionKind::Free => generate_builtin_free(ctx, args),
     }
 }
 
@@ -635,6 +637,62 @@ fn generate_builtin_debug_store(
         }
     }
 
+    Ok(prog)
+}
+
+/// __alloc(size) - メモリ確保 (--std-ext alloc 必須)
+///
+/// スタック出力: [ptr] (確保されたメモリの先頭アドレス)
+fn generate_builtin_alloc(
+    ctx: &mut CodeGenContext,
+    args: &[Box<ExecExpression>],
+) -> Result<WsProgram, CompileError> {
+    if !ctx.is_alloc_ext() {
+        return Err(CompileError::InvalidOperation(
+            "__alloc requires --std-ext alloc".to_string(),
+        ));
+    }
+    if args.len() != 1 {
+        return Err(CompileError::InvalidOperation(format!(
+            "__alloc expects 1 argument, got {}",
+            args.len()
+        )));
+    }
+
+    let mut prog = WsProgram::new();
+    // 引数 (size) を評価
+    prog.append(generate_expression(ctx, &args[0])?);
+    // __rt_alloc(size) → ptr
+    prog.push(Instruction::Call(reserved_labels::RT_ALLOC));
+    Ok(prog)
+}
+
+/// __free(ptr) - メモリ解放 (--std-ext alloc 必須)
+///
+/// スタック出力: [0] (式としての戻り値)
+fn generate_builtin_free(
+    ctx: &mut CodeGenContext,
+    args: &[Box<ExecExpression>],
+) -> Result<WsProgram, CompileError> {
+    if !ctx.is_alloc_ext() {
+        return Err(CompileError::InvalidOperation(
+            "__free requires --std-ext alloc".to_string(),
+        ));
+    }
+    if args.len() != 1 {
+        return Err(CompileError::InvalidOperation(format!(
+            "__free expects 1 argument, got {}",
+            args.len()
+        )));
+    }
+
+    let mut prog = WsProgram::new();
+    // 引数 (ptr) を評価
+    prog.append(generate_expression(ctx, &args[0])?);
+    // __rt_free(ptr)
+    prog.push(Instruction::Call(reserved_labels::RT_FREE));
+    // 戻り値として 0 をスタックに積む（式としての値）
+    prog.push(Instruction::Push(WsNumber(0)));
     Ok(prog)
 }
 

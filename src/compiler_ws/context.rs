@@ -68,6 +68,9 @@ pub struct CodeGenContext<'a> {
     /// デバッグ拡張 API が有効か (--std-ext debug)
     debug_ext: bool,
 
+    /// アロケータ拡張が有効か (--std-ext alloc)
+    alloc_ext: bool,
+
     /// ランタイムメモリアロケータ
     alloc_runtime: &'a dyn AllocRuntime,
 
@@ -98,6 +101,7 @@ impl<'a> CodeGenContext<'a> {
     pub fn new_with_options(
         scope: &'a Scope,
         debug_ext: bool,
+        alloc_ext: bool,
         alloc_runtime: &'a dyn AllocRuntime,
     ) -> Self {
         let (static_var_global_offsets, static_var_total_size) = compute_static_var_offsets(scope);
@@ -109,6 +113,7 @@ impl<'a> CodeGenContext<'a> {
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext,
+            alloc_ext,
             alloc_runtime,
             scope_offsets: vec![0],
             next_var_offset: 0,
@@ -139,6 +144,7 @@ impl<'a> CodeGenContext<'a> {
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext: self.debug_ext,
+            alloc_ext: self.alloc_ext,
             alloc_runtime: self.alloc_runtime,
             scope_offsets: vec![0],
             next_var_offset: func_scope_var_count as i64,
@@ -169,6 +175,7 @@ impl<'a> CodeGenContext<'a> {
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext: self.debug_ext,
+            alloc_ext: self.alloc_ext,
             alloc_runtime: self.alloc_runtime,
             scope_offsets: vec![0],
             next_var_offset: func_scope_var_count as i64,
@@ -309,6 +316,11 @@ impl<'a> CodeGenContext<'a> {
     /// デバッグ拡張が有効かどうかを取得
     pub fn is_debug_ext(&self) -> bool {
         self.debug_ext
+    }
+
+    /// アロケータ拡張が有効かどうかを取得
+    pub fn is_alloc_ext(&self) -> bool {
+        self.alloc_ext
     }
 
     /// ランタイムメモリアロケータを取得

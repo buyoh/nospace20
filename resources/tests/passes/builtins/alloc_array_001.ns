@@ -1,0 +1,18 @@
+# __alloc で動的配列をシミュレート #
+func: main() {
+    let: size(5);
+    let: arr(__alloc(size));
+    let: i(0);
+    while: i < size {
+        *(arr + i) = (i + 1) * 10;
+        i = i + 1;
+    };
+    i = 0;
+    while: i < size {
+        __puti(*(arr + i));
+        __putc(10);
+        i = i + 1;
+    };
+    __free(arr);
+    return: 0;
+}

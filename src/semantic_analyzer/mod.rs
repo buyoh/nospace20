@@ -218,6 +218,8 @@ fn convert_to_exec_expression_with_resolver(
                 "__assert" => Some(types::BuiltinFunctionKind::Assert),
                 "__assert_not" => Some(types::BuiltinFunctionKind::AssertNot),
                 "__trace" => Some(types::BuiltinFunctionKind::Trace),
+                "__alloc" => Some(types::BuiltinFunctionKind::Alloc),
+                "__free" => Some(types::BuiltinFunctionKind::Free),
                 _ => None,
             };
 
@@ -232,6 +234,8 @@ fn convert_to_exec_expression_with_resolver(
                     types::BuiltinFunctionKind::Assert => 1,
                     types::BuiltinFunctionKind::AssertNot => 1,
                     types::BuiltinFunctionKind::Trace => 1,
+                    types::BuiltinFunctionKind::Alloc => 1,
+                    types::BuiltinFunctionKind::Free => 1,
                 };
                 if args.len() != expected {
                     return Err(vec![code_parse_error!(format!(
