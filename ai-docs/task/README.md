@@ -41,6 +41,7 @@
 - [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
 - [wasm-vm-interactive-stdin/](wasm-vm-interactive-stdin/) - WASM WhitespaceVM の interactive stdin 一時停止機能（InputChar/InputNumber でバッファ不足時に WaitingForInput を返す）
 - [memory-allocator/](memory-allocator/) - メモリアロケータ実装（`--std-ext alloc` による二層アロケータ: FSBA + 汎用 First-Fit、スタックフレーム統合、`__alloc`/`__free` 組み込み関数、JSON ミニ言語による分離テスト）
+- [ws-profiler/](ws-profiler/) - Whitespace VM プロファイラ（実行ステップ数・メモリアクセス範囲の統計収集、YAML 出力スクリプト）
 - [review-tree-parser-statement.md](review-tree-parser-statement.md) - tree_parser/statement/mod.rs コードレビュー（リファクタ4件・品質改善5件）
 - [add-elsif-keyword.md](add-elsif-keyword.md) - elsif キーワードの追加（AST 不変方式、トークン追加・パーサー修正・else:if: 廃止、Step 1-7）
 
