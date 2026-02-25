@@ -49,6 +49,7 @@
 
 ### アクティブ
 
+- [alloc-reuse-efficiency-tests.md](alloc-reuse-efficiency-tests.md) - メモリアロケータ再利用効率テスト（free 後のポインタ再利用・ヒープ非成長・LIFO 順序等を検証、L1 分離テスト 12 件 + L3 E2E テスト 2 件）
 - [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
 - [fix-block-scope-offset/](fix-block-scope-offset/) - ブロックスコープ変数のヒープオフセット衝突修正設計（Bug D: scope_depth 無視による変数衝突）
 - [mnemonic-wsc-compat.md](mnemonic-wsc-compat.md) - ニーモニック出力を wsc 形式に近づける（命令名7件リネーム、ラベル宣言形式変更、インデント追加）
