@@ -1,0 +1,279 @@
+{
+  "profiles": [
+    {
+      "name": "examples/e0-00-puts",
+      "source": "resources/tests/passes/examples/e0-00-puts.ns",
+      "compile_success": true,
+      "execution": {
+        "result": "Complete",
+        "total_steps": 829,
+        "instruction_counts": {
+          "push": 272,
+          "duplicate": 12,
+          "copy": 4,
+          "swap": 24,
+          "discard": 52,
+          "add": 119,
+          "sub": 12,
+          "mul": 0,
+          "div": 0,
+          "modulo": 0,
+          "store": 34,
+          "retrieve": 168,
+          "label": 46,
+          "call": 18,
+          "jump": 14,
+          "jump_if_zero": 24,
+          "jump_if_negative": 0,
+          "return": 18,
+          "exit": 1,
+          "output_char": 12,
+          "output_number": 0,
+          "input_char": 0,
+          "input_number": 0
+        },
+        "memory": {
+          "heap_store_range": [
+            2,
+            20
+          ],
+          "heap_retrieve_range": [
+            2,
+            20
+          ],
+          "heap_store_count": 34,
+          "heap_retrieve_count": 168,
+          "heap_unique_addresses": 15
+        },
+        "stack": {
+          "max_data_stack_depth": 8,
+          "max_call_stack_depth": 3
+        },
+        "program": {
+          "instruction_count": 364,
+          "whitespace_size": 1771
+        }
+      }
+    },
+    {
+      "name": "examples/e0-01-fibonacci",
+      "source": "resources/tests/passes/examples/e0-01-fibonacci.ns",
+      "compile_success": true,
+      "execution": {
+        "result": "Complete",
+        "total_steps": 11750,
+        "instruction_counts": {
+          "push": 3235,
+          "duplicate": 3,
+          "copy": 220,
+          "swap": 1149,
+          "discard": 475,
+          "add": 711,
+          "sub": 435,
+          "mul": 0,
+          "div": 0,
+          "modulo": 0,
+          "store": 552,
+          "retrieve": 1315,
+          "label": 1388,
+          "call": 766,
+          "jump": 3,
+          "jump_if_zero": 620,
+          "jump_if_negative": 109,
+          "return": 766,
+          "exit": 1,
+          "output_char": 1,
+          "output_number": 1,
+          "input_char": 0,
+          "input_number": 1
+        },
+        "memory": {
+          "heap_store_range": [
+            2,
+            17
+          ],
+          "heap_retrieve_range": [
+            2,
+            17
+          ],
+          "heap_store_count": 552,
+          "heap_retrieve_count": 1315,
+          "heap_unique_addresses": 13
+        },
+        "stack": {
+          "max_data_stack_depth": 17,
+          "max_call_stack_depth": 11
+        },
+        "program": {
+          "instruction_count": 225,
+          "whitespace_size": 1151
+        }
+      }
+    },
+    {
+      "name": "examples/e1-00-qsort",
+      "source": "resources/tests/passes/examples/e1-00-qsort.ns",
+      "compile_success": true,
+      "execution": {
+        "result": "Complete",
+        "total_steps": 5957,
+        "instruction_counts": {
+          "push": 1856,
+          "duplicate": 31,
+          "copy": 56,
+          "swap": 285,
+          "discard": 315,
+          "add": 773,
+          "sub": 95,
+          "mul": 0,
+          "div": 0,
+          "modulo": 0,
+          "store": 282,
+          "retrieve": 1331,
+          "label": 355,
+          "call": 166,
+          "jump": 51,
+          "jump_if_zero": 82,
+          "jump_if_negative": 82,
+          "return": 166,
+          "exit": 1,
+          "output_char": 10,
+          "output_number": 10,
+          "input_char": 0,
+          "input_number": 11
+        },
+        "memory": {
+          "heap_store_range": [
+            2,
+            45
+          ],
+          "heap_retrieve_range": [
+            2,
+            45
+          ],
+          "heap_store_count": 282,
+          "heap_retrieve_count": 1331,
+          "heap_unique_addresses": 31
+        },
+        "stack": {
+          "max_data_stack_depth": 12,
+          "max_call_stack_depth": 6
+        },
+        "program": {
+          "instruction_count": 617,
+          "whitespace_size": 3035
+        }
+      }
+    },
+    {
+      "name": "examples/e1-01-queue",
+      "source": "resources/tests/passes/examples/e1-01-queue.ns",
+      "compile_success": true,
+      "execution": {
+        "result": "Complete",
+        "total_steps": 2385,
+        "instruction_counts": {
+          "push": 712,
+          "duplicate": 30,
+          "copy": 30,
+          "swap": 133,
+          "discard": 159,
+          "add": 160,
+          "sub": 45,
+          "mul": 0,
+          "div": 0,
+          "modulo": 14,
+          "store": 129,
+          "retrieve": 373,
+          "label": 222,
+          "call": 105,
+          "jump": 33,
+          "jump_if_zero": 82,
+          "jump_if_negative": 30,
+          "return": 105,
+          "exit": 1,
+          "output_char": 8,
+          "output_number": 0,
+          "input_char": 15,
+          "input_number": 0
+        },
+        "memory": {
+          "heap_store_range": [
+            2,
+            17
+          ],
+          "heap_retrieve_range": [
+            2,
+            17
+          ],
+          "heap_store_count": 129,
+          "heap_retrieve_count": 373,
+          "heap_unique_addresses": 13
+        },
+        "stack": {
+          "max_data_stack_depth": 8,
+          "max_call_stack_depth": 3
+        },
+        "program": {
+          "instruction_count": 343,
+          "whitespace_size": 1813
+        }
+      }
+    },
+    {
+      "name": "integration/integ_001",
+      "source": "resources/tests/passes/integration/integ_001.ns",
+      "compile_success": true,
+      "execution": {
+        "result": "Complete",
+        "total_steps": 988,
+        "instruction_counts": {
+          "push": 352,
+          "duplicate": 0,
+          "copy": 6,
+          "swap": 21,
+          "discard": 67,
+          "add": 153,
+          "sub": 12,
+          "mul": 2,
+          "div": 0,
+          "modulo": 0,
+          "store": 56,
+          "retrieve": 249,
+          "label": 26,
+          "call": 11,
+          "jump": 11,
+          "jump_if_zero": 11,
+          "jump_if_negative": 0,
+          "return": 11,
+          "exit": 1,
+          "output_char": 0,
+          "output_number": 0,
+          "input_char": 0,
+          "input_number": 0
+        },
+        "memory": {
+          "heap_store_range": [
+            2,
+            17
+          ],
+          "heap_retrieve_range": [
+            2,
+            17
+          ],
+          "heap_store_count": 56,
+          "heap_retrieve_count": 249,
+          "heap_unique_addresses": 12
+        },
+        "stack": {
+          "max_data_stack_depth": 10,
+          "max_call_stack_depth": 3
+        },
+        "program": {
+          "instruction_count": 373,
+          "whitespace_size": 1785
+        }
+      }
+    }
+  ]
+}
