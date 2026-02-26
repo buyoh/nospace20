@@ -6,10 +6,24 @@
 
 ## モジュール構成
 
+### 現在の実装 (フレームワーク完了時点)
+
+```
+src/
+  optimizer/
+    mod.rs               # パス管理・実行エントリポイント ✅
+    noop_test_pass.rs    # フレームワーク動作検証用ダミーパス ✅
+    tests.rs             # ユニットテスト (5件) ✅
+```
+
+### 最終構成 (全パス実装後)
+
 ```
 src/
   optimizer/
     mod.rs               # パス管理・実行エントリポイント
+    noop_test_pass.rs    # フレームワーク動作検証用ダミーパス
+    tests.rs             # ユニットテスト
     constant_folding.rs   # 定数畳み込み
     condition_opt.rs      # if/while 条件式最適化
     geti_opt.rs           # __geti/__getc 最適化
@@ -97,9 +111,25 @@ ExecExpression::InternalGetcv(_) => ValueType::Int,
 
 ### OptimizationOptions
 
+#### 現在の実装
+
+```rust
+pub struct OptimizationOptions {
+    /// テスト用パス: マジックナンバー変数を追加する（フレームワーク検証用）
+    pub noop_test_pass: bool,
+}
+```
+
+`none()` / `all()` / `any_enabled()` / `Default` を持つ。
+`all()` は現時点では `noop_test_pass: false` (テスト用パスは含めない)。
+
+#### 最終設計 (各パス実装時にフィールドを追加)
+
 ```rust
 /// 最適化オプション
 pub struct OptimizationOptions {
+    /// テスト用パス（フレームワーク検証用、本番では無効）
+    pub noop_test_pass: bool,
     /// 定数畳み込み
     pub constant_folding: bool,
     /// if/while 条件式最適化 (Whitespace 向け)
@@ -132,6 +162,22 @@ impl OptimizationOptions {
 
 ### パス実行順序
 
+#### 現在の実装
+
+```rust
+pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
+    if !options.any_enabled() {
+        return;
+    }
+    // テスト用パス
+    if options.noop_test_pass {
+        noop_test_pass::apply(scope);
+    }
+}
+```
+
+#### 最終設計
+
 ```rust
 pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
     // 1. 定数畳み込み（他の最適化のパターンマッチを容易にする）
@@ -162,7 +208,7 @@ pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
 2. **定数畳み込み → 未使用関数削除**: 定数畳み込みの結果、呼び出しが除去される関数が出る可能性がある
 3. **条件式最適化 → 未使用関数削除**: 同上
 
-## パイプラインへの統合
+## パイプラインへの統合 ✅ 実装済み
 
 ### lib.rs の変更
 
@@ -175,7 +221,7 @@ pub fn optimize(scope: &mut Scope, options: &optimizer::OptimizationOptions) {
 }
 ```
 
-### CLI の変更 (compile_property.rs)
+### CLI の変更 (compile_property.rs) ✅ 実装済み
 
 ```rust
 pub struct CompileProperty {
