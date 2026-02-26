@@ -43,6 +43,7 @@
 - [ws-profiler-html-report/](ws-profiler-html-report/) - プロファイラ HTML レポート（ws_profiler JSON 出力追加 + HTML サマリ・比較レポート生成スクリプト）
 - [review-tree-parser-statement.md](review-tree-parser-statement.md) - tree_parser/statement/mod.rs コードレビュー（リファクタ4件・品質改善5件）
 - [add-elsif-keyword.md](add-elsif-keyword.md) - elsif キーワードの追加（AST 不変方式、トークン追加・パーサー修正・else:if: 廃止、Step 1-7）
+- [wasm-api-unify-std-extensions.md](wasm-api-unify-std-extensions.md) - WASM API の std_extensions パラメータ統一（個別 bool → StdExtension[] 配列）
 
 ## 現在のタスク
 
