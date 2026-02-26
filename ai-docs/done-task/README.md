@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [wasm-compile-error-location.md](wasm-compile-error-location.md) | WASM版コンパイルエラーの位置情報表示（Phase 1完了：LocatedExecStatement、CompileError に SourceLocation 付与、全テストパス） | 2026-02-26 |
 | [internal-type-system/](internal-type-system/) | 内部型システム（int/void）の導入（ValueType enum、戻り値型推論、void式の値使用検出、mixed return検出、テスト7件追加＋5件修正、全662テスト通過） | 2026-02-26 |
 | [alloc-reuse-efficiency-tests.md](alloc-reuse-efficiency-tests.md) | メモリアロケータ再利用効率テスト（Bump 2件 + FSBA 9件、ヘルパー関数追加、全26テスト通過） | 2026-02-26 |
 | [memory-allocator/](memory-allocator/) | メモリアロケータ実装（Phase 1-5 全完了：`--std-ext alloc`、AllocRuntime trait、FSBA+First-Fit、`__alloc`/`__free` 組み込み関数、全916テスト通過） | 2026-02-27 |

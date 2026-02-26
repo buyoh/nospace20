@@ -66,10 +66,11 @@ WASM API ではコンパイルエラーを `WasmError { message: err, line: None
 - `compile_to_whitespace` の戻り値を構造化エラーに変更
 - WASM API でコンパイルエラーに位置情報を表示
 
-#### Phase 2: 式レベルの位置情報（将来課題）
+#### Phase 2: 式レベルの位置情報
 
 - `Expression` / `ExecExpression` に `SourceLocation` を付与
 - より精密なエラー位置の報告
+- 詳細設計: [expression-location/](expression-location/)
 
 ## 詳細設計 (Phase 1)
 
