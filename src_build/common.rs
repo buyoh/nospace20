@@ -34,10 +34,12 @@ pub fn format_comment_line(comment: &Option<String>) -> String {
 pub struct TargetFlags {
     pub has_interpreter: bool,
     pub has_interpreter_randomize: bool,
+    pub has_interpreter_opt_all: bool,
     pub has_whitespace: bool,
     pub has_whitespace_self: bool,
     pub has_whitespace_self_strict: bool,
     pub has_whitespace_self_randomize: bool,
+    pub has_whitespace_self_opt_all: bool,
     pub has_debug_ext: bool,
     pub has_alloc_ext: bool,
 }
@@ -61,6 +63,11 @@ impl TargetFlags {
             has_interpreter_randomize: !exclude_targets
                 .iter()
                 .any(|t| t == "interpreter-randomize"),
+            // alloc テストは opt_all 対象外（除外指定も可能）
+            // interpreter 自体が除外されていれば opt_all も除外
+            has_interpreter_opt_all: !has_alloc_ext
+                && !exclude_targets.iter().any(|t| t == "interpreter")
+                && !exclude_targets.iter().any(|t| t == "interpreter-opt-all"),
             has_whitespace: !exclude_targets.iter().any(|t| t == "whitespace"),
             has_whitespace_self: !exclude_targets.iter().any(|t| t == "whitespace-self"),
             has_whitespace_self_strict: !exclude_targets
@@ -69,6 +76,11 @@ impl TargetFlags {
             has_whitespace_self_randomize: !exclude_targets
                 .iter()
                 .any(|t| t == "whitespace-self-randomize"),
+            // alloc テストは opt_all 対象外（除外指定も可能）
+            // whitespace-self 自体が除外されていれば opt_all も除外
+            has_whitespace_self_opt_all: !has_alloc_ext
+                && !exclude_targets.iter().any(|t| t == "whitespace-self")
+                && !exclude_targets.iter().any(|t| t == "whitespace-self-opt-all"),
             has_debug_ext,
             has_alloc_ext,
         }

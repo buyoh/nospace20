@@ -119,12 +119,38 @@ fn {}_ws_self_strict() {{
         }
     }
 
+    if flags.has_interpreter_opt_all {
+        writeln!(
+            f,
+            r#"{}#[test]
+fn {}_opt_all() -> std::fmt::Result {{
+    test_ok_coding_base_opt_all("{}")
+}}
+"#,
+            comment_line, test.name, test.path
+        )
+        .unwrap();
+    }
+
     if flags.has_interpreter_randomize {
         writeln!(
             f,
             r#"{}#[test]
 fn {}_randomize() -> std::fmt::Result {{
     test_ok_coding_base_randomize("{}")
+}}
+"#,
+            comment_line, test.name, test.path
+        )
+        .unwrap();
+    }
+
+    if flags.has_whitespace_self_opt_all {
+        writeln!(
+            f,
+            r#"{}#[test]
+fn {}_ws_self_opt_all() {{
+    test_whitespace_self_base_opt_all("{}")
 }}
 "#,
             comment_line, test.name, test.path
@@ -170,6 +196,19 @@ fn write_success_io_tests(f: &mut fs::File, test: &TestCase) {
             r#"{}#[test]
 fn {}() -> std::fmt::Result {{
     test_ok_coding_io_base("{}")
+}}
+"#,
+            comment_line, test.name, test.path
+        )
+        .unwrap();
+    }
+
+    if flags.has_interpreter_opt_all {
+        writeln!(
+            f,
+            r#"{}#[test]
+fn {}_opt_all() -> std::fmt::Result {{
+    test_ok_coding_io_base_opt_all("{}")
 }}
 "#,
             comment_line, test.name, test.path
@@ -241,6 +280,19 @@ fn {}_ws_self_strict() {{
             )
             .unwrap();
         }
+    }
+
+    if flags.has_whitespace_self_opt_all {
+        writeln!(
+            f,
+            r#"{}#[test]
+fn {}_ws_self_opt_all() {{
+    test_whitespace_self_io_base_opt_all("{}")
+}}
+"#,
+            comment_line, test.name, test.path
+        )
+        .unwrap();
     }
 
     if flags.has_whitespace_self_randomize {
