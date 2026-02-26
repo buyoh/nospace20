@@ -8,6 +8,7 @@
 |----------|------|--------|
 | [wasm-api-unify-std-extensions.md](wasm-api-unify-std-extensions.md) | WASM API の std_extensions パラメータ統一（compile/WasmWhitespaceVM の個別 bool → StdExtension[] 配列、getOptions() と形式一致） | 2026-02-26 |
 | [compile-optimization/01-pass-framework.md](compile-optimization/01-pass-framework.md) | 最適化パスフレームワーク＋ExecExpression拡張（ConditionMode/InternalBuiltinFunctionKind導入、If/While署名変更、全バックエンド対応、テスト19件） | 2026-02-27 |
+| [compile-optimization/02-pass-condition-opt.md](compile-optimization/02-pass-condition-opt.md) | if/while 条件式最適化（JumpIfZero/JumpIfNegative の直接利用、condition_opt パス実装、テスト12件追加、全テスト 983 passed） | 2026-02-27 |
 | [wasm-compile-error-location.md](wasm-compile-error-location.md) | WASM版コンパイルエラーの位置情報表示（Phase 1完了：LocatedExecStatement、CompileError に SourceLocation 付与、全テストパス） | 2026-02-26 |
 | [internal-type-system/](internal-type-system/) | 内部型システム（int/void）の導入（ValueType enum、戻り値型推論、void式の値使用検出、mixed return検出、テスト7件追加＋5件修正、全662テスト通過） | 2026-02-26 |
 | [alloc-reuse-efficiency-tests.md](alloc-reuse-efficiency-tests.md) | メモリアロケータ再利用効率テスト（Bump 2件 + FSBA 9件、ヘルパー関数追加、全26テスト通過） | 2026-02-26 |
