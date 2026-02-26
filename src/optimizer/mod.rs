@@ -17,6 +17,7 @@
 //! 5. (将来) dead_code
 
 mod condition_opt;
+mod dead_code;
 mod geti_opt;
 mod noop_test_pass;
 
@@ -38,6 +39,8 @@ pub struct OptimizationOptions {
     pub condition_opt: bool,
     /// geti/getc 最適化パス: `p = __geti()` / `p = __getc()` を InternalBuiltinFunction に変換する
     pub geti_opt: bool,
+    /// 未到達関数削除パス: main から到達不可能な関数をダミーに置換する
+    pub dead_code: bool,
 }
 
 impl OptimizationOptions {
@@ -47,6 +50,7 @@ impl OptimizationOptions {
             noop_test_pass: false,
             condition_opt: false,
             geti_opt: false,
+            dead_code: false,
         }
     }
 
@@ -56,12 +60,13 @@ impl OptimizationOptions {
             noop_test_pass: false,
             condition_opt: true,
             geti_opt: true,
+            dead_code: true,
         }
     }
 
     /// いずれかの最適化が有効かどうか
     pub fn any_enabled(&self) -> bool {
-        self.noop_test_pass || self.condition_opt || self.geti_opt
+        self.noop_test_pass || self.condition_opt || self.geti_opt || self.dead_code
     }
 }
 
@@ -93,5 +98,10 @@ pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
     // geti/getc 最適化パス
     if options.geti_opt {
         geti_opt::apply(scope);
+    }
+
+    // 未到達関数削除パスは最後に実行（他パス完了後の状態を基に判定）
+    if options.dead_code {
+        dead_code::apply(scope);
     }
 }

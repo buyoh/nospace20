@@ -1044,3 +1044,187 @@ fn test_geti_opt_combined_with_condition_opt() {
     let ws_result = crate::compiler_ws::compile_with_options(&scope_opt, false, false);
     assert!(ws_result.is_ok(), "WS compile with combined opt should succeed");
 }
+
+// --- dead_code パステスト ---
+
+/// dead_code: 未使用関数がダミーに置換されること
+#[test]
+fn test_dead_code_unreachable_func_becomes_dummy() {
+    let code = r#"
+        func: unused() { return: 42; }
+        func: main() { return: 0; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    let unused_idx = scope.symbol_table.function_name_to_index["unused"];
+    assert!(!scope.functions[unused_idx].is_dummy(), "before: should not be dummy");
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
+
+    assert!(scope.functions[unused_idx].is_dummy(), "after: unused function should be dummy");
+}
+
+/// dead_code: main 関数は常に到達可能（ダミーにならない）
+#[test]
+fn test_dead_code_main_not_dummy() {
+    let code = r#"
+        func: unused() { return: 99; }
+        func: main() { return: 0; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    let main_idx = scope.main_function_index.unwrap();
+    optimizer::optimize(&mut scope, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
+
+    assert!(!scope.functions[main_idx].is_dummy(), "main should not be dummy");
+}
+
+/// dead_code: main から直接呼ばれる関数は到達可能
+#[test]
+fn test_dead_code_called_func_reachable() {
+    let code = r#"
+        func: helper() { return: 1; }
+        func: unused() { return: 99; }
+        func: main() { return: helper(); }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
+
+    let helper_idx = scope.symbol_table.function_name_to_index["helper"];
+    let unused_idx = scope.symbol_table.function_name_to_index["unused"];
+    assert!(!scope.functions[helper_idx].is_dummy(), "helper (called) should not be dummy");
+    assert!(scope.functions[unused_idx].is_dummy(), "unused should be dummy");
+}
+
+/// dead_code: 推移的に到達可能な関数は保持される
+#[test]
+fn test_dead_code_transitive_reachability() {
+    let code = r#"
+        func: level2() { return: 2; }
+        func: level1() { return: level2(); }
+        func: unused() { return: 99; }
+        func: main() { return: level1(); }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
+
+    let l1_idx = scope.symbol_table.function_name_to_index["level1"];
+    let l2_idx = scope.symbol_table.function_name_to_index["level2"];
+    let unused_idx = scope.symbol_table.function_name_to_index["unused"];
+    assert!(!scope.functions[l1_idx].is_dummy(), "level1 should not be dummy");
+    assert!(!scope.functions[l2_idx].is_dummy(), "level2 should not be dummy");
+    assert!(scope.functions[unused_idx].is_dummy(), "unused should be dummy");
+}
+
+/// dead_code: 実行結果が変わらないこと（インタープリタ）
+#[test]
+fn test_dead_code_semantics_unchanged() {
+    let code = r#"
+        func: unused1() { return: 100; }
+        func: unused2() { return: unused1(); }
+        func: helper() { return: 42; }
+        func: main() { return: helper(); }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let result_orig = crate::interpret(&scope_orig);
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
+    let result_opt = crate::interpret(&scope_opt);
+
+    assert_eq!(result_orig, Some(42), "original should return 42");
+    assert_eq!(result_orig, result_opt, "semantics should not change after dead_code");
+}
+
+/// dead_code: WS コンパイルが成功すること
+#[test]
+fn test_dead_code_ws_compile_success() {
+    let code = r#"
+        func: never_called() { __puti(999); return: 0; }
+        func: main() { __puti(1); return: 0; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
+
+    let result = crate::compiler_ws::compile_with_options(&scope, false, false);
+    assert!(result.is_ok(), "WS compilation should succeed after dead_code opt");
+}
+
+/// dead_code: main がない場合はスキップ（全関数保持）
+#[test]
+fn test_dead_code_no_main_skips() {
+    let code = r#"
+        let: x(0);
+        func: foo() { return: 1; }
+        func: bar() { return: 2; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    // main がない場合は最適化なし
+    optimizer::optimize(&mut scope, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
+
+    let foo_idx = scope.symbol_table.function_name_to_index["foo"];
+    let bar_idx = scope.symbol_table.function_name_to_index["bar"];
+    assert!(!scope.functions[foo_idx].is_dummy(), "foo should not be dummy (no main)");
+    assert!(!scope.functions[bar_idx].is_dummy(), "bar should not be dummy (no main)");
+}
+
+/// dead_code + condition_opt + geti_opt の組み合わせが動作すること
+#[test]
+fn test_dead_code_combined_all_opts() {
+    let code = r#"
+        func: unused() { return: 0; }
+        func: helper(a) { return: a + 1; }
+        func: main() {
+            let: x(0);
+            x = __geti();
+            if:(x == 0) { __puti(0); } else: { __puti(helper(x)); };
+            return: 0;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let stdin_a = Box::new(std::io::BufReader::new(std::io::Cursor::new("5\n".as_bytes().to_vec())));
+    let stdout_a = Box::new(Vec::<u8>::new());
+    let mut env_a = crate::Environment::new_with_buffers(stdin_a, stdout_a);
+    let result_orig = crate::interpret_with_env(&mut env_a, &scope_orig);
+
+    // 全最適化
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions::all());
+    let stdin_b = Box::new(std::io::BufReader::new(std::io::Cursor::new("5\n".as_bytes().to_vec())));
+    let stdout_b = Box::new(Vec::<u8>::new());
+    let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
+    let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
+
+    assert_eq!(result_orig, result_opt, "combined opts semantics should not change");
+
+    // WS コンパイルも成功
+    let ws_result = crate::compiler_ws::compile_with_options(&scope_opt, false, false);
+    assert!(ws_result.is_ok(), "WS compile with all opts should succeed");
+
+    // unused がダミーになっていること
+    let unused_idx = scope_opt.symbol_table.function_name_to_index["unused"];
+    assert!(scope_opt.functions[unused_idx].is_dummy(), "unused should be dummy after all opts");
+}

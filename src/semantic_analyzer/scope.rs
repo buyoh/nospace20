@@ -43,7 +43,49 @@ pub struct Function {
     /// 関数本体に return: expr; が存在する → Int
     /// return: が存在しない（暗黙の void return）→ Void
     pub return_type: ValueType,
+    /// 最適化パス（dead_code）によってダミーに置換されたかどうか
+    /// true の場合、コード生成・実行でスキップされる
+    pub is_dummy: bool,
     // pub identifier: String,
+}
+
+impl Function {
+    /// dead_code パスが生成するダミー関数
+    ///
+    /// 空のブロック・Void 戻り値型を持つ最小限の関数。
+    /// コード生成時にスキップされる。
+    pub fn dummy() -> Self {
+        use crate::semantic_analyzer::types::Block;
+        let dummy_scope = Scope {
+            identifier_map: BTreeMap::new(),
+            variable_indices: BTreeMap::new(),
+            variable_name_to_var_index: BTreeMap::new(),
+            variables: Vec::new(),
+            variable_count: 0,
+            functions: Vec::new(),
+            symbol_table: SymbolTable {
+                function_names: Vec::new(),
+                function_name_to_index: BTreeMap::new(),
+            },
+            main_function_index: None,
+            static_init_statements: Vec::new(),
+            root_statements: Vec::new(),
+        };
+        Function {
+            arg_indices: Vec::new(),
+            block: Block {
+                scope: dummy_scope,
+                statements: Vec::new(),
+            },
+            return_type: ValueType::Void,
+            is_dummy: true,
+        }
+    }
+
+    /// この関数がダミー（到達不可能）かどうかを返す
+    pub fn is_dummy(&self) -> bool {
+        self.is_dummy
+    }
 }
 
 /// スコープ情報
