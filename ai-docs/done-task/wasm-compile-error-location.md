@@ -281,3 +281,19 @@ Err(errors) => convert_errors(&errors, &text).into(),
 8. `wasm_api.rs`: コンパイルエラーハンドリングの統一
 9. `bin/nospace20.rs`: CLI のコンパイルエラー表示更新
 10. テスト修正・確認
+
+## 進捗
+
+**Phase 1 実装完了**
+
+- ✅ `semantic_analyzer/types.rs`: `LocatedExecStatement` 追加・`Block`/`Scope` 型変更
+- ✅ `semantic_analyzer/scope.rs`: `Vec<ExecStatement>` → `Vec<LocatedExecStatement>` 変更
+- ✅ `semantic_analyzer/mod.rs`: 位置情報の引き継ぎ実装
+- ✅ `interpreter/exec.rs`, `interpreter/mod.rs`: `LocatedExecStatement` 対応
+- ✅ `compiler_ws/mod.rs`: `CompileError` → `{CompileErrorKind, CompileError}` 再設計
+- ✅ `compiler_ws/context.rs`: `current_location` フィールド・メソッド追加
+- ✅ `compiler_ws/statement.rs`, `expression.rs`, `builtin.rs`: エラー生成更新
+- ✅ `lib.rs`: `Result<String, String>` → `Result<String, Vec<CodeParseError>>` 変更
+- ✅ `wasm_api.rs`: コンパイルエラーハンドリングを `convert_errors()` に統一
+- ✅ `bin/nospace20.rs`: `handle_parse_error()` を使用するよう変更
+- ✅ テスト修正・全テストパス確認
