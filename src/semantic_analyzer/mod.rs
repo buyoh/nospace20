@@ -15,13 +15,13 @@ use std::collections::BTreeMap;
 use scope::{FunctionIndex, Identifier, ScopeBuilder, ScopeResolver, ScopeType, SymbolTable};
 
 use crate::{
-    base::CodeParseError,
+    base::{CodeParseError, SourceLocation},
     code_parse_error,
-    tree_parser::{Expression, LocatedStatement, Operator1, Operator2, Statement},
+    tree_parser::{Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement},
 };
 
 pub use scope::{Function, Scope};
-pub(crate) use types::{Block, ExecExpression, ExecStatement, LocatedExecStatement, Variable};
+pub(crate) use types::{Block, ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Variable};
 pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
 pub(crate) use types::infer_block_type;
 
@@ -34,7 +34,7 @@ fn has_return_statement(statements: &[LocatedStatement]) -> bool {
             Statement::Return(Some(_)) => return true,
             Statement::Return(None) => {} // void return は int 返却とみなさない
             Statement::Expression(expr) => {
-                if expr_contains_return(expr) {
+                if expr_contains_return(&expr.expression) {
                     return true;
                 }
             }
@@ -71,7 +71,7 @@ fn guarantees_return(statements: &[LocatedStatement]) -> bool {
         Some(last) => match &last.statement {
             Statement::Return(Some(_)) => true,
             Statement::Return(None) => false, // void return は値の返却を保証しない
-            Statement::Expression(expr) => expr_guarantees_return(expr),
+            Statement::Expression(expr) => expr_guarantees_return(&expr.expression),
             _ => false,
         },
     }
@@ -96,7 +96,7 @@ fn expr_guarantees_return(expr: &crate::tree_parser::Expression) -> bool {
 
 /// void 型の式が値として使われている場合にエラーを返す
 fn require_int_type(
-    expr: &ExecExpression,
+    expr: &LocatedExecExpression,
     func_return_types: &[ValueType],
 ) -> Result<(), Vec<CodeParseError>> {
     if expr.infer_type(func_return_types) == ValueType::Void {
@@ -108,50 +108,64 @@ fn require_int_type(
     }
 }
 
+/// LocatedExecExpression を構築するヘルパー
+fn make_located_exec(
+    expr: ExecExpression,
+    location: &SourceLocation,
+) -> Box<LocatedExecExpression> {
+    Box::new(LocatedExecExpression {
+        expression: expr,
+        location: location.clone(),
+    })
+}
+
 /// 式を ExecExpression に変換する（識別子解決あり）
 ///
 /// ScopeResolver を使用して変数名・関数名を IdentifierRef に解決する。
 /// func_return_types を使用して式の型チェックを行う。
 fn convert_to_exec_expression_with_resolver(
-    expr: &Box<Expression>,
+    located_expr: &Box<LocatedExpression>,
     parent_resolver: &ScopeResolver,
     func_return_types: &[ValueType],
-) -> Result<Box<ExecExpression>, Vec<CodeParseError>> {
-    match expr.as_ref() {
+) -> Result<Box<LocatedExecExpression>, Vec<CodeParseError>> {
+    let loc = &located_expr.location;
+    let expr = &located_expr.expression;
+    match expr {
         Expression::Operation1(Operator1::Ref, inner) => {
             // & は変数または配列要素に対してのみ使用可能
-            match inner.as_ref() {
+            match &inner.expression {
                 Expression::Variable(name) => {
                     let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
-                        vec![code_parse_error!(format!("undefined variable: {}", name))]
+                        vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))]
                     })?;
-                    Ok(Box::new(ExecExpression::Operation1(
+                    Ok(make_located_exec(ExecExpression::Operation1(
                         Operator1::Ref,
-                        Box::new(ExecExpression::Variable(id_ref)),
-                    )))
+                        make_located_exec(ExecExpression::Variable(id_ref), &inner.location),
+                    ), loc))
                 }
                 Expression::ArrayAccess(name, index_expr) => {
                     let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
-                        vec![code_parse_error!(format!("undefined variable: {}", name))]
+                        vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))]
                     })?;
 
                     // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
                     let array_size = parent_resolver
                         .get_array_size(name)
                         .ok_or_else(|| {
-                            vec![code_parse_error!(format!("undefined variable: {}", name))]
+                            vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))]
                         })?
                         .unwrap_or(1);
 
                     let exec_index =
                         convert_to_exec_expression_with_resolver(index_expr, parent_resolver, func_return_types)?;
 
-                    Ok(Box::new(ExecExpression::Operation1(
+                    Ok(make_located_exec(ExecExpression::Operation1(
                         Operator1::Ref,
-                        Box::new(ExecExpression::ArrayAccess(id_ref, exec_index, array_size)),
-                    )))
+                        make_located_exec(ExecExpression::ArrayAccess(id_ref, exec_index, array_size), &inner.location),
+                    ), loc))
                 }
                 _ => Err(vec![code_parse_error!(
+                    loc.start,
                     "reference operator (&) can only be applied to variables or array elements"
                 )]),
             }
@@ -160,7 +174,7 @@ fn convert_to_exec_expression_with_resolver(
             let exec_x = convert_to_exec_expression_with_resolver(&x, parent_resolver, func_return_types)?;
             // void 型の式は単項演算のオペランドに使用不可
             require_int_type(&exec_x, func_return_types)?;
-            Ok(Box::new(ExecExpression::Operation1(op.to_owned(), exec_x)))
+            Ok(make_located_exec(ExecExpression::Operation1(op.to_owned(), exec_x), loc))
         }
         Expression::Operation2(op, l, r) => {
             // 複合代入演算子 (+=, -=, *=, /=, %=) を a = a + b の形式に展開
@@ -168,47 +182,62 @@ fn convert_to_exec_expression_with_resolver(
                 Operator2::PlusAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(
-                        Operator2::Plus,
-                        l.clone(),
-                        r.clone(),
-                    )),
+                    &Box::new(LocatedExpression {
+                        expression: Expression::Operation2(
+                            Operator2::Plus,
+                            l.clone(),
+                            r.clone(),
+                        ),
+                        location: loc.clone(),
+                    }),
                 ),
                 Operator2::MinusAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(
-                        Operator2::Minus,
-                        l.clone(),
-                        r.clone(),
-                    )),
+                    &Box::new(LocatedExpression {
+                        expression: Expression::Operation2(
+                            Operator2::Minus,
+                            l.clone(),
+                            r.clone(),
+                        ),
+                        location: loc.clone(),
+                    }),
                 ),
                 Operator2::MultiplyAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(
-                        Operator2::Multiply,
-                        l.clone(),
-                        r.clone(),
-                    )),
+                    &Box::new(LocatedExpression {
+                        expression: Expression::Operation2(
+                            Operator2::Multiply,
+                            l.clone(),
+                            r.clone(),
+                        ),
+                        location: loc.clone(),
+                    }),
                 ),
                 Operator2::DivideAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(
-                        Operator2::Divide,
-                        l.clone(),
-                        r.clone(),
-                    )),
+                    &Box::new(LocatedExpression {
+                        expression: Expression::Operation2(
+                            Operator2::Divide,
+                            l.clone(),
+                            r.clone(),
+                        ),
+                        location: loc.clone(),
+                    }),
                 ),
                 Operator2::ModuloAssign => (
                     Operator2::Assign,
                     l,
-                    &Box::new(Expression::Operation2(
-                        Operator2::Modulo,
-                        l.clone(),
-                        r.clone(),
-                    )),
+                    &Box::new(LocatedExpression {
+                        expression: Expression::Operation2(
+                            Operator2::Modulo,
+                            l.clone(),
+                            r.clone(),
+                        ),
+                        location: loc.clone(),
+                    }),
                 ),
                 _ => (op.to_owned(), l, r),
             };
@@ -223,17 +252,17 @@ fn convert_to_exec_expression_with_resolver(
                     require_int_type(&exec_r, func_return_types)?;
                 }
                 _ => {
-                    // その他の演算演算演箙: 両辺は Int でなければならない
+                    // その他の演算: 両辺は Int でなければならない
                     require_int_type(&exec_l, func_return_types)?;
                     require_int_type(&exec_r, func_return_types)?;
                 }
             }
 
-            Ok(Box::new(ExecExpression::Operation2(
+            Ok(make_located_exec(ExecExpression::Operation2(
                 actual_op,
                 exec_l,
                 exec_r,
-            )))
+            ), loc))
         }
         Expression::If(cond, stat1, stat2) => {
             let exec_cond = convert_to_exec_expression_with_resolver(cond, parent_resolver, func_return_types)?;
@@ -261,7 +290,7 @@ fn convert_to_exec_expression_with_resolver(
                 None,
                 func_return_types.to_vec(),
             )?;
-            Ok(Box::new(ExecExpression::If(
+            Ok(make_located_exec(ExecExpression::If(
                 exec_cond,
                 Block {
                     scope: s1.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
@@ -271,7 +300,7 @@ fn convert_to_exec_expression_with_resolver(
                     scope: s2.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
                     statements: es2,
                 },
-            )))
+            ), loc))
         }
         Expression::While(expr, stat) => {
             let exec_cond = convert_to_exec_expression_with_resolver(expr, parent_resolver, func_return_types)?;
@@ -287,13 +316,13 @@ fn convert_to_exec_expression_with_resolver(
                 None,
                 func_return_types.to_vec(),
             )?;
-            Ok(Box::new(ExecExpression::While(
+            Ok(make_located_exec(ExecExpression::While(
                 exec_cond,
                 Block {
                     scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
                     statements: es,
                 },
-            )))
+            ), loc))
         }
         Expression::Block(statements) => {
             let (s, es) = analyze_internal_with_parent(
@@ -306,10 +335,10 @@ fn convert_to_exec_expression_with_resolver(
                 None,
                 func_return_types.to_vec(),
             )?;
-            Ok(Box::new(ExecExpression::Block(Block {
+            Ok(make_located_exec(ExecExpression::Block(Block {
                 scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
                 statements: es,
-            })))
+            }), loc))
         }
         Expression::Function(f, a) => {
             // Phase 5: 組み込み関数とユーザー定義関数を区別
@@ -356,7 +385,7 @@ fn convert_to_exec_expression_with_resolver(
                     types::BuiltinFunctionKind::Free => 1,
                 };
                 if args.len() != expected {
-                    return Err(vec![code_parse_error!(format!(
+                    return Err(vec![code_parse_error!(loc.start, format!(
                         "builtin function '{}' expects {} argument(s), but {} were provided",
                         f,
                         expected,
@@ -364,19 +393,19 @@ fn convert_to_exec_expression_with_resolver(
                     ))]);
                 }
                 // 組み込み関数
-                Ok(Box::new(ExecExpression::BuiltinFunction(kind, args)))
+                Ok(make_located_exec(ExecExpression::BuiltinFunction(kind, args), loc))
             } else {
                 // ユーザー定義関数：resolve する
                 let func_ref = parent_resolver
                     .resolve_function(f)
-                    .ok_or_else(|| vec![code_parse_error!(format!("undefined function: {}", f))])?;
+                    .ok_or_else(|| vec![code_parse_error!(loc.start, format!("undefined function: {}", f))])?;
 
                 // 引数数チェック
                 let expected_count = parent_resolver
                     .get_function_arg_count(f)
                     .expect("function should be resolvable");
                 if args.len() != expected_count {
-                    return Err(vec![code_parse_error!(format!(
+                    return Err(vec![code_parse_error!(loc.start, format!(
                         "function '{}' expects {} argument(s), but {} were provided",
                         f,
                         expected_count,
@@ -384,35 +413,35 @@ fn convert_to_exec_expression_with_resolver(
                     ))]);
                 }
 
-                Ok(Box::new(ExecExpression::UserFunction(func_ref, args)))
+                Ok(make_located_exec(ExecExpression::UserFunction(func_ref, args), loc))
             }
         }
-        Expression::Factor(v) => Ok(Box::new(ExecExpression::Factor(v.to_owned()))),
+        Expression::Factor(v) => Ok(make_located_exec(ExecExpression::Factor(v.to_owned()), loc)),
         Expression::Variable(v) => {
             // 変数名を解決
             let var_ref = parent_resolver
                 .resolve_variable(v)
-                .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", v))])?;
-            Ok(Box::new(ExecExpression::Variable(var_ref)))
+                .ok_or_else(|| vec![code_parse_error!(loc.start, format!("undefined variable: {}", v))])?;
+            Ok(make_located_exec(ExecExpression::Variable(var_ref), loc))
         }
         Expression::ArrayAccess(name, index_expr) => {
             let id_ref = parent_resolver
                 .resolve_variable(name)
-                .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", name))])?;
+                .ok_or_else(|| vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))])?;
 
             // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
             let array_size = parent_resolver
                 .get_array_size(name)
-                .ok_or_else(|| vec![code_parse_error!(format!("undefined variable: {}", name))])?
+                .ok_or_else(|| vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))])?
                 .unwrap_or(1);
 
             let exec_index = convert_to_exec_expression_with_resolver(index_expr, parent_resolver, func_return_types)?;
             // 配列インデックスに void 型は使用不可
             require_int_type(&exec_index, func_return_types)?;
 
-            Ok(Box::new(ExecExpression::ArrayAccess(
+            Ok(make_located_exec(ExecExpression::ArrayAccess(
                 id_ref, exec_index, array_size,
-            )))
+            ), loc))
         }
         // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
         Expression::Invalid(_) => {

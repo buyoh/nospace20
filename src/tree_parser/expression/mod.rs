@@ -44,21 +44,28 @@ pub enum Operator1 {
     Deref, // *
 }
 
+/// 位置情報付きの Expression
+#[derive(Clone, Debug)]
+pub struct LocatedExpression {
+    pub expression: Expression,
+    pub location: SourceLocation,
+}
+
 #[derive(Clone, Debug)]
 pub enum Expression {
-    Operation1(Operator1, Box<Expression>),
-    Operation2(Operator2, Box<Expression>, Box<Expression>),
+    Operation1(Operator1, Box<LocatedExpression>),
+    Operation2(Operator2, Box<LocatedExpression>, Box<LocatedExpression>),
     If(
-        Box<Expression>,
+        Box<LocatedExpression>,
         Vec<LocatedStatement>,
         Vec<LocatedStatement>,
     ),
-    While(Box<Expression>, Vec<LocatedStatement>),
-    Block(Vec<LocatedStatement>),           // ブロックスコープ式
-    Function(String, Vec<Box<Expression>>), // 関数呼び出し
+    While(Box<LocatedExpression>, Vec<LocatedStatement>),
+    Block(Vec<LocatedStatement>),                    // ブロックスコープ式
+    Function(String, Vec<Box<LocatedExpression>>),   // 関数呼び出し
     Factor(i64),
     Variable(String),
-    ArrayAccess(String, Box<Expression>), // 配列アクセス: arr[expr]
+    ArrayAccess(String, Box<LocatedExpression>), // 配列アクセス: arr[expr]
     Invalid(usize), // NOTE: CodeParseError に関連する情報を入れる。今は CodeParseError の
                     // インデックスを利用。 本来は ExpressionBuilder 単位ではなく、全体で独立した
                     // インデックスを利用するべき。
@@ -75,7 +82,7 @@ struct ExpressionBuilder<'b: 'a, 'a> {
 impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     fn parse(
         iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
-    ) -> (Box<Expression>, Vec<CodeParseError>) {
+    ) -> (Box<LocatedExpression>, Vec<CodeParseError>) {
         let mut b = Self {
             iter,
             code_parse_error: vec![],
@@ -100,12 +107,33 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         i
     }
 
-    fn parse_to_expression_tree_function(&mut self, name: &String) -> Box<Expression> {
+    /// 現在のピーク位置を返す。トークンがなければ 0 を返す。
+    fn current_pos(&mut self) -> usize {
+        self.iter
+            .peek()
+            .map(|(_, info)| info.code_pointer)
+            .unwrap_or(0)
+    }
+
+    /// Expression を LocatedExpression に包む
+    fn located(&self, expr: Expression, start: usize, end: usize) -> Box<LocatedExpression> {
+        Box::new(LocatedExpression {
+            expression: expr,
+            location: SourceLocation::new(start, end),
+        })
+    }
+
+    fn parse_to_expression_tree_function_located(
+        &mut self,
+        name: &String,
+        start: usize,
+    ) -> Box<LocatedExpression> {
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::ParenthesisL) {
-            return Box::new(Expression::Invalid(e));
+            let end = self.current_pos();
+            return self.located(Expression::Invalid(e), start, end);
         }
 
-        let mut args = Vec::<Box<Expression>>::new();
+        let mut args = Vec::<Box<LocatedExpression>>::new();
         enum State {
             L,
             Eval,
@@ -120,7 +148,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                         self.add_parse_error(token_info, "unexpected comma");
                     }
                     self.iter.next();
-                    return Box::new(Expression::Function(name.clone(), args));
+                    let end = self.current_pos();
+                    return self.located(Expression::Function(name.clone(), args), start, end);
                 }
                 Some((Token::Comma, token_info)) => {
                     if let State::Eval = state {
@@ -141,34 +170,40 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                     state = State::Eval;
                 }
                 None => {
-                    return Box::new(Expression::Invalid(
-                        self.add_end_error("unexpected end of input"),
-                    ))
+                    let e = self.add_end_error("unexpected end of input");
+                    let end = self.current_pos();
+                    return self.located(Expression::Invalid(e), start, end);
                 }
             }
         }
     }
 
-    fn parse_to_expression_tree_factor(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_factor(&mut self) -> Box<LocatedExpression> {
+        let start = self.current_pos();
         match self.iter.peek() {
             Some((Token::Number(val), _)) => {
+                let val = *val;
                 self.iter.next();
-                return Box::new(Expression::Factor(*val));
+                let end = self.current_pos();
+                self.located(Expression::Factor(val), start, end)
             }
             Some((Token::Identifier(id), _)) => {
                 // TODO: confirm whether the identifier is reserved e.g. func
+                let id = id.clone();
                 self.iter.next();
                 if let Some((Token::ParenthesisL, _)) = self.iter.peek() {
-                    return self.parse_to_expression_tree_function(id);
+                    return self.parse_to_expression_tree_function_located(&id, start);
                 }
                 // 配列アクセス: arr[expr]
                 if let Some((Token::BracketL, _)) = self.iter.peek() {
                     self.iter.next(); // '[' を消費
                     let index_expr = self.parse_to_expression_tree_root();
                     match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
-                    return Box::new(Expression::ArrayAccess(id.clone(), index_expr));
+                    let end = self.current_pos();
+                    return self.located(Expression::ArrayAccess(id, index_expr), start, end);
                 }
-                return Box::new(Expression::Variable(id.clone()));
+                let end = self.current_pos();
+                self.located(Expression::Variable(id), start, end)
             }
             Some((Token::ParenthesisL, _)) => {
                 self.iter.next();
@@ -177,32 +212,34 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 if let Err(_) = match_expect_token!(self, self.iter.next(), Token::ParenthesisR) {
                     // weak syntax error and proceed parsing
                 }
-                return e;
+                // 括弧式はその中身の位置をそのまま引き継ぐ
+                e
             }
             // if/while/block を factor レベルで解析
             Some((Token::Keyword(Keyword::If), _)) => {
-                return self.parse_to_expression_tree_if_impl();
+                self.parse_to_expression_tree_if_impl()
             }
             Some((Token::Keyword(Keyword::While), _)) => {
-                return self.parse_to_expression_tree_while_impl();
+                self.parse_to_expression_tree_while_impl()
             }
             Some((Token::BraceL, _)) => {
-                return self.parse_to_expression_tree_block_impl();
+                self.parse_to_expression_tree_block_impl()
             }
             Some((_, token_info)) => {
-                return Box::new(Expression::Invalid(
-                    self.add_parse_error(token_info, "unexpected token"),
-                ));
+                let e = self.add_parse_error(token_info, "unexpected token");
+                let end = self.current_pos();
+                self.located(Expression::Invalid(e), start, end)
             }
             _ => {
-                return Box::new(Expression::Invalid(
-                    self.add_end_error("unexpected end of input"),
-                ));
+                let e = self.add_end_error("unexpected end of input");
+                let end = self.current_pos();
+                self.located(Expression::Invalid(e), start, end)
             }
         }
     }
 
-    fn parse_to_expression_tree_unary(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_unary(&mut self) -> Box<LocatedExpression> {
+        let start = self.current_pos();
         let mut op_stack = vec![];
         loop {
             // `----` のような単行演算子が連続するものも許容する
@@ -222,12 +259,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         }
         let mut left = self.parse_to_expression_tree_factor();
         while let Some(op) = op_stack.pop() {
-            left = Box::new(Expression::Operation1(op, left))
+            let end = left.location.end;
+            left = self.located(Expression::Operation1(op, left), start, end);
         }
         left
     }
 
-    fn parse_to_expression_tree_mul(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_mul(&mut self) -> Box<LocatedExpression> {
         let mut left = self.parse_to_expression_tree_unary();
         loop {
             let op = if let Some(token) = self.iter.peek() {
@@ -242,11 +280,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             };
             self.iter.next();
             let right = self.parse_to_expression_tree_unary();
-            left = Box::new(Expression::Operation2(op, left, right))
+            let start = left.location.start;
+            let end = right.location.end;
+            left = self.located(Expression::Operation2(op, left, right), start, end);
         }
     }
 
-    fn parse_to_expression_tree_plus(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_plus(&mut self) -> Box<LocatedExpression> {
         let mut left = self.parse_to_expression_tree_mul();
         loop {
             let op = if let Some(token) = self.iter.peek() {
@@ -260,11 +300,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             };
             self.iter.next();
             let right = self.parse_to_expression_tree_mul();
-            left = Box::new(Expression::Operation2(op, left, right));
+            let start = left.location.start;
+            let end = right.location.end;
+            left = self.located(Expression::Operation2(op, left, right), start, end);
         }
     }
 
-    fn parse_to_expression_tree_compare(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_compare(&mut self) -> Box<LocatedExpression> {
         let mut left = self.parse_to_expression_tree_plus();
         loop {
             let op = if let Some(token) = self.iter.peek() {
@@ -282,11 +324,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             };
             self.iter.next();
             let right = self.parse_to_expression_tree_plus();
-            left = Box::new(Expression::Operation2(op, left, right));
+            let start = left.location.start;
+            let end = right.location.end;
+            left = self.located(Expression::Operation2(op, left, right), start, end);
         }
     }
 
-    fn parse_to_expression_tree_logical_and(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_logical_and(&mut self) -> Box<LocatedExpression> {
         let mut left = self.parse_to_expression_tree_compare();
         loop {
             let op = if let Some(token) = self.iter.peek() {
@@ -299,11 +343,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             };
             self.iter.next();
             let right = self.parse_to_expression_tree_compare();
-            left = Box::new(Expression::Operation2(op, left, right));
+            let start = left.location.start;
+            let end = right.location.end;
+            left = self.located(Expression::Operation2(op, left, right), start, end);
         }
     }
 
-    fn parse_to_expression_tree_logical_or(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_logical_or(&mut self) -> Box<LocatedExpression> {
         let mut left = self.parse_to_expression_tree_logical_and();
         loop {
             let op = if let Some(token) = self.iter.peek() {
@@ -316,11 +362,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             };
             self.iter.next();
             let right = self.parse_to_expression_tree_logical_and();
-            left = Box::new(Expression::Operation2(op, left, right));
+            let start = left.location.start;
+            let end = right.location.end;
+            left = self.located(Expression::Operation2(op, left, right), start, end);
         }
     }
 
-    fn parse_to_expression_tree_assign(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_assign(&mut self) -> Box<LocatedExpression> {
         let left = self.parse_to_expression_tree_logical_or();
         let op = if let Some(token) = self.iter.peek() {
             match token {
@@ -338,52 +386,63 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         self.iter.next();
         // 右辺で代入を再帰的に許可（右結合）
         let right = self.parse_to_expression_tree_assign();
-        Box::new(Expression::Operation2(op, left, right))
+        let start = left.location.start;
+        let end = right.location.end;
+        self.located(Expression::Operation2(op, left, right), start, end)
     }
 
     // while 式の実際の解析処理
-    fn parse_to_expression_tree_while_impl(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_while_impl(&mut self) -> Box<LocatedExpression> {
+        let start = self.current_pos();
         let token = self.iter.next(); // while キーワードを消費
         assert!(matches!(token, Some((Token::Keyword(Keyword::While), _))));
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
-            return Box::new(Expression::Invalid(e));
+            let end = self.current_pos();
+            return self.located(Expression::Invalid(e), start, end);
         }
         let cond = self.parse_to_expression_tree_root();
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::BraceL) {
-            return Box::new(Expression::Invalid(e));
+            let end = self.current_pos();
+            return self.located(Expression::Invalid(e), start, end);
         }
         let (stat, mut stat_err) = parse_to_statements(self.iter);
         if !stat_err.is_empty() {
             self.code_parse_error.append(&mut stat_err);
         }
         match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
-        Box::new(Expression::While(cond, stat))
+        let end = self.current_pos();
+        self.located(Expression::While(cond, stat), start, end)
     }
 
     // ブロックスコープ式の解析処理
-    fn parse_to_expression_tree_block_impl(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_block_impl(&mut self) -> Box<LocatedExpression> {
+        let start = self.current_pos();
         self.iter.next(); // '{' を消費
         let (stat, mut stat_err) = parse_to_statements(self.iter);
         if !stat_err.is_empty() {
             self.code_parse_error.append(&mut stat_err);
         }
         match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
-        Box::new(Expression::Block(stat))
+        let end = self.current_pos();
+        self.located(Expression::Block(stat), start, end)
     }
 
     // if 式の実際の解析処理
-    fn parse_to_expression_tree_if_impl(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_if_impl(&mut self) -> Box<LocatedExpression> {
+        let start = self.current_pos();
         let token = self.iter.next(); // if キーワードを消費
         assert!(matches!(token, Some((Token::Keyword(Keyword::If), _))));
 
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
-            return Box::new(Expression::Invalid(e));
+            let end = self.current_pos();
+            return self.located(Expression::Invalid(e), start, end);
         }
         let cond = self.parse_to_expression_tree_root();
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::BraceL) {
             // NOTE: statements ではなく expression が来ても許容、でいいかもね?
-            return Box::new(Expression::Invalid(e));
+            let end = self.current_pos();
+            return self.located(Expression::Invalid(e), start, end);
         }
 
         let (stats_true, mut stats_err) = parse_to_statements(self.iter);
@@ -428,10 +487,11 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 vec![]
             }
         };
-        Box::new(Expression::If(cond, stats_true, stats_false))
+        let end = self.current_pos();
+        self.located(Expression::If(cond, stats_true, stats_false), start, end)
     }
 
-    fn parse_to_expression_tree_root(&mut self) -> Box<Expression> {
+    fn parse_to_expression_tree_root(&mut self) -> Box<LocatedExpression> {
         // if/while は factor レベルで解析されるため、ここでは assign から開始
         self.parse_to_expression_tree_assign()
     }
@@ -439,7 +499,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
 
 pub(super) fn parse_to_expression_tree_root(
     iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
-) -> (Box<Expression>, Vec<CodeParseError>) {
+) -> (Box<LocatedExpression>, Vec<CodeParseError>) {
     ExpressionBuilder::parse(iter)
 }
 

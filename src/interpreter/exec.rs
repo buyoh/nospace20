@@ -1,5 +1,5 @@
 use crate::{
-    semantic_analyzer::{Block, ExecExpression, ExecStatement, Function, IdentifierRef, LocatedExecStatement, Scope},
+    semantic_analyzer::{Block, ExecExpression, ExecStatement, Function, IdentifierRef, LocatedExecExpression, LocatedExecStatement, Scope},
     tree_parser::{Operator1, Operator2},
 };
 
@@ -175,7 +175,7 @@ impl LocalEnvironment<'_, '_> {
     fn interpret_call_function(
         &mut self,
         kind: &crate::semantic_analyzer::BuiltinFunctionKind,
-        args: &Vec<Box<ExecExpression>>,
+        args: &Vec<Box<LocatedExecExpression>>,
     ) -> ExpressionFlow {
         use crate::semantic_analyzer::BuiltinFunctionKind;
 
@@ -244,7 +244,7 @@ impl LocalEnvironment<'_, '_> {
     fn interpret_call_user_function_by_ref(
         &mut self,
         func_ref: &IdentifierRef,
-        args: &Vec<Box<ExecExpression>>,
+        args: &Vec<Box<LocatedExecExpression>>,
     ) -> ExpressionFlow {
         let mut arg_values = Vec::new();
         arg_values.reserve(args.len());
@@ -312,7 +312,7 @@ impl LocalEnvironment<'_, '_> {
     }
 
     /// while 式は常に 0 を返す (spec §6.1)
-    fn interpret_while(&mut self, cond: &Box<ExecExpression>, block: &Block) -> ExpressionFlow {
+    fn interpret_while(&mut self, cond: &Box<LocatedExecExpression>, block: &Block) -> ExpressionFlow {
         loop {
             let cond = match self.interpret_expression(cond) {
                 ExpressionFlow::Value(e) => e,
@@ -353,7 +353,7 @@ impl LocalEnvironment<'_, '_> {
 
     fn interpret_if(
         &mut self,
-        cond: &Box<ExecExpression>,
+        cond: &Box<LocatedExecExpression>,
         then_block: &Block,
         else_block: &Block,
     ) -> ExpressionFlow {
@@ -383,11 +383,11 @@ impl LocalEnvironment<'_, '_> {
     fn interpret_operation1(
         &mut self,
         op: &Operator1,
-        expr1: &Box<ExecExpression>,
+        expr1: &Box<LocatedExecExpression>,
     ) -> ExpressionFlow {
         match op {
             Operator1::Ref => {
-                match expr1.as_ref() {
+                match &expr1.expression {
                     ExecExpression::Variable(id_ref) => {
                         let addr = self.resolve_address(id_ref);
                         ExpressionFlow::Value(addr)
@@ -424,12 +424,12 @@ impl LocalEnvironment<'_, '_> {
     fn interpret_operation2(
         &mut self,
         op: &Operator2,
-        expr1: &Box<ExecExpression>,
-        expr2: &Box<ExecExpression>,
+        expr1: &Box<LocatedExecExpression>,
+        expr2: &Box<LocatedExecExpression>,
     ) -> ExpressionFlow {
         // 代入演算子: 特別処理
         if let Operator2::Assign = op {
-            match expr1.as_ref() {
+            match &expr1.expression {
                 ExecExpression::Variable(id_ref) => {
                     let v = try_expr!(self.interpret_expression(expr2));
                     // Phase 2: IdentifierRef を使用して O(1) でアクセス
@@ -504,9 +504,9 @@ impl LocalEnvironment<'_, '_> {
     }
 
     // if while を式にした以上、式の中に文が含まれる可能性がある…
-    fn interpret_expression(&mut self, expr: &Box<ExecExpression>) -> ExpressionFlow {
+    fn interpret_expression(&mut self, located_expr: &Box<LocatedExecExpression>) -> ExpressionFlow {
         self.env.increment_expression_count();
-        match expr.as_ref() {
+        match &located_expr.expression {
             ExecExpression::Operation1(op, expr1) => self.interpret_operation1(op, expr1),
             ExecExpression::Operation2(op, expr1, expr2) => {
                 self.interpret_operation2(op, expr1, expr2)

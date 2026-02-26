@@ -93,7 +93,7 @@ fn token_bracket_r() -> PrettyToken {
 }
 
 // ヘルパー: パース実行
-fn parse_expr(tokens: Vec<PrettyToken>) -> (Box<Expression>, Vec<CodeParseError>) {
+fn parse_expr(tokens: Vec<PrettyToken>) -> (Box<LocatedExpression>, Vec<CodeParseError>) {
     parse_to_expression_tree_root(&mut tokens.iter().peekable())
 }
 
@@ -102,7 +102,7 @@ fn test_parse_literal_number() {
     let tokens = vec![token_number(42)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
+    match expr.expression {
         Expression::Factor(val) => assert_eq!(val, 42),
         _ => panic!("Expected Expression::Factor"),
     }
@@ -113,7 +113,7 @@ fn test_parse_variable() {
     let tokens = vec![token_ident("foo")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
+    match expr.expression {
         Expression::Variable(name) => assert_eq!(name, "foo"),
         _ => panic!("Expected Expression::Variable"),
     }
@@ -124,8 +124,8 @@ fn test_parse_add() {
     let tokens = vec![token_number(1), token_op_plus(), token_number(2)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Plus, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Plus, left, right) => match (left.expression, right.expression) {
             (Expression::Factor(1), Expression::Factor(2)) => (),
             _ => panic!("Expected Factor(1) + Factor(2)"),
         },
@@ -138,8 +138,8 @@ fn test_parse_subtract() {
     let tokens = vec![token_number(5), token_op_minus(), token_number(3)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Minus, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Minus, left, right) => match (left.expression, right.expression) {
             (Expression::Factor(5), Expression::Factor(3)) => (),
             _ => panic!("Expected Factor(5) - Factor(3)"),
         },
@@ -152,8 +152,8 @@ fn test_parse_multiply() {
     let tokens = vec![token_number(3), token_op_asterisk(), token_number(4)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Multiply, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Multiply, left, right) => match (left.expression, right.expression) {
             (Expression::Factor(3), Expression::Factor(4)) => (),
             _ => panic!("Expected Factor(3) * Factor(4)"),
         },
@@ -166,8 +166,8 @@ fn test_parse_divide() {
     let tokens = vec![token_number(10), token_op_slash(), token_number(2)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Divide, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Divide, left, right) => match (left.expression, right.expression) {
             (Expression::Factor(10), Expression::Factor(2)) => (),
             _ => panic!("Expected Factor(10) / Factor(2)"),
         },
@@ -180,8 +180,8 @@ fn test_parse_modulo() {
     let tokens = vec![token_number(10), token_op_percent(), token_number(3)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Modulo, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Modulo, left, right) => match (left.expression, right.expression) {
             (Expression::Factor(10), Expression::Factor(3)) => (),
             _ => panic!("Expected Factor(10) % Factor(3)"),
         },
@@ -201,10 +201,10 @@ fn test_parse_precedence_mul_before_add() {
     ];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Plus, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Plus, left, right) => match (left.expression, right.expression) {
             (Expression::Factor(1), Expression::Operation2(Operator2::Multiply, l2, r2)) => {
-                match (*l2, *r2) {
+                match (l2.expression, r2.expression) {
                     (Expression::Factor(2), Expression::Factor(3)) => (),
                     _ => panic!("Expected Factor(2) * Factor(3)"),
                 }
@@ -229,10 +229,10 @@ fn test_parse_parenthesis() {
     ];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Multiply, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Multiply, left, right) => match (left.expression, right.expression) {
             (Expression::Operation2(Operator2::Plus, l2, r2), Expression::Factor(3)) => {
-                match (*l2, *r2) {
+                match (l2.expression, r2.expression) {
                     (Expression::Factor(1), Expression::Factor(2)) => (),
                     _ => panic!("Expected Factor(1) + Factor(2)"),
                 }
@@ -249,7 +249,7 @@ fn test_parse_function_call_no_args() {
     let tokens = vec![token_ident("foo"), token_paren_l(), token_paren_r()];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
+    match expr.expression {
         Expression::Function(name, args) => {
             assert_eq!(name, "foo");
             assert_eq!(args.len(), 0);
@@ -269,11 +269,11 @@ fn test_parse_function_call_one_arg() {
     ];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
+    match expr.expression {
         Expression::Function(name, args) => {
             assert_eq!(name, "foo");
             assert_eq!(args.len(), 1);
-            match *args[0] {
+            match args[0].expression {
                 Expression::Factor(42) => (),
                 _ => panic!("Expected Factor(42)"),
             }
@@ -295,11 +295,11 @@ fn test_parse_function_call_multi_args() {
     ];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
+    match expr.expression {
         Expression::Function(name, args) => {
             assert_eq!(name, "foo");
             assert_eq!(args.len(), 2);
-            match (*args[0].clone(), *args[1].clone()) {
+            match (args[0].expression.clone(), args[1].expression.clone()) {
                 (Expression::Factor(1), Expression::Factor(2)) => (),
                 _ => panic!("Expected Factor(1), Factor(2)"),
             }
@@ -314,8 +314,8 @@ fn test_parse_unary_minus() {
     let tokens = vec![token_op_minus(), token_number(1)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation1(Operator1::Negative, inner) => match *inner {
+    match expr.expression {
+        Expression::Operation1(Operator1::Negative, inner) => match inner.expression {
             Expression::Factor(1) => (),
             _ => panic!("Expected Factor(1)"),
         },
@@ -329,8 +329,8 @@ fn test_parse_unary_logical_not() {
     let tokens = vec![token_op_exclamation(), token_number(1)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation1(Operator1::LogicalNot, inner) => match *inner {
+    match expr.expression {
+        Expression::Operation1(Operator1::LogicalNot, inner) => match inner.expression {
             Expression::Factor(1) => (),
             _ => panic!("Expected Factor(1)"),
         },
@@ -344,8 +344,8 @@ fn test_parse_comparison_equal() {
     let tokens = vec![token_ident("a"), token_op_double_equal(), token_ident("b")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Equal, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Equal, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Variable(b)) => {
                 assert_eq!(a, "a");
                 assert_eq!(b, "b");
@@ -362,8 +362,8 @@ fn test_parse_comparison_not_equal() {
     let tokens = vec![token_ident("a"), token_op_not_equal(), token_ident("b")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::NotEqual, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::NotEqual, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Variable(b)) => {
                 assert_eq!(a, "a");
                 assert_eq!(b, "b");
@@ -380,8 +380,8 @@ fn test_parse_comparison_less() {
     let tokens = vec![token_ident("a"), token_op_less(), token_ident("b")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Less, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Less, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Variable(b)) => {
                 assert_eq!(a, "a");
                 assert_eq!(b, "b");
@@ -398,8 +398,8 @@ fn test_parse_comparison_less_equal() {
     let tokens = vec![token_ident("a"), token_op_less_equal(), token_ident("b")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::LessEqual, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::LessEqual, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Variable(b)) => {
                 assert_eq!(a, "a");
                 assert_eq!(b, "b");
@@ -416,8 +416,8 @@ fn test_parse_comparison_greater() {
     let tokens = vec![token_ident("a"), token_op_greater(), token_ident("b")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Greater, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Greater, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Variable(b)) => {
                 assert_eq!(a, "a");
                 assert_eq!(b, "b");
@@ -434,8 +434,8 @@ fn test_parse_comparison_greater_equal() {
     let tokens = vec![token_ident("a"), token_op_greater_equal(), token_ident("b")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::GreaterEqual, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::GreaterEqual, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Variable(b)) => {
                 assert_eq!(a, "a");
                 assert_eq!(b, "b");
@@ -452,8 +452,8 @@ fn test_parse_logical_and() {
     let tokens = vec![token_ident("a"), token_op_logical_and(), token_ident("b")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::LogicalAnd, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::LogicalAnd, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Variable(b)) => {
                 assert_eq!(a, "a");
                 assert_eq!(b, "b");
@@ -470,8 +470,8 @@ fn test_parse_logical_or() {
     let tokens = vec![token_ident("a"), token_op_logical_or(), token_ident("b")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::LogicalOr, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::LogicalOr, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Variable(b)) => {
                 assert_eq!(a, "a");
                 assert_eq!(b, "b");
@@ -488,8 +488,8 @@ fn test_parse_assignment() {
     let tokens = vec![token_ident("a"), token_op_single_equal(), token_number(10)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation2(Operator2::Assign, left, right) => match (*left, *right) {
+    match expr.expression {
+        Expression::Operation2(Operator2::Assign, left, right) => match (left.expression, right.expression) {
             (Expression::Variable(a), Expression::Factor(10)) => {
                 assert_eq!(a, "a");
             }
@@ -511,7 +511,7 @@ fn test_parse_error_unclosed_paren() {
     let (expr, errs) = parse_expr(tokens);
     assert!(!errs.is_empty(), "Expected errors for unclosed paren");
     // エラーが発生することを確認
-    match *expr {
+    match expr.expression {
         Expression::Operation2(Operator2::Plus, _, _) => (), // パースは進むがエラーも記録される
         _ => {}
     }
@@ -523,9 +523,9 @@ fn test_parse_double_unary_minus() {
     let tokens = vec![token_op_minus(), token_op_minus(), token_number(5)];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation1(Operator1::Negative, inner1) => match *inner1 {
-            Expression::Operation1(Operator1::Negative, inner2) => match *inner2 {
+    match expr.expression {
+        Expression::Operation1(Operator1::Negative, inner1) => match inner1.expression {
+            Expression::Operation1(Operator1::Negative, inner2) => match inner2.expression {
                 Expression::Factor(5) => (),
                 _ => panic!("Expected Factor(5)"),
             },
@@ -554,7 +554,7 @@ fn test_parse_complex_precedence() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     // 複雑な優先順位が正しく処理されることを確認
-    match *expr {
+    match expr.expression {
         Expression::Operation2(Operator2::LogicalAnd, _, _) => (),
         _ => panic!("Expected top-level LogicalAnd"),
     }
@@ -570,8 +570,8 @@ fn test_parse_reference_operator() {
     let tokens = vec![token_op_ampersand(), token_ident("x")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation1(Operator1::Ref, inner) => match *inner {
+    match expr.expression {
+        Expression::Operation1(Operator1::Ref, inner) => match inner.expression {
             Expression::Variable(_) => (),
             _ => panic!("Expected inner expression to be Variable"),
         },
@@ -585,8 +585,8 @@ fn test_parse_dereference_operator() {
     let tokens = vec![token_op_asterisk(), token_ident("p")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation1(Operator1::Deref, inner) => match *inner {
+    match expr.expression {
+        Expression::Operation1(Operator1::Deref, inner) => match inner.expression {
             Expression::Variable(_) => (),
             _ => panic!("Expected inner expression to be Variable"),
         },
@@ -600,9 +600,9 @@ fn test_parse_double_dereference() {
     let tokens = vec![token_op_asterisk(), token_op_asterisk(), token_ident("p")];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
-        Expression::Operation1(Operator1::Deref, inner) => match *inner {
-            Expression::Operation1(Operator1::Deref, inner2) => match *inner2 {
+    match expr.expression {
+        Expression::Operation1(Operator1::Deref, inner) => match inner.expression {
+            Expression::Operation1(Operator1::Deref, inner2) => match inner2.expression {
                 Expression::Variable(_) => (),
                 _ => panic!("Expected innermost expression to be Variable"),
             },
@@ -623,13 +623,13 @@ fn test_parse_multiply_and_dereference() {
     ];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
-    match *expr {
+    match expr.expression {
         Expression::Operation2(Operator2::Multiply, left, right) => {
-            match *left {
+            match left.expression {
                 Expression::Variable(_) => (),
                 _ => panic!("Expected left to be Variable"),
             }
-            match *right {
+            match right.expression {
                 Expression::Operation1(Operator1::Deref, _) => (),
                 _ => panic!("Expected right to be Deref"),
             }
@@ -649,10 +649,10 @@ fn test_parse_array_access_literal_index() {
     ];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
-    match *expr {
+    match expr.expression {
         Expression::ArrayAccess(name, index) => {
             assert_eq!(name, "arr");
-            match *index {
+            match index.expression {
                 Expression::Factor(0) => (),
                 _ => panic!("Expected Factor(0) as index"),
             }
@@ -674,11 +674,11 @@ fn test_parse_array_access_expr_index() {
     ];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
-    match *expr {
+    match expr.expression {
         Expression::ArrayAccess(name, index) => {
             assert_eq!(name, "arr");
-            match *index {
-                Expression::Operation2(Operator2::Plus, left, right) => match (*left, *right) {
+            match index.expression {
+                Expression::Operation2(Operator2::Plus, left, right) => match (left.expression, right.expression) {
                     (Expression::Variable(v), Expression::Factor(1)) => {
                         assert_eq!(v, "i");
                     }
@@ -704,19 +704,19 @@ fn test_parse_array_assign() {
     ];
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
-    match *expr {
+    match expr.expression {
         Expression::Operation2(Operator2::Assign, left, right) => {
-            match *left {
+            match left.expression {
                 Expression::ArrayAccess(name, index) => {
                     assert_eq!(name, "arr");
-                    match *index {
+                    match index.expression {
                         Expression::Factor(0) => (),
                         _ => panic!("Expected Factor(0)"),
                     }
                 }
                 _ => panic!("Expected ArrayAccess on left side"),
             }
-            match *right {
+            match right.expression {
                 Expression::Factor(5) => (),
                 _ => panic!("Expected Factor(5) on right side"),
             }

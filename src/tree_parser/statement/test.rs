@@ -104,7 +104,7 @@ fn test_parse_let_statement() {
             assert_eq!(name, "x");
             assert_eq!(*is_static, false); // non-static
             assert_eq!(*array_size, None); // not an array
-            match **expr {
+            match expr.expression {
                 Expression::Factor(0) => (), // デフォルト値は0
                 _ => panic!("Expected Factor(0)"),
             }
@@ -152,7 +152,7 @@ fn test_parse_return_statement() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::Return(Some(expr)) => match **expr {
+        Statement::Return(Some(expr)) => match expr.expression {
             Expression::Factor(42) => (),
             _ => panic!("Expected Factor(42)"),
         },
@@ -206,7 +206,7 @@ fn test_parse_expression_statement() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::Expression(expr) => match **expr {
+        Statement::Expression(expr) => match expr.expression {
             Expression::Operation2(Operator2::Assign, _, _) => (),
             _ => panic!("Expected Operation2(Assign)"),
         },
@@ -380,7 +380,7 @@ fn test_parse_array_declaration() {
             assert_eq!(name, "arr");
             assert_eq!(*is_static, false);
             assert_eq!(*array_size, Some(4));
-            match **expr {
+            match expr.expression {
                 Expression::Factor(0) => (), // デフォルト初期化
                 _ => panic!("Expected Factor(0)"),
             }
@@ -435,12 +435,12 @@ fn test_parse_array_declaration_with_init() {
     // 2-4つ目: 各要素への代入 arr[0]=10, arr[1]=20, arr[2]=30
     for (i, expected_val) in [10, 20, 30].iter().enumerate() {
         match &stmts[i + 1].statement {
-            Statement::Expression(expr) => match &**expr {
+            Statement::Expression(expr) => match &expr.expression {
                 Expression::Operation2(Operator2::Assign, left, right) => {
-                    match &**left {
+                    match &left.expression {
                         Expression::ArrayAccess(name, index) => {
                             assert_eq!(name, "arr");
-                            match &**index {
+                            match &index.expression {
                                 Expression::Factor(idx) => {
                                     assert_eq!(*idx, i as i64);
                                 }
@@ -449,7 +449,7 @@ fn test_parse_array_declaration_with_init() {
                         }
                         _ => panic!("Expected ArrayAccess on left side"),
                     }
-                    match &**right {
+                    match &right.expression {
                         Expression::Factor(val) => {
                             assert_eq!(*val, *expected_val);
                         }
@@ -521,19 +521,19 @@ fn test_parse_array_declaration_size_omitted_with_init() {
     // 2-4つ目: 各要素への代入
     for (i, expected_val) in [1i64, 2, 3].iter().enumerate() {
         match &stmts[i + 1].statement {
-            Statement::Expression(expr) => match &**expr {
+            Statement::Expression(expr) => match &expr.expression {
                 Expression::Operation2(Operator2::Assign, left, right) => {
-                    match &**left {
+                    match &left.expression {
                         Expression::ArrayAccess(name, index) => {
                             assert_eq!(name, "arr");
-                            match &**index {
+                            match &index.expression {
                                 Expression::Factor(idx) => assert_eq!(*idx, i as i64),
                                 _ => panic!("Expected Factor as index"),
                             }
                         }
                         _ => panic!("Expected ArrayAccess on left side"),
                     }
-                    match &**right {
+                    match &right.expression {
                         Expression::Factor(val) => assert_eq!(*val, *expected_val),
                         _ => panic!("Expected Factor on right side"),
                     }

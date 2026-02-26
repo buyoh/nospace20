@@ -158,7 +158,7 @@ pub fn generate_statement(
 /// return 文のコード生成
 fn generate_return(
     ctx: &mut CodeGenContext,
-    expr: &crate::semantic_analyzer::ExecExpression,
+    expr: &crate::semantic_analyzer::LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
@@ -270,16 +270,16 @@ fn count_nested_vars_in_statements(stmts: &[LocatedExecStatement]) -> usize {
 
 fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {
     match stmt {
-        ExecStatement::Expression(expr) | ExecStatement::Return(Some(expr)) => {
-            count_nested_vars_in_expression(expr)
+        ExecStatement::Expression(located_expr) | ExecStatement::Return(Some(located_expr)) => {
+            count_nested_vars_in_expression(located_expr)
         }
         ExecStatement::Return(None) | ExecStatement::Break | ExecStatement::Continue => 0,
     }
 }
 
-fn count_nested_vars_in_expression(expr: &crate::semantic_analyzer::ExecExpression) -> usize {
+fn count_nested_vars_in_expression(located_expr: &crate::semantic_analyzer::LocatedExecExpression) -> usize {
     use crate::semantic_analyzer::ExecExpression;
-    match expr {
+    match &located_expr.expression {
         ExecExpression::If(cond, then_block, else_block) => {
             count_nested_vars_in_expression(cond)
                 + calculate_total_variable_count(then_block)

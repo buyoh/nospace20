@@ -12,12 +12,12 @@ use super::expression::*;
 
 #[derive(Clone, Debug)]
 pub enum Statement {
-    VariableDeclaration(String, Box<Expression>, bool, Option<i64>), // (name, init_expr, is_static, array_size)
+    VariableDeclaration(String, Box<LocatedExpression>, bool, Option<i64>), // (name, init_expr, is_static, array_size)
     FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),
     Continue,
     Break,
-    Return(Option<Box<Expression>>),
-    Expression(Box<Expression>),
+    Return(Option<Box<LocatedExpression>>),
+    Expression(Box<LocatedExpression>),
     Invalid(usize), // See, Expression::Invalid
 }
 
@@ -212,47 +212,75 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         };
 
         let end_pos = self.current_pos_or(start_pos);
+        let loc = SourceLocation::new(start_pos, end_pos);
 
         // 配列宣言を追加
         results.push(LocatedStatement {
             statement: Statement::VariableDeclaration(
                 id.to_string(),
-                Box::new(Expression::Factor(0)),
+                Box::new(LocatedExpression {
+                    expression: Expression::Factor(0),
+                    location: loc.clone(),
+                }),
                 is_static,
                 Some(actual_size),
             ),
-            location: SourceLocation::new(start_pos, end_pos),
+            location: loc.clone(),
         });
 
         // 各文字を配列要素に代入
         let null_idx = chars.len();
         for (i, char_val) in chars.into_iter().enumerate() {
-            let assign_expr = Box::new(Expression::Operation2(
-                Operator2::Assign,
-                Box::new(Expression::ArrayAccess(
-                    id.to_string(),
-                    Box::new(Expression::Factor(i as i64)),
-                )),
-                Box::new(Expression::Factor(char_val)),
-            ));
+            let assign_expr = Box::new(LocatedExpression {
+                expression: Expression::Operation2(
+                    Operator2::Assign,
+                    Box::new(LocatedExpression {
+                        expression: Expression::ArrayAccess(
+                            id.to_string(),
+                            Box::new(LocatedExpression {
+                                expression: Expression::Factor(i as i64),
+                                location: loc.clone(),
+                            }),
+                        ),
+                        location: loc.clone(),
+                    }),
+                    Box::new(LocatedExpression {
+                        expression: Expression::Factor(char_val),
+                        location: loc.clone(),
+                    }),
+                ),
+                location: loc.clone(),
+            });
             results.push(LocatedStatement {
                 statement: Statement::Expression(assign_expr),
-                location: SourceLocation::new(start_pos, end_pos),
+                location: loc.clone(),
             });
         }
 
         // ヌル終端を追加
-        let assign_expr = Box::new(Expression::Operation2(
-            Operator2::Assign,
-            Box::new(Expression::ArrayAccess(
-                id.to_string(),
-                Box::new(Expression::Factor(null_idx as i64)),
-            )),
-            Box::new(Expression::Factor(0)),
-        ));
+        let assign_expr = Box::new(LocatedExpression {
+            expression: Expression::Operation2(
+                Operator2::Assign,
+                Box::new(LocatedExpression {
+                    expression: Expression::ArrayAccess(
+                        id.to_string(),
+                        Box::new(LocatedExpression {
+                            expression: Expression::Factor(null_idx as i64),
+                            location: loc.clone(),
+                        }),
+                    ),
+                    location: loc.clone(),
+                }),
+                Box::new(LocatedExpression {
+                    expression: Expression::Factor(0),
+                    location: loc.clone(),
+                }),
+            ),
+            location: loc.clone(),
+        });
         results.push(LocatedStatement {
             statement: Statement::Expression(assign_expr),
-            location: SourceLocation::new(start_pos, end_pos),
+            location: loc.clone(),
         });
 
         true
@@ -332,30 +360,44 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
         // 配列宣言を追加
         let end_pos = self.current_pos_or(start_pos);
+        let loc = SourceLocation::new(start_pos, end_pos);
 
         results.push(LocatedStatement {
             statement: Statement::VariableDeclaration(
                 id.to_string(),
-                Box::new(Expression::Factor(0)),
+                Box::new(LocatedExpression {
+                    expression: Expression::Factor(0),
+                    location: loc.clone(),
+                }),
                 is_static,
                 Some(actual_size),
             ),
-            location: SourceLocation::new(start_pos, end_pos),
+            location: loc.clone(),
         });
 
         // 各要素への代入文を生成: arr[0] = val0, arr[1] = val1, ...
         for (i, val_expr) in init_values.into_iter().enumerate() {
-            let assign_expr = Box::new(Expression::Operation2(
-                Operator2::Assign,
-                Box::new(Expression::ArrayAccess(
-                    id.to_string(),
-                    Box::new(Expression::Factor(i as i64)),
-                )),
-                val_expr,
-            ));
+            let val_loc = val_expr.location.clone();
+            let assign_expr = Box::new(LocatedExpression {
+                expression: Expression::Operation2(
+                    Operator2::Assign,
+                    Box::new(LocatedExpression {
+                        expression: Expression::ArrayAccess(
+                            id.to_string(),
+                            Box::new(LocatedExpression {
+                                expression: Expression::Factor(i as i64),
+                                location: loc.clone(),
+                            }),
+                        ),
+                        location: loc.clone(),
+                    }),
+                    val_expr,
+                ),
+                location: SourceLocation::new(loc.start, val_loc.end),
+            });
             results.push(LocatedStatement {
                 statement: Statement::Expression(assign_expr),
-                location: SourceLocation::new(start_pos, end_pos),
+                location: loc.clone(),
             });
         }
 
@@ -377,18 +419,26 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         // ")" を消費
         match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
 
-        // 代入式を構築: id = expr
-        let init_expr = Box::new(Expression::Operation2(
-            Operator2::Assign,
-            Box::new(Expression::Variable(id.to_string())),
-            expr,
-        ));
-
         let end_pos = self.current_pos_or(start_pos);
+        let loc = SourceLocation::new(start_pos, end_pos);
+
+        // 代入式を構築: id = expr
+        let expr_loc = expr.location.clone();
+        let init_expr = Box::new(LocatedExpression {
+            expression: Expression::Operation2(
+                Operator2::Assign,
+                Box::new(LocatedExpression {
+                    expression: Expression::Variable(id.to_string()),
+                    location: loc.clone(),
+                }),
+                expr,
+            ),
+            location: SourceLocation::new(start_pos, expr_loc.end),
+        });
 
         results.push(LocatedStatement {
             statement: Statement::VariableDeclaration(id.to_string(), init_expr, is_static, None),
-            location: SourceLocation::new(start_pos, end_pos),
+            location: loc,
         });
     }
 
@@ -493,15 +543,19 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
 
                 let end_pos = self.current_pos_or(start_pos);
+                let loc = SourceLocation::new(start_pos, end_pos);
 
                 results.push(LocatedStatement {
                     statement: Statement::VariableDeclaration(
                         id.clone(),
-                        Box::new(Expression::Factor(0)),
+                        Box::new(LocatedExpression {
+                            expression: Expression::Factor(0),
+                            location: loc.clone(),
+                        }),
                         is_static,
                         array_size,
                     ),
-                    location: SourceLocation::new(start_pos, end_pos),
+                    location: loc,
                 });
             }
 

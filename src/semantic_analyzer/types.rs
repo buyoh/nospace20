@@ -94,6 +94,12 @@ pub(crate) struct Variable {
     pub array_size: Option<usize>,
 }
 
+/// 位置情報付きの実行可能な式
+pub(crate) struct LocatedExecExpression {
+    pub expression: ExecExpression,
+    pub location: SourceLocation,
+}
+
 /// 実行可能な式を表す。
 ///
 /// `Expression` (構文解析結果) との違い:
@@ -102,23 +108,23 @@ pub(crate) struct Variable {
 ///   変数は IdentifierRef を使用することで、実行時の文字列検索を排除し、O(1) アクセスを実現。
 ///   関数も IdentifierRef を使用し、スコープ解決を行う（Phase 5 で実装）。
 pub(crate) enum ExecExpression {
-    Operation1(Operator1, Box<ExecExpression>),
-    Operation2(Operator2, Box<ExecExpression>, Box<ExecExpression>),
-    If(Box<ExecExpression>, Block, Block),
-    While(Box<ExecExpression>, Block),
+    Operation1(Operator1, Box<LocatedExecExpression>),
+    Operation2(Operator2, Box<LocatedExecExpression>, Box<LocatedExecExpression>),
+    If(Box<LocatedExecExpression>, Block, Block),
+    While(Box<LocatedExecExpression>, Block),
     Block(Block), // ブロックスコープ式
     /// 組み込み関数呼び出し
     /// Phase 6: 組み込み関数は BuiltinFunctionKind enum で識別
-    BuiltinFunction(BuiltinFunctionKind, Vec<Box<ExecExpression>>),
+    BuiltinFunction(BuiltinFunctionKind, Vec<Box<LocatedExecExpression>>),
     /// ユーザー定義関数呼び出し
     /// Phase 5 で追加：スコープ解決済みの関数参照を保持
-    UserFunction(IdentifierRef, Vec<Box<ExecExpression>>),
+    UserFunction(IdentifierRef, Vec<Box<LocatedExecExpression>>),
     Factor(i64),
     /// 変数参照
     Variable(IdentifierRef),
     /// 配列アクセス: (変数参照, インデックス式, 配列サイズ)
     /// 配列サイズは境界チェックに使用
-    ArrayAccess(IdentifierRef, Box<ExecExpression>, usize),
+    ArrayAccess(IdentifierRef, Box<LocatedExecExpression>, usize),
 }
 
 /// 実行可能な文を表す。
@@ -128,10 +134,10 @@ pub(crate) enum ExecExpression {
 /// - 宣言文 (VariableDeclaration, FunctionDeclaration) を持たない
 ///   (宣言は `Scope` 構造に変換される)
 pub(crate) enum ExecStatement {
-    Return(Option<Box<ExecExpression>>),
+    Return(Option<Box<LocatedExecExpression>>),
     Break,
     Continue,
-    Expression(Box<ExecExpression>),
+    Expression(Box<LocatedExecExpression>),
 }
 
 /// 位置情報を持つ実行可能な文
@@ -149,6 +155,15 @@ pub(crate) struct Block {
     pub statements: Vec<LocatedExecStatement>,
 }
 
+impl LocatedExecExpression {
+    /// 式の型を推論する
+    ///
+    /// `func_return_types` は全グローバル関数の戻り値型のスライス（インデックスが関数グローバルID）。
+    pub(crate) fn infer_type(&self, func_return_types: &[ValueType]) -> ValueType {
+        self.expression.infer_type(func_return_types)
+    }
+}
+
 impl ExecExpression {
     /// 式の型を推論する
     ///
@@ -161,7 +176,7 @@ impl ExecExpression {
             ExecExpression::Operation1(_, _) => ValueType::Int,
             ExecExpression::Operation2(Operator2::Assign, _, rhs) => {
                 // 代入式の型は右辺の型（型チェック済みなら常に Int）
-                rhs.infer_type(func_return_types)
+                rhs.expression.infer_type(func_return_types)
             }
             ExecExpression::Operation2(_, _, _) => ValueType::Int,
             ExecExpression::While(_, _) => ValueType::Void,
@@ -190,7 +205,7 @@ impl ExecExpression {
 pub(crate) fn infer_block_type(block: &Block, func_return_types: &[ValueType]) -> ValueType {
     match block.statements.last() {
         Some(located_stmt) => match &located_stmt.statement {
-            ExecStatement::Expression(expr) => expr.infer_type(func_return_types),
+            ExecStatement::Expression(located_expr) => located_expr.expression.infer_type(func_return_types),
             _ => ValueType::Void, // 空ブロック、または最後が return/break/continue
         },
         None => ValueType::Void,

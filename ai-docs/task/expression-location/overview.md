@@ -154,7 +154,7 @@ Phase 2 ではこれを `Box<LocatedExecExpression>` に変更する。
 
 ## 進捗
 
-- [ ] Step 1: tree_parser への LocatedExpression 導入
-- [ ] Step 2: semantic_analyzer への LocatedExecExpression 導入
-- [ ] Step 3: compiler_ws / interpreter の対応
-- [ ] Step 4: テスト修正・検証
+- [x] Step 1: tree_parser への LocatedExpression 導入
+- [x] Step 2: semantic_analyzer への LocatedExecExpression 導入
+- [x] Step 3: compiler_ws / interpreter の対応
+- [x] Step 4: テスト修正・検証

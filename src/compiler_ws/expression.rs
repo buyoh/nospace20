@@ -4,7 +4,7 @@ use crate::compiler_ws::{
     context::CodeGenContext, context::VarScope, instruction::Instruction, label::reserved_labels,
     memory::heap_layout, program::WsProgram, types::WsNumber, CompileError, CompileErrorKind,
 };
-use crate::semantic_analyzer::ExecExpression;
+use crate::semantic_analyzer::{ExecExpression, LocatedExecExpression};
 use crate::tree_parser::{Operator1, Operator2};
 
 /// コンパイルエラーを現在のコンテキスト位置情報付きで生成するヘルパー
@@ -22,8 +22,10 @@ fn make_error(ctx: &CodeGenContext, msg: String) -> CompileError {
 /// 評価結果はスタックトップに残る
 pub fn generate_expression(
     ctx: &mut CodeGenContext,
-    expr: &ExecExpression,
+    located_expr: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
+    ctx.set_location(&located_expr.location);
+    let expr = &located_expr.expression;
     match expr {
         // リテラル値
         ExecExpression::Factor(value) => {
@@ -124,7 +126,7 @@ fn generate_load_variable(
 fn generate_array_element_address(
     ctx: &mut CodeGenContext,
     var_ref: &crate::semantic_analyzer::IdentifierRef,
-    index_expr: &ExecExpression,
+    index_expr: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let var_info = ctx.get_var_info(var_ref);
     let mut prog = WsProgram::new();
@@ -156,7 +158,7 @@ fn generate_array_element_address(
 fn generate_array_access(
     ctx: &mut CodeGenContext,
     var_ref: &crate::semantic_analyzer::IdentifierRef,
-    index_expr: &ExecExpression,
+    index_expr: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = generate_array_element_address(ctx, var_ref, index_expr)?;
     prog.push(Instruction::Retrieve);
@@ -167,7 +169,7 @@ fn generate_array_access(
 fn generate_unary_op(
     ctx: &mut CodeGenContext,
     op: &Operator1,
-    inner: &ExecExpression,
+    inner: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
@@ -187,7 +189,7 @@ fn generate_unary_op(
         }
         Operator1::Ref => {
             // 変数または配列要素のアドレスを取得
-            match inner {
+            match &inner.expression {
                 ExecExpression::Variable(var_ref) => {
                     prog.append(generate_variable_address(ctx, var_ref)?);
                 }
@@ -217,8 +219,8 @@ fn generate_unary_op(
 fn generate_binary_op(
     ctx: &mut CodeGenContext,
     op: &Operator2,
-    left: &ExecExpression,
-    right: &ExecExpression,
+    left: &LocatedExecExpression,
+    right: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
@@ -318,7 +320,7 @@ fn generate_binary_op(
         // 代入
         Operator2::Assign => {
             // 左辺は変数参照、配列アクセス、またはデリファレンスである必要がある
-            match left {
+            match &left.expression {
                 ExecExpression::Variable(var_ref) => {
                     prog.append(generate_store_variable(ctx, var_ref, right)?);
                 }
@@ -364,7 +366,7 @@ fn generate_binary_op(
 fn generate_store_variable(
     ctx: &mut CodeGenContext,
     var_ref: &crate::semantic_analyzer::IdentifierRef,
-    value_expr: &ExecExpression,
+    value_expr: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let var_info = ctx.get_var_info(var_ref);
     let mut prog = WsProgram::new();
@@ -405,8 +407,8 @@ fn generate_store_variable(
 fn generate_store_array(
     ctx: &mut CodeGenContext,
     var_ref: &crate::semantic_analyzer::IdentifierRef,
-    index_expr: &ExecExpression,
-    value_expr: &ExecExpression,
+    index_expr: &LocatedExecExpression,
+    value_expr: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let var_info = ctx.get_var_info(var_ref);
     let mut prog = WsProgram::new();
@@ -456,7 +458,7 @@ fn generate_store_array(
 fn generate_function_call(
     ctx: &mut CodeGenContext,
     kind: &crate::semantic_analyzer::BuiltinFunctionKind,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     use crate::semantic_analyzer::BuiltinFunctionKind;
 
@@ -496,7 +498,7 @@ fn generate_function_call(
 /// __puti(x) - 整数を10進数で出力
 fn generate_builtin_puti(
     ctx: &mut CodeGenContext,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if args.len() != 1 {
         return Err(make_error(
@@ -518,7 +520,7 @@ fn generate_builtin_puti(
 /// __putc(x) - 文字を出力
 fn generate_builtin_putc(
     ctx: &mut CodeGenContext,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if args.len() != 1 {
         return Err(make_error(
@@ -540,7 +542,7 @@ fn generate_builtin_putc(
 /// __geti() - 整数を入力
 fn generate_builtin_geti(
     ctx: &mut CodeGenContext,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !args.is_empty() {
         return Err(make_error(
@@ -564,7 +566,7 @@ fn generate_builtin_geti(
 /// __getc() - 文字を入力
 fn generate_builtin_getc(
     ctx: &mut CodeGenContext,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !args.is_empty() {
         return Err(make_error(
@@ -590,7 +592,7 @@ fn generate_builtin_getc(
 /// 引数を評価して、最初の引数の値を返す（引数がない場合は 0 を返す）
 fn generate_builtin_debug_noop(
     ctx: &mut CodeGenContext,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
@@ -616,7 +618,7 @@ fn generate_builtin_debug_noop(
 /// 引数を評価し、その値を返しつつ、指定された負ヒープアドレスに Store する
 fn generate_builtin_debug_store(
     ctx: &mut CodeGenContext,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
     addr: i64,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
@@ -658,7 +660,7 @@ fn generate_builtin_debug_store(
 /// スタック出力: [ptr] (確保されたメモリの先頭アドレス)
 fn generate_builtin_alloc(
     ctx: &mut CodeGenContext,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !ctx.is_alloc_ext() {
         return Err(make_error(ctx, "__alloc requires --std-ext alloc".to_string()));
@@ -683,7 +685,7 @@ fn generate_builtin_alloc(
 /// スタック出力: [0] (式としての戻り値)
 fn generate_builtin_free(
     ctx: &mut CodeGenContext,
-    args: &[Box<ExecExpression>],
+    args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !ctx.is_alloc_ext() {
         return Err(make_error(ctx, "__free requires --std-ext alloc".to_string()));
@@ -708,7 +710,7 @@ fn generate_builtin_free(
 /// if 式
 fn generate_if_expression(
     ctx: &mut CodeGenContext,
-    cond: &ExecExpression,
+    cond: &LocatedExecExpression,
     then_block: &crate::semantic_analyzer::Block,
     else_block: &crate::semantic_analyzer::Block,
 ) -> Result<WsProgram, CompileError> {
@@ -740,7 +742,7 @@ fn generate_if_expression(
 /// while 式
 fn generate_while_expression(
     ctx: &mut CodeGenContext,
-    cond: &ExecExpression,
+    cond: &LocatedExecExpression,
     body: &crate::semantic_analyzer::Block,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
