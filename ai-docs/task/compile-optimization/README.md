@@ -24,7 +24,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 | [02-pass-condition-opt.md](../../done-task/compile-optimization/02-pass-condition-opt.md) | if/while 条件式最適化（JumpIfZero/JumpIfNegative の直接利用）✅ 実装完了 |
 | [03-pass-geti-opt.md](../../done-task/compile-optimization/03-pass-geti-opt.md) | `__geti` / `__getc` 入力最適化（一時領域経由の排除）✅ 実装完了 |
 | [04-pass-dead-code.md](../../done-task/compile-optimization/04-pass-dead-code.md) | 未使用関数・変数の削除 ✅ 実装完了 |
-| [05-pass-constant-folding.md](05-pass-constant-folding.md) | 定数畳み込み |
+| [05-pass-constant-folding.md](../../done-task/compile-optimization/05-pass-constant-folding.md) | 定数畳み込み ✅ 実装完了 |
 
 ## 最適化パス一覧と優先度
 
@@ -53,7 +53,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 3. **条件式最適化** — `ConditionMode::Zero` / `Negative` を使用 ✅ 完了
 4. **`__geti`/`__getc` 最適化** — `InternalBuiltinFunction` を使用 ✅ 完了
 5. **未使用関数削除** — 到達可能性解析 ✅ 完了
-6. **定数畳み込み** — 最もシンプルで汎用的
+6. **定数畳み込み** — 最もシンプルで汎用的 ✅ 完了
 
 ## フレームワーク実装状況
 
@@ -61,7 +61,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 
 - `src/optimizer/mod.rs` — パス管理・実行エントリポイント
 - `src/optimizer/noop_test_pass.rs` — 動作検証用ダミーパス（マジックナンバー `0xDEAD` のグローバル変数を追加）
-- `src/optimizer/tests.rs` — ユニットテスト 46 件（フレームワーク 5 件 + ConditionMode 12 件 + InternalBuiltinFunction 2 件 + condition_opt 12 件 + geti_opt 7 件 + dead_code 8 件）
+- `src/optimizer/tests.rs` — ユニットテスト 59 件（フレームワーク 5 件 + ConditionMode 12 件 + InternalBuiltinFunction 2 件 + condition_opt 12 件 + geti_opt 7 件 + dead_code 8 件 + constant_folding 13 件）
 - `src/lib.rs` — `optimize()` 公開 API
 - `src/compile_property.rs` — `optimization_level` フィールド追加
 - CLI `--opt` オプション追加
@@ -77,3 +77,4 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 - `src/semantic_analyzer/mod.rs` — Function 構築時に `is_dummy: false` 追加
 - `src/optimizer/dead_code.rs` — BFS 到達可能性解析パス（未使用関数を `Function::dummy()` に置換）
 - `src/compiler_ws/statement.rs` — ダミー関数スキップ処理追加
+- `src/optimizer/constant_folding.rs` — 定数畳み込みパス（Operation2/Operation1/If/While の定数式を Factor に置換）

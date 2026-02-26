@@ -1228,3 +1228,257 @@ fn test_dead_code_combined_all_opts() {
     let unused_idx = scope_opt.symbol_table.function_name_to_index["unused"];
     assert!(scope_opt.functions[unused_idx].is_dummy(), "unused should be dummy after all opts");
 }
+
+// --- constant_folding パステスト ---
+
+/// constant_folding: 整数の加算が定数に畳み込まれること
+#[test]
+fn test_constant_folding_add() {
+    let code = r#"
+        func: main() { return: 3 + 4; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    let result = crate::interpret(&scope);
+    assert_eq!(result, Some(7), "3 + 4 should fold to 7");
+}
+
+/// constant_folding: 乗算・除算の連続畳み込み
+#[test]
+fn test_constant_folding_multiply_divide() {
+    let code = r#"
+        func: main() { return: 10 * 3 / 5; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    let result = crate::interpret(&scope);
+    assert_eq!(result, Some(6), "10 * 3 / 5 should fold to 6");
+}
+
+/// constant_folding: 比較演算が定数に畳み込まれること
+#[test]
+fn test_constant_folding_comparison() {
+    let code = r#"
+        func: main() { return: 5 == 5; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    let result = crate::interpret(&scope);
+    assert_eq!(result, Some(1), "5 == 5 should fold to 1");
+}
+
+/// constant_folding: 単項マイナスが畳み込まれること
+#[test]
+fn test_constant_folding_unary_negative() {
+    let code = r#"
+        func: main() { return: -7; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    let result = crate::interpret(&scope);
+    assert_eq!(result, Some(-7), "-7 should fold to -7");
+}
+
+/// constant_folding: 論理否定が畳み込まれること
+#[test]
+fn test_constant_folding_logical_not() {
+    let code = r#"
+        func: main() { return: !0; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    let result = crate::interpret(&scope);
+    assert_eq!(result, Some(1), "!0 should fold to 1");
+}
+
+/// constant_folding: ゼロ除算は変換しない（ランタイムエラーとして残す）
+#[test]
+fn test_constant_folding_zero_divide_not_folded() {
+    let code = r#"
+        func: main() { return: 10 / 0; }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+
+    // ゼロ除算は変換しないため最適化後もそのまま残る
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    // WS コンパイルはエラーにならないこと（ランタイムエラーとして残る）
+    let ws_result = crate::compiler_ws::compile_with_options(&scope_opt, false, false);
+    assert!(ws_result.is_ok(), "zero divide should remain as runtime error, not compile error");
+}
+
+/// constant_folding: 定数条件 if が then ブロックに置換されること
+#[test]
+fn test_constant_folding_const_if_true() {
+    let code = r#"
+        func: main() {
+            if: (1) { return: 10; } else: { return: 20; };
+            return: 0;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
+    assert_eq!(crate::interpret(&scope_opt), Some(10), "const true if should select then block");
+}
+
+/// constant_folding: 定数条件 if が else ブロックに置換されること
+#[test]
+fn test_constant_folding_const_if_false() {
+    let code = r#"
+        func: main() {
+            if: (0) { return: 10; } else: { return: 20; };
+            return: 0;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
+    assert_eq!(crate::interpret(&scope_opt), Some(20), "const false if should select else block");
+}
+
+/// constant_folding: 定数条件 while (0) がスキップされること
+#[test]
+fn test_constant_folding_const_while_zero() {
+    let code = r#"
+        func: main() {
+            let: x(5);
+            while: (0) { x = x + 1; };
+            return: x;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
+    assert_eq!(crate::interpret(&scope_opt), Some(5), "while(0) should be skipped");
+}
+
+/// constant_folding: 再帰的な畳み込みが動作すること
+#[test]
+fn test_constant_folding_recursive() {
+    let code = r#"
+        func: main() { return: (2 + 3) * (4 - 1); }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    let result = crate::interpret(&scope);
+    assert_eq!(result, Some(15), "(2+3)*(4-1) should fold to 15");
+}
+
+/// constant_folding: セマンティクスが変わらないこと（変数を含む式）
+#[test]
+fn test_constant_folding_semantics_unchanged_with_variable() {
+    let code = r#"
+        func: main() {
+            let: x(0);
+            x = __geti();
+            return: x + (3 + 4);
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    let stdin_a = Box::new(std::io::BufReader::new(std::io::Cursor::new("10\n".as_bytes().to_vec())));
+    let stdout_a = Box::new(Vec::<u8>::new());
+    let mut env_a = crate::Environment::new_with_buffers(stdin_a, stdout_a);
+    let result_orig = crate::interpret_with_env(&mut env_a, &scope_orig);
+
+    let stdin_b = Box::new(std::io::BufReader::new(std::io::Cursor::new("10\n".as_bytes().to_vec())));
+    let stdout_b = Box::new(Vec::<u8>::new());
+    let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
+    let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
+
+    assert_eq!(result_orig, result_opt, "semantics should not change");
+    assert_eq!(result_opt, Some(17), "10 + (3+4) should be 17");
+}
+
+/// constant_folding: WS コンパイルが成功すること
+#[test]
+fn test_constant_folding_ws_compile_success() {
+    let code = r#"
+        func: main() {
+            __puti(10 + 20);
+            return: 0;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { constant_folding: true, ..OptimizationOptions::none() });
+
+    let result = crate::compiler_ws::compile_with_options(&scope, false, false);
+    assert!(result.is_ok(), "WS compilation should succeed after constant_folding");
+}
+
+/// constant_folding + condition_opt の組み合わせ（定数畳み込み後に条件最適化）
+#[test]
+fn test_constant_folding_combined_with_condition_opt() {
+    // 3 + 4 == 7 → Factor(7) == Factor(7) → Factor(1) → condition_opt: If(Zero, ...) 等に変換
+    let code = r#"
+        func: main() {
+            if: (3 + 4 == 7) { return: 1; } else: { return: 0; };
+            return: 0;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions {
+        constant_folding: true,
+        condition_opt: true,
+        ..OptimizationOptions::none()
+    });
+
+    let ws_result = crate::compiler_ws::compile_with_options(&scope_opt, false, false);
+    assert!(ws_result.is_ok(), "WS compile after const_fold + condition_opt should succeed");
+    assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
+    assert_eq!(crate::interpret(&scope_opt), Some(1));
+}

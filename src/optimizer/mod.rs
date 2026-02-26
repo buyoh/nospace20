@@ -11,12 +11,13 @@
 //! ## パスの実行順序
 //!
 //! 1. noop_test_pass (テスト用: マジックナンバー変数を追加)
-//! 2. (将来) constant_folding
+//! 2. constant_folding
 //! 3. condition_opt
 //! 4. geti_opt
-//! 5. (将来) dead_code
+//! 5. dead_code
 
 mod condition_opt;
+mod constant_folding;
 mod dead_code;
 mod geti_opt;
 mod noop_test_pass;
@@ -39,6 +40,8 @@ pub struct OptimizationOptions {
     pub condition_opt: bool,
     /// geti/getc 最適化パス: `p = __geti()` / `p = __getc()` を InternalBuiltinFunction に変換する
     pub geti_opt: bool,
+    /// 定数畳み込みパス: コンパイル時に評価可能な定数式を Factor に置換する
+    pub constant_folding: bool,
     /// 未到達関数削除パス: main から到達不可能な関数をダミーに置換する
     pub dead_code: bool,
 }
@@ -48,6 +51,7 @@ impl OptimizationOptions {
     pub fn none() -> Self {
         Self {
             noop_test_pass: false,
+            constant_folding: false,
             condition_opt: false,
             geti_opt: false,
             dead_code: false,
@@ -58,6 +62,7 @@ impl OptimizationOptions {
     pub fn all() -> Self {
         Self {
             noop_test_pass: false,
+            constant_folding: true,
             condition_opt: true,
             geti_opt: true,
             dead_code: true,
@@ -66,7 +71,7 @@ impl OptimizationOptions {
 
     /// いずれかの最適化が有効かどうか
     pub fn any_enabled(&self) -> bool {
-        self.noop_test_pass || self.condition_opt || self.geti_opt || self.dead_code
+        self.noop_test_pass || self.constant_folding || self.condition_opt || self.geti_opt || self.dead_code
     }
 }
 
@@ -88,6 +93,11 @@ pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
     // テスト用パス
     if options.noop_test_pass {
         noop_test_pass::apply(scope);
+    }
+
+    // 定数畳み込みパス（条件式最適化の前に実行）
+    if options.constant_folding {
+        constant_folding::apply(scope);
     }
 
     // 条件式最適化パス
