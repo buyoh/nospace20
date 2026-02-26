@@ -16,6 +16,7 @@ mod compile_property;
 pub mod compiler_ws;
 mod interpreter;
 mod logger;
+pub mod optimizer;
 mod semantic_analyzer;
 mod token_parser;
 mod tree_parser;
@@ -27,6 +28,7 @@ mod wasm_api;
 pub use compile_property::{
     CompileProperty, CompileTarget, ExecutionMode, LanguageStd, TargetExtension,
 };
+pub use optimizer::OptimizationOptions;
 
 pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
     match token_parser::parse_to_tokens(text) {
@@ -46,6 +48,11 @@ pub fn parse_to_tree(
 
 pub fn syntactic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
     semantic_analyzer::analyze(root)
+}
+
+/// Scope に対して最適化パスを適用する
+pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
+    optimizer::optimize(scope, options);
 }
 
 /// グローバル変数の初期化を含む interpret

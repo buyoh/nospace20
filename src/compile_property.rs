@@ -66,6 +66,8 @@ pub struct CompileProperty {
     pub debug: bool,
     /// デバッグ用組み込み関数を無視する
     pub ignore_debug: bool,
+    /// 最適化レベル (0 = なし, 1 = 全最適化)
+    pub optimization_level: u8,
 }
 
 impl CompileProperty {

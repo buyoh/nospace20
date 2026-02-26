@@ -31,11 +31,17 @@ nospace20 のアーキテクチャに関するドキュメント。
 │(semantic_analyzer)  │
 └─────────────────────┘
      │
+     ▼
+┌─────────────────────┐
+│    Optimizer        │  Scope → 最適化された Scope (オプショナル)
+│   (optimizer)       │
+└─────────────────────┘
+     │
      ├────────────────────────────┐
      ▼                            ▼
 ┌─────────────────────┐    ┌─────────────────────┐
-│   Interpreter       │    │     Compiler        │
-│   (interpreter)     │    │    (compiler)       │
+│   Interpreter       │    │   Compiler WS       │
+│   (interpreter)     │    │   (compiler_ws)     │
 └─────────────────────┘    └─────────────────────┘
-   直接実行                  (未実装) コード生成
+   直接実行                  Whitespace コード生成
 ```

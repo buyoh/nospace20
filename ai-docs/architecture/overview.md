@@ -29,6 +29,7 @@ nospace20/
 | `parse_to_tokens` | `&String` | `Result<Vec<PrettyToken>, Vec<CodeParseError>>` | 字句解析 |
 | `parse_to_tree` | `&Vec<PrettyToken>` | `Result<Vec<Statement>, Vec<CodeParseError>>` | 構文解析 |
 | `syntactic_analyze` | `&Vec<Statement>` | `Scope` | 意味解析 |
+| `optimize` | `&mut Scope, &OptimizationOptions` | `()` | 最適化パスの適用 |
 | `interpret` | `&Scope` | `Option<i64>` | グローバル変数初期化 + main 実行 |
 | `interpret_func` | `&Scope, &str` | `Option<i64>` | 関数実行（グローバル変数初期化なし） |
 | `interpret_func_testing` | `&Scope, &str` | `BTreeMap<i64, i64>` | テスト用関数実行 (トレース情報付き) |
@@ -60,6 +61,15 @@ nospace20/
   - 変数・関数の識別子解決
   - スコープ構造の構築
   - 実行可能な中間表現への変換
+
+### 3.5. Optimizer (最適化) - オプショナル
+
+- **入力**: スコープ構造 (`&mut Scope`)
+- **出力**: 最適化されたスコープ構造
+- **責務**:
+  - 定数畳み込み、条件式最適化などの最適化パスを適用
+  - `OptimizationOptions` で各パスを個別に制御
+- **CLI**: `--opt=1` で全最適化を有効化
 
 ### 4. Interpreter (インタプリタ)
 

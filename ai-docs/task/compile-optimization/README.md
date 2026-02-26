@@ -48,8 +48,20 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 
 ## 実装順序
 
-1. **フレームワーク構築** — `src/optimizer/` モジュール作成、パイプライン統合
+1. **フレームワーク構築** — `src/optimizer/` モジュール作成、パイプライン統合 ✅ 完了
 2. **定数畳み込み** — 最もシンプルで汎用的
 3. **条件式最適化** — 効果が最大。ExecExpression の拡張を伴う
 4. **`__geti`/`__getc` 最適化** — パターンマッチで実装可能
 5. **未使用関数削除** — 到達可能性解析が必要
+
+## フレームワーク実装状況
+
+### 完了済み
+
+- `src/optimizer/mod.rs` — パス管理・実行エントリポイント
+- `src/optimizer/noop_test_pass.rs` — 動作検証用ダミーパス（マジックナンバー `0xDEAD` のグローバル変数を追加）
+- `src/optimizer/tests.rs` — ユニットテスト 5 件
+- `src/lib.rs` — `optimize()` 公開 API
+- `src/compile_property.rs` — `optimization_level` フィールド追加
+- CLI `--opt` オプション追加
+- アーキテクチャドキュメント更新

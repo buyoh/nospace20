@@ -171,6 +171,30 @@ pub struct Scope {
 
 ---
 
+## optimizer
+
+**ファイル**: `src/optimizer/mod.rs`
+
+意味解析後の中間表現 (`Scope`) に対して最適化パスを適用するモジュール。
+
+### 主要な型
+
+| 型 | 説明 |
+|----|------|
+| `OptimizationOptions` | 各最適化パスの有効化・無効化を制御する設定 |
+
+### パス一覧
+
+| パス | ファイル | 説明 |
+|------|----------|------|
+| `noop_test_pass` | `noop_test_pass.rs` | フレームワーク動作検証用ダミーパス |
+
+### 公開 API
+
+- `optimize(scope: &mut Scope, options: &OptimizationOptions)` - 最適化パスを適用
+
+---
+
 ## logger
 
 **ファイル**: `src/logger/mod.rs`

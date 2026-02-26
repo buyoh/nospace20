@@ -5,6 +5,7 @@ use nospace20::{
     compile_to_whitespace_debug_with_options,
     compile_to_whitespace_with_options,
     interpret_with_env,
+    optimize,
     parse_to_tokens,
     parse_to_tree,
     syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
@@ -14,6 +15,7 @@ use nospace20::{
     Environment,
     ExecutionMode,
     LanguageStd,
+    OptimizationOptions,
     TargetExtension,
     TextCode,
 };
@@ -126,6 +128,10 @@ struct Args {
     /// Ignore debug built-in functions (__assert, __assert_not, __trace, __clog)
     #[arg(long)]
     ignore_debug: bool,
+
+    /// Optimization level (0 = none, 1 = all optimizations)
+    #[arg(long, default_value_t = 0)]
+    opt: u8,
 }
 
 fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -> T {
@@ -180,6 +186,7 @@ fn main() {
         output: args.output,
         debug: args.debug,
         ignore_debug: args.ignore_debug,
+        optimization_level: args.opt,
     };
 
     // バリデーション
@@ -208,7 +215,13 @@ fn main() {
     let text = TextCode::new(&code_raw);
     let t = handle_parse_error(parse_to_tokens(&code_raw), &text);
     let s = handle_parse_error(parse_to_tree(&t), &text);
-    let a = handle_parse_error(syntactic_analyze(&s), &text);
+    let mut a = handle_parse_error(syntactic_analyze(&s), &text);
+
+    // 最適化パスの適用
+    if property.optimization_level > 0 {
+        let opt_options = OptimizationOptions::all();
+        optimize(&mut a, &opt_options);
+    }
 
     // モードに応じて処理
     match property.mode {
