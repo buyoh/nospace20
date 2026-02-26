@@ -1,0 +1,4 @@
+func: main() {
+  let: x;
+  x = if: 1 { 5; };
+}

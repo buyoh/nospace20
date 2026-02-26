@@ -1,0 +1,8 @@
+func: voidfn() {
+  let: x(1);
+}
+
+func: main() {
+  let: x;
+  x = voidfn() + 1;
+}

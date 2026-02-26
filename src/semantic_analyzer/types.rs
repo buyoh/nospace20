@@ -2,6 +2,30 @@
 
 use crate::tree_parser::{Operator1, Operator2};
 
+/// 式の値の型
+///
+/// コンパイラ内部で int と void の2種類の型を管理する。
+/// 明示的な型定義構文は言語仕様に存在しないが、
+/// コンパイル時に不正な型使用を検出するために使用する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueType {
+    /// 整数型（i64）
+    Int,
+    /// 値なし型（while, else なし if, return なし関数など）
+    Void,
+}
+
+impl ValueType {
+    /// 2つの型をマージする（if/else の分岐統合用）
+    /// 両方 Int のとき Int、それ以外は Void
+    pub(crate) fn merge(self, other: ValueType) -> ValueType {
+        match (self, other) {
+            (ValueType::Int, ValueType::Int) => ValueType::Int,
+            _ => ValueType::Void,
+        }
+    }
+}
+
 /// 組み込み関数の種類
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuiltinFunctionKind {
@@ -113,4 +137,49 @@ pub(crate) enum ExecStatement {
 pub(crate) struct Block {
     pub scope: super::Scope,
     pub statements: Vec<ExecStatement>,
+}
+
+impl ExecExpression {
+    /// 式の型を推論する
+    ///
+    /// `func_return_types` は全グローバル関数の戻り値型のスライス（インデックスが関数グローバルID）。
+    pub(crate) fn infer_type(&self, func_return_types: &[ValueType]) -> ValueType {
+        match self {
+            ExecExpression::Factor(_) => ValueType::Int,
+            ExecExpression::Variable(_) => ValueType::Int,
+            ExecExpression::ArrayAccess(_, _, _) => ValueType::Int,
+            ExecExpression::Operation1(_, _) => ValueType::Int,
+            ExecExpression::Operation2(Operator2::Assign, _, rhs) => {
+                // 代入式の型は右辺の型（型チェック済みなら常に Int）
+                rhs.infer_type(func_return_types)
+            }
+            ExecExpression::Operation2(_, _, _) => ValueType::Int,
+            ExecExpression::While(_, _) => ValueType::Void,
+            ExecExpression::If(_, then_block, else_block) => {
+                // 両ブロックが Int のときのみ Int、それ以外は Void
+                infer_block_type(then_block, func_return_types)
+                    .merge(infer_block_type(else_block, func_return_types))
+            }
+            ExecExpression::Block(block) => infer_block_type(block, func_return_types),
+            ExecExpression::BuiltinFunction(kind, _) => match kind {
+                BuiltinFunctionKind::Trace => ValueType::Void,
+                _ => ValueType::Int, // puti, putc, geti, getc, clog, assert, assert_not, alloc, free
+            },
+            ExecExpression::UserFunction(id_ref, _) => {
+                // id_ref.local_index はグローバル関数インデックス
+                func_return_types
+                    .get(id_ref.local_index)
+                    .copied()
+                    .unwrap_or(ValueType::Void)
+            }
+        }
+    }
+}
+
+/// ブロックの型を推論する（最後の式文の型）
+pub(crate) fn infer_block_type(block: &Block, func_return_types: &[ValueType]) -> ValueType {
+    match block.statements.last() {
+        Some(ExecStatement::Expression(expr)) => expr.infer_type(func_return_types),
+        _ => ValueType::Void, // 空ブロック、または最後が return/break/continue
+    }
 }

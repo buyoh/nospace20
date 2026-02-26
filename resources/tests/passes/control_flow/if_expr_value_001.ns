@@ -3,7 +3,7 @@ func: main() {
   __trace(0);
   let:x;
   
-  # if 式は then ブロックの最後の式の値を返す #
+  # else 付き if 式は then/else の値を返す #
   x = if: 1 {
     5;
   } else: {
@@ -43,11 +43,6 @@ func: main() {
   };
   __assert(x == 20);
   
-  # else なしで条件が真の場合 #
-  x = if: 1 { 77; };
-  __assert(x == 77);
-  
-  # else なしで条件が偽の場合は 0 を返す #
-  x = if: 0 { 77; };
-  __assert(x == 0);
+  # else なし if は void（式文としては使える） #
+  if: 1 { __trace(0); };
 }

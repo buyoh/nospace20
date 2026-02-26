@@ -1,0 +1,5 @@
+func: main() {
+  let: x;
+  let: i(3);
+  x = while: i { i = i - 1; };
+}

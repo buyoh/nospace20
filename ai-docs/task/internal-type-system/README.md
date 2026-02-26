@@ -76,3 +76,46 @@
 - [interpreter-changes.md](interpreter-changes.md) - interpreter の変更設計
 - [compiler-ws-changes.md](compiler-ws-changes.md) - compiler_ws の変更設計
 - [test-changes.md](test-changes.md) - テストの修正・追加計画
+
+## 実装状況
+
+### Phase 1: 型定義と型推論の基盤 ✅
+
+- `src/semantic_analyzer/types.rs`: `ValueType` enum, `ExecExpression::infer_type()`, `infer_block_type()`, `ValueType::merge()` を追加
+- `src/semantic_analyzer/scope.rs`: `FunctionIndex` に `ValueType` 追加、`Function` に `return_type` 追加、`ScopeResolver::get_function_return_type()` 追加
+
+### Phase 2: 型チェック ✅
+
+- `src/semantic_analyzer/mod.rs`:
+  - `has_return_statement()`, `expr_contains_return()` で return 文の存在確認
+  - `guarantees_return()`, `expr_guarantees_return()` で全パスの return 保証チェック（軽量制御フロー解析）
+  - `require_int_type()` で void 式の値使用を検出
+  - `convert_to_exec_expression_with_resolver()` で全 void-unsafe 文脈をチェック
+  - `analyze_internal_with_parent()` に `inherited_func_return_types` パラメータ追加
+  - パス1a で関数戻り値型推論（has_return_statement + guarantees_return）
+  - mixed return（return ありだが全パス保証なし）をエラーとして検出
+
+### Phase 3: interpreter 対応 ✅
+
+- 変更不要。semantic_analyzer が型安全性を保証するため、interpreter は従来どおり `i64` で動作
+
+### Phase 4: compiler_ws 対応（最小）
+
+- `src/compiler_ws/context.rs`: `collect_func_return_types()` メソッド追加
+- void 式の最適化（スタック操作省略）は未実装。semantic 正確性は Phase 2 で保証済みのため、void 式は内部的に 0 をプッシュし Discard される従来の動作を維持
+
+### Phase 5: テスト修正・追加 ✅
+
+#### 新規テスト（compile_error）
+- `void_while_assign_001`, `void_if_no_else_assign_001`, `void_func_assign_001`
+- `void_in_operation_001`, `void_in_condition_001`, `void_func_mixed_return_001`
+
+#### 新規テスト（success）
+- `void_if_mixed_branches_001`
+
+#### 既存テスト修正
+- `while_expr_value_001.ns`: while 代入を削除、式文として使用に変更
+- `if_expr_value_001.ns`: else なし if 代入を削除、式文として使用に変更
+- `block_expr_empty_001.ns`: 空ブロック代入を削除、式文として使用に変更
+- `e1-00-qsort.ns`: `qsort()` 関数の early return パターンを条件反転+ブロック移動に変更（mixed return 回避）
+- `c002.ns`: `__trace()` を算術式/条件式から除去（void 型対応）、trace_hit_counts を再計算

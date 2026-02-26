@@ -1,0 +1,9 @@
+func: mixed(x) {
+  if: x {
+    return: 1;
+  };
+}
+
+func: main() {
+  mixed(1);
+}

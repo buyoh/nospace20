@@ -327,6 +327,17 @@ impl<'a> CodeGenContext<'a> {
     pub fn alloc_runtime(&self) -> &dyn AllocRuntime {
         self.alloc_runtime
     }
+
+    /// 式の型推論用の関数戻り値型スライスを収集する
+    ///
+    /// `ExecExpression::infer_type` に渡すために使用する。
+    pub fn collect_func_return_types(&self) -> Vec<crate::semantic_analyzer::ValueType> {
+        self.scope
+            .functions
+            .iter()
+            .map(|f| f.return_type)
+            .collect()
+    }
 }
 
 // 注: CodeGenContext のテストは、Scope のプライベートフィールドのため、

@@ -1,0 +1,8 @@
+# void と int が混在する if/else の分岐 #
+func: main() {
+  __trace(0);
+  # while を含む else ブロックは void なので、全体が void #
+  # 式文としては OK #
+  if: 1 { 5; } else: { while: 0 {}; };
+  __trace(0);
+}

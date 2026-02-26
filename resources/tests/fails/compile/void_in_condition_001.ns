@@ -1,0 +1,7 @@
+func: voidfn() {
+  let: x(1);
+}
+
+func: main() {
+  while: voidfn() { };
+}

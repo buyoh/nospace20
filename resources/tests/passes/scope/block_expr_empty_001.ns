@@ -1,8 +1,7 @@
-# Empty block expression returns 0 #
+# Empty block expression (void) #
 func: main() {
   __trace(0);
-  let: y;
-  y = {};
-  __assert(y == 0);
+  # 空ブロックは void だが式文としては使える #
+  {};
   __trace(0);
 }

@@ -4,18 +4,19 @@ func: swap(p, q) {
   t = *p; *p = *q; *q = t;
 }
 func: qsort(begin, end) {
-  if: end - begin <= 1 { return: 0; };
-  let: pv(begin), it(begin + 1);
-  while: it < end {
-    if: *pv > *it {
-      swap(pv + 1, it);
-      swap(pv, pv + 1);
-      pv += 1;
+  if: end - begin > 1 {
+    let: pv(begin), it(begin + 1);
+    while: it < end {
+      if: *pv > *it {
+        swap(pv + 1, it);
+        swap(pv, pv + 1);
+        pv += 1;
+      };
+      it += 1;
     };
-    it += 1;
+    qsort(begin, pv);
+    qsort(pv+1, end);
   };
-  qsort(begin, pv);
-  qsort(pv+1, end);
 }
 func: main() {
   let: arr[20];

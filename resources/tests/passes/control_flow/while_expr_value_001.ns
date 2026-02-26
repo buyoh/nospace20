@@ -1,34 +1,30 @@
-# while 式の戻り値 #
+# while 式の式文としての使用 #
 func: main() {
   __trace(0);
-  let:x;
-  let:i;
-  
-  # while 式は常に 0 を返す #
+  let: i;
+
+  # while 式は void 型 - 式文として使用可能 #
   i = 0;
-  x = while: i - 3 {
+  while: i - 3 {
     i = i + 1;
     i;
   };
-  __trace(1);
-  __assert(x == 0);
-  
-  # ループしない場合も 0 を返す #
-  __trace(2);
-  x = while: 0 {
+  __assert(i == 3);
+
+  # ループしない場合も式文として使用可能 #
+  while: 0 {
     42;
   };
-  __trace(3);
-  __assert(x == 0);
-  
-  # break で抜けた場合も 0 を返す #
+
+  # break で抜けた場合も式文として使用可能 #
   i = 0;
-  x = while: 1 {
+  while: 1 {
     i = i + 1;
     if: i - 5 {
     } else: {
       break;
     };
   };
-  __assert(x == 0);
+  __assert(i == 5);
+  __trace(1);
 }

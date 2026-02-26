@@ -4,10 +4,10 @@ use std::collections::BTreeMap;
 
 use crate::{base::CodeParseError, code_parse_error};
 
-use super::types::{Block, ExecStatement, IdentifierRef, Variable};
+use super::types::{Block, ExecStatement, IdentifierRef, ValueType, Variable};
 
 #[derive(Clone, Copy)]
-pub(super) struct FunctionIndex(pub usize, pub usize); // (global_index, arg_count)
+pub(super) struct FunctionIndex(pub usize, pub usize, pub ValueType); // (global_index, arg_count, return_type)
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
@@ -39,6 +39,10 @@ pub struct Function {
     /// 各引数の block.scope 内でのインデックスを保持
     pub arg_indices: Vec<usize>,
     pub block: Block,
+    /// 戻り値型（内部型システム）
+    /// 関数本体に return: expr; が存在する → Int
+    /// return: が存在しない（暗黙の void return）→ Void
+    pub return_type: ValueType,
     // pub identifier: String,
 }
 
@@ -283,6 +287,16 @@ impl<'a> ScopeResolver<'a> {
         for scope_info in self.scope_stack.iter().rev() {
             if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
                 return Some(info.1);
+            }
+        }
+        None
+    }
+
+    /// 関数の戻り値型を取得する
+    pub fn get_function_return_type(&self, name: &str) -> Option<ValueType> {
+        for scope_info in self.scope_stack.iter().rev() {
+            if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
+                return Some(info.2);
             }
         }
         None

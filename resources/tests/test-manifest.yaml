@@ -327,7 +327,12 @@ tests:
   - name: test_control_flow_while_expr_value_001
     type: success
     path: control_flow/while_expr_value_001
-    comment: "While expression return value"
+    comment: "While expression return value (as statement)"
+
+  - name: test_control_flow_void_if_mixed_branches_001
+    type: success
+    path: control_flow/void_if_mixed_branches_001
+    comment: "if/else with mixed void/int branches results in void (can be used as statement)"
 
   # DISABLED: hangs (break/continue issue)
   # - name: test_control_flow_break_continue_001
@@ -1053,3 +1058,36 @@ tests:
     type: compile_error
     path: free_not_enabled_001
     comment: "--std-ext alloc 未指定時の __free 使用→コンパイルエラー"
+
+  # ========================================
+  # Type system: void型エラー
+  # ========================================
+  - name: test_type_void_while_assign_001
+    type: compile_error
+    path: void_while_assign_001
+    comment: "while式の戻り値を変数に代入→コンパイルエラー"
+
+  - name: test_type_void_if_no_else_assign_001
+    type: compile_error
+    path: void_if_no_else_assign_001
+    comment: "else なし if式の戻り値を変数に代入→コンパイルエラー"
+
+  - name: test_type_void_func_assign_001
+    type: compile_error
+    path: void_func_assign_001
+    comment: "void関数の戻り値を変数に代入→コンパイルエラー"
+
+  - name: test_type_void_in_operation_001
+    type: compile_error
+    path: void_in_operation_001
+    comment: "void式を演算に使用→コンパイルエラー"
+
+  - name: test_type_void_in_condition_001
+    type: compile_error
+    path: void_in_condition_001
+    comment: "void式を条件式に使用→コンパイルエラー"
+
+  - name: test_type_void_func_mixed_return_001
+    type: compile_error
+    path: void_func_mixed_return_001
+    comment: "return ありなしが混在する関数→コンパイルエラー"
