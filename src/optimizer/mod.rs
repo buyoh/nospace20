@@ -12,11 +12,12 @@
 //!
 //! 1. noop_test_pass (テスト用: マジックナンバー変数を追加)
 //! 2. (将来) constant_folding
-//! 3. (将来) condition_opt
-//! 4. (将来) geti_opt
+//! 3. condition_opt
+//! 4. geti_opt
 //! 5. (将来) dead_code
 
 mod condition_opt;
+mod geti_opt;
 mod noop_test_pass;
 
 #[cfg(test)]
@@ -35,6 +36,8 @@ pub struct OptimizationOptions {
     pub noop_test_pass: bool,
     /// 条件式最適化パス: If/While の条件式を ConditionMode(Zero/Negative) に変換する
     pub condition_opt: bool,
+    /// geti/getc 最適化パス: `p = __geti()` / `p = __getc()` を InternalBuiltinFunction に変換する
+    pub geti_opt: bool,
 }
 
 impl OptimizationOptions {
@@ -43,6 +46,7 @@ impl OptimizationOptions {
         Self {
             noop_test_pass: false,
             condition_opt: false,
+            geti_opt: false,
         }
     }
 
@@ -51,12 +55,13 @@ impl OptimizationOptions {
         Self {
             noop_test_pass: false,
             condition_opt: true,
+            geti_opt: true,
         }
     }
 
     /// いずれかの最適化が有効かどうか
     pub fn any_enabled(&self) -> bool {
-        self.noop_test_pass || self.condition_opt
+        self.noop_test_pass || self.condition_opt || self.geti_opt
     }
 }
 
@@ -83,5 +88,10 @@ pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
     // 条件式最適化パス
     if options.condition_opt {
         condition_opt::apply(scope);
+    }
+
+    // geti/getc 最適化パス
+    if options.geti_opt {
+        geti_opt::apply(scope);
     }
 }

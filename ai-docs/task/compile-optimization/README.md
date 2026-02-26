@@ -51,8 +51,8 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 1. **フレームワーク構築** — `src/optimizer/` モジュール作成、パイプライン統合 ✅ 完了
 2. **ExecExpression リファクタリング** — `ConditionMode` / `InternalBuiltinFunctionKind` 導入 ✅ 完了
 3. **条件式最適化** — `ConditionMode::Zero` / `Negative` を使用 ✅ 完了
-4. **定数畳み込み** — 最もシンプルで汎用的
-5. **`__geti`/`__getc` 最適化** — `InternalBuiltinFunction` を使用
+4. **`__geti`/`__getc` 最適化** — `InternalBuiltinFunction` を使用 ✅ 完了
+5. **定数畳み込み** — 最もシンプルで汎用的
 6. **未使用関数削除** — 到達可能性解析が必要
 
 ## フレームワーク実装状況
@@ -61,7 +61,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 
 - `src/optimizer/mod.rs` — パス管理・実行エントリポイント
 - `src/optimizer/noop_test_pass.rs` — 動作検証用ダミーパス（マジックナンバー `0xDEAD` のグローバル変数を追加）
-- `src/optimizer/tests.rs` — ユニットテスト 31 件（フレームワーク 5 件 + ConditionMode 12 件 + InternalBuiltinFunction 2 件 + condition_opt 12 件）
+- `src/optimizer/tests.rs` — ユニットテスト 38 件（フレームワーク 5 件 + ConditionMode 12 件 + InternalBuiltinFunction 2 件 + condition_opt 12 件 + geti_opt 7 件）
 - `src/lib.rs` — `optimize()` 公開 API
 - `src/compile_property.rs` — `optimization_level` フィールド追加
 - CLI `--opt` オプション追加
@@ -72,3 +72,4 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 - `src/compiler_ws/expression.rs` — `ConditionMode` 対応コード生成、`InternalBuiltinFunction` コード生成追加
 - `src/compiler_ws/statement.rs` — `count_nested_vars_in_expression` の match パターン更新
 - `src/optimizer/condition_opt.rs` — 条件式最適化パス（If/While の NonZero → Zero/Negative 変換）
+- `src/optimizer/geti_opt.rs` — geti/getc 最適化パス（`p = __geti()` → `InternalBuiltinFunction(Getiv(p))` 変換）

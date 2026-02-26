@@ -1,5 +1,11 @@
 # `__geti` / `__getc` 入力最適化
 
+> **✅ 実装完了** (2026-02-27)
+> - `src/optimizer/geti_opt.rs` 作成
+> - `OptimizationOptions::geti_opt` フィールド追加
+> - `optimizer::tests` に 7 件のテスト追加（合計 38 件）
+> - 全テスト 990 passed, 0 failed
+
 ## 概要
 
 `p = __geti()` / `p = __getc()` パターンを検出し、一時領域 (`TEMP_PTR`) を経由せずに変数アドレスへ直接入力する命令列に変換する。

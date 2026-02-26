@@ -813,3 +813,234 @@ func: main() {
     assert_eq!(traces_orig.get(&2), None);
     assert_eq!(traces_orig.get(&3), None);
 }
+
+// --- geti_opt パステスト ---
+
+/// geti_opt: `p = __geti()` のインタープリタでのセマンティクスが最適化前後で同じであること（グローバル変数）
+#[test]
+fn test_geti_opt_global_geti_semantics() {
+    let code = r#"
+        let: x(0);
+        func: main() {
+            x = __geti();
+            __puti(x);
+            return: x;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let stdin_a = Box::new(std::io::BufReader::new(std::io::Cursor::new("42\n".as_bytes().to_vec())));
+    let stdout_a = Box::new(Vec::<u8>::new());
+    let mut env_a = crate::Environment::new_with_buffers(stdin_a, stdout_a);
+    let result_orig = crate::interpret_with_env(&mut env_a, &scope_orig);
+
+    // 最適化あり
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { geti_opt: true, ..OptimizationOptions::none() });
+    let stdin_b = Box::new(std::io::BufReader::new(std::io::Cursor::new("42\n".as_bytes().to_vec())));
+    let stdout_b = Box::new(Vec::<u8>::new());
+    let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
+    let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
+
+    assert_eq!(result_orig, Some(42), "original: should return 42");
+    assert_eq!(result_orig, result_opt, "semantics should not change after geti_opt");
+}
+
+/// geti_opt: `p = __geti()` のローカル変数バージョン
+#[test]
+fn test_geti_opt_local_geti_semantics() {
+    let code = r#"
+        func: main() {
+            let: x(0);
+            x = __geti();
+            return: x;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let stdin_a = Box::new(std::io::BufReader::new(std::io::Cursor::new("99\n".as_bytes().to_vec())));
+    let stdout_a = Box::new(Vec::<u8>::new());
+    let mut env_a = crate::Environment::new_with_buffers(stdin_a, stdout_a);
+    let result_orig = crate::interpret_with_env(&mut env_a, &scope_orig);
+
+    // 最適化あり
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { geti_opt: true, ..OptimizationOptions::none() });
+    let stdin_b = Box::new(std::io::BufReader::new(std::io::Cursor::new("99\n".as_bytes().to_vec())));
+    let stdout_b = Box::new(Vec::<u8>::new());
+    let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
+    let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
+
+    assert_eq!(result_orig, Some(99), "original: should return 99");
+    assert_eq!(result_orig, result_opt, "semantics should not change");
+}
+
+/// geti_opt: `p = __getc()` のセマンティクスが最適化前後で同じであること
+#[test]
+fn test_geti_opt_getc_semantics() {
+    let code = r#"
+        let: c(0);
+        func: main() {
+            c = __getc();
+            return: c;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let stdin_a = Box::new(std::io::BufReader::new(std::io::Cursor::new("A".as_bytes().to_vec())));
+    let stdout_a = Box::new(Vec::<u8>::new());
+    let mut env_a = crate::Environment::new_with_buffers(stdin_a, stdout_a);
+    let result_orig = crate::interpret_with_env(&mut env_a, &scope_orig);
+
+    // 最適化あり
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { geti_opt: true, ..OptimizationOptions::none() });
+    let stdin_b = Box::new(std::io::BufReader::new(std::io::Cursor::new("A".as_bytes().to_vec())));
+    let stdout_b = Box::new(Vec::<u8>::new());
+    let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
+    let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
+
+    assert_eq!(result_orig, result_opt, "getc semantics should not change");
+    assert_eq!(result_orig, Some(b'A' as i64), "should read 'A' = 65");
+}
+
+/// geti_opt: Whitespace コンパイルが成功すること
+#[test]
+fn test_geti_opt_ws_compile_success() {
+    let code = r#"
+        func: main() {
+            let: x(0);
+            x = __geti();
+            __puti(x);
+            return: 0;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    optimizer::optimize(&mut scope, &OptimizationOptions { geti_opt: true, ..OptimizationOptions::none() });
+
+    let result = crate::compiler_ws::compile_with_options(&scope, false, false);
+    assert!(result.is_ok(), "WS compilation should succeed after geti_opt");
+}
+
+/// geti_opt: 複数の `__geti()` 代入がある場合も正しく動作すること
+#[test]
+fn test_geti_opt_multiple_geti_semantics() {
+    let code = r#"
+        func: main() {
+            let: a(0);
+            let: b(0);
+            a = __geti();
+            b = __geti();
+            return: a + b;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let stdin_a = Box::new(std::io::BufReader::new(std::io::Cursor::new("10\n20\n".as_bytes().to_vec())));
+    let stdout_a = Box::new(Vec::<u8>::new());
+    let mut env_a = crate::Environment::new_with_buffers(stdin_a, stdout_a);
+    let result_orig = crate::interpret_with_env(&mut env_a, &scope_orig);
+
+    // 最適化あり
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { geti_opt: true, ..OptimizationOptions::none() });
+    let stdin_b = Box::new(std::io::BufReader::new(std::io::Cursor::new("10\n20\n".as_bytes().to_vec())));
+    let stdout_b = Box::new(Vec::<u8>::new());
+    let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
+    let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
+
+    assert_eq!(result_orig, Some(30), "sum should be 30");
+    assert_eq!(result_orig, result_opt, "semantics should not change");
+}
+
+/// geti_opt: `__geti()` が if/while ブロック内にある場合も最適化が適用されること
+#[test]
+fn test_geti_opt_inside_block_semantics() {
+    let code = r#"
+        func: main() {
+            let: x(0);
+            if:(1) {
+                x = __geti();
+            } else: {
+                x = 0;
+            };
+            return: x;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let stdin_a = Box::new(std::io::BufReader::new(std::io::Cursor::new("77\n".as_bytes().to_vec())));
+    let stdout_a = Box::new(Vec::<u8>::new());
+    let mut env_a = crate::Environment::new_with_buffers(stdin_a, stdout_a);
+    let result_orig = crate::interpret_with_env(&mut env_a, &scope_orig);
+
+    // 最適化あり
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { geti_opt: true, ..OptimizationOptions::none() });
+    let stdin_b = Box::new(std::io::BufReader::new(std::io::Cursor::new("77\n".as_bytes().to_vec())));
+    let stdout_b = Box::new(Vec::<u8>::new());
+    let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
+    let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
+
+    assert_eq!(result_orig, Some(77), "should return 77");
+    assert_eq!(result_orig, result_opt, "semantics should not change");
+}
+
+/// geti_opt + condition_opt の組み合わせで動作すること
+#[test]
+fn test_geti_opt_combined_with_condition_opt() {
+    let code = r#"
+        func: main() {
+            let: x(0);
+            x = __geti();
+            if:(x == 0) { __puti(0); } else: { __puti(1); };
+            return: x;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let stdin_a = Box::new(std::io::BufReader::new(std::io::Cursor::new("5\n".as_bytes().to_vec())));
+    let stdout_a = Box::new(Vec::<u8>::new());
+    let mut env_a = crate::Environment::new_with_buffers(stdin_a, stdout_a);
+    let result_orig = crate::interpret_with_env(&mut env_a, &scope_orig);
+
+    // 最適化あり (geti_opt + condition_opt)
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions {
+        geti_opt: true,
+        condition_opt: true,
+        ..OptimizationOptions::none()
+    });
+    let stdin_b = Box::new(std::io::BufReader::new(std::io::Cursor::new("5\n".as_bytes().to_vec())));
+    let stdout_b = Box::new(Vec::<u8>::new());
+    let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
+    let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
+
+    assert_eq!(result_orig, Some(5), "should return 5");
+    assert_eq!(result_orig, result_opt, "combined opt semantics should not change");
+
+    // WS コンパイルも成功すること
+    let ws_result = crate::compiler_ws::compile_with_options(&scope_opt, false, false);
+    assert!(ws_result.is_ok(), "WS compile with combined opt should succeed");
+}
