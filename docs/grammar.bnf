@@ -99,6 +99,7 @@ while_stmt ::=
 # return 文
 return_stmt ::=
     | "return" ":" expr ";"
+    | "return" ":" ";"
     | "return" ";"
 
 # break / continue

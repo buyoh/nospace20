@@ -16,7 +16,7 @@ pub enum Statement {
     FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),
     Continue,
     Break,
-    Return(Box<Expression>),
+    Return(Option<Box<Expression>>),
     Expression(Box<Expression>),
     Invalid(usize), // See, Expression::Invalid
 }
@@ -597,13 +597,37 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     fn parse_to_statements_return(&mut self, start_pos: usize) -> LocatedStatement {
         // 呼び出し元が既に Token::Keyword(Keyword::Return) を確認済み
         self.iter.next();
+        // return: expr; または return:; (void return)
+        // コロンの後にセミコロンが来たら void return
+        if let Some(token) = self.iter.peek() {
+            if matches!(token.0, Token::Semicolon) {
+                // return; (コロンなし)
+                let end_pos = self.current_pos_or(start_pos);
+                self.iter.next(); // consume semicolon
+                return LocatedStatement {
+                    statement: Statement::Return(None),
+                    location: SourceLocation::new(start_pos, end_pos),
+                };
+            }
+        }
         match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+        // return: の後にセミコロンが来たら void return
+        if let Some(token) = self.iter.peek() {
+            if matches!(token.0, Token::Semicolon) {
+                let end_pos = self.current_pos_or(start_pos);
+                self.iter.next(); // consume semicolon
+                return LocatedStatement {
+                    statement: Statement::Return(None),
+                    location: SourceLocation::new(start_pos, end_pos),
+                };
+            }
+        }
         let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
         self.code_parse_error.append(&mut errs);
         let end_pos = self.current_pos_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
         LocatedStatement {
-            statement: Statement::Return(expr),
+            statement: Statement::Return(Some(expr)),
             location: SourceLocation::new(start_pos, end_pos),
         }
     }

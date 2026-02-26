@@ -1091,3 +1091,18 @@ tests:
     type: compile_error
     path: void_func_mixed_return_001
     comment: "return ありなしが混在する関数→コンパイルエラー"
+
+  - name: test_type_void_return_in_int_func_001
+    type: compile_error
+    path: void_return_in_int_func_001
+    comment: "int関数でreturn:;を使用→コンパイルエラー（mixed return）"
+
+  - name: test_control_flow_void_return_001
+    type: success
+    path: control_flow/void_return_001
+    comment: "void関数内でreturn:;による早期脱出"
+
+  - name: test_control_flow_void_return_002
+    type: success_io
+    path: control_flow/void_return_002
+    comment: "void return:;による早期脱出（IO付き）"

@@ -31,7 +31,8 @@ pub(crate) use types::infer_block_type;
 fn has_return_statement(statements: &[LocatedStatement]) -> bool {
     for stat in statements {
         match &stat.statement {
-            Statement::Return(_) => return true,
+            Statement::Return(Some(_)) => return true,
+            Statement::Return(None) => {} // void return は int 返却とみなさない
             Statement::Expression(expr) => {
                 if expr_contains_return(expr) {
                     return true;
@@ -68,7 +69,8 @@ fn guarantees_return(statements: &[LocatedStatement]) -> bool {
     match statements.last() {
         None => false,
         Some(last) => match &last.statement {
-            Statement::Return(_) => true,
+            Statement::Return(Some(_)) => true,
+            Statement::Return(None) => false, // void return は値の返却を保証しない
             Statement::Expression(expr) => expr_guarantees_return(expr),
             _ => false,
         },
@@ -701,10 +703,26 @@ fn analyze_internal_with_parent(
                         "semantic error: return statement outside of function"
                     )]);
                 }
-                let exec_e = convert_to_exec_expression_with_resolver(e, &resolver, &effective_func_return_types)?;
-                // return: の式は Int でなければならない
-                require_int_type(&exec_e, &effective_func_return_types)?;
-                exec_statements.push(ExecStatement::Return(exec_e));
+                match e {
+                    Some(expr) => {
+                        let exec_e = convert_to_exec_expression_with_resolver(expr, &resolver, &effective_func_return_types)?;
+                        // return: の式は Int でなければならない
+                        require_int_type(&exec_e, &effective_func_return_types)?;
+                        exec_statements.push(ExecStatement::Return(Some(exec_e)));
+                    }
+                    None => {
+                        // void return: 関数が int 型（return: expr; がある）場合はエラー
+                        if let Some(idx) = func_global_index {
+                            if global_functions[idx].return_type != ValueType::Void {
+                                return Err(vec![code_parse_error!(
+                                    loc.start,
+                                    "semantic error: return without value in non-void function"
+                                )]);
+                            }
+                        }
+                        exec_statements.push(ExecStatement::Return(None));
+                    }
+                }
             }
             Statement::Expression(e) => {
                 // ルートスコープでも式文を許可（グローバル変数の初期化式）

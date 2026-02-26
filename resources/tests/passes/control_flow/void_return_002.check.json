@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "print only positives",
+      "stdin": "",
+      "stdout": "5\n42\n"
+    }
+  ]
+}

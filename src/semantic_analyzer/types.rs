@@ -127,7 +127,7 @@ pub(crate) enum ExecExpression {
 /// - 宣言文 (VariableDeclaration, FunctionDeclaration) を持たない
 ///   (宣言は `Scope` 構造に変換される)
 pub(crate) enum ExecStatement {
-    Return(Box<ExecExpression>),
+    Return(Option<Box<ExecExpression>>),
     Break,
     Continue,
     Expression(Box<ExecExpression>),

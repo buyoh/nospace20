@@ -7,7 +7,7 @@ use crate::base::SourceLocation;
 fn test_error_return_outside_function() {
     // return:0; at root level should error with position
     let statements = vec![LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(10, 20),
     }];
 
@@ -144,7 +144,7 @@ fn test_success_global_variable() {
 fn test_success_simple_function() {
     // func: main() { return:0; }
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(20, 30),
     };
 
@@ -180,7 +180,7 @@ fn test_success_ref_variable() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(45, 55),
     };
 
@@ -210,7 +210,7 @@ fn test_error_ref_literal() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(30, 40),
     };
 
@@ -263,7 +263,7 @@ fn test_error_ref_expression() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(50, 60),
     };
 
@@ -312,7 +312,7 @@ fn test_success_deref_variable() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(45, 55),
     };
 
@@ -346,7 +346,7 @@ fn test_success_array_declaration() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(35, 45),
     };
 
@@ -404,7 +404,7 @@ fn test_success_multiple_variables_with_array() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(55, 65),
     };
 
@@ -451,7 +451,7 @@ fn test_success_array_access() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(50, 60),
     };
 
@@ -495,7 +495,7 @@ fn test_success_array_assignment() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(55, 65),
     };
 
@@ -536,7 +536,7 @@ fn test_error_array_access_non_array() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(50, 60),
     };
 
@@ -567,7 +567,7 @@ fn test_error_array_access_undefined() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(40, 50),
     };
 
@@ -616,7 +616,7 @@ fn test_success_ref_array_element() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(50, 60),
     };
 
@@ -648,7 +648,7 @@ fn test_success_static_array() {
     };
 
     let return_stmt = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(35, 45),
     };
 
@@ -706,7 +706,7 @@ fn test_variable_slot_index() {
     };
 
     let ret = LocatedStatement {
-        statement: Statement::Return(Box::new(Expression::Factor(0))),
+        statement: Statement::Return(Some(Box::new(Expression::Factor(0)))),
         location: SourceLocation::new(80, 90),
     };
 

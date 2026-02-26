@@ -1,0 +1,15 @@
+# void return: ; used for early exit in void function #
+func: print_positive(x) {
+  if: x <= 0 {
+    return:;
+  };
+  __puti(x);
+  __putc('\n');
+}
+
+func: main() {
+  print_positive(5);
+  print_positive(-3);
+  print_positive(0);
+  print_positive(42);
+}

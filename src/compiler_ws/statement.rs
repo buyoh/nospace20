@@ -103,7 +103,8 @@ pub fn generate_statement(
         }
 
         // return 文
-        ExecStatement::Return(expr) => generate_return(ctx, expr),
+        ExecStatement::Return(Some(expr)) => generate_return(ctx, expr),
+        ExecStatement::Return(None) => generate_void_return(ctx),
 
         // break 文
         ExecStatement::Break => {
@@ -136,6 +137,26 @@ fn generate_return(
 
     // 返り値を評価
     prog.append(expression::generate_expression(ctx, expr)?);
+
+    // Fix B: deallocateの前にswapを挿入
+    // stack: [old_LHB, return_value] -> [return_value, old_LHB]
+    prog.push(Instruction::Swap);
+
+    // ローカル変数領域解放（AllocRuntime 経由）
+    prog.append(ctx.alloc_runtime().generate_function_epilogue());
+
+    // 関数から戻る
+    prog.push(Instruction::Return);
+
+    Ok(prog)
+}
+
+/// void return 文のコード生成（式なし）
+fn generate_void_return(ctx: &mut CodeGenContext) -> Result<WsProgram, CompileError> {
+    let mut prog = WsProgram::new();
+
+    // デフォルト返却値 0
+    prog.push(Instruction::Push(WsNumber(0)));
 
     // Fix B: deallocateの前にswapを挿入
     // stack: [old_LHB, return_value] -> [return_value, old_LHB]
@@ -218,10 +239,10 @@ fn count_nested_vars_in_statements(stmts: &[ExecStatement]) -> usize {
 
 fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {
     match stmt {
-        ExecStatement::Expression(expr) | ExecStatement::Return(expr) => {
+        ExecStatement::Expression(expr) | ExecStatement::Return(Some(expr)) => {
             count_nested_vars_in_expression(expr)
         }
-        ExecStatement::Break | ExecStatement::Continue => 0,
+        ExecStatement::Return(None) | ExecStatement::Break | ExecStatement::Continue => 0,
     }
 }
 

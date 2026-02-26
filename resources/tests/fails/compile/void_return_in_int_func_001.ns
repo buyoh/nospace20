@@ -1,0 +1,11 @@
+# void return in int function should error #
+func: intfn(x) {
+  if: x {
+    return: 1;
+  };
+  return:;
+}
+
+func: main() {
+  intfn(1);
+}

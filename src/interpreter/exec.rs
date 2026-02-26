@@ -549,10 +549,11 @@ impl LocalEnvironment<'_, '_> {
                     ExpressionFlow::Value(v) => last_value = v,
                     ExpressionFlow::Jump(j) => return (j, last_value),
                 },
-                ExecStatement::Return(expr) => match self.interpret_expression(expr) {
+                ExecStatement::Return(Some(expr)) => match self.interpret_expression(expr) {
                     ExpressionFlow::Value(res) => return (Flow::Return(res), res),
                     ExpressionFlow::Jump(j) => return (j, last_value),
                 },
+                ExecStatement::Return(None) => return (Flow::Return(0), last_value),
                 ExecStatement::Break => return (Flow::Break, last_value),
                 ExecStatement::Continue => return (Flow::Continue, last_value),
             }
@@ -571,10 +572,11 @@ impl LocalEnvironment<'_, '_> {
                 ExpressionFlow::Value(_) => Flow::Proceed,
                 ExpressionFlow::Jump(j) => j,
             },
-            ExecStatement::Return(expr) => match self.interpret_expression(expr) {
+            ExecStatement::Return(Some(expr)) => match self.interpret_expression(expr) {
                 ExpressionFlow::Value(res) => Flow::Return(res),
                 ExpressionFlow::Jump(j) => j,
             },
+            ExecStatement::Return(None) => Flow::Return(0),
             ExecStatement::Break => Flow::Break,
             ExecStatement::Continue => Flow::Continue,
         }

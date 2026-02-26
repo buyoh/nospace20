@@ -152,11 +152,44 @@ fn test_parse_return_statement() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::Return(expr) => match **expr {
+        Statement::Return(Some(expr)) => match **expr {
             Expression::Factor(42) => (),
             _ => panic!("Expected Factor(42)"),
         },
-        _ => panic!("Expected Statement::Return"),
+        _ => panic!("Expected Statement::Return(Some(...))"),
+    }
+}
+
+#[test]
+fn test_parse_void_return_with_colon() {
+    // return:;
+    let tokens = vec![
+        token_keyword_return(),
+        token_colon(),
+        token_semicolon(),
+    ];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].statement {
+        Statement::Return(None) => (),
+        _ => panic!("Expected Statement::Return(None)"),
+    }
+}
+
+#[test]
+fn test_parse_void_return_without_colon() {
+    // return;
+    let tokens = vec![
+        token_keyword_return(),
+        token_semicolon(),
+    ];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].statement {
+        Statement::Return(None) => (),
+        _ => panic!("Expected Statement::Return(None)"),
     }
 }
 

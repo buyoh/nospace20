@@ -1,0 +1,15 @@
+# void return in void function #
+func: voidfn(x) {
+  if: x {
+    __trace(1);
+    return:;
+  };
+  __trace(2);
+}
+
+func: main() {
+  __trace(0);
+  voidfn(1);
+  voidfn(0);
+  __trace(0);
+}
