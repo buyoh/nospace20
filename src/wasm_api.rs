@@ -13,8 +13,8 @@ use std::rc::Rc;
 use crate::whitespace::{InputWaitType, StepResult, WhitespaceVM};
 use crate::{
     compile_to_whitespace_debug_with_options, compile_to_whitespace_with_options, interpret_with_env,
-    parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError, CompileTarget, Environment,
-    EnvironmentConfig, LanguageStd, TextCode,
+    optimize, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError, CompileTarget, Environment,
+    EnvironmentConfig, LanguageStd, OptimizationOptions, TextCode,
 };
 
 // ========================================
@@ -71,11 +71,15 @@ type LanguageStd = "standard" | "ws";
 /** ターゲット拡張 */
 type StdExtension = "debug" | "alloc";
 
+/** 利用可能な最適化パス */
+type OptPass = "all" | "condition-opt" | "geti-opt" | "constant-folding" | "dead-code";
+
 /** 利用可能なオプション定義 */
 interface OptionsDefinition {
     readonly compileTargets: readonly CompileTarget[];
     readonly languageStds: readonly LanguageStd[];
     readonly stdExtensions: readonly StdExtension[];
+    readonly optPasses: readonly OptPass[];
 }
 "#;
 
@@ -107,6 +111,9 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "StdExtension[]")]
     pub type JsStdExtensionArray;
+
+    #[wasm_bindgen(typescript_type = "OptPass[]")]
+    pub type JsOptPassArray;
 }
 
 #[derive(Serialize)]
@@ -182,6 +189,58 @@ fn parse_std_extensions(extensions: Option<JsStdExtensionArray>) -> Result<(bool
     Ok((debug_ext, alloc_ext))
 }
 
+/// `OptPass[]` (JS 配列) をパースし、`OptimizationOptions` を返す
+fn parse_opt_passes(passes: Option<JsOptPassArray>) -> Result<OptimizationOptions, JsValue> {
+    let js_val: JsValue = match passes {
+        Some(v) => v.into(),
+        None => return Ok(OptimizationOptions::none()),
+    };
+    if js_val.is_undefined() || js_val.is_null() {
+        return Ok(OptimizationOptions::none());
+    }
+    let pass_list: Vec<String> = serde_wasm_bindgen::from_value(js_val).map_err(|e| {
+        let result = ResultErr {
+            success: false,
+            errors: vec![WasmError {
+                message: format!("invalid opt_passes: {}", e),
+                line: None,
+                column: None,
+            }],
+        };
+        serde_wasm_bindgen::to_value(&result).unwrap()
+    })?;
+    if pass_list.is_empty() {
+        return Ok(OptimizationOptions::none());
+    }
+    if pass_list.iter().any(|p| p == "all") {
+        return Ok(OptimizationOptions::all());
+    }
+    let mut opts = OptimizationOptions::none();
+    for pass in &pass_list {
+        match pass.as_str() {
+            "condition-opt" => opts.condition_opt = true,
+            "geti-opt" => opts.geti_opt = true,
+            "constant-folding" => opts.constant_folding = true,
+            "dead-code" => opts.dead_code = true,
+            _ => {
+                let result = ResultErr {
+                    success: false,
+                    errors: vec![WasmError {
+                        message: format!(
+                            "unknown opt pass: '{}' (use 'all', 'condition-opt', 'geti-opt', 'constant-folding', 'dead-code')",
+                            pass
+                        ),
+                        line: None,
+                        column: None,
+                    }],
+                };
+                return Err(serde_wasm_bindgen::to_value(&result).unwrap());
+            }
+        }
+    }
+    Ok(opts)
+}
+
 fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
     let wasm_errors: Vec<WasmError> = errors
         .iter()
@@ -212,8 +271,15 @@ fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
 /// CLI の `--mode=run` に相当。
 ///
 /// - `ignore_debug`: デバッグ用組み込み関数（__assert, __trace 等）を無視する（CLI の `--ignore-debug` 相当）
+/// - `opt_passes`: 有効にする最適化パスの配列（例: `["all"]` または `["constant-folding", "dead-code"]`）
 #[wasm_bindgen]
-pub fn run(source: &str, stdin: &str, debug: bool, ignore_debug: Option<bool>) -> JsRunResult {
+pub fn run(
+    source: &str,
+    stdin: &str,
+    debug: bool,
+    ignore_debug: Option<bool>,
+    opt_passes: Option<JsOptPassArray>,
+) -> JsRunResult {
     let text = TextCode::new(source);
     let source_string = source.to_string();
 
@@ -234,6 +300,16 @@ pub fn run(source: &str, stdin: &str, debug: bool, ignore_debug: Option<bool>) -
         Ok(a) => a,
         Err(errors) => return convert_errors(&errors, &text).into(),
     };
+
+    // 最適化パスの適用
+    let opt_options = match parse_opt_passes(opt_passes) {
+        Ok(o) => o,
+        Err(e) => return e.into(),
+    };
+    let mut scope = scope;
+    if opt_options.any_enabled() {
+        optimize(&mut scope, &opt_options);
+    }
 
     // 実行
     let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(
@@ -280,12 +356,14 @@ pub fn run(source: &str, stdin: &str, debug: bool, ignore_debug: Option<bool>) -
 /// CLI の `--mode=compile` に相当。
 ///
 /// - `std_extensions`: 有効にする拡張の配列（例: `["debug", "alloc"]`）
+/// - `opt_passes`: 有効にする最適化パスの配列（例: `["all"]` または `["constant-folding", "dead-code"]`）
 #[wasm_bindgen]
 pub fn compile(
     source: &str,
     target: &str,
     lang_std: &str,
     std_extensions: Option<JsStdExtensionArray>,
+    opt_passes: Option<JsOptPassArray>,
 ) -> JsCompileResult {
     let (debug_ext, alloc_ext) = match parse_std_extensions(std_extensions) {
         Ok(v) => v,
@@ -358,6 +436,16 @@ pub fn compile(
         Ok(a) => a,
         Err(errors) => return convert_errors(&errors, &text).into(),
     };
+
+    // 最適化パスの適用
+    let opt_options = match parse_opt_passes(opt_passes) {
+        Ok(o) => o,
+        Err(e) => return e.into(),
+    };
+    let mut scope = scope;
+    if opt_options.any_enabled() {
+        optimize(&mut scope, &opt_options);
+    }
 
     // コンパイル
     let compiled = match compile_target {
@@ -705,13 +793,13 @@ impl WasmWhitespaceVM {
 /// nospace ソースコードを Whitespace にコンパイル（ヘルパー関数）
 #[wasm_bindgen]
 pub fn compile_to_whitespace_string(source: &str) -> JsCompileResult {
-    compile(source, "ws", "ws", None)
+    compile(source, "ws", "ws", None, None)
 }
 
 /// nospace ソースコードをニーモニックにコンパイル（ヘルパー関数）
 #[wasm_bindgen]
 pub fn compile_to_mnemonic_string(source: &str) -> JsCompileResult {
-    compile(source, "mnemonic", "ws", None)
+    compile(source, "mnemonic", "ws", None, None)
 }
 
 /// 利用可能なオプションの一覧を返す
@@ -727,12 +815,15 @@ pub fn get_options() -> JsOptionsDefinition {
         language_stds: Vec<&'static str>,
         #[serde(rename = "stdExtensions")]
         std_extensions: Vec<&'static str>,
+        #[serde(rename = "optPasses")]
+        opt_passes: Vec<&'static str>,
     }
 
     let options = OptionsDefinition {
         compile_targets: vec!["ws", "mnemonic"],
         language_stds: vec!["standard", "ws"],
         std_extensions: vec!["debug", "alloc"],
+        opt_passes: vec!["all", "condition-opt", "geti-opt", "constant-folding", "dead-code"],
     };
     let js: JsValue = serde_wasm_bindgen::to_value(&options).unwrap();
     js.into()
