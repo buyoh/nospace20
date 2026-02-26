@@ -32,80 +32,127 @@ src/
 
 ## ExecExpression の拡張
 
-最適化パスが生成する**内部専用**の ExecExpression バリアントを追加する。これらは意味解析では生成されず、最適化パスでのみ生成される。
+最適化パスが生成する新しい式を、**最小限のバリアント追加**で実現する。最適化の種類ごとに専用バリアントを追加するのではなく、既存バリアントの拡張と汎用的な内部バリアントで対応する。
 
-### 追加バリアント
+### 設計方針
+
+| 課題 | 旧設計（非採用） | 新設計 |
+|---|---|---|
+| 条件式最適化 (if) | `IfZero`, `IfNegative` 追加 | 既存 `If` に `ConditionMode` フィールド追加 |
+| 条件式最適化 (while) | `WhileNotZero`, `WhileNegative` 追加 | 既存 `While` に `ConditionMode` フィールド追加 |
+| 入力最適化 | `InternalGetiv`, `InternalGetcv` 追加 | 汎用 `InternalBuiltinFunction` バリアント追加 |
+| **合計** | **6 新バリアント** | **1 新バリアント + 2 既存バリアント修正** |
+
+### 追加する型
+
+#### ConditionMode
+
+```rust
+/// 条件式の評価モード
+///
+/// If/While の条件式がどのように true/false を判定するかを指定する。
+/// 意味解析では常に NonZero が使用される。最適化パスが Zero/Negative に変換する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConditionMode {
+    /// cond != 0 → true（既存動作、意味解析が生成）
+    NonZero,
+    /// cond == 0 → true（Whitespace: JumpIfZero を直接使用）
+    Zero,
+    /// cond < 0 → true（Whitespace: JumpIfNegative を直接使用）
+    Negative,
+}
+```
+
+#### InternalBuiltinFunctionKind
+
+```rust
+/// 最適化パスで生成される内部組み込み関数の種類
+///
+/// 各バリアントは必要なデータを自身に保持する。
+/// 意味解析では生成されず、最適化パスでのみ生成される。
+pub(crate) enum InternalBuiltinFunctionKind {
+    /// 標準入力から整数を読み、変数に直接格納（TEMP_PTR 経由を排除）
+    Getiv(IdentifierRef),
+    /// 標準入力から文字を読み、変数に直接格納
+    Getcv(IdentifierRef),
+}
+```
+
+### ExecExpression の変更
 
 ```rust
 pub(crate) enum ExecExpression {
-    // --- 既存のバリアント ---
     Operation1(Operator1, Box<LocatedExecExpression>),
     Operation2(Operator2, Box<LocatedExecExpression>, Box<LocatedExecExpression>),
-    If(Box<LocatedExecExpression>, Block, Block),
-    While(Box<LocatedExecExpression>, Block),
+    // ConditionMode を第1引数に追加（既存は全て ConditionMode::NonZero）
+    If(ConditionMode, Box<LocatedExecExpression>, Block, Block),
+    While(ConditionMode, Box<LocatedExecExpression>, Block),
     Block(Block),
     BuiltinFunction(BuiltinFunctionKind, Vec<Box<LocatedExecExpression>>),
     UserFunction(IdentifierRef, Vec<Box<LocatedExecExpression>>),
     Factor(i64),
     Variable(IdentifierRef),
     ArrayAccess(IdentifierRef, Box<LocatedExecExpression>, usize),
-
-    // --- 最適化パスで追加されるバリアント (条件式最適化) ---
-    /// if (cond == 0) { then } else { else }
-    /// JumpIfZero を直接使用。比較サブルーチン呼び出しを排除。
-    IfZero(Box<LocatedExecExpression>, Block, Block),
-    /// if (cond < 0) { then } else { else }
-    /// JumpIfNegative を直接使用。
-    IfNegative(Box<LocatedExecExpression>, Block, Block),
-    /// while (cond == 0) { body }
-    WhileNotZero(Box<LocatedExecExpression>, Block),
-    /// while (cond < 0) { body }
-    WhileNegative(Box<LocatedExecExpression>, Block),
-
-    // --- 最適化パスで追加されるバリアント (__geti/__getc 最適化) ---
-    /// InputNumber を変数アドレスに直接書き込み（一時領域を経由しない）
-    InternalGetiv(IdentifierRef),
-    /// InputChar を変数アドレスに直接書き込み
-    InternalGetcv(IdentifierRef),
+    /// 最適化パスで生成される内部組み込み関数
+    InternalBuiltinFunction(InternalBuiltinFunctionKind),
 }
 ```
 
 ### セマンティクス詳細
 
-| バリアント | 条件 | then ブロック実行 | else ブロック実行 |
+#### If の ConditionMode 別動作
+
+| ConditionMode | then ブロック実行条件 | else ブロック実行条件 | WS 命令 |
 |---|---|---|---|
-| `If(cond, then, else)` | cond != 0 → then | cond == 0 → else | 既存 |
-| `IfZero(expr, then, else)` | expr == 0 → then | expr != 0 → else | **新規** |
-| `IfNegative(expr, then, else)` | expr < 0 → then | expr >= 0 → else | **新規** |
+| `NonZero` | cond != 0 | cond == 0 | 既存（COMPARATOR 経由） |
+| `Zero` | cond == 0 | cond != 0 | `JumpIfZero` 直接 |
+| `Negative` | cond < 0 | cond >= 0 | `JumpIfNegative` 直接 |
 
-| バリアント | ループ継続条件 | ループ終了条件 |
-|---|---|---|
-| `While(cond, body)` | cond != 0 | cond == 0 | 既存 |
-| `WhileNotZero(expr, body)` | expr != 0 | expr == 0 | **新規** |
-| `WhileNegative(expr, body)` | expr < 0 | expr >= 0 | **新規** |
+#### While の ConditionMode 別動作
 
-> **`WhileNotZero` について**: 名前は「ゼロでない間ループ」。既存の `While` と同じループ継続/終了条件だが、条件式が「比較結果(0/1)」ではなく「生の値」であることを示す。Whitespace コンパイラは `JumpIfZero` を直接使用でき、比較サブルーチン呼び出しが不要になる。`While(expr != 0, body)` から変換され、`expr != 0` の比較コード生成をスキップする。
+| ConditionMode | ループ継続条件 | ループ終了条件 | WS 命令 |
+|---|---|---|---|
+| `NonZero` | cond != 0 | cond == 0 | 既存（COMPARATOR 経由） |
+| `Zero` | cond == 0 | cond != 0 | `JumpIfZero` で継続 |
+| `Negative` | cond < 0 | cond >= 0 | `JumpIfNegative` で継続 |
+
+> **`While(NonZero, ...)` → `While(Zero, ...)`の変換例**: `while: expr != 0 { body }` の条件式 `expr != 0` は、`COMPARATOR_ZERO` を呼んだ結果が nonzero かどうかで判定する（2段階）。`While(Zero, expr, body)` に変換すると、`JumpIfZero` で `expr == 0` のとき直接ループ終了できるため、比較サブルーチンが不要になる。なお、`While(NonZero, ...)` と `While(Zero, ...)` はループ継続/終了条件が逆になる点に注意。最適化パス側で条件式の意味を適切に変換する必要がある。
 
 ### 型推論への影響
 
-新バリアントの型推論:
-
 ```rust
-ExecExpression::IfZero(_, then_block, else_block) => {
-    // If と同じ: 両ブロックの型をマージ
-    infer_block_type(then_block, func_return_types)
-        .merge(infer_block_type(else_block, func_return_types))
+impl ExecExpression {
+    pub(crate) fn infer_type(&self, func_return_types: &[ValueType]) -> ValueType {
+        match self {
+            // ConditionMode は型推論に影響しない
+            ExecExpression::While(_, _, _) => ValueType::Void,
+            ExecExpression::If(_, _, then_block, else_block) => {
+                infer_block_type(then_block, func_return_types)
+                    .merge(infer_block_type(else_block, func_return_types))
+            }
+            ExecExpression::InternalBuiltinFunction(kind) => match kind {
+                InternalBuiltinFunctionKind::Getiv(_) => ValueType::Int,
+                InternalBuiltinFunctionKind::Getcv(_) => ValueType::Int,
+            },
+            // ... 既存のまま ...
+        }
+    }
 }
-ExecExpression::IfNegative(_, then_block, else_block) => {
-    // 同上
-    infer_block_type(then_block, func_return_types)
-        .merge(infer_block_type(else_block, func_return_types))
-}
-ExecExpression::WhileNotZero(_, _) => ValueType::Void,  // while と同じ
-ExecExpression::WhileNegative(_, _) => ValueType::Void,
-ExecExpression::InternalGetiv(_) => ValueType::Int,
-ExecExpression::InternalGetcv(_) => ValueType::Int,
 ```
+
+### リファクタリング影響範囲
+
+`If`/`While` に `ConditionMode` フィールドを追加するため、以下の箇所を機械的に修正する必要がある:
+
+| ファイル | 変更内容 |
+|---|---|
+| `semantic_analyzer/types.rs` | enum 定義変更、`infer_type` の match パターン更新 |
+| `semantic_analyzer/mod.rs` | `ExecExpression::If(...)` / `While(...)` 構築時に `ConditionMode::NonZero` を第1引数に追加 (2箇所) |
+| `interpreter/exec.rs` | `interpret_expression` の match パターン更新 (If, While)、`interpret_if`/`interpret_while` に ConditionMode 対応追加、`InternalBuiltinFunction` ハンドラ追加 |
+| `compiler_ws/expression.rs` | `generate_expression` の match パターン更新 (If, While)、`generate_if_expression`/`generate_while_expression` に ConditionMode 対応追加、`InternalBuiltinFunction` コード生成追加 |
+| `optimizer/noop_test_pass.rs` | `ExecExpression` パターンに影響なし（直接 If/While を使用していない） |
+
+意味解析が生成する `If`/`While` は常に `ConditionMode::NonZero` を指定するため、**既存の動作に変更はない**。
 
 ## パス管理
 
@@ -243,19 +290,47 @@ CLI オプション:
 
 ## Interpreter への影響
 
-新しい ExecExpression バリアントは、Interpreter でもハンドリングする必要がある（コンパイルエラーを避けるため）。ただし、Interpreter 向けの最適化は条件式最適化・geti 最適化を含まないため、通常は到達しない。
+`If`/`While` の match パターンに `ConditionMode` を追加し、モードに応じた条件判定を行う。`InternalBuiltinFunction` のハンドラも追加。
 
 ```rust
-// interpreter での処理（安全のため実装）
-ExecExpression::IfZero(cond, then_block, else_block) => {
+// If: ConditionMode に応じた分岐
+ExecExpression::If(mode, cond, then_block, else_block) => {
     let val = eval(cond);
-    if val == 0 { eval_block(then_block) } else { eval_block(else_block) }
+    let condition = match mode {
+        ConditionMode::NonZero => val != 0,
+        ConditionMode::Zero => val == 0,
+        ConditionMode::Negative => val < 0,
+    };
+    if condition { eval_block(then_block) } else { eval_block(else_block) }
 }
-ExecExpression::IfNegative(cond, then_block, else_block) => {
-    let val = eval(cond);
-    if val < 0 { eval_block(then_block) } else { eval_block(else_block) }
+
+// While: ConditionMode に応じたループ判定
+ExecExpression::While(mode, cond, block) => {
+    loop {
+        let val = eval(cond);
+        let condition = match mode {
+            ConditionMode::NonZero => val != 0,
+            ConditionMode::Zero => val == 0,
+            ConditionMode::Negative => val < 0,
+        };
+        if !condition { break; }
+        eval_block(block);
+    }
 }
-// ...
+
+// InternalBuiltinFunction
+ExecExpression::InternalBuiltinFunction(kind) => match kind {
+    InternalBuiltinFunctionKind::Getiv(var_ref) => {
+        let value = read_integer_from_stdin();
+        set_variable(var_ref, value);
+        ExpressionFlow::Value(value)
+    }
+    InternalBuiltinFunctionKind::Getcv(var_ref) => {
+        let value = read_char_from_stdin();
+        set_variable(var_ref, value);
+        ExpressionFlow::Value(value)
+    }
+}
 ```
 
 ## Compiler WS への影響

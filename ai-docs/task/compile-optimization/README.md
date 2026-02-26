@@ -49,10 +49,11 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 ## 実装順序
 
 1. **フレームワーク構築** — `src/optimizer/` モジュール作成、パイプライン統合 ✅ 完了
-2. **定数畳み込み** — 最もシンプルで汎用的
-3. **条件式最適化** — 効果が最大。ExecExpression の拡張を伴う
-4. **`__geti`/`__getc` 最適化** — パターンマッチで実装可能
-5. **未使用関数削除** — 到達可能性解析が必要
+2. **ExecExpression リファクタリング** — `ConditionMode` / `InternalBuiltinFunctionKind` 導入（01-pass-framework.md 参照）
+3. **定数畳み込み** — 最もシンプルで汎用的
+4. **条件式最適化** — 効果が最大。`ConditionMode::Zero` / `Negative` を使用
+5. **`__geti`/`__getc` 最適化** — `InternalBuiltinFunction` を使用
+6. **未使用関数削除** — 到達可能性解析が必要
 
 ## フレームワーク実装状況
 

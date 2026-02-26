@@ -25,7 +25,7 @@ Retrieve                # value をスタックに
 合計: 9 命令
 ```
 
-### 最適化後の `InternalGetiv(p)` のコード生成
+### 最適化後の `InternalBuiltinFunction(Getiv(p))` のコード生成
 
 ```
 Push(p_addr)            # p のアドレス
@@ -51,7 +51,7 @@ ExecStatement::Expression(
         BuiltinFunction(Geti, [])             # 右辺: __geti()
     )
 )
-→ ExecStatement::Expression(InternalGetiv(var_ref))
+→ ExecStatement::Expression(InternalBuiltinFunction(Getiv(var_ref)))
 ```
 
 ```
@@ -61,7 +61,7 @@ ExecStatement::Expression(
         BuiltinFunction(Getc, [])             # 右辺: __getc()
     )
 )
-→ ExecStatement::Expression(InternalGetcv(var_ref))
+→ ExecStatement::Expression(InternalBuiltinFunction(Getcv(var_ref)))
 ```
 
 ### 適用条件
@@ -73,7 +73,7 @@ ExecStatement::Expression(
 
 ### 戻り値の扱い
 
-`p = __geti()` が式として使われる場合（例: `x = p = __geti()`）、戻り値がスタックに残る必要がある。`InternalGetiv` は最適化後もスタックに入力値を残す。
+`p = __geti()` が式として使われる場合（例: `x = p = __geti()`）、戻り値がスタックに残る必要がある。`InternalBuiltinFunction(Getiv(...))` は最適化後もスタックに入力値を残す。
 
 ただし、以下のような複雑なケースは変換しない:
 
@@ -86,50 +86,51 @@ x = (p = __geti()) + 1;
 
 ## Compiler WS でのコード生成
 
-### InternalGetiv（グローバル変数）
+### InternalBuiltinFunction(Getiv(...))（グローバル変数）
 
 ```rust
-ExecExpression::InternalGetiv(var_ref) => {
-    let var_info = ctx.get_var_info(var_ref);
-    match var_info.scope {
-        VarScope::Global => {
-            let addr = heap_layout::GLOBAL_PTR + var_info.offset;
-            prog.push(Instruction::Push(WsNumber(addr)));
-            prog.push(Instruction::Duplicate);
-            prog.push(Instruction::InputNumber);
-            prog.push(Instruction::Retrieve);
-        }
-        VarScope::Local => {
-            // local_addr = heap[LOCAL_HEAP_BEGIN] + offset
-            prog.push(Instruction::Push(WsNumber(var_info.offset)));
-            prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
-            prog.push(Instruction::Retrieve);
-            prog.push(Instruction::Add);
-            prog.push(Instruction::Duplicate);
-            prog.push(Instruction::InputNumber);
-            prog.push(Instruction::Retrieve);
+ExecExpression::InternalBuiltinFunction(kind) => match kind {
+    InternalBuiltinFunctionKind::Getiv(var_ref) | InternalBuiltinFunctionKind::Getcv(var_ref) => {
+        let is_number = matches!(kind, InternalBuiltinFunctionKind::Getiv(_));
+        let var_info = ctx.get_var_info(var_ref);
+        match var_info.scope {
+            VarScope::Global => {
+                let addr = heap_layout::GLOBAL_PTR + var_info.offset;
+                prog.push(Instruction::Push(WsNumber(addr)));
+                prog.push(Instruction::Duplicate);
+                if is_number { prog.push(Instruction::InputNumber); }
+                else { prog.push(Instruction::InputChar); }
+                prog.push(Instruction::Retrieve);
+            }
+            VarScope::Local => {
+                prog.push(Instruction::Push(WsNumber(var_info.offset)));
+                prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
+                prog.push(Instruction::Retrieve);
+                prog.push(Instruction::Add);
+                prog.push(Instruction::Duplicate);
+                if is_number { prog.push(Instruction::InputNumber); }
+                else { prog.push(Instruction::InputChar); }
+                prog.push(Instruction::Retrieve);
+            }
         }
     }
 }
 ```
 
-### InternalGetcv
-
-`InputNumber` を `InputChar` に置き換えるだけで同じ構造。
-
 ## Interpreter での処理
 
 ```rust
-ExecExpression::InternalGetiv(var_ref) => {
-    // __geti() と同じ処理 + 変数への代入
-    let value = read_integer_from_stdin();
-    set_variable(var_ref, value);
-    ExpressionFlow::Value(value)
-}
-ExecExpression::InternalGetcv(var_ref) => {
-    let value = read_char_from_stdin();
-    set_variable(var_ref, value);
-    ExpressionFlow::Value(value)
+ExecExpression::InternalBuiltinFunction(kind) => match kind {
+    InternalBuiltinFunctionKind::Getiv(var_ref) => {
+        let value = read_integer_from_stdin();
+        set_variable(var_ref, value);
+        ExpressionFlow::Value(value)
+    }
+    InternalBuiltinFunctionKind::Getcv(var_ref) => {
+        let value = read_char_from_stdin();
+        set_variable(var_ref, value);
+        ExpressionFlow::Value(value)
+    }
 }
 ```
 
@@ -144,14 +145,22 @@ ExecExpression::InternalGetcv(var_ref) => {
 
 ## 実装手順
 
-1. `ExecExpression` に `InternalGetiv(IdentifierRef)`, `InternalGetcv(IdentifierRef)` を追加
-2. `types.rs` の `infer_type` に新バリアントを追加
-3. Interpreter に新バリアントのハンドラを追加
-4. Compiler WS (`expression.rs`) に新バリアントのコード生成を追加
-5. `optimizer/geti_opt.rs` にパターンマッチ・変換ロジックを実装
-6. テスト: `__geti`/`__getc` を使用するテストケースで最適化有無で同じ結果を確認
+### 前提: InternalBuiltinFunction 導入 (01-pass-framework.md 参照)
+
+1. `InternalBuiltinFunctionKind` enum を `types.rs` に追加
+2. `ExecExpression::InternalBuiltinFunction` バリアントを追加
+3. `types.rs` の `infer_type` に新バリアントを追加
+4. Interpreter にハンドラを追加
+5. Compiler WS にコード生成を追加
+
+### 最適化パスの実装
+
+1. `optimizer/geti_opt.rs` にパターンマッチ・変換ロジックを実装
+2. テスト: `__geti`/`__getc` を使用するテストケースで最適化有無で同じ結果を確認
 
 ## 将来の拡張
 
-- 配列アクセスへの直接入力: `arr[i] = __geti()` → `InternalGetivArray(var_ref, index_expr)`
-- デリファレンスへの直接入力: `*ptr = __geti()` → `InternalGetivDeref(addr_expr)`
+`InternalBuiltinFunctionKind` に新しいバリアントを追加することで、`ExecExpression` を変更せずに拡張可能:
+
+- 配列アクセスへの直接入力: `arr[i] = __geti()` → `GetivArray(IdentifierRef, Box<LocatedExecExpression>)`
+- デリファレンスへの直接入力: `*ptr = __geti()` → `GetivDeref(Box<LocatedExecExpression>)`

@@ -27,7 +27,7 @@ end:
 
 **問題**: `COMPARATOR_ZERO` はサブルーチン呼び出し（Call + Return + Swap + Discard）を伴い、さらにスタックに余分な値をプッシュする。合計 **約10命令** のオーバーヘッド。
 
-### 最適化後の `IfZero(x, A, B)` のコード生成
+### 最適化後の `If(Zero, x, A, B)` のコード生成
 
 ```
 eval(x)                     # x の値
@@ -47,10 +47,10 @@ end:
 
 | 元の条件式 | 変換先 | 条件式の簡約 |
 |---|---|---|
-| `if: expr == 0 { A } else: { B }` | `IfZero(expr, A, B)` | == 0 の比較を排除 |
-| `if: expr != 0 { A } else: { B }` | `IfZero(expr, B, A)` | then/else を入れ替え |
-| `if: expr < 0 { A } else: { B }` | `IfNegative(expr, A, B)` | < 0 の比較を排除 |
-| `if: expr >= 0 { A } else: { B }` | `IfNegative(expr, B, A)` | then/else を入れ替え |
+| `if: expr == 0 { A } else: { B }` | `If(Zero, expr, A, B)` | == 0 の比較を排除 |
+| `if: expr != 0 { A } else: { B }` | `If(Zero, expr, B, A)` | then/else を入れ替え |
+| `if: expr < 0 { A } else: { B }` | `If(Negative, expr, A, B)` | < 0 の比較を排除 |
+| `if: expr >= 0 { A } else: { B }` | `If(Negative, expr, B, A)` | then/else を入れ替え |
 | `if: CONST { A } else: { B }` | `A` or `B` | 定数条件の除去（※） |
 
 ※ 定数条件の除去は `constant_folding` パスの責務。このパスでは非定数の条件式のみを扱う。
@@ -59,45 +59,45 @@ end:
 
 | 元の条件式 | 変換先 | 説明 |
 |---|---|---|
-| `while: expr != 0 { body }` | `WhileNotZero(expr, body)` | != 0 の比較を排除 |
-| `while: expr < 0 { body }` | `WhileNegative(expr, body)` | < 0 の比較を排除 |
+| `while: expr != 0 { body }` | `While(Zero, expr, body)` | `JumpIfZero` でループ脱出 |
+| `while: expr < 0 { body }` | `While(Negative, expr, body)` | `JumpIfNegative` でループ継続 |
 
-> **while の非対称性**: `while: expr == 0 { body }` は稀なパターンであり、WhileZero の変換は初期実装では省略可能。`while: expr >= 0` も同様。
+> **while の非対称性**: `while: expr == 0 { body }` は稀なパターンであり、初期実装では省略可能。`while: expr >= 0` も同様。
 
 ### パターンマッチの詳細
 
 ExecExpression レベルでのパターンマッチ:
 
 ```
-If(
+If(NonZero,
     cond: Operation2(Equal, inner_lhs, Factor(0)),  // expr == 0
     then_block,
     else_block
-) → IfZero(inner_lhs, then_block, else_block)
+) → If(Zero, inner_lhs, then_block, else_block)
 ```
 
 ```
-If(
+If(NonZero,
     cond: Operation2(NotEqual, inner_lhs, Factor(0)),  // expr != 0
     then_block,
     else_block
-) → IfZero(inner_lhs, else_block, then_block)  // then/else 入れ替え
+) → If(Zero, inner_lhs, else_block, then_block)  // then/else 入れ替え
 ```
 
 ```
-If(
+If(NonZero,
     cond: Operation2(Less, inner_lhs, Factor(0)),  // expr < 0
     then_block,
     else_block
-) → IfNegative(inner_lhs, then_block, else_block)
+) → If(Negative, inner_lhs, then_block, else_block)
 ```
 
 ```
-If(
+If(NonZero,
     cond: Operation2(GreaterEqual, inner_lhs, Factor(0)),  // expr >= 0
     then_block,
     else_block
-) → IfNegative(inner_lhs, else_block, then_block)  // then/else 入れ替え
+) → If(Negative, inner_lhs, else_block, then_block)  // then/else 入れ替え
 ```
 
 ### `0 == expr` のケース
@@ -105,11 +105,11 @@ If(
 右辺がゼロでなく左辺がゼロの場合も検出する:
 
 ```
-If(
+If(NonZero,
     cond: Operation2(Equal, Factor(0), inner_rhs),
     then_block,
     else_block
-) → IfZero(inner_rhs, then_block, else_block)
+) → If(Zero, inner_rhs, then_block, else_block)
 ```
 
 ただし `<` / `>=` は非対称なので、左右反転時は演算子を調整:
@@ -124,107 +124,103 @@ If(
 `expr1 == expr2` は `(expr1 - expr2) == 0` と等価。変換:
 
 ```
-If(
+If(NonZero,
     cond: Operation2(Equal, lhs, rhs),
     then_block,
     else_block
 )
-→ IfZero(Operation2(Minus, lhs, rhs), then_block, else_block)
+→ If(Zero, Operation2(Minus, lhs, rhs), then_block, else_block)
 ```
 
 しかし、これは `lhs - rhs` の計算を生成するため、元の `Sub + Call(COMPARATOR_ZERO)` と比較して `Sub` は同じで `Call` が消える分だけ得する。**初期実装で対応推奨**。
 
 同様に:
 
-- `expr1 != expr2` → `IfZero(expr1 - expr2, else, then)`
-- `expr1 < expr2` → `IfNegative(expr1 - expr2, then, else)`
-- `expr1 >= expr2` → `IfNegative(expr1 - expr2, else, then)`
-- `expr1 > expr2` → `IfNegative(expr2 - expr1, then, else)` （オペランド反転）
-- `expr1 <= expr2` → `IfNegative(expr2 - expr1, else, then)` （オペランド反転 + then/else 反転）
+- `expr1 != expr2` → `If(Zero, expr1 - expr2, else, then)`
+- `expr1 < expr2` → `If(Negative, expr1 - expr2, then, else)`
+- `expr1 >= expr2` → `If(Negative, expr1 - expr2, else, then)`
+- `expr1 > expr2` → `If(Negative, expr2 - expr1, then, else)` （オペランド反転）
+- `expr1 <= expr2` → `If(Negative, expr2 - expr1, else, then)` （オペランド反転 + then/else 反転）
 
 ## Compiler WS でのコード生成
 
-### IfZero
+既存の `generate_if_expression` / `generate_while_expression` を `ConditionMode` に対応させる。
+
+### If の ConditionMode 対応
 
 ```rust
-ExecExpression::IfZero(cond, then_block, else_block) => {
-    let then_label = ctx.new_label();
-    let end_label = ctx.new_label();
-
-    // 条件式を評価
-    prog.append(generate_expression(ctx, cond)?);
-    // ゼロなら then へジャンプ
-    prog.push(Instruction::JumpIfZero(then_label));
-    // else ブロック (fall-through)
-    prog.append(generate_block(ctx, else_block)?);
-    prog.push(Instruction::Jump(end_label));
-    // then ブロック
-    prog.push(Instruction::Label(then_label));
-    prog.append(generate_block(ctx, then_block)?);
-    // 終了
-    prog.push(Instruction::Label(end_label));
+// generate_if_expression(ctx, mode, cond, then_block, else_block)
+fn generate_if_expression(
+    ctx: &mut CodeGenContext,
+    mode: &ConditionMode,
+    cond: &LocatedExecExpression,
+    then_block: &Block,
+    else_block: &Block,
+) -> Result<WsProgram, CompileError> {
+    match mode {
+        ConditionMode::NonZero => {
+            // 既存実装: COMPARATOR 経由
+            generate_if_nonzero(ctx, cond, then_block, else_block)
+        }
+        ConditionMode::Zero => {
+            let then_label = ctx.new_label();
+            let end_label = ctx.new_label();
+            prog.append(generate_expression(ctx, cond)?);
+            prog.push(Instruction::JumpIfZero(then_label));
+            prog.append(generate_block(ctx, else_block)?);
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(then_label));
+            prog.append(generate_block(ctx, then_block)?);
+            prog.push(Instruction::Label(end_label));
+            Ok(prog)
+        }
+        ConditionMode::Negative => {
+            let then_label = ctx.new_label();
+            let end_label = ctx.new_label();
+            prog.append(generate_expression(ctx, cond)?);
+            prog.push(Instruction::JumpIfNegative(then_label));
+            prog.append(generate_block(ctx, else_block)?);
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(then_label));
+            prog.append(generate_block(ctx, then_block)?);
+            prog.push(Instruction::Label(end_label));
+            Ok(prog)
+        }
+    }
 }
 ```
 
-### IfNegative
+### While の ConditionMode 対応
 
 ```rust
-ExecExpression::IfNegative(cond, then_block, else_block) => {
-    let then_label = ctx.new_label();
-    let end_label = ctx.new_label();
-
-    prog.append(generate_expression(ctx, cond)?);
-    prog.push(Instruction::JumpIfNegative(then_label));
-    prog.append(generate_block(ctx, else_block)?);
-    prog.push(Instruction::Jump(end_label));
-    prog.push(Instruction::Label(then_label));
-    prog.append(generate_block(ctx, then_block)?);
-    prog.push(Instruction::Label(end_label));
-}
-```
-
-### WhileNotZero
-
-```rust
-ExecExpression::WhileNotZero(cond, body) => {
-    let loop_start = ctx.new_label();
-    let loop_end = ctx.new_label();
-    ctx.push_loop_labels(loop_start, loop_end);
-
-    prog.push(Instruction::Label(loop_start));
-    prog.append(generate_expression(ctx, cond)?);
-    prog.push(Instruction::JumpIfZero(loop_end));  // cond == 0 → exit
-    prog.append(generate_block(ctx, body)?);
-    prog.push(Instruction::Discard);
-    prog.push(Instruction::Jump(loop_start));
-    prog.push(Instruction::Label(loop_end));
-
-    ctx.pop_loop_labels();
-    prog.push(Instruction::Push(WsNumber(0)));
-}
-```
-
-### WhileNegative
-
-```rust
-ExecExpression::WhileNegative(cond, body) => {
-    let loop_start = ctx.new_label();
-    let loop_body = ctx.new_label();
-    let loop_end = ctx.new_label();
-    ctx.push_loop_labels(loop_start, loop_end);
-
-    prog.push(Instruction::Label(loop_start));
-    prog.append(generate_expression(ctx, cond)?);
-    prog.push(Instruction::JumpIfNegative(loop_body));  // cond < 0 → continue
-    prog.push(Instruction::Jump(loop_end));               // cond >= 0 → exit
-    prog.push(Instruction::Label(loop_body));
-    prog.append(generate_block(ctx, body)?);
-    prog.push(Instruction::Discard);
-    prog.push(Instruction::Jump(loop_start));
-    prog.push(Instruction::Label(loop_end));
-
-    ctx.pop_loop_labels();
-    prog.push(Instruction::Push(WsNumber(0)));
+// generate_while_expression(ctx, mode, cond, body)
+match mode {
+    ConditionMode::NonZero => {
+        // 既存実装: COMPARATOR 経由
+        generate_while_nonzero(ctx, cond, body)
+    }
+    ConditionMode::Zero => {
+        // cond == 0 で継続 → JumpIfZero でループ脱出
+        prog.push(Instruction::Label(loop_start));
+        prog.append(generate_expression(ctx, cond)?);
+        prog.push(Instruction::JumpIfZero(loop_end));  // cond == 0 → exit
+        prog.append(generate_block(ctx, body)?);
+        prog.push(Instruction::Discard);
+        prog.push(Instruction::Jump(loop_start));
+        prog.push(Instruction::Label(loop_end));
+    }
+    ConditionMode::Negative => {
+        // cond < 0 で継続 → JumpIfNegative でループ本体へ
+        prog.push(Instruction::Label(loop_start));
+        prog.append(generate_expression(ctx, cond)?);
+        prog.push(Instruction::JumpIfNegative(loop_body));
+        prog.push(Instruction::Jump(loop_end));
+        prog.push(Instruction::Label(loop_body));
+        prog.append(generate_block(ctx, body)?);
+        prog.push(Instruction::Discard);
+        prog.push(Instruction::Jump(loop_start));
+        prog.push(Instruction::Label(loop_end));
+    }
 }
 ```
 
@@ -239,13 +235,22 @@ ExecExpression::WhileNegative(cond, body) => {
 
 ## 実装手順
 
-1. `ExecExpression` に新バリアント追加 (`IfZero`, `IfNegative`, `WhileNotZero`, `WhileNegative`)
-2. `types.rs` の `infer_type` に新バリアントを追加
-3. Interpreter に新バリアントのハンドラを追加
-4. Compiler WS (`expression.rs`) に新バリアントのコード生成を追加
-5. `optimizer/condition_opt.rs` にパターンマッチ・変換ロジックを実装
-6. テスト: 既存テストケースが最適化有無で同じ結果になることを確認
-7. プロファイラで効果測定
+### 前提: ConditionMode 導入リファクタリング (01-pass-framework.md 参照)
+
+1. `ConditionMode` enum を `types.rs` に追加
+2. `ExecExpression::If` / `While` に `ConditionMode` フィールドを追加
+3. `semantic_analyzer/mod.rs` で `ConditionMode::NonZero` を指定するよう修正
+4. `interpreter/exec.rs` の match パターンを更新（ConditionMode 対応）
+5. `compiler_ws/expression.rs` の match パターンを更新（ConditionMode 対応）
+6. テスト: 既存テスト全パスを確認（動作変更なし）
+
+### 条件式最適化パスの実装
+
+1. `optimizer/condition_opt.rs` を作成
+2. `If(NonZero, ...)` → `If(Zero/Negative, ...)` のパターンマッチ・変換ロジックを実装
+3. `While(NonZero, ...)` → `While(Zero, ...)` 等の変換ロジックを実装
+4. テスト: 既存テストケースが最適化有無で同じ結果になることを確認
+5. プロファイラで効果測定
 
 ## 注意事項
 
