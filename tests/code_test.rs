@@ -362,13 +362,18 @@ fn test_compile_error_base(test_name: &str) -> Result {
 
             // contains が指定されている場合、エラーメッセージに含まれているか確認
             if let Some(keywords) = contains {
-                let error_msg = result.unwrap_err();
+                let errors = result.unwrap_err();
+                let combined_msg = errors
+                    .iter()
+                    .map(|e| e.message.as_ref())
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 for keyword in keywords {
                     assert!(
-                        error_msg.contains(&keyword),
+                        combined_msg.contains(&keyword as &str),
                         "Error message does not contain '{}': {}",
                         keyword,
-                        error_msg
+                        combined_msg
                     );
                 }
             }
@@ -453,7 +458,7 @@ fn test_whitespace_base(test_name: &str) {
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -500,7 +505,7 @@ fn test_whitespace_io_base(test_name: &str) {
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+    let ws_code = compile_to_whitespace(&a).unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -577,7 +582,7 @@ fn test_whitespace_self_base_alloc(test_name: &str, debug_ext: bool, alloc_ext: 
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
     let ws_code = compile_to_whitespace_with_options(&a, debug_ext, alloc_ext)
-        .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+        .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -622,7 +627,7 @@ fn test_whitespace_self_base_impl(
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
     let ws_code = compile_to_whitespace_with_options(&a, debug_ext, false)
-        .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+        .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -692,7 +697,7 @@ fn test_whitespace_self_io_base_alloc(test_name: &str, debug_ext: bool, alloc_ex
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
     let ws_code = compile_to_whitespace_with_options(&a, debug_ext, alloc_ext)
-        .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+        .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -794,7 +799,7 @@ fn test_whitespace_self_io_base_impl(
     let s = parse_to_tree(&t).unwrap();
     let a = syntactic_analyze(&s).unwrap();
     let ws_code = compile_to_whitespace_with_options(&a, debug_ext, false)
-        .unwrap_or_else(|e| panic!("Compilation failed: {}", e));
+        .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");

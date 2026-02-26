@@ -2,17 +2,18 @@
 
 use crate::compiler_ws::{
     context::CodeGenContext, expression, instruction::Instruction, program::WsProgram,
-    types::WsNumber, CompileError,
+    types::WsNumber, CompileError, CompileErrorKind,
 };
-use crate::semantic_analyzer::{Block, ExecStatement, Scope};
+use crate::semantic_analyzer::{Block, ExecStatement, LocatedExecStatement, Scope};
 
 /// スコープ全体のコードを生成
 pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
     // ① ルートレベルの static 変数の初期化を先に実行
-    for stmt in &scope.static_init_statements {
-        prog.append(generate_statement(ctx, stmt)?);
+    for located_stmt in &scope.static_init_statements {
+        ctx.set_location(&located_stmt.location);
+        prog.append(generate_statement(ctx, &located_stmt.statement)?);
     }
 
     // ② 関数内 static 変数の初期化
@@ -26,16 +27,18 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
                 func_idx,
                 &func.block.scope,
             );
-            for stmt in &func.block.scope.static_init_statements {
-                prog.append(generate_statement(&mut static_ctx, stmt)?);
+            for located_stmt in &func.block.scope.static_init_statements {
+                static_ctx.set_location(&located_stmt.location);
+                prog.append(generate_statement(&mut static_ctx, &located_stmt.statement)?);
             }
             ctx.sync_labels_from(&static_ctx);
         }
     }
 
     // ③ グローバル変数の初期化（root_statements）
-    for stmt in &scope.root_statements {
-        prog.append(generate_statement(ctx, stmt)?);
+    for located_stmt in &scope.root_statements {
+        ctx.set_location(&located_stmt.location);
+        prog.append(generate_statement(ctx, &located_stmt.statement)?);
     }
 
     // ④ Phase 7: 全ての関数定義を生成
@@ -66,11 +69,15 @@ pub fn generate_block(ctx: &mut CodeGenContext, block: &Block) -> Result<WsProgr
 
     // 最後の文以外を処理（式の値は Discard）
     for i in 0..stmt_count - 1 {
-        prog.append(generate_statement(ctx, &block.statements[i])?);
+        let located = &block.statements[i];
+        ctx.set_location(&located.location);
+        prog.append(generate_statement(ctx, &located.statement)?);
     }
 
     // 最後の文を処理
-    let last_stmt = &block.statements[stmt_count - 1];
+    let last_located = &block.statements[stmt_count - 1];
+    ctx.set_location(&last_located.location);
+    let last_stmt = &last_located.statement;
     match last_stmt {
         ExecStatement::Expression(expr) => {
             // 式文の場合: 値をスタックに残す（Discard しない）
@@ -110,7 +117,18 @@ pub fn generate_statement(
         ExecStatement::Break => {
             let loop_end = ctx
                 .current_loop_end()
-                .ok_or_else(|| CompileError::InvalidOperation("break outside loop".to_string()))?;
+                .ok_or_else(|| {
+                    let loc = ctx.current_location();
+                    match loc {
+                        Some(l) => CompileError::with_location(
+                            CompileErrorKind::InvalidOperation("break outside loop".to_string()),
+                            l,
+                        ),
+                        None => CompileError::new(CompileErrorKind::InvalidOperation(
+                            "break outside loop".to_string(),
+                        )),
+                    }
+                })?;
             let mut prog = WsProgram::new();
             prog.push(Instruction::Jump(loop_end));
             Ok(prog)
@@ -119,7 +137,16 @@ pub fn generate_statement(
         // continue 文
         ExecStatement::Continue => {
             let loop_start = ctx.current_loop_start().ok_or_else(|| {
-                CompileError::InvalidOperation("continue outside loop".to_string())
+                let loc = ctx.current_location();
+                match loc {
+                    Some(l) => CompileError::with_location(
+                        CompileErrorKind::InvalidOperation("continue outside loop".to_string()),
+                        l,
+                    ),
+                    None => CompileError::new(CompileErrorKind::InvalidOperation(
+                        "continue outside loop".to_string(),
+                    )),
+                }
             })?;
             let mut prog = WsProgram::new();
             prog.push(Instruction::Jump(loop_start));
@@ -210,8 +237,9 @@ fn generate_function_definition(
     );
 
     // 関数本体
-    for stmt in &func.block.statements {
-        prog.append(generate_statement(&mut local_ctx, stmt)?);
+    for located_stmt in &func.block.statements {
+        local_ctx.set_location(&located_stmt.location);
+        prog.append(generate_statement(&mut local_ctx, &located_stmt.statement)?);
     }
 
     // デフォルト return（値 0）
@@ -233,8 +261,11 @@ fn calculate_total_variable_count(block: &Block) -> usize {
     block.scope.variable_count + count_nested_vars_in_statements(&block.statements)
 }
 
-fn count_nested_vars_in_statements(stmts: &[ExecStatement]) -> usize {
-    stmts.iter().map(count_nested_vars_in_statement).sum()
+fn count_nested_vars_in_statements(stmts: &[LocatedExecStatement]) -> usize {
+    stmts
+        .iter()
+        .map(|located| count_nested_vars_in_statement(&located.statement))
+        .sum()
 }
 
 fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {

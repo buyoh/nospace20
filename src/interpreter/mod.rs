@@ -57,8 +57,8 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) {
             root_scope: scope,
             scope_stack: Vec::new(),
         };
-        for statement in &scope.static_init_statements {
-            match local_env.interpret_statement(statement) {
+        for located_stmt in &scope.static_init_statements {
+            match local_env.interpret_statement(&located_stmt.statement) {
                 Flow::Proceed => (),
                 other => panic!("unexpected flow in static initialization: {:?}", other),
             }
@@ -75,8 +75,8 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) {
             root_scope: scope,
             scope_stack: Vec::new(),
         };
-        for statement in &scope.root_statements {
-            match local_env.interpret_statement(statement) {
+        for located_stmt in &scope.root_statements {
+            match local_env.interpret_statement(&located_stmt.statement) {
                 Flow::Proceed => (),
                 other => panic!("unexpected flow in global initialization: {:?}", other),
             }
@@ -111,7 +111,7 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) {
                 scope_stack: vec![init_storage],
             };
             for stmt in &func.block.scope.static_init_statements {
-                match local_env.interpret_statement(stmt) {
+                match local_env.interpret_statement(&stmt.statement) {
                     Flow::Proceed => (),
                     other => panic!(
                         "unexpected flow in function static initialization: {:?}",

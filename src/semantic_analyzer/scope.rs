@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::{base::CodeParseError, code_parse_error};
 
-use super::types::{Block, ExecStatement, IdentifierRef, ValueType, Variable};
+use super::types::{Block, ExecStatement, IdentifierRef, LocatedExecStatement, ValueType, Variable};
 
 #[derive(Clone, Copy)]
 pub(super) struct FunctionIndex(pub usize, pub usize, pub ValueType); // (global_index, arg_count, return_type)
@@ -87,11 +87,11 @@ pub struct Scope {
     /// static 変数の初期化文
     /// 関数スコープの場合: 関数内の static 変数の初期化式
     /// ルートスコープの場合: ルートレベルの static 変数の初期化式（非 static より先に実行）
-    pub(crate) static_init_statements: Vec<ExecStatement>,
+    pub(crate) static_init_statements: Vec<LocatedExecStatement>,
 
     /// ルートスコープの実行文（非 static グローバル変数の初期化）
     /// 関数スコープ・ブロックスコープでは空
-    pub(crate) root_statements: Vec<ExecStatement>,
+    pub(crate) root_statements: Vec<LocatedExecStatement>,
 }
 
 impl Scope {
@@ -313,7 +313,7 @@ pub(super) struct ScopeBuilder {
     /// 変数名のリスト（variables と同じ順序）
     pub variable_names: Vec<String>,
     /// static 変数の初期化文を一時的に保持
-    pub static_init_statements: Vec<ExecStatement>,
+    pub static_init_statements: Vec<LocatedExecStatement>,
 }
 
 impl ScopeBuilder {
@@ -331,7 +331,7 @@ impl ScopeBuilder {
     /// ルートスコープの場合のみ有効な値を渡し、それ以外は空の Vec を渡す
     pub fn build(
         mut self,
-        root_statements: Vec<ExecStatement>,
+        root_statements: Vec<LocatedExecStatement>,
         functions: Vec<Function>,
         function_names: Vec<String>,
     ) -> Scope {

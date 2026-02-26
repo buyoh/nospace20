@@ -1,5 +1,6 @@
 //! コード生成コンテキスト
 
+use crate::base::SourceLocation;
 use crate::compiler_ws::alloc_runtime::AllocRuntime;
 use crate::compiler_ws::{label::LabelAllocator, types::LabelId};
 use crate::semantic_analyzer::{IdentifierRef, Scope};
@@ -95,6 +96,11 @@ pub struct CodeGenContext<'a> {
 
     /// 現在処理中の関数のスコープ (関数内でのみ Some)
     current_func_scope: Option<&'a Scope>,
+
+    /// 現在処理中の文のソース位置
+    /// generate_statement 内でセットされ、コンパイルエラー発生時に参照される。
+    /// None の場合、位置不明エラーとなる。
+    current_location: Option<SourceLocation>,
 }
 
 impl<'a> CodeGenContext<'a> {
@@ -121,10 +127,9 @@ impl<'a> CodeGenContext<'a> {
             static_var_total_size,
             current_func_index: None,
             current_func_scope: None,
+            current_location: None,
         }
     }
-
-    /// ローカル（関数内）コンテキストを作成
     /// total_var_count: 関数内の全ブロック（ネスト含む）の変数合計数
     /// func_scope_var_count: 関数スコープ直下の変数数
     /// func_index: 関数のインデックス
@@ -152,6 +157,7 @@ impl<'a> CodeGenContext<'a> {
             static_var_total_size: self.static_var_total_size,
             current_func_index: Some(func_index),
             current_func_scope: Some(func_scope),
+            current_location: None,
         }
     }
 
@@ -183,12 +189,28 @@ impl<'a> CodeGenContext<'a> {
             static_var_total_size: self.static_var_total_size,
             current_func_index: Some(func_index),
             current_func_scope: Some(func_scope),
+            current_location: None,
         }
     }
 
     /// グローバルヒープサイズを取得
     pub fn global_heap_size(&self) -> i64 {
         self.scope.variable_count as i64 + self.static_var_total_size
+    }
+
+    /// 現在処理中の文の位置をセットする
+    ///
+    /// `statement.rs` で各 `LocatedExecStatement` を処理する前に呼び出す。
+    /// セットした位置はコンパイルエラー発生時に使用される。
+    pub fn set_location(&mut self, loc: &SourceLocation) {
+        self.current_location = Some(loc.clone());
+    }
+
+    /// 現在処理中の文の位置を取得する
+    ///
+    /// コンパイルエラー生成時に `CompileError::with_location` の引数として使用する。
+    pub fn current_location(&self) -> Option<SourceLocation> {
+        self.current_location.clone()
     }
 
     /// 新しいラベルを確保

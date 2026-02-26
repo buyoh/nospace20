@@ -3,7 +3,7 @@
 use crate::compiler_ws::context::CodeGenContext;
 use crate::compiler_ws::{
     instruction::Instruction, label::reserved_labels, program::WsProgram,
-    types::WsNumber, CompileError,
+    types::WsNumber, CompileError, CompileErrorKind,
 };
 
 /// ヘッダー部分を生成
@@ -37,10 +37,10 @@ pub fn generate_footer(ctx: &CodeGenContext) -> Result<WsProgram, CompileError> 
     let main_idx = ctx
         .scope()
         .main_function_index
-        .ok_or(CompileError::MainNotFound)?;
+        .ok_or_else(|| CompileError::new(CompileErrorKind::MainNotFound))?;
     let main_label = ctx
         .get_function_label(main_idx)
-        .ok_or(CompileError::MainNotFound)?;
+        .ok_or_else(|| CompileError::new(CompileErrorKind::MainNotFound))?;
     prog.push(Instruction::Call(main_label));
 
     // プログラム終了

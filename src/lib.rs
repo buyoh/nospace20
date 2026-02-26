@@ -149,10 +149,10 @@ pub fn compile_to_whitespace_with_options(
     scope: &Scope,
     debug_ext: bool,
     alloc_ext: bool,
-) -> Result<String, String> {
+) -> Result<String, Vec<CodeParseError>> {
     compiler_ws::compile_with_options(scope, debug_ext, alloc_ext)
         .map(|prog| prog.to_whitespace())
-        .map_err(|e| e.to_string())
+        .map_err(|e| vec![compile_error_to_code_parse_error(e)])
 }
 
 /// Whitespace にコンパイル（デバッグ用ニーモニック、拡張オプション付き）
@@ -160,18 +160,27 @@ pub fn compile_to_whitespace_debug_with_options(
     scope: &Scope,
     debug_ext: bool,
     alloc_ext: bool,
-) -> Result<String, String> {
+) -> Result<String, Vec<CodeParseError>> {
     compiler_ws::compile_with_options(scope, debug_ext, alloc_ext)
         .map(|prog| prog.to_debug_string())
-        .map_err(|e| e.to_string())
+        .map_err(|e| vec![compile_error_to_code_parse_error(e)])
 }
 
 /// Whitespace にコンパイル（従来互換）
-pub fn compile_to_whitespace(scope: &Scope) -> Result<String, String> {
+pub fn compile_to_whitespace(scope: &Scope) -> Result<String, Vec<CodeParseError>> {
     compile_to_whitespace_with_options(scope, false, false)
 }
 
 /// Whitespace にコンパイル（デバッグ用ニーモニック、従来互換）
-pub fn compile_to_whitespace_debug(scope: &Scope) -> Result<String, String> {
+pub fn compile_to_whitespace_debug(scope: &Scope) -> Result<String, Vec<CodeParseError>> {
     compile_to_whitespace_debug_with_options(scope, false, false)
+}
+
+/// `CompileError` を `CodeParseError` に変換する
+///
+/// WASM API や CLI で既存のエラーハンドリングを再利用するため、
+/// `CompileError` を `CodeParseError` 形式に変換する。
+fn compile_error_to_code_parse_error(e: compiler_ws::CompileError) -> CodeParseError {
+    let code_pointer = e.location.map(|loc| loc.start);
+    CodeParseError::new(code_pointer, e.kind.to_string())
 }

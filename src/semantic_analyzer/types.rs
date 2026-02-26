@@ -1,5 +1,6 @@
 // 実行可能な中間表現の型定義
 
+use crate::base::SourceLocation;
 use crate::tree_parser::{Operator1, Operator2};
 
 /// 式の値の型
@@ -133,10 +134,19 @@ pub(crate) enum ExecStatement {
     Expression(Box<ExecExpression>),
 }
 
+/// 位置情報を持つ実行可能な文
+///
+/// 意味解析フェーズで `LocatedStatement` の位置情報を引き継ぎ、
+/// コンパイルエラー時に文レベルの位置情報を報告できるようにする。
+pub(crate) struct LocatedExecStatement {
+    pub statement: ExecStatement,
+    pub location: SourceLocation,
+}
+
 /// ブロック（文の列とスコープ情報）
 pub(crate) struct Block {
     pub scope: super::Scope,
-    pub statements: Vec<ExecStatement>,
+    pub statements: Vec<LocatedExecStatement>,
 }
 
 impl ExecExpression {
@@ -179,7 +189,10 @@ impl ExecExpression {
 /// ブロックの型を推論する（最後の式文の型）
 pub(crate) fn infer_block_type(block: &Block, func_return_types: &[ValueType]) -> ValueType {
     match block.statements.last() {
-        Some(ExecStatement::Expression(expr)) => expr.infer_type(func_return_types),
-        _ => ValueType::Void, // 空ブロック、または最後が return/break/continue
+        Some(located_stmt) => match &located_stmt.statement {
+            ExecStatement::Expression(expr) => expr.infer_type(func_return_types),
+            _ => ValueType::Void, // 空ブロック、または最後が return/break/continue
+        },
+        None => ValueType::Void,
     }
 }

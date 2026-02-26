@@ -462,6 +462,13 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
             .join("; ")
     })?;
     nospace20::compile_to_whitespace_with_options(&scope, opts.debug_ext, opts.alloc_ext)
+        .map_err(|errors| {
+            errors
+                .iter()
+                .map(|e| format!("{:?}", e))
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
 }
 
 /// Whitespace テキストの静的命令数を計算する（パースして命令列長を得る）

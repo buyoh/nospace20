@@ -257,13 +257,7 @@ fn main() {
                 _ => unreachable!("Unsupported target should be caught by validation"),
             };
 
-            let output = match compiled {
-                Ok(code) => code,
-                Err(err) => {
-                    eprintln!("compilation error: {}", err);
-                    process::exit(1);
-                }
-            };
+            let output = handle_parse_error(compiled, &text);
 
             // 出力
             if let Some(output_file) = &property.output {

@@ -2,10 +2,21 @@
 
 use crate::compiler_ws::{
     context::CodeGenContext, context::VarScope, instruction::Instruction, label::reserved_labels,
-    memory::heap_layout, program::WsProgram, types::WsNumber, CompileError,
+    memory::heap_layout, program::WsProgram, types::WsNumber, CompileError, CompileErrorKind,
 };
 use crate::semantic_analyzer::ExecExpression;
 use crate::tree_parser::{Operator1, Operator2};
+
+/// コンパイルエラーを現在のコンテキスト位置情報付きで生成するヘルパー
+///
+/// `ctx.current_location()` が Some の場合は位置情報付きのエラーを返す。
+/// Phase 1: 式レベルのエラーは直近の文の開始位置で代替表示。
+fn make_error(ctx: &CodeGenContext, msg: String) -> CompileError {
+    match ctx.current_location() {
+        Some(loc) => CompileError::with_location(CompileErrorKind::InvalidOperation(msg), loc),
+        None => CompileError::new(CompileErrorKind::InvalidOperation(msg)),
+    }
+}
 
 /// 式を評価するコードを生成
 /// 評価結果はスタックトップに残る
@@ -184,7 +195,8 @@ fn generate_unary_op(
                     prog.append(generate_array_element_address(ctx, var_ref, index_expr)?);
                 }
                 _ => {
-                    return Err(CompileError::InvalidOperation(
+                    return Err(make_error(
+                        ctx,
                         "Reference operator (&) can only be applied to variables or array elements"
                             .to_string(),
                     ));
@@ -326,7 +338,8 @@ fn generate_binary_op(
                     prog.push(Instruction::Retrieve);
                 }
                 _ => {
-                    return Err(CompileError::InvalidOperation(
+                    return Err(make_error(
+                        ctx,
                         "Left-hand side of assignment must be a variable, array access, or dereference"
                             .to_string(),
                     ));
@@ -486,10 +499,10 @@ fn generate_builtin_puti(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if args.len() != 1 {
-        return Err(CompileError::InvalidOperation(format!(
-            "__puti expects 1 argument, got {}",
-            args.len()
-        )));
+        return Err(make_error(
+            ctx,
+            format!("__puti expects 1 argument, got {}", args.len()),
+        ));
     }
 
     let mut prog = WsProgram::new();
@@ -508,10 +521,10 @@ fn generate_builtin_putc(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if args.len() != 1 {
-        return Err(CompileError::InvalidOperation(format!(
-            "__putc expects 1 argument, got {}",
-            args.len()
-        )));
+        return Err(make_error(
+            ctx,
+            format!("__putc expects 1 argument, got {}", args.len()),
+        ));
     }
 
     let mut prog = WsProgram::new();
@@ -526,14 +539,14 @@ fn generate_builtin_putc(
 
 /// __geti() - 整数を入力
 fn generate_builtin_geti(
-    _ctx: &mut CodeGenContext,
+    ctx: &mut CodeGenContext,
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !args.is_empty() {
-        return Err(CompileError::InvalidOperation(format!(
-            "__geti expects 0 arguments, got {}",
-            args.len()
-        )));
+        return Err(make_error(
+            ctx,
+            format!("__geti expects 0 arguments, got {}", args.len()),
+        ));
     }
 
     let mut prog = WsProgram::new();
@@ -550,14 +563,14 @@ fn generate_builtin_geti(
 
 /// __getc() - 文字を入力
 fn generate_builtin_getc(
-    _ctx: &mut CodeGenContext,
+    ctx: &mut CodeGenContext,
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !args.is_empty() {
-        return Err(CompileError::InvalidOperation(format!(
-            "__getc expects 0 arguments, got {}",
-            args.len()
-        )));
+        return Err(make_error(
+            ctx,
+            format!("__getc expects 0 arguments, got {}", args.len()),
+        ));
     }
 
     let mut prog = WsProgram::new();
@@ -648,15 +661,13 @@ fn generate_builtin_alloc(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !ctx.is_alloc_ext() {
-        return Err(CompileError::InvalidOperation(
-            "__alloc requires --std-ext alloc".to_string(),
-        ));
+        return Err(make_error(ctx, "__alloc requires --std-ext alloc".to_string()));
     }
     if args.len() != 1 {
-        return Err(CompileError::InvalidOperation(format!(
-            "__alloc expects 1 argument, got {}",
-            args.len()
-        )));
+        return Err(make_error(
+            ctx,
+            format!("__alloc expects 1 argument, got {}", args.len()),
+        ));
     }
 
     let mut prog = WsProgram::new();
@@ -675,15 +686,13 @@ fn generate_builtin_free(
     args: &[Box<ExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !ctx.is_alloc_ext() {
-        return Err(CompileError::InvalidOperation(
-            "__free requires --std-ext alloc".to_string(),
-        ));
+        return Err(make_error(ctx, "__free requires --std-ext alloc".to_string()));
     }
     if args.len() != 1 {
-        return Err(CompileError::InvalidOperation(format!(
-            "__free expects 1 argument, got {}",
-            args.len()
-        )));
+        return Err(make_error(
+            ctx,
+            format!("__free expects 1 argument, got {}", args.len()),
+        ));
     }
 
     let mut prog = WsProgram::new();

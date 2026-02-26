@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub use scope::{Function, Scope};
-pub(crate) use types::{Block, ExecExpression, ExecStatement, Variable};
+pub(crate) use types::{Block, ExecExpression, ExecStatement, LocatedExecStatement, Variable};
 pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
 pub(crate) use types::infer_block_type;
 
@@ -426,7 +426,7 @@ fn analyze_internal(
     scope_type: ScopeType,
     global_functions: &mut Vec<Function>,
     global_function_names: &mut Vec<String>,
-) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
+) -> Result<(ScopeBuilder, Vec<LocatedExecStatement>), Vec<CodeParseError>> {
     analyze_internal_with_parent(
         statements,
         scope_type,
@@ -450,7 +450,7 @@ fn analyze_internal_with_parent(
     global_function_names: &mut Vec<String>,
     func_global_index: Option<usize>,
     inherited_func_return_types: Vec<ValueType>,
-) -> Result<(ScopeBuilder, Vec<ExecStatement>), Vec<CodeParseError>> {
+) -> Result<(ScopeBuilder, Vec<LocatedExecStatement>), Vec<CodeParseError>> {
     let mut scope = ScopeBuilder::new();
 
     // グローバル変数は暗黙的に static
@@ -624,23 +624,27 @@ fn analyze_internal_with_parent(
     };
 
     // パス2: 文の変換（識別子解決を伴う）
-    let mut exec_statements = Vec::<ExecStatement>::new();
+    let mut exec_statements = Vec::<LocatedExecStatement>::new();
     for located_stat in statements {
         let stat = &located_stat.statement;
         let loc = &located_stat.location;
         match stat {
             Statement::VariableDeclaration(_, init, is_static_explicit, _) => {
                 // 初期化式を変換（変数宣言自体はパス1で完了）
-                let exec = ExecStatement::Expression(convert_to_exec_expression_with_resolver(
+                let exec_stmt = ExecStatement::Expression(convert_to_exec_expression_with_resolver(
                     init, &resolver, &effective_func_return_types,
                 )?);
+                let located = LocatedExecStatement {
+                    statement: exec_stmt,
+                    location: loc.clone(),
+                };
                 // static 変数の初期化式は分離する
                 // - ルートスコープ: static 変数の初期化は非 static より先に実行
                 // - 関数スコープ: static 変数の初期化は main 前に1回だけ実行
                 if *is_static_explicit {
-                    scope.static_init_statements.push(exec);
+                    scope.static_init_statements.push(located);
                 } else {
-                    exec_statements.push(exec);
+                    exec_statements.push(located);
                 }
             }
             Statement::FunctionDeclaration(name, args, block) => {
@@ -708,7 +712,10 @@ fn analyze_internal_with_parent(
                         let exec_e = convert_to_exec_expression_with_resolver(expr, &resolver, &effective_func_return_types)?;
                         // return: の式は Int でなければならない
                         require_int_type(&exec_e, &effective_func_return_types)?;
-                        exec_statements.push(ExecStatement::Return(Some(exec_e)));
+                        exec_statements.push(LocatedExecStatement {
+                            statement: ExecStatement::Return(Some(exec_e)),
+                            location: loc.clone(),
+                        });
                     }
                     None => {
                         // void return: 関数が int 型（return: expr; がある）場合はエラー
@@ -720,16 +727,22 @@ fn analyze_internal_with_parent(
                                 )]);
                             }
                         }
-                        exec_statements.push(ExecStatement::Return(None));
+                        exec_statements.push(LocatedExecStatement {
+                            statement: ExecStatement::Return(None),
+                            location: loc.clone(),
+                        });
                     }
                 }
             }
             Statement::Expression(e) => {
                 // ルートスコープでも式文を許可（グローバル変数の初期化式）
                 // 式文は void 型でも OK（値は捨てられる）
-                exec_statements.push(ExecStatement::Expression(
-                    convert_to_exec_expression_with_resolver(e, &resolver, &effective_func_return_types)?,
-                ));
+                exec_statements.push(LocatedExecStatement {
+                    statement: ExecStatement::Expression(
+                        convert_to_exec_expression_with_resolver(e, &resolver, &effective_func_return_types)?,
+                    ),
+                    location: loc.clone(),
+                });
             }
             Statement::Continue => {
                 if let ScopeType::Root = scope_type {
@@ -738,7 +751,10 @@ fn analyze_internal_with_parent(
                         "semantic error: continue statement outside of function"
                     )]);
                 }
-                exec_statements.push(ExecStatement::Continue);
+                exec_statements.push(LocatedExecStatement {
+                    statement: ExecStatement::Continue,
+                    location: loc.clone(),
+                });
             }
             Statement::Break => {
                 if let ScopeType::Root = scope_type {
@@ -747,7 +763,10 @@ fn analyze_internal_with_parent(
                         "semantic error: break statement outside of function"
                     )]);
                 }
-                exec_statements.push(ExecStatement::Break);
+                exec_statements.push(LocatedExecStatement {
+                    statement: ExecStatement::Break,
+                    location: loc.clone(),
+                });
             }
             Statement::Invalid(_) => (),
         }

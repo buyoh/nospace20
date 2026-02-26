@@ -332,18 +332,7 @@ pub fn compile(
             let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
             js.into()
         }
-        Err(err) => {
-            let result = ResultErr {
-                success: false,
-                errors: vec![WasmError {
-                    message: err,
-                    line: None,
-                    column: None,
-                }],
-            };
-            let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
-            js.into()
-        }
+        Err(errors) => convert_errors(&errors, &text).into(),
     }
 }
 
@@ -452,17 +441,7 @@ impl WasmWhitespaceVM {
             alloc_ext.unwrap_or(false),
         ) {
             Ok(output) => output,
-            Err(err) => {
-                let result = ResultErr {
-                    success: false,
-                    errors: vec![WasmError {
-                        message: err,
-                        line: None,
-                        column: None,
-                    }],
-                };
-                return Err(serde_wasm_bindgen::to_value(&result).unwrap());
-            }
+            Err(errors) => return Err(convert_errors(&errors, &text)),
         };
 
         if interactive.unwrap_or(false) {

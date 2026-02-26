@@ -1,5 +1,5 @@
 use crate::{
-    semantic_analyzer::{Block, ExecExpression, ExecStatement, Function, IdentifierRef, Scope},
+    semantic_analyzer::{Block, ExecExpression, ExecStatement, Function, IdentifierRef, LocatedExecStatement, Scope},
     tree_parser::{Operator1, Operator2},
 };
 
@@ -541,9 +541,10 @@ impl LocalEnvironment<'_, '_> {
 
     /// ブロックの文を実行し、最後の式の値も返す
     /// if/while 式の戻り値を実装するために使用
-    fn interpret_statements_with_value(&mut self, statements: &Vec<ExecStatement>) -> (Flow, i64) {
+    fn interpret_statements_with_value(&mut self, statements: &Vec<LocatedExecStatement>) -> (Flow, i64) {
         let mut last_value = 0;
-        for statement in statements {
+        for located_stmt in statements {
+            let statement = &located_stmt.statement;
             match statement {
                 ExecStatement::Expression(expr) => match self.interpret_expression(expr) {
                     ExpressionFlow::Value(v) => last_value = v,
@@ -561,7 +562,7 @@ impl LocalEnvironment<'_, '_> {
         (Flow::Proceed, last_value)
     }
 
-    pub(super) fn interpret_statements(&mut self, statements: &Vec<ExecStatement>) -> Flow {
+    pub(super) fn interpret_statements(&mut self, statements: &Vec<LocatedExecStatement>) -> Flow {
         let (flow, _) = self.interpret_statements_with_value(statements);
         flow
     }
