@@ -74,6 +74,7 @@ fn test_noop_pass_adds_marker_variable() {
         &mut scope,
         &OptimizationOptions {
             noop_test_pass: true,
+            ..OptimizationOptions::none()
         },
     );
 
@@ -97,6 +98,7 @@ fn test_noop_pass_magic_number_initialized() {
         &mut scope,
         &OptimizationOptions {
             noop_test_pass: true,
+            ..OptimizationOptions::none()
         },
     );
 
@@ -142,6 +144,7 @@ fn test_noop_pass_does_not_affect_execution() {
         &mut scope,
         &OptimizationOptions {
             noop_test_pass: true,
+            ..OptimizationOptions::none()
         },
     );
 
@@ -188,6 +191,7 @@ fn test_noop_pass_does_not_break_ws_compile() {
         &mut scope,
         &OptimizationOptions {
             noop_test_pass: true,
+            ..OptimizationOptions::none()
         },
     );
 
@@ -480,4 +484,332 @@ fn test_internal_builtin_getiv_interpreter() {
     let mut env = crate::Environment::new_with_buffers(stdin, stdout);
     let result = crate::interpret_with_env(&mut env, &scope);
     assert_eq!(result, Some(42), "__geti() should read 42 from stdin");
+}
+// --- condition_opt パステスト ---
+
+/// condition_opt: if:(x == 0) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_eq_zero_if_semantics() {
+    let code = r#"
+func: main() {
+    let: x(0);
+    if:(x == 0) { __trace(1); } else: { __trace(2); };
+    x = 5;
+    if:(x == 0) { __trace(3); } else: { __trace(4); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    // 最適化あり
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change after condition_opt");
+    assert_eq!(traces_orig.get(&1), Some(&1), "x==0: then block");
+    assert_eq!(traces_orig.get(&4), Some(&1), "x==5: else block");
+}
+
+/// condition_opt: if:(x != 0) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_neq_zero_if_semantics() {
+    let code = r#"
+func: main() {
+    let: x(0);
+    if:(x != 0) { __trace(1); } else: { __trace(2); };
+    x = 5;
+    if:(x != 0) { __trace(3); } else: { __trace(4); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&2), Some(&1), "x==0: else (condition false)");
+    assert_eq!(traces_orig.get(&3), Some(&1), "x==5: then (condition true)");
+}
+
+/// condition_opt: if:(x < 0) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_less_zero_if_semantics() {
+    let code = r#"
+func: main() {
+    let: x(0 - 1);
+    if:(x < 0) { __trace(1); } else: { __trace(2); };
+    x = 0;
+    if:(x < 0) { __trace(3); } else: { __trace(4); };
+    x = 1;
+    if:(x < 0) { __trace(5); } else: { __trace(6); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&1), Some(&1), "x=-1: then block (< 0)");
+    assert_eq!(traces_orig.get(&4), Some(&1), "x=0: else block (not < 0)");
+    assert_eq!(traces_orig.get(&6), Some(&1), "x=1: else block (not < 0)");
+}
+
+/// condition_opt: if:(x >= 0) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_geq_zero_if_semantics() {
+    let code = r#"
+func: main() {
+    let: x(0);
+    if:(x >= 0) { __trace(1); } else: { __trace(2); };
+    x = 0 - 1;
+    if:(x >= 0) { __trace(3); } else: { __trace(4); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&1), Some(&1), "x=0: then block (>= 0)");
+    assert_eq!(traces_orig.get(&4), Some(&1), "x=-1: else block (not >= 0)");
+}
+
+/// condition_opt: if:(a > b) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_greater_if_semantics() {
+    let code = r#"
+func: main() {
+    let: a(5);
+    let: b(3);
+    if:(a > b) { __trace(1); } else: { __trace(2); };
+    if:(b > a) { __trace(3); } else: { __trace(4); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&1), Some(&1), "5 > 3: then block");
+    assert_eq!(traces_orig.get(&4), Some(&1), "3 > 5: false → else block");
+}
+
+/// condition_opt: if:(a <= b) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_leq_if_semantics() {
+    let code = r#"
+func: main() {
+    let: a(3);
+    let: b(5);
+    if:(a <= b) { __trace(1); } else: { __trace(2); };
+    if:(b <= a) { __trace(3); } else: { __trace(4); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&1), Some(&1), "3 <= 5: then block");
+    assert_eq!(traces_orig.get(&4), Some(&1), "5 <= 3: false → else block");
+}
+
+/// condition_opt: if:(a == b) 一般式の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_eq_general_if_semantics() {
+    let code = r#"
+func: main() {
+    let: a(3);
+    let: b(3);
+    if:(a == b) { __trace(1); } else: { __trace(2); };
+    b = 4;
+    if:(a == b) { __trace(3); } else: { __trace(4); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&1), Some(&1), "a==b: then block");
+    assert_eq!(traces_orig.get(&4), Some(&1), "a!=b: else block");
+}
+
+/// condition_opt: while:(x != 0) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_while_neq_zero_semantics() {
+    let code = r#"
+func: main() {
+    let: x(3);
+    while:(x != 0) { __trace(0); x = x - 1; };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&0), Some(&3), "should loop 3 times");
+}
+
+/// condition_opt: while:(x == 0) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_while_eq_zero_semantics() {
+    let code = r#"
+func: main() {
+    let: x(0);
+    while:(x == 0) { __trace(0); x = x + 1; };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&0), Some(&1), "should loop once");
+}
+
+/// condition_opt: while:(x < 0) の最適化 - セマンティクスが変わらないこと
+#[test]
+fn test_condition_opt_while_less_zero_semantics() {
+    let code = r#"
+func: main() {
+    let: x(0 - 3);
+    while:(x < 0) { __trace(0); x = x + 1; };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Semantics should not change");
+    assert_eq!(traces_orig.get(&0), Some(&3), "should loop 3 times (x=-3,-2,-1 → exit at 0)");
+}
+
+/// condition_opt: WS コンパイル後の実行結果が最適化前後で同じであること（if == 0）
+#[test]
+fn test_condition_opt_eq_zero_ws_semantics() {
+    let code = r#"
+func: main() {
+    let: x(0);
+    if:(x == 0) { __puti(1); } else: { __puti(2); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // 最適化なし: WS コンパイル + 実行
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let ws_orig = crate::compiler_ws::compile_with_options(&scope_orig, false, false)
+        .expect("WS compile without opt");
+
+    // 最適化あり: WS コンパイル + 実行
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let ws_opt = crate::compiler_ws::compile_with_options(&scope_opt, false, false)
+        .expect("WS compile with condition_opt");
+
+    // 両方コンパイル成功
+    drop(ws_orig);
+    drop(ws_opt);
+}
+
+/// condition_opt: ネストした条件式の最適化
+#[test]
+fn test_condition_opt_nested_if_semantics() {
+    let code = r#"
+func: main() {
+    let: x(0);
+    let: y(0 - 1);
+    if:(x == 0) {
+        if:(y < 0) { __trace(1); } else: { __trace(2); };
+    } else: {
+        __trace(3);
+    };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+
+    let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
+    optimizer::optimize(&mut scope_opt, &OptimizationOptions { condition_opt: true, ..OptimizationOptions::none() });
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+
+    assert_eq!(traces_orig, traces_opt, "Nested if semantics should not change");
+    assert_eq!(traces_orig.get(&1), Some(&1), "x==0 and y<0: trace(1)");
+    assert_eq!(traces_orig.get(&2), None);
+    assert_eq!(traces_orig.get(&3), None);
 }

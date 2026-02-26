@@ -16,6 +16,7 @@
 //! 4. (将来) geti_opt
 //! 5. (将来) dead_code
 
+mod condition_opt;
 mod noop_test_pass;
 
 #[cfg(test)]
@@ -32,6 +33,8 @@ pub struct OptimizationOptions {
     /// テスト用パス: マジックナンバー変数を追加する
     /// 実用的な最適化ではなく、フレームワークの動作検証に使用
     pub noop_test_pass: bool,
+    /// 条件式最適化パス: If/While の条件式を ConditionMode(Zero/Negative) に変換する
+    pub condition_opt: bool,
 }
 
 impl OptimizationOptions {
@@ -39,6 +42,7 @@ impl OptimizationOptions {
     pub fn none() -> Self {
         Self {
             noop_test_pass: false,
+            condition_opt: false,
         }
     }
 
@@ -46,12 +50,13 @@ impl OptimizationOptions {
     pub fn all() -> Self {
         Self {
             noop_test_pass: false,
+            condition_opt: true,
         }
     }
 
     /// いずれかの最適化が有効かどうか
     pub fn any_enabled(&self) -> bool {
-        self.noop_test_pass
+        self.noop_test_pass || self.condition_opt
     }
 }
 
@@ -73,5 +78,10 @@ pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
     // テスト用パス
     if options.noop_test_pass {
         noop_test_pass::apply(scope);
+    }
+
+    // 条件式最適化パス
+    if options.condition_opt {
+        condition_opt::apply(scope);
     }
 }

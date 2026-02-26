@@ -1,5 +1,11 @@
 # if/while 条件式最適化
 
+> **✅ 実装完了** (2026-02-27)
+> - `src/optimizer/condition_opt.rs` 作成
+> - `OptimizationOptions::condition_opt` フィールド追加
+> - `optimizer::tests` に 12 件のテスト追加（合計 31 件）
+> - 全テスト 983 passed, 0 failed
+
 ## 概要
 
 Whitespace の条件分岐命令 `JumpIfZero` / `JumpIfNegative` を直接活用し、比較サブルーチン (`COMPARATOR_ZERO`, `COMPARATOR_NEGATIVE`) の呼び出しを排除する最適化。

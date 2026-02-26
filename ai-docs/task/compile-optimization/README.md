@@ -21,7 +21,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 | ドキュメント | 内容 |
 |---|---|
 | [01-pass-framework.md](../../done-task/compile-optimization/01-pass-framework.md) | 最適化パスフレームワーク設計（モジュール構成、パスの実行制御、ExecExpression 拡張）✅ 実装完了 |
-| [02-pass-condition-opt.md](02-pass-condition-opt.md) | if/while 条件式最適化（JumpIfZero/JumpIfNegative の直接利用） |
+| [02-pass-condition-opt.md](../../done-task/compile-optimization/02-pass-condition-opt.md) | if/while 条件式最適化（JumpIfZero/JumpIfNegative の直接利用）✅ 実装完了 |
 | [03-pass-geti-opt.md](03-pass-geti-opt.md) | `__geti` / `__getc` 入力最適化（一時領域経由の排除） |
 | [04-pass-dead-code.md](04-pass-dead-code.md) | 未使用関数・変数の削除 |
 | [05-pass-constant-folding.md](05-pass-constant-folding.md) | 定数畳み込み |
@@ -50,8 +50,8 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 
 1. **フレームワーク構築** — `src/optimizer/` モジュール作成、パイプライン統合 ✅ 完了
 2. **ExecExpression リファクタリング** — `ConditionMode` / `InternalBuiltinFunctionKind` 導入 ✅ 完了
-3. **定数畳み込み** — 最もシンプルで汎用的
-4. **条件式最適化** — 効果が最大。`ConditionMode::Zero` / `Negative` を使用
+3. **条件式最適化** — `ConditionMode::Zero` / `Negative` を使用 ✅ 完了
+4. **定数畳み込み** — 最もシンプルで汎用的
 5. **`__geti`/`__getc` 最適化** — `InternalBuiltinFunction` を使用
 6. **未使用関数削除** — 到達可能性解析が必要
 
@@ -61,7 +61,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 
 - `src/optimizer/mod.rs` — パス管理・実行エントリポイント
 - `src/optimizer/noop_test_pass.rs` — 動作検証用ダミーパス（マジックナンバー `0xDEAD` のグローバル変数を追加）
-- `src/optimizer/tests.rs` — ユニットテスト 19 件（フレームワーク 5 件 + ConditionMode 12 件 + InternalBuiltinFunction 2 件）
+- `src/optimizer/tests.rs` — ユニットテスト 31 件（フレームワーク 5 件 + ConditionMode 12 件 + InternalBuiltinFunction 2 件 + condition_opt 12 件）
 - `src/lib.rs` — `optimize()` 公開 API
 - `src/compile_property.rs` — `optimization_level` フィールド追加
 - CLI `--opt` オプション追加
@@ -71,3 +71,4 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 - `src/interpreter/exec.rs` — `ConditionMode` 対応、`InternalBuiltinFunction` ハンドラ追加
 - `src/compiler_ws/expression.rs` — `ConditionMode` 対応コード生成、`InternalBuiltinFunction` コード生成追加
 - `src/compiler_ws/statement.rs` — `count_nested_vars_in_expression` の match パターン更新
+- `src/optimizer/condition_opt.rs` — 条件式最適化パス（If/While の NonZero → Zero/Negative 変換）
