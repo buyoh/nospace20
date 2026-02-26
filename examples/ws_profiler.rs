@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
 use nospace20::{
-    cli_utils::{CliStd, CliTargetExt},
+    cli_utils::CliCompileArgs,
     whitespace::{ProfileStats, StepResult, WhitespaceVM},
     LanguageStd, TargetExtension,
 };
@@ -39,13 +39,8 @@ struct Args {
     /// .ns files to profile (reads from profile-targets.yaml if not specified)
     files: Vec<String>,
 
-    /// Language subset
-    #[arg(long, value_enum, default_value_t = CliStd::Standard)]
-    std: CliStd,
-
-    /// Standard extensions (can be specified multiple times)
-    #[arg(long = "std-ext", value_enum)]
-    std_ext: Vec<CliTargetExt>,
+    #[command(flatten)]
+    compile: CliCompileArgs,
 
     /// Output in JSON format instead of YAML
     #[arg(long)]
@@ -56,6 +51,7 @@ struct Args {
 struct CompileOptions {
     debug_ext: bool,
     alloc_ext: bool,
+    optimization_level: u8,
     /// 言語サブセット（将来の利用のために保持。現在は compile_to_whitespace_with_options に渡す API がないため未使用）
     #[allow(dead_code)]
     std: LanguageStd,
@@ -63,11 +59,12 @@ struct CompileOptions {
 
 impl CompileOptions {
     fn from_args(args: &Args) -> Self {
-        let exts: Vec<TargetExtension> = args.std_ext.iter().map(|e| (*e).into()).collect();
+        let exts: Vec<TargetExtension> = args.compile.std_ext.iter().map(|e| (*e).into()).collect();
         Self {
             debug_ext: exts.contains(&TargetExtension::Debug),
             alloc_ext: exts.contains(&TargetExtension::Alloc),
-            std: args.std.into(),
+            optimization_level: args.compile.opt,
+            std: args.compile.std.into(),
         }
     }
 }
@@ -418,13 +415,17 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
             .collect::<Vec<_>>()
             .join("; ")
     })?;
-    let scope = nospace20::syntactic_analyze(&tree).map_err(|errors| {
+    let mut scope = nospace20::syntactic_analyze(&tree).map_err(|errors| {
         errors
             .iter()
             .map(|e| format!("{:?}", e))
             .collect::<Vec<_>>()
             .join("; ")
     })?;
+    if opts.optimization_level > 0 {
+        let opt_options = nospace20::OptimizationOptions::all();
+        nospace20::optimize(&mut scope, &opt_options);
+    }
     nospace20::compile_to_whitespace_with_options(&scope, opts.debug_ext, opts.alloc_ext)
         .map_err(|errors| {
             errors

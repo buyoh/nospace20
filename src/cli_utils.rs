@@ -3,7 +3,7 @@
 //! `nospace20` バイナリと `ws_profiler` サンプルで共通に使う
 //! CLI 引数型を定義する。
 
-use clap::ValueEnum;
+use clap::{Args, ValueEnum};
 
 use crate::{LanguageStd, TargetExtension};
 
@@ -40,4 +40,22 @@ impl From<CliTargetExt> for TargetExtension {
             CliTargetExt::Alloc => TargetExtension::Alloc,
         }
     }
+}
+
+/// コンパイル共通引数（`nospace20` と `ws_profiler` で共有）
+///
+/// `#[command(flatten)]` でそれぞれの `Args` 構造体に埋め込んで使う。
+#[derive(Debug, Args)]
+pub struct CliCompileArgs {
+    /// Language subset
+    #[arg(long, value_enum, default_value_t = CliStd::Standard)]
+    pub std: CliStd,
+
+    /// Standard extensions (can be specified multiple times)
+    #[arg(long = "std-ext", value_enum)]
+    pub std_ext: Vec<CliTargetExt>,
+
+    /// Optimization level (0 = none, 1 = all optimizations)
+    #[arg(long, default_value_t = 0)]
+    pub opt: u8,
 }

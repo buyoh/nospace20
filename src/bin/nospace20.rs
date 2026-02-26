@@ -1,7 +1,7 @@
 use std::{io::Read, iter::repeat, process};
 
 use clap::{Parser, ValueEnum};
-use nospace20::cli_utils::{CliStd, CliTargetExt};
+use nospace20::cli_utils::CliCompileArgs;
 use nospace20::{
     compile_to_whitespace_debug_with_options,
     compile_to_whitespace_with_options,
@@ -66,9 +66,8 @@ struct Args {
     /// Source file to execute (reads from stdin if not provided)
     file: Option<String>,
 
-    /// Language subset
-    #[arg(long, value_enum, default_value_t = CliStd::Standard)]
-    std: CliStd,
+    #[command(flatten)]
+    compile: CliCompileArgs,
 
     /// Execution mode
     #[arg(long, value_enum, default_value_t = CliMode::Run)]
@@ -77,10 +76,6 @@ struct Args {
     /// Compile target (only with --mode=compile)
     #[arg(long, value_enum, default_value_t = CliTarget::Ws)]
     target: CliTarget,
-
-    /// Standard extensions (only with --mode=compile, can be specified multiple times)
-    #[arg(long = "std-ext", value_enum)]
-    std_ext: Vec<CliTargetExt>,
 
     /// Output file (only with --mode=compile, stdout if not specified)
     #[arg(short, long)]
@@ -93,10 +88,6 @@ struct Args {
     /// Ignore debug built-in functions (__assert, __assert_not, __trace, __clog)
     #[arg(long)]
     ignore_debug: bool,
-
-    /// Optimization level (0 = none, 1 = all optimizations)
-    #[arg(long, default_value_t = 0)]
-    opt: u8,
 }
 
 fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -> T {
@@ -144,14 +135,14 @@ fn main() {
 
     // CompileProperty を構築
     let property = CompileProperty {
-        std: args.std.into(),
+        std: args.compile.std.into(),
         mode: args.mode.into(),
         target: args.target.into(),
-        target_extensions: args.std_ext.into_iter().map(|e| e.into()).collect(),
+        target_extensions: args.compile.std_ext.into_iter().map(|e| e.into()).collect(),
         output: args.output,
         debug: args.debug,
         ignore_debug: args.ignore_debug,
-        optimization_level: args.opt,
+        optimization_level: args.compile.opt,
     };
 
     // バリデーション
