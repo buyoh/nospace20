@@ -1,6 +1,7 @@
 use std::{io::Read, iter::repeat, process};
 
 use clap::{Parser, ValueEnum};
+use nospace20::cli_utils::{CliStd, CliTargetExt};
 use nospace20::{
     compile_to_whitespace_debug_with_options,
     compile_to_whitespace_with_options,
@@ -14,31 +15,11 @@ use nospace20::{
     CompileTarget,
     Environment,
     ExecutionMode,
-    LanguageStd,
     OptimizationOptions,
     TargetExtension,
     TextCode,
 };
 use unicode_width::UnicodeWidthStr;
-
-/// 言語サブセット
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
-enum CliStd {
-    #[default]
-    Standard,
-    Min,
-    Ws,
-}
-
-impl From<CliStd> for LanguageStd {
-    fn from(cli: CliStd) -> Self {
-        match cli {
-            CliStd::Standard => LanguageStd::Standard,
-            CliStd::Min => LanguageStd::Min,
-            CliStd::Ws => LanguageStd::Ws,
-        }
-    }
-}
 
 /// 実行モード
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
@@ -72,22 +53,6 @@ impl From<CliTarget> for CompileTarget {
             CliTarget::Ws => CompileTarget::Ws,
             CliTarget::Mnemonic => CompileTarget::Mnemonic,
             CliTarget::Json => CompileTarget::Json,
-        }
-    }
-}
-
-/// ターゲット拡張
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-enum CliTargetExt {
-    Debug,
-    Alloc,
-}
-
-impl From<CliTargetExt> for TargetExtension {
-    fn from(cli: CliTargetExt) -> Self {
-        match cli {
-            CliTargetExt::Debug => TargetExtension::Debug,
-            CliTargetExt::Alloc => TargetExtension::Alloc,
         }
     }
 }

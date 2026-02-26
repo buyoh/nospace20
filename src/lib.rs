@@ -22,6 +22,9 @@ mod token_parser;
 mod tree_parser;
 pub mod whitespace;
 
+#[cfg(feature = "cli")]
+pub mod cli_utils;
+
 #[cfg(feature = "wasm")]
 mod wasm_api;
 

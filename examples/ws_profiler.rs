@@ -21,51 +21,15 @@
 //! cargo run --example ws_profiler -- --std ws
 //! ```
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
 use nospace20::{
+    cli_utils::{CliStd, CliTargetExt},
     whitespace::{ProfileStats, StepResult, WhitespaceVM},
     LanguageStd, TargetExtension,
 };
-
-// ===== CLI 引数 =====
-
-/// 言語サブセット（通常 CLI と同じ選択肢）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
-enum CliStd {
-    #[default]
-    Standard,
-    Min,
-    Ws,
-}
-
-impl From<CliStd> for LanguageStd {
-    fn from(v: CliStd) -> Self {
-        match v {
-            CliStd::Standard => LanguageStd::Standard,
-            CliStd::Min => LanguageStd::Min,
-            CliStd::Ws => LanguageStd::Ws,
-        }
-    }
-}
-
-/// コンパイルターゲット拡張（通常 CLI と同じ選択肢）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-enum CliTargetExt {
-    Debug,
-    Alloc,
-}
-
-impl From<CliTargetExt> for TargetExtension {
-    fn from(v: CliTargetExt) -> Self {
-        match v {
-            CliTargetExt::Debug => TargetExtension::Debug,
-            CliTargetExt::Alloc => TargetExtension::Alloc,
-        }
-    }
-}
 
 /// Whitespace VM プロファイラ
 #[derive(Parser, Debug)]
