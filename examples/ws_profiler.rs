@@ -51,7 +51,7 @@ struct Args {
 struct CompileOptions {
     debug_ext: bool,
     alloc_ext: bool,
-    optimization_level: u8,
+    opt_options: nospace20::OptimizationOptions,
     /// 言語サブセット（将来の利用のために保持。現在は compile_to_whitespace_with_options に渡す API がないため未使用）
     #[allow(dead_code)]
     std: LanguageStd,
@@ -63,7 +63,7 @@ impl CompileOptions {
         Self {
             debug_ext: exts.contains(&TargetExtension::Debug),
             alloc_ext: exts.contains(&TargetExtension::Alloc),
-            optimization_level: args.compile.opt,
+            opt_options: args.compile.build_optimization_options(),
             std: args.compile.std.into(),
         }
     }
@@ -422,9 +422,8 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
             .collect::<Vec<_>>()
             .join("; ")
     })?;
-    if opts.optimization_level > 0 {
-        let opt_options = nospace20::OptimizationOptions::all();
-        nospace20::optimize(&mut scope, &opt_options);
+    if opts.opt_options.any_enabled() {
+        nospace20::optimize(&mut scope, &opts.opt_options);
     }
     nospace20::compile_to_whitespace_with_options(&scope, opts.debug_ext, opts.alloc_ext)
         .map_err(|errors| {

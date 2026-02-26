@@ -15,7 +15,6 @@ use nospace20::{
     CompileTarget,
     Environment,
     ExecutionMode,
-    OptimizationOptions,
     TargetExtension,
     TextCode,
 };
@@ -133,6 +132,9 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
 fn main() {
     let args = Args::parse();
 
+    // 最適化オプションを先に構築
+    let opt_options = args.compile.build_optimization_options();
+
     // CompileProperty を構築
     let property = CompileProperty {
         std: args.compile.std.into(),
@@ -142,7 +144,6 @@ fn main() {
         output: args.output,
         debug: args.debug,
         ignore_debug: args.ignore_debug,
-        optimization_level: args.compile.opt,
     };
 
     // バリデーション
@@ -174,8 +175,7 @@ fn main() {
     let mut a = handle_parse_error(syntactic_analyze(&s), &text);
 
     // 最適化パスの適用
-    if property.optimization_level > 0 {
-        let opt_options = OptimizationOptions::all();
+    if opt_options.any_enabled() {
         optimize(&mut a, &opt_options);
     }
 
