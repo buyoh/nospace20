@@ -104,6 +104,9 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "OptionsDefinition")]
     pub type JsOptionsDefinition;
+
+    #[wasm_bindgen(typescript_type = "StdExtension[]")]
+    pub type JsStdExtensionArray;
 }
 
 #[derive(Serialize)]
@@ -135,6 +138,48 @@ struct WasmError {
     line: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     column: Option<usize>,
+}
+
+/// `StdExtension[]` (JS 配列) をパースし、各拡張の有効/無効を返す
+fn parse_std_extensions(extensions: Option<JsStdExtensionArray>) -> Result<(bool, bool), JsValue> {
+    let js_val: JsValue = match extensions {
+        Some(v) => v.into(),
+        None => return Ok((false, false)),
+    };
+    if js_val.is_undefined() || js_val.is_null() {
+        return Ok((false, false));
+    }
+    let ext_list: Vec<String> = serde_wasm_bindgen::from_value(js_val).map_err(|e| {
+        let result = ResultErr {
+            success: false,
+            errors: vec![WasmError {
+                message: format!("invalid std_extensions: {}", e),
+                line: None,
+                column: None,
+            }],
+        };
+        serde_wasm_bindgen::to_value(&result).unwrap()
+    })?;
+    let mut debug_ext = false;
+    let mut alloc_ext = false;
+    for ext in &ext_list {
+        match ext.as_str() {
+            "debug" => debug_ext = true,
+            "alloc" => alloc_ext = true,
+            _ => {
+                let result = ResultErr {
+                    success: false,
+                    errors: vec![WasmError {
+                        message: format!("unknown std extension: '{}' (use 'debug' or 'alloc')", ext),
+                        line: None,
+                        column: None,
+                    }],
+                };
+                return Err(serde_wasm_bindgen::to_value(&result).unwrap());
+            }
+        }
+    }
+    Ok((debug_ext, alloc_ext))
 }
 
 fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> JsValue {
@@ -234,16 +279,18 @@ pub fn run(source: &str, stdin: &str, debug: bool, ignore_debug: Option<bool>) -
 /// nospace ソースコードをコンパイルする。
 /// CLI の `--mode=compile` に相当。
 ///
-/// - `debug_ext`: デバッグ拡張を有効にする（CLI の `--std-ext debug` 相当）
-/// - `alloc_ext`: メモリアロケータ拡張を有効にする（CLI の `--std-ext alloc` 相当）
+/// - `std_extensions`: 有効にする拡張の配列（例: `["debug", "alloc"]`）
 #[wasm_bindgen]
 pub fn compile(
     source: &str,
     target: &str,
     lang_std: &str,
-    debug_ext: Option<bool>,
-    alloc_ext: Option<bool>,
+    std_extensions: Option<JsStdExtensionArray>,
 ) -> JsCompileResult {
+    let (debug_ext, alloc_ext) = match parse_std_extensions(std_extensions) {
+        Ok(v) => v,
+        Err(e) => return e.into(),
+    };
     let text = TextCode::new(source);
     let source_string = source.to_string();
 
@@ -313,8 +360,6 @@ pub fn compile(
     };
 
     // コンパイル
-    let debug_ext = debug_ext.unwrap_or(false);
-    let alloc_ext = alloc_ext.unwrap_or(false);
     let compiled = match compile_target {
         CompileTarget::Ws => compile_to_whitespace_with_options(&scope, debug_ext, alloc_ext),
         CompileTarget::Mnemonic => {
@@ -407,16 +452,15 @@ pub struct WasmWhitespaceVM {
 impl WasmWhitespaceVM {
     /// nospace ソースをコンパイルし、Whitespace VM を構築する
     ///
-    /// - `debug_ext`: デバッグ拡張を有効にする（CLI の `--std-ext debug` 相当）
-    /// - `alloc_ext`: メモリアロケータ拡張を有効にする（CLI の `--std-ext alloc` 相当）
+    /// - `std_extensions`: 有効にする拡張の配列（例: `["debug", "alloc"]`）
     #[wasm_bindgen(constructor)]
     pub fn new(
         nospace_source: &str,
         stdin: &str,
         interactive: Option<bool>,
-        debug_ext: Option<bool>,
-        alloc_ext: Option<bool>,
+        std_extensions: Option<JsStdExtensionArray>,
     ) -> Result<WasmWhitespaceVM, JsValue> {
+        let (debug_ext, alloc_ext) = parse_std_extensions(std_extensions)?;
         let text = TextCode::new(nospace_source);
         let source_string = nospace_source.to_string();
 
@@ -437,8 +481,8 @@ impl WasmWhitespaceVM {
         // コンパイル
         let ws_source = match compile_to_whitespace_with_options(
             &scope,
-            debug_ext.unwrap_or(false),
-            alloc_ext.unwrap_or(false),
+            debug_ext,
+            alloc_ext,
         ) {
             Ok(output) => output,
             Err(errors) => return Err(convert_errors(&errors, &text)),
@@ -661,13 +705,13 @@ impl WasmWhitespaceVM {
 /// nospace ソースコードを Whitespace にコンパイル（ヘルパー関数）
 #[wasm_bindgen]
 pub fn compile_to_whitespace_string(source: &str) -> JsCompileResult {
-    compile(source, "ws", "ws", None, None)
+    compile(source, "ws", "ws", None)
 }
 
 /// nospace ソースコードをニーモニックにコンパイル（ヘルパー関数）
 #[wasm_bindgen]
 pub fn compile_to_mnemonic_string(source: &str) -> JsCompileResult {
-    compile(source, "mnemonic", "ws", None, None)
+    compile(source, "mnemonic", "ws", None)
 }
 
 /// 利用可能なオプションの一覧を返す

@@ -41,6 +41,6 @@ new WasmWhitespaceVM(source: string, stdin: string, interactive?: boolean | null
 ## ステータス
 
 - [x] 設計
-- [ ] 実装
-- [ ] テスト確認
-- [ ] コミット
+- [x] 実装
+- [x] テスト確認
+- [x] コミット
