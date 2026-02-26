@@ -9,6 +9,7 @@ nospace 言語に関するドキュメント群。
 | [grammar.bnf](grammar.bnf) | nospace 言語の BNF 文法定義 |
 | [bnf-validation.md](bnf-validation.md) | BNF の正当性検証ガイド |
 | [profiler.md](profiler.md) | Whitespace VM プロファイラの使い方 |
+| [optimize.md](optimize.md) | 最適化オプション (`--opt`) の説明 |
 
 ## 構文ハイライト
 
