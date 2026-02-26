@@ -32,6 +32,7 @@
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [wasm-compile-error-location.md](wasm-compile-error-location.md) - WASM版コンパイルエラーの位置情報表示（compiler_ws の CompileError に SourceLocation 付与）
+  - [expression-location/](expression-location/) - Phase 2: 式レベルの位置情報（LocatedExpression / LocatedExecExpression 導入）
 - [fix-e0-00-puts-test.md](fix-e0-00-puts-test.md) - e0-00-puts テスト失敗の修正（__puti デバッグ行の除去）
 - [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
 - [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
