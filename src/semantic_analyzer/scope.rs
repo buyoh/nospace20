@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::{base::CodeParseError, code_parse_error};
 
-use super::types::{Block, ExecStatement, IdentifierRef, LocatedExecStatement, ValueType, Variable};
+use super::types::{Block, IdentifierRef, LocatedExecStatement, ValueType, Variable};
 
 #[derive(Clone, Copy)]
 pub(super) struct FunctionIndex(pub usize, pub usize, pub ValueType); // (global_index, arg_count, return_type)
@@ -292,15 +292,6 @@ impl<'a> ScopeResolver<'a> {
         None
     }
 
-    /// 関数の戻り値型を取得する
-    pub fn get_function_return_type(&self, name: &str) -> Option<ValueType> {
-        for scope_info in self.scope_stack.iter().rev() {
-            if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
-                return Some(info.2);
-            }
-        }
-        None
-    }
 }
 
 /// スコープビルダー

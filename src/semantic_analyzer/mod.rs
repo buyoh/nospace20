@@ -23,7 +23,6 @@ use crate::{
 pub use scope::{Function, Scope};
 pub(crate) use types::{Block, ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Variable};
 pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
-pub(crate) use types::infer_block_type;
 
 /// 関数本体に return: 文が存在するか再帰的にチェックする
 ///
