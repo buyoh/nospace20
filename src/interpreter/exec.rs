@@ -1,5 +1,5 @@
 use crate::{
-    semantic_analyzer::{Block, ExecExpression, ExecStatement, Function, IdentifierRef, LocatedExecExpression, LocatedExecStatement, Scope},
+    semantic_analyzer::{Block, ConditionMode, ExecExpression, ExecStatement, Function, IdentifierRef, InternalBuiltinFunctionKind, LocatedExecExpression, LocatedExecStatement, Scope},
     tree_parser::{Operator1, Operator2},
 };
 
@@ -312,9 +312,9 @@ impl LocalEnvironment<'_, '_> {
     }
 
     /// while 式は常に 0 を返す (spec §6.1)
-    fn interpret_while(&mut self, cond: &Box<LocatedExecExpression>, block: &Block) -> ExpressionFlow {
+    fn interpret_while(&mut self, mode: &ConditionMode, cond: &Box<LocatedExecExpression>, block: &Block) -> ExpressionFlow {
         loop {
-            let cond = match self.interpret_expression(cond) {
+            let cond_val = match self.interpret_expression(cond) {
                 ExpressionFlow::Value(e) => e,
                 ExpressionFlow::Jump(Flow::Return(x)) => {
                     return ExpressionFlow::Jump(Flow::Return(x))
@@ -329,7 +329,12 @@ impl LocalEnvironment<'_, '_> {
                     panic!("internal error: unexpected Flow::Proceed")
                 }
             };
-            if cond == 0 {
+            let condition = match mode {
+                ConditionMode::NonZero => cond_val != 0,
+                ConditionMode::Zero => cond_val == 0,
+                ConditionMode::Negative => cond_val < 0,
+            };
+            if !condition {
                 break;
             }
             self.enter_block(&block.scope);
@@ -353,12 +358,18 @@ impl LocalEnvironment<'_, '_> {
 
     fn interpret_if(
         &mut self,
+        mode: &ConditionMode,
         cond: &Box<LocatedExecExpression>,
         then_block: &Block,
         else_block: &Block,
     ) -> ExpressionFlow {
-        let cond = try_expr!(self.interpret_expression(cond));
-        let block = if cond != 0 { then_block } else { else_block };
+        let cond_val = try_expr!(self.interpret_expression(cond));
+        let condition = match mode {
+            ConditionMode::NonZero => cond_val != 0,
+            ConditionMode::Zero => cond_val == 0,
+            ConditionMode::Negative => cond_val < 0,
+        };
+        let block = if condition { then_block } else { else_block };
         self.enter_block(&block.scope);
         let (flow, value) = self.interpret_statements_with_value(&block.statements);
         let result = match flow {
@@ -378,6 +389,22 @@ impl LocalEnvironment<'_, '_> {
         };
         self.leave_block();
         result
+    }
+
+    /// 最適化パスで生成される内部組み込み関数を実行する
+    fn interpret_internal_builtin_function(&mut self, kind: &InternalBuiltinFunctionKind) -> ExpressionFlow {
+        match kind {
+            InternalBuiltinFunctionKind::Getiv(var_ref) => {
+                let value = self.env.read_int();
+                self.set_variable(var_ref, value);
+                ExpressionFlow::Value(value)
+            }
+            InternalBuiltinFunctionKind::Getcv(var_ref) => {
+                let value = self.env.read_char();
+                self.set_variable(var_ref, value);
+                ExpressionFlow::Value(value)
+            }
+        }
     }
 
     fn interpret_operation1(
@@ -531,11 +558,14 @@ impl LocalEnvironment<'_, '_> {
                 adjusted_ref.local_index = (adjusted_ref.local_index as i64 + index) as usize;
                 ExpressionFlow::Value(self.get_variable(&adjusted_ref))
             }
-            ExecExpression::If(cond, then_block, else_block) => {
-                self.interpret_if(cond, then_block, else_block)
+            ExecExpression::If(mode, cond, then_block, else_block) => {
+                self.interpret_if(mode, cond, then_block, else_block)
             }
-            ExecExpression::While(cond, block) => self.interpret_while(cond, block),
+            ExecExpression::While(mode, cond, block) => self.interpret_while(mode, cond, block),
             ExecExpression::Block(block) => self.interpret_block(block),
+            ExecExpression::InternalBuiltinFunction(kind) => {
+                self.interpret_internal_builtin_function(kind)
+            }
         }
     }
 

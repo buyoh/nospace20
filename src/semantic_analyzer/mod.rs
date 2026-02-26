@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub use scope::{Function, Scope};
-pub(crate) use types::{Block, ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Variable};
+pub(crate) use types::{Block, ConditionMode, ExecExpression, ExecStatement, InternalBuiltinFunctionKind, LocatedExecExpression, LocatedExecStatement, Variable};
 pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
 
 /// 関数本体に return: 文が存在するか再帰的にチェックする
@@ -290,6 +290,7 @@ fn convert_to_exec_expression_with_resolver(
                 func_return_types.to_vec(),
             )?;
             Ok(make_located_exec(ExecExpression::If(
+                ConditionMode::NonZero,
                 exec_cond,
                 Block {
                     scope: s1.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
@@ -316,6 +317,7 @@ fn convert_to_exec_expression_with_resolver(
                 func_return_types.to_vec(),
             )?;
             Ok(make_located_exec(ExecExpression::While(
+                ConditionMode::NonZero,
                 exec_cond,
                 Block {
                     scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空

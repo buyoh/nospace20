@@ -2,6 +2,63 @@
 
 use crate::optimizer::{self, OptimizationOptions};
 use crate::optimizer::noop_test_pass;
+use crate::semantic_analyzer::{ConditionMode, ExecExpression, InternalBuiltinFunctionKind, IdentifierRef, LocatedExecExpression};
+use crate::semantic_analyzer::{Block, ExecStatement, LocatedExecStatement};
+
+/// AST 内の全 If/While の ConditionMode を再帰的に置換するヘルパー
+fn patch_condition_mode_in_scope(scope: &mut crate::semantic_analyzer::Scope, mode: ConditionMode) {
+    for func in &mut scope.functions {
+        patch_condition_mode_in_block(&mut func.block, mode);
+    }
+    for stmt in &mut scope.root_statements {
+        patch_condition_mode_in_statement(stmt, mode);
+    }
+    for stmt in &mut scope.static_init_statements {
+        patch_condition_mode_in_statement(stmt, mode);
+    }
+}
+
+fn patch_condition_mode_in_block(block: &mut Block, mode: ConditionMode) {
+    for stmt in &mut block.statements {
+        patch_condition_mode_in_statement(stmt, mode);
+    }
+}
+
+fn patch_condition_mode_in_statement(stmt: &mut LocatedExecStatement, mode: ConditionMode) {
+    match &mut stmt.statement {
+        ExecStatement::Expression(expr) => patch_condition_mode_in_expression(expr, mode),
+        ExecStatement::Return(Some(expr)) => patch_condition_mode_in_expression(expr, mode),
+        _ => {}
+    }
+}
+
+fn patch_condition_mode_in_expression(expr: &mut LocatedExecExpression, mode: ConditionMode) {
+    match &mut expr.expression {
+        ExecExpression::If(ref mut m, cond, then_block, else_block) => {
+            *m = mode;
+            patch_condition_mode_in_expression(cond, mode);
+            patch_condition_mode_in_block(then_block, mode);
+            patch_condition_mode_in_block(else_block, mode);
+        }
+        ExecExpression::While(ref mut m, cond, block) => {
+            *m = mode;
+            patch_condition_mode_in_expression(cond, mode);
+            patch_condition_mode_in_block(block, mode);
+        }
+        ExecExpression::Block(block) => patch_condition_mode_in_block(block, mode),
+        ExecExpression::Operation1(_, inner) => patch_condition_mode_in_expression(inner, mode),
+        ExecExpression::Operation2(_, left, right) => {
+            patch_condition_mode_in_expression(left, mode);
+            patch_condition_mode_in_expression(right, mode);
+        }
+        ExecExpression::BuiltinFunction(_, args) | ExecExpression::UserFunction(_, args) => {
+            for arg in args {
+                patch_condition_mode_in_expression(arg, mode);
+            }
+        }
+        _ => {}
+    }
+}
 
 /// noop_test_pass: マジックナンバー変数が追加されること
 #[test]
@@ -137,4 +194,290 @@ fn test_noop_pass_does_not_break_ws_compile() {
     // Whitespace コンパイルが成功すること
     let result = crate::compiler_ws::compile_with_options(&scope, false, false);
     assert!(result.is_ok(), "WS compilation should succeed after optimization");
+}
+
+// --- ConditionMode テスト ---
+
+/// ConditionMode::NonZero (デフォルト): if:(0) → else ブロック実行
+#[test]
+fn test_condition_mode_nonzero_if_false() {
+    // NonZero: 0 != 0 = false → trace(2)
+    let code = r#"
+func: main() {
+    if:(0) { __trace(1); } else: { __trace(2); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let scope = crate::syntactic_analyze(&s).unwrap();
+
+    let traces = crate::interpret_func_testing(&scope, "main");
+    assert_eq!(traces.get(&1), None, "then block should not execute");
+    assert_eq!(traces.get(&2), Some(&1), "else block should execute once");
+}
+
+/// ConditionMode::Zero: if:(0) → then ブロック実行
+#[test]
+fn test_condition_mode_zero_if_true() {
+    // Zero: 0 == 0 = true → trace(1)
+    let code = r#"
+func: main() {
+    if:(0) { __trace(1); } else: { __trace(2); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    patch_condition_mode_in_scope(&mut scope, ConditionMode::Zero);
+
+    let traces = crate::interpret_func_testing(&scope, "main");
+    assert_eq!(traces.get(&1), Some(&1), "then block should execute (Zero mode: 0 == 0)");
+    assert_eq!(traces.get(&2), None, "else block should not execute");
+}
+
+/// ConditionMode::Zero: if:(1) → else ブロック実行
+#[test]
+fn test_condition_mode_zero_if_false() {
+    // Zero: 1 == 0 = false → trace(2)
+    let code = r#"
+func: main() {
+    if:(1) { __trace(1); } else: { __trace(2); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    patch_condition_mode_in_scope(&mut scope, ConditionMode::Zero);
+
+    let traces = crate::interpret_func_testing(&scope, "main");
+    assert_eq!(traces.get(&1), None, "then block should not execute (Zero mode: 1 != 0)");
+    assert_eq!(traces.get(&2), Some(&1), "else block should execute");
+}
+
+/// ConditionMode::Negative: if:(0 - 1) → then ブロック実行
+#[test]
+fn test_condition_mode_negative_if_true() {
+    // Negative: -1 < 0 = true → trace(1)
+    let code = r#"
+func: main() {
+    if:(0 - 1) { __trace(1); } else: { __trace(2); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    patch_condition_mode_in_scope(&mut scope, ConditionMode::Negative);
+
+    let traces = crate::interpret_func_testing(&scope, "main");
+    assert_eq!(traces.get(&1), Some(&1), "then block should execute (Negative mode: -1 < 0)");
+    assert_eq!(traces.get(&2), None, "else block should not execute");
+}
+
+/// ConditionMode::Negative: if:(0) → else ブロック実行
+#[test]
+fn test_condition_mode_negative_if_false() {
+    // Negative: 0 < 0 = false → trace(2)
+    let code = r#"
+func: main() {
+    if:(0) { __trace(1); } else: { __trace(2); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    patch_condition_mode_in_scope(&mut scope, ConditionMode::Negative);
+
+    let traces = crate::interpret_func_testing(&scope, "main");
+    assert_eq!(traces.get(&1), None, "then block should not execute (Negative mode: 0 >= 0)");
+    assert_eq!(traces.get(&2), Some(&1), "else block should execute");
+}
+
+/// ConditionMode::Zero で while ループ: 条件 == 0 のときループ継続
+#[test]
+fn test_condition_mode_zero_while() {
+    // Zero mode で while: x == 0 のような式をパッチ
+    // まず NonZero mode でのデフォルト動作を確認
+    let code = r#"
+func: main() {
+    let: x(0);
+    while:(x == 0) { __trace(0); x = x + 1; };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let scope = crate::syntactic_analyze(&s).unwrap();
+
+    // NonZero mode (default): x==0 → 比較結果 1 (true) → loop runs, x=1 → x==0 → 0 (false) → exit
+    let traces = crate::interpret_func_testing(&scope, "main");
+    assert_eq!(traces.get(&0), Some(&1), "while(NonZero): should loop once");
+}
+
+/// ConditionMode::NonZero for while: cond != 0 → ループ継続
+#[test]
+fn test_condition_mode_nonzero_while_multiple() {
+    // NonZero: x != 0 → loop continues. x=3,2,1 → 3 iterations
+    let code = r#"
+func: main() {
+    let: x(3);
+    while:(x) { __trace(0); x = x - 1; };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let scope = crate::syntactic_analyze(&s).unwrap();
+
+    let traces = crate::interpret_func_testing(&scope, "main");
+    assert_eq!(traces.get(&0), Some(&3), "while(NonZero): should loop 3 times");
+}
+
+/// ConditionMode::Zero で while: 条件値が 0 のときループ継続
+#[test]
+fn test_condition_mode_zero_while_patched() {
+    // let: x(0); while:(x) { trace(0); x = x + 1; }
+    // NonZero (default): x=0 → 0 != 0 = false → ループせず
+    // Zero (patched): x=0 → 0 == 0 = true → ループ, x=1 → 1 == 0 = false → 終了
+    let code = r#"
+func: main() {
+    let: x(0);
+    while:(x) { __trace(0); x = x + 1; };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+
+    // NonZero mode: x=0 → false → no loop
+    let scope_orig = crate::syntactic_analyze(&s).unwrap();
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    assert_eq!(traces_orig.get(&0), None, "while(NonZero): x=0 should not loop");
+
+    // Zero mode: x=0 → 0 == 0 = true → loop once
+    let mut scope_zero = crate::syntactic_analyze(&s).unwrap();
+    patch_condition_mode_in_scope(&mut scope_zero, ConditionMode::Zero);
+    let traces_zero = crate::interpret_func_testing(&scope_zero, "main");
+    assert_eq!(traces_zero.get(&0), Some(&1), "while(Zero): x=0 should loop once");
+}
+
+/// ConditionMode に関わらず既存の解析結果は NonZero であること
+#[test]
+fn test_semantic_analyzer_produces_nonzero() {
+    let code = r#"
+func: main() {
+    if:(1) { __trace(1); } else: { __trace(2); };
+    while:(0) { __trace(3); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let scope = crate::syntactic_analyze(&s).unwrap();
+
+    // if:(1) → NonZero: 1 != 0 = true → trace(1)
+    let traces = crate::interpret_func_testing(&scope, "main");
+    assert_eq!(traces.get(&1), Some(&1), "if:(1) with NonZero should execute then block");
+    assert_eq!(traces.get(&2), None, "else block should not execute");
+    assert_eq!(traces.get(&3), None, "while:(0) with NonZero should not loop");
+}
+
+/// ConditionMode::Zero + Whitespace コンパイルが成功すること
+#[test]
+fn test_condition_mode_zero_ws_compile() {
+    let code = r#"
+func: main() {
+    if:(0) { __puti(1); } else: { __puti(2); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    patch_condition_mode_in_scope(&mut scope, ConditionMode::Zero);
+
+    let result = crate::compiler_ws::compile_with_options(&scope, false, false);
+    assert!(result.is_ok(), "WS compilation should succeed with ConditionMode::Zero");
+}
+
+/// ConditionMode::Negative + Whitespace コンパイルが成功すること
+#[test]
+fn test_condition_mode_negative_ws_compile() {
+    let code = r#"
+func: main() {
+    if:(0 - 1) { __puti(1); } else: { __puti(2); };
+    while:(0) { __puti(3); };
+    return: 0;
+}
+"#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let mut scope = crate::syntactic_analyze(&s).unwrap();
+
+    patch_condition_mode_in_scope(&mut scope, ConditionMode::Negative);
+
+    let result = crate::compiler_ws::compile_with_options(&scope, false, false);
+    assert!(result.is_ok(), "WS compilation should succeed with ConditionMode::Negative");
+}
+
+// --- InternalBuiltinFunction テスト ---
+
+/// InternalBuiltinFunctionKind::Getiv の型推論テスト
+#[test]
+fn test_internal_builtin_getiv_infer_type() {
+    use crate::semantic_analyzer::ValueType;
+    let var_ref = IdentifierRef {
+        scope_depth: 0,
+        local_index: 0,
+        is_global: true,
+        owning_func_index: None,
+    };
+    let expr = ExecExpression::InternalBuiltinFunction(InternalBuiltinFunctionKind::Getiv(var_ref));
+    assert_eq!(expr.infer_type(&[]), ValueType::Int, "Getiv should infer to Int");
+}
+
+/// InternalBuiltinFunctionKind::Getcv の型推論テスト
+#[test]
+fn test_internal_builtin_getcv_infer_type() {
+    use crate::semantic_analyzer::ValueType;
+    let var_ref = IdentifierRef {
+        scope_depth: 0,
+        local_index: 0,
+        is_global: true,
+        owning_func_index: None,
+    };
+    let expr = ExecExpression::InternalBuiltinFunction(InternalBuiltinFunctionKind::Getcv(var_ref));
+    assert_eq!(expr.infer_type(&[]), ValueType::Int, "Getcv should infer to Int");
+}
+
+/// InternalBuiltinFunction(Getiv): interpreter でグローバル変数に stdin から読み込むこと
+#[test]
+fn test_internal_builtin_getiv_interpreter() {
+    // 既存の x = __geti() のコードを使い、interpreter_with_io で確認
+    let code = r#"
+        let: x(0);
+        func: main() {
+            x = __geti();
+            return: x;
+        }
+    "#.to_string();
+    let t = crate::parse_to_tokens(&code).unwrap();
+    let s = crate::parse_to_tree(&t).unwrap();
+    let scope = crate::syntactic_analyze(&s).unwrap();
+
+    // 通常の __geti() が動作することの確認
+    let stdin = Box::new(std::io::BufReader::new(std::io::Cursor::new("42\n".as_bytes().to_vec())));
+    let stdout = Box::new(Vec::<u8>::new());
+    let mut env = crate::Environment::new_with_buffers(stdin, stdout);
+    let result = crate::interpret_with_env(&mut env, &scope);
+    assert_eq!(result, Some(42), "__geti() should read 42 from stdin");
 }

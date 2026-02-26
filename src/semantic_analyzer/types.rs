@@ -27,6 +27,31 @@ impl ValueType {
     }
 }
 
+/// 条件式の評価モード
+///
+/// If/While の条件式がどのように true/false を判定するかを指定する。
+/// 意味解析では常に NonZero が使用される。最適化パスが Zero/Negative に変換する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConditionMode {
+    /// cond != 0 → true（既存動作、意味解析が生成）
+    NonZero,
+    /// cond == 0 → true（Whitespace: JumpIfZero を直接使用）
+    Zero,
+    /// cond < 0 → true（Whitespace: JumpIfNegative を直接使用）
+    Negative,
+}
+
+/// 最適化パスで生成される内部組み込み関数の種類
+///
+/// 各バリアントは必要なデータを自身に保持する。
+/// 意味解析では生成されず、最適化パスでのみ生成される。
+pub(crate) enum InternalBuiltinFunctionKind {
+    /// 標準入力から整数を読み、変数に直接格納（TEMP_PTR 経由を排除）
+    Getiv(IdentifierRef),
+    /// 標準入力から文字を読み、変数に直接格納
+    Getcv(IdentifierRef),
+}
+
 /// 組み込み関数の種類
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuiltinFunctionKind {
@@ -110,8 +135,12 @@ pub(crate) struct LocatedExecExpression {
 pub(crate) enum ExecExpression {
     Operation1(Operator1, Box<LocatedExecExpression>),
     Operation2(Operator2, Box<LocatedExecExpression>, Box<LocatedExecExpression>),
-    If(Box<LocatedExecExpression>, Block, Block),
-    While(Box<LocatedExecExpression>, Block),
+    /// if 式: (条件モード, 条件式, then ブロック, else ブロック)
+    /// 意味解析では ConditionMode::NonZero で生成。最適化パスが Zero/Negative に変換可能。
+    If(ConditionMode, Box<LocatedExecExpression>, Block, Block),
+    /// while 式: (条件モード, 条件式, ループ本体)
+    /// 意味解析では ConditionMode::NonZero で生成。最適化パスが Zero/Negative に変換可能。
+    While(ConditionMode, Box<LocatedExecExpression>, Block),
     Block(Block), // ブロックスコープ式
     /// 組み込み関数呼び出し
     /// Phase 6: 組み込み関数は BuiltinFunctionKind enum で識別
@@ -125,6 +154,9 @@ pub(crate) enum ExecExpression {
     /// 配列アクセス: (変数参照, インデックス式, 配列サイズ)
     /// 配列サイズは境界チェックに使用
     ArrayAccess(IdentifierRef, Box<LocatedExecExpression>, usize),
+    /// 最適化パスで生成される内部組み込み関数
+    /// 意味解析では生成されず、最適化パスでのみ生成される。
+    InternalBuiltinFunction(InternalBuiltinFunctionKind),
 }
 
 /// 実行可能な文を表す。
@@ -179,8 +211,8 @@ impl ExecExpression {
                 rhs.expression.infer_type(func_return_types)
             }
             ExecExpression::Operation2(_, _, _) => ValueType::Int,
-            ExecExpression::While(_, _) => ValueType::Void,
-            ExecExpression::If(_, then_block, else_block) => {
+            ExecExpression::While(_, _, _) => ValueType::Void,
+            ExecExpression::If(_, _, then_block, else_block) => {
                 // 両ブロックが Int のときのみ Int、それ以外は Void
                 infer_block_type(then_block, func_return_types)
                     .merge(infer_block_type(else_block, func_return_types))
@@ -197,6 +229,10 @@ impl ExecExpression {
                     .copied()
                     .unwrap_or(ValueType::Void)
             }
+            ExecExpression::InternalBuiltinFunction(kind) => match kind {
+                InternalBuiltinFunctionKind::Getiv(_) => ValueType::Int,
+                InternalBuiltinFunctionKind::Getcv(_) => ValueType::Int,
+            },
         }
     }
 }

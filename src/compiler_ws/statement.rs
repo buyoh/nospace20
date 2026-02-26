@@ -280,12 +280,12 @@ fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {
 fn count_nested_vars_in_expression(located_expr: &crate::semantic_analyzer::LocatedExecExpression) -> usize {
     use crate::semantic_analyzer::ExecExpression;
     match &located_expr.expression {
-        ExecExpression::If(cond, then_block, else_block) => {
+        ExecExpression::If(_mode, cond, then_block, else_block) => {
             count_nested_vars_in_expression(cond)
                 + calculate_total_variable_count(then_block)
                 + calculate_total_variable_count(else_block)
         }
-        ExecExpression::While(cond, body) => {
+        ExecExpression::While(_mode, cond, body) => {
             count_nested_vars_in_expression(cond) + calculate_total_variable_count(body)
         }
         ExecExpression::Block(block) => calculate_total_variable_count(block),
@@ -301,5 +301,6 @@ fn count_nested_vars_in_expression(located_expr: &crate::semantic_analyzer::Loca
             count_nested_vars_in_expression(index_expr)
         }
         ExecExpression::Variable(_) | ExecExpression::Factor(_) => 0,
+        ExecExpression::InternalBuiltinFunction(_) => 0,
     }
 }

@@ -4,7 +4,7 @@ use crate::compiler_ws::{
     context::CodeGenContext, context::VarScope, instruction::Instruction, label::reserved_labels,
     memory::heap_layout, program::WsProgram, types::WsNumber, CompileError, CompileErrorKind,
 };
-use crate::semantic_analyzer::{ExecExpression, LocatedExecExpression};
+use crate::semantic_analyzer::{ConditionMode, ExecExpression, InternalBuiltinFunctionKind, LocatedExecExpression};
 use crate::tree_parser::{Operator1, Operator2};
 
 /// コンパイルエラーを現在のコンテキスト位置情報付きで生成するヘルパー
@@ -74,15 +74,20 @@ pub fn generate_expression(
         }
 
         // if 式
-        ExecExpression::If(cond, then_block, else_block) => {
-            generate_if_expression(ctx, cond, then_block, else_block)
+        ExecExpression::If(mode, cond, then_block, else_block) => {
+            generate_if_expression(ctx, mode, cond, then_block, else_block)
         }
 
         // while 式
-        ExecExpression::While(cond, body) => generate_while_expression(ctx, cond, body),
+        ExecExpression::While(mode, cond, body) => generate_while_expression(ctx, mode, cond, body),
 
         // ブロック式
         ExecExpression::Block(block) => super::statement::generate_block(ctx, block),
+
+        // 最適化パスで生成される内部組み込み関数
+        ExecExpression::InternalBuiltinFunction(kind) => {
+            generate_internal_builtin_function(ctx, kind)
+        }
     }
 }
 
@@ -710,6 +715,7 @@ fn generate_builtin_free(
 /// if 式
 fn generate_if_expression(
     ctx: &mut CodeGenContext,
+    mode: &ConditionMode,
     cond: &LocatedExecExpression,
     then_block: &crate::semantic_analyzer::Block,
     else_block: &crate::semantic_analyzer::Block,
@@ -722,8 +728,31 @@ fn generate_if_expression(
     // 条件評価
     prog.append(generate_expression(ctx, cond)?);
 
-    // ゼロ（偽）なら else へジャンプ
-    prog.push(Instruction::JumpIfZero(else_label));
+    // ConditionMode に応じたジャンプ命令
+    match mode {
+        ConditionMode::NonZero => {
+            // cond == 0 (偽) なら else へジャンプ（既存動作）
+            prog.push(Instruction::JumpIfZero(else_label));
+        }
+        ConditionMode::Zero => {
+            // cond == 0 → then を実行 なので、cond != 0 なら else へジャンプ
+            // JumpIfZero で then に落ちる、JumpIfNegative で else を飛ばす…
+            // 実装: cond != 0 のときに else へジャンプ = cond == 0 なら then
+            // Whitespace には JumpIfNotZero がないため、JumpIfZero で then_label に飛ばす方式
+            let then_label = ctx.new_label();
+            prog.push(Instruction::JumpIfZero(then_label));
+            prog.push(Instruction::Jump(else_label));
+            prog.push(Instruction::Label(then_label));
+        }
+        ConditionMode::Negative => {
+            // cond < 0 → then を実行 なので、cond >= 0 なら else へジャンプ
+            // Whitespace には JumpIfNonNegative がないため、JumpIfNegative で then_label に飛ばす
+            let then_label = ctx.new_label();
+            prog.push(Instruction::JumpIfNegative(then_label));
+            prog.push(Instruction::Jump(else_label));
+            prog.push(Instruction::Label(then_label));
+        }
+    }
 
     // then ブロック
     prog.append(super::statement::generate_block(ctx, then_block)?);
@@ -742,6 +771,7 @@ fn generate_if_expression(
 /// while 式
 fn generate_while_expression(
     ctx: &mut CodeGenContext,
+    mode: &ConditionMode,
     cond: &LocatedExecExpression,
     body: &crate::semantic_analyzer::Block,
 ) -> Result<WsProgram, CompileError> {
@@ -759,8 +789,28 @@ fn generate_while_expression(
     // 条件評価
     prog.append(generate_expression(ctx, cond)?);
 
-    // ゼロ（偽）ならループ終了へジャンプ
-    prog.push(Instruction::JumpIfZero(loop_end));
+    // ConditionMode に応じたループ終了ジャンプ命令
+    match mode {
+        ConditionMode::NonZero => {
+            // cond == 0 (偽) ならループ終了（既存動作）
+            prog.push(Instruction::JumpIfZero(loop_end));
+        }
+        ConditionMode::Zero => {
+            // cond == 0 → ループ継続 なので、cond != 0 ならループ終了
+            // JumpIfZero で continue_label に飛ばす方式
+            let continue_label = ctx.new_label();
+            prog.push(Instruction::JumpIfZero(continue_label));
+            prog.push(Instruction::Jump(loop_end));
+            prog.push(Instruction::Label(continue_label));
+        }
+        ConditionMode::Negative => {
+            // cond < 0 → ループ継続 なので、cond >= 0 ならループ終了
+            let continue_label = ctx.new_label();
+            prog.push(Instruction::JumpIfNegative(continue_label));
+            prog.push(Instruction::Jump(loop_end));
+            prog.push(Instruction::Label(continue_label));
+        }
+    }
 
     // ループ本体
     prog.append(super::statement::generate_block(ctx, body)?);
@@ -781,4 +831,33 @@ fn generate_while_expression(
     prog.push(Instruction::Push(WsNumber(0)));
 
     Ok(prog)
+}
+
+/// 最適化パスで生成される内部組み込み関数のコード生成
+///
+/// InternalBuiltinFunction は最適化パスでのみ生成される。
+/// 通常の組み込み関数と異なり、変数への直接格納など最適化された命令列を生成する。
+fn generate_internal_builtin_function(
+    ctx: &CodeGenContext,
+    kind: &InternalBuiltinFunctionKind,
+) -> Result<WsProgram, CompileError> {
+    match kind {
+        InternalBuiltinFunctionKind::Getiv(var_ref) => {
+            // 変数アドレスに直接 InputNumber し、値をスタックに残す
+            // 通常の __geti() は TEMP_PTR 経由だが、これは変数に直接格納する
+            let mut prog = generate_variable_address(ctx, var_ref)?;
+            prog.push(Instruction::Duplicate);
+            prog.push(Instruction::InputNumber);
+            prog.push(Instruction::Retrieve);
+            Ok(prog)
+        }
+        InternalBuiltinFunctionKind::Getcv(var_ref) => {
+            // 変数アドレスに直接 InputChar し、値をスタックに残す
+            let mut prog = generate_variable_address(ctx, var_ref)?;
+            prog.push(Instruction::Duplicate);
+            prog.push(Instruction::InputChar);
+            prog.push(Instruction::Retrieve);
+            Ok(prog)
+        }
+    }
 }
