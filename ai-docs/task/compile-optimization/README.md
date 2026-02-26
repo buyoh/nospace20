@@ -20,7 +20,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 
 | ドキュメント | 内容 |
 |---|---|
-| [01-pass-framework.md](01-pass-framework.md) | 最適化パスフレームワーク設計（モジュール構成、パスの実行制御、ExecExpression 拡張） |
+| [01-pass-framework.md](../../done-task/compile-optimization/01-pass-framework.md) | 最適化パスフレームワーク設計（モジュール構成、パスの実行制御、ExecExpression 拡張）✅ 実装完了 |
 | [02-pass-condition-opt.md](02-pass-condition-opt.md) | if/while 条件式最適化（JumpIfZero/JumpIfNegative の直接利用） |
 | [03-pass-geti-opt.md](03-pass-geti-opt.md) | `__geti` / `__getc` 入力最適化（一時領域経由の排除） |
 | [04-pass-dead-code.md](04-pass-dead-code.md) | 未使用関数・変数の削除 |
