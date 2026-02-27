@@ -6,59 +6,53 @@
 
 ### 未実装機能の追跡
 
-- [unimplemented-variable-features.md](unimplemented-variable-features.md) - 未実装の変数関連機能（初期値指定、final/const変数）
-- [unimplemented-type-system.md](unimplemented-type-system.md) - 未実装の型システム（int, void, function, tuple）
-- [unused-code-cleanup.md](unused-code-cleanup.md) - 未使用コードの整理（17件の警告調査・分類済み、Phase 1-3 の対処方針）
-- [fix-build-warnings.md](fix-build-warnings.md) - ビルド時 warning の調査・修正計画（14件の warning 分類・修正方針、2026-02-25 調査）
-- [symbol-table-design.md](symbol-table-design.md) - デバッグ用シンボルテーブル設計（識別子のインデックス化・文字列分離）- ステップ1-4完了、ステップ5-6の詳細設計完了 (2026-02-17)
-  - [symbol-table-impl/](symbol-table-impl/) - ステップ5・6の詳細設計
-- [error-message-improvement.md](error-message-improvement.md) - エラーメッセージ型の改善（Cow<'static, str> 導入設計）
-- [implement-getcv-builtin.md](implement-getcv-builtin.md) - __getcv 組み込み関数の実装（変数アドレスへの入力）
-- [implement-multi-variable-declaration.md](implement-multi-variable-declaration.md) - 複数変数宣言の実装（let:a, b;）
-- [implement-compound-assignment-operators.md](implement-compound-assignment-operators.md) - 複合代入演算子の実装（+=, -=, *=, /=, %=）
+- [unimplemented-variable-features.md](unimplemented-variable-features.md) - 未実装の変数関連機能（final/const変数）
 
 ### アクティブなタスク
 
-- [whitespace-duplicate-label-check.md](whitespace-duplicate-label-check.md) - Whitespace 重複ラベル定義のエラー検出（パース時の重複チェック、ws_parse_error テストタイプ追加）
-- [fix-function-arg-count-check.md](fix-function-arg-count-check.md) - 関数呼び出し引数数チェックの実装（意味解析でのコンパイルエラー検出）
-- [index-operator-on-non-array.md](index-operator-on-non-array.md) - 非配列変数への `[]` 演算子適用（`arr[i]` は `*(&arr + i)` と同義、semantic_analyzer のチェック緩和）
-- [std-ext-debug-whitespace/](std-ext-debug-whitespace/) - `--std-ext debug` による Whitespace デバッグ拡張 API 対応（コンパイラ・VM・API の3 Phase 設計）
-- [error-test-coverage/](error-test-coverage/) - エラーテストケース網羅性向上（18件のテスト追加計画、字句解析6件・構文解析7件・意味解析5件）
 - [multi-error-reporting.md](multi-error-reporting.md) - 意味解析における複数エラー報告（semantic_analyzer で複数箇所のコンパイルエラーを収集・表示）
-- [duplicate-function-check.md](duplicate-function-check.md) - 同一スコープ内の関数重複定義の検出（semantic error）
-- [block-scope-expression.md](block-scope-expression.md) - ブロックスコープ式 `{ ... }` の実装（独立したスコープ機能）
-- [reference-dereference-compiler-ws.md](reference-dereference-compiler-ws.md) - 参照(`&`)・デリファレンス(`*`)のWhitespaceコンパイラ実装（Phase 4、インタプリタは完了済み）
-- [whitespace-static-variable-issue.md](whitespace-static-variable-issue.md) - Whitespace コンパイラでの static 変数サポート（static 変数をグローバルヒープに配置、初期化コード生成）
+- [optional-trailing-semicolon.md](optional-trailing-semicolon.md) - ブロック末尾のセミコロン省略（最後のステートメントで `;` を省略可能にする設計）
+- [add-elsif-keyword.md](add-elsif-keyword.md) - elsif キーワードの追加（AST 不変方式、トークン追加・パーサー修正・else:if: 廃止、Step 1-7）
+- [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
-- [expression-location/](expression-location/) - 式レベルの位置情報（LocatedExpression / LocatedExecExpression 導入）
-- [fix-e0-00-puts-test.md](fix-e0-00-puts-test.md) - e0-00-puts テスト失敗の修正（__puti デバッグ行の除去）
-- [integration-test-design.md](integration-test-design.md) - 結合テスト設計・計画
-- [whitespace-integration-test.md](whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計
-- [whitespace-interpreter-tests.md](whitespace-interpreter-tests.md) - Whitespace インタプリタ直接テスト設計（resources/tests_ws/, WSA記法, 29テストケース計画）
-- [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
-- [rename-trace-attribute.md](rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）
-- [wasm-vm-interactive-stdin/](wasm-vm-interactive-stdin/) - WASM WhitespaceVM の interactive stdin 一時停止機能（InputChar/InputNumber でバッファ不足時に WaitingForInput を返す）
-- [ws-profiler/](ws-profiler/) - Whitespace VM プロファイラ（実行ステップ数・メモリアクセス範囲の統計収集、YAML 出力スクリプト）
-- [ws-profiler-html-report/](ws-profiler-html-report/) - プロファイラ HTML レポート（ws_profiler JSON 出力追加 + HTML サマリ・比較レポート生成スクリプト）
-- [review-tree-parser-statement.md](review-tree-parser-statement.md) - tree_parser/statement/mod.rs コードレビュー（リファクタ4件・品質改善5件）
-- [add-elsif-keyword.md](add-elsif-keyword.md) - elsif キーワードの追加（AST 不変方式、トークン追加・パーサー修正・else:if: 廃止、Step 1-7）
-- [compile-optimization/](compile-optimization/) - コンパイル時最適化（意味解析後の最適化パスフレームワーク、条件式最適化、__geti最適化、未使用関数削除、定数畳み込み）
+- [compile-optimization-phase2/](compile-optimization-phase2/) - コンパイル最適化 Phase 2（短絡評価インライン化、代入文値破棄最適化、比較演算インライン化、未使用変数削除、ピープホール最適化、末尾呼出し最適化）
 
 ## 現在のタスク
 
 ### アクティブ
 
-- [while-expression-to-statement/](while-expression-to-statement/) - while を式から文に変更（Expression::While → Statement::While、7ステップ設計）
-- [alloc-reuse-efficiency-tests.md](alloc-reuse-efficiency-tests.md) - メモリアロケータ再利用効率テスト（VM ヒープ直接検査によるユニットテスト、Bump 2 件 + FSBA 9 件）
-- [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
-- [fix-block-scope-offset/](fix-block-scope-offset/) - ブロックスコープ変数のヒープオフセット衝突修正設計（Bug D: scope_depth 無視による変数衝突）
-- [mnemonic-wsc-compat.md](mnemonic-wsc-compat.md) - ニーモニック出力を wsc 形式に近づける（命令名7件リネーム、ラベル宣言形式変更、インデント追加）
-- [optional-trailing-semicolon.md](optional-trailing-semicolon.md) - ブロック末尾のセミコロン省略（最後のステートメントで `;` を省略可能にする設計）
-- [split-build-rs.md](split-build-rs.md) - build.rs の分割リファクタリング（523行→src_build/ ディレクトリへモジュール分割）
+（上記「アクティブなタスク」セクション参照）
 
 ### 完了済み (done-task/ に移動)
 
+- [compile-optimization/](../done-task/compile-optimization/) - コンパイル時最適化全5パス実装完了（フレームワーク、条件式最適化、geti最適化、未使用関数削除、定数畳み込み、テスト59件追加）(2026-02-27/28完了)
+- [while-expression-to-statement/](../done-task/while-expression-to-statement/) - while を式から文に変更（Expression::While → Statement::While、7ステップ完了）(2026-02-27完了)
+- [split-build-rs.md](../done-task/split-build-rs.md) - build.rs の分割リファクタリング（523行→src_build/ ディレクトリへモジュール分割）(2026-02-26完了)
+- [expression-location/](../done-task/expression-location/) - 式レベル位置情報（LocatedExpression / LocatedExecExpression 導入、Phase 1-2完了）(2026-02-26完了)
+- [ws-profiler-html-report/](../done-task/ws-profiler-html-report/) - プロファイラ HTML レポート（ws_profiler JSON 出力追加 + HTML サマリ・比較レポート生成スクリプト）(2026-02-26完了)
+- [fix-build-warnings.md](../done-task/fix-build-warnings.md) - ビルド時 warning 14件の調査・修正（W1-W14 全修正完了）(2026-02-25完了)
+- [review-tree-parser-statement.md](../done-task/review-tree-parser-statement.md) - tree_parser/statement コードレビュー（リファクタ4件・品質改善5件）(2026-02-25完了)
+- [ws-profiler/](../done-task/ws-profiler/) - Whitespace VM プロファイラ（実行ステップ数・メモリアクセス範囲の統計収集、JSON/YAML 出力）(2026-02-25完了)
+- [wasm-vm-interactive-stdin/](../done-task/wasm-vm-interactive-stdin/) - WASM WhitespaceVM の interactive stdin 一時停止機能（InputChar/InputNumber でバッファ不足時に WaitingForInput を返す）(2026-02-24完了)
+- [mnemonic-wsc-compat.md](../done-task/mnemonic-wsc-compat.md) - ニーモニック出力を wsc 形式に近づける（命令名7件リネーム、ラベル宣言形式変更、インデント追加）(2026-02-18完了)
+- [whitespace-static-variable-issue.md](../done-task/whitespace-static-variable-issue.md) - Whitespace コンパイラでの static 変数サポート（static 変数をグローバルヒープに配置、初期化コード生成）(2026-02-18完了)
+- [std-ext-debug-whitespace/](../done-task/std-ext-debug-whitespace/) - `--std-ext debug` による Whitespace デバッグ拡張 API 対応（コンパイラ・VM・API の3 Phase 設計・実装）(2026-02-17完了)
+- [whitespace-duplicate-label-check.md](../done-task/whitespace-duplicate-label-check.md) - Whitespace 重複ラベル定義のエラー検出（パース時の重複チェック、ws_parse_error テストタイプ追加）(2026-02-17完了)
+- [fix-function-arg-count-check.md](../done-task/fix-function-arg-count-check.md) - 関数呼び出し引数数チェックの実装（意味解析でのコンパイルエラー検出）(2026-02-17完了)
+- [index-operator-on-non-array.md](../done-task/index-operator-on-non-array.md) - 非配列変数への `[]` 演算子適用（`arr[i]` は `*(&arr + i)` と同義化）(2026-02-17完了)
+- [symbol-table-impl/](../done-task/symbol-table-impl/) - シンボルテーブル ステップ5・6の実装（静的ストレージのインデックスキー化、SymbolTable 導入）(2026-02-17完了)
+- [rename-trace-attribute.md](../done-task/rename-trace-attribute.md) - テスト check.json の `trace` 属性名改善（`trace` → `trace_hit_counts`）(2026-02-16完了)
+- [error-test-coverage/](../done-task/error-test-coverage/) - エラーテストケース網羅性向上（18件のテスト追加：字句解析6件・構文解析7件・意味解析5件）(2026-02-16完了)
+- [duplicate-function-check.md](../done-task/duplicate-function-check.md) - 同一スコープ内の関数重複定義の検出（semantic error）(2026-02-16完了)
+- [whitespace-interpreter-tests.md](../done-task/whitespace-interpreter-tests.md) - Whitespace インタプリタ直接テスト設計・実装（resources/tests_ws/, WSA記法, 29テストケース）(2026-02-16完了)
+- [whitespace-integration-test.md](../done-task/whitespace-integration-test.md) - Whitespace コンパイラ統合テスト設計・実装(2026-02-16完了)
+- [block-scope-expression.md](../done-task/block-scope-expression.md) - ブロックスコープ式 `{ ... }` の実装（独立したスコープ機能）(2026-02-15完了)
+- [reference-dereference-compiler-ws.md](../done-task/reference-dereference-compiler-ws.md) - 参照(`&`)・デリファレンス(`*`)のWhitespaceコンパイラ実装（Phase 4）(2026-02-13完了)
+- [unused-code-cleanup.md](../done-task/unused-code-cleanup.md) - 未使用コードの整理（17件の警告調査・分類・対処方針策定）(2026-02-11完了)
+- [implement-compound-assignment-operators.md](../done-task/implement-compound-assignment-operators.md) - 複合代入演算子の実装（+=, -=, *=, /=, %=）(2026-02-09完了)
+- [ignore-debug-builtins.md](../done-task/ignore-debug-builtins.md) - __assert/__trace 無視オプション設計（--ignore-debug CLI フラグ）(2026-02-08完了)
+- [error-message-improvement.md](../done-task/error-message-improvement.md) - エラーメッセージ型の改善設計（Cow<'static, str> 導入設計）(2026-02-08完了)
 - [memory-allocator/](../done-task/memory-allocator/) - メモリアロケータ実装完了（Phase 1-5 全て完了：`--std-ext alloc`、AllocRuntime trait、分離テスト、FSBA+First-Fit、`__alloc`/`__free` 組み込み関数、全916テスト通過）(2026-02-27完了)
 - [qsort-ws-self-failure.md](../done-task/qsort-ws-self-failure.md) - test_example_qsort_ws_self 失敗調査・修正（Bug C/D/E を解決、ws_self 全テスト PASS、121件）(2026-02-17完了)
 - [fix-ws-self-label-duplication.md](../done-task/fix-ws-self-label-duplication.md) - compiler_ws ラベル ID 重複バグ修正（10/15件成功、256 passed; 5 failed）(2026-02-17完了)
