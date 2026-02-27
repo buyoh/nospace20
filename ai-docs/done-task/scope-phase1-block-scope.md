@@ -22,7 +22,7 @@ if/while ブロック内での `let:` を使用可能にし、変数のシャド
 
 ## 前提条件
 
-言語仕様（spec.md セクション 7）より:
+言語仕様（docs/spec.md セクション 7）より:
 
 ```nospace
 func: main() {

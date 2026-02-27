@@ -530,7 +530,7 @@ alloc 方式では **allocate 後に** `LOCAL_HEAP_BEGIN` 経由で引数を書�
 semantic_analyzer は `--std-ext` を知らないため、関数名が未定義としてエラーにならないよう調整が必要。方針:
 - 組み込み関数として常に認識し、実行時/コンパイル時に `alloc_ext` が無効なら適切にエラー
 
-### 4.3 spec.md への追記
+### 4.3 docs/spec.md への追記
 
 `__alloc`/`__free` の仕様を言語仕様に追加:
 
@@ -558,7 +558,7 @@ semantic_analyzer は `--std-ext` を知らないため、関数名が未定義�
 | `src/compiler_ws/statement.rs` | 3 | 関数定義の引数配置ロジック変更 |
 | `src/compiler_ws/expression.rs` | 4 | `__alloc`/`__free` のコード生成 |
 | `src/semantic_analyzer/mod.rs` | 4 | `__alloc`/`__free` 組み込み関数認識（検討要） |
-| `spec.md` | 4 | `__alloc`/`__free` 仕様追記 |
+| `docs/spec.md` | 4 | `__alloc`/`__free` 仕様追記 |
 | `src/wasm_api.rs` | 1 | alloc_ext パラメータ対応（必要に応じて） |
 | `build.rs` | 2 | `generate_alloc_tests()` 追加 |
 | `tests/alloc_test.rs` | 2 | **新規**: 分離テストランナー + ミニコンパイラ |

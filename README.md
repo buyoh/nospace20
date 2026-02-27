@@ -130,5 +130,5 @@ TODO:
 
 TODO: English docs
 
-- [spec.md](./spec.md) : nospace language specification
-- [tutorial.md](./tutorial.md) : A simple tutorial
+- [docs/spec.md](./docs/spec.md) : nospace language specification
+- [docs/tutorial.md](./docs/tutorial.md) : A simple tutorial

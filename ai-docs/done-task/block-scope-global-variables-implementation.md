@@ -85,7 +85,7 @@ pub struct IdentifierRef {
 - 実行結果: ✅ 成功 ("main exited")
 
 **参照**:
-- [spec.md](../../spec.md) セクション 4, B
+- [docs/spec.md](../../docs/spec.md) セクション 4, B
 
 ---
 
@@ -111,7 +111,7 @@ pub(crate) struct Variable {
 ```
 
 **参照**:
-- [spec.md](../../spec.md) セクション 7
+- [docs/spec.md](../../docs/spec.md) セクション 7
 
 ---
 
@@ -133,7 +133,7 @@ if: x == 1 {
 ```
 
 **参照**:
-- [spec.md](../../spec.md) セクション 6.2
+- [docs/spec.md](../../docs/spec.md) セクション 6.2
 
 ---
 
@@ -170,7 +170,7 @@ if: x == 1 {
 - [scope-phase1-block-scope.md](./scope-phase1-block-scope.md)
 - [scope-phase1-implementation.md](./scope-phase1-implementation.md)
 - [scope-phase2-identifier-resolution.md](./scope-phase2-identifier-resolution.md)
-- [spec.md](../../spec.md) セクション 4, 7, B
+- [docs/spec.md](../../docs/spec.md) セクション 4, 7, B
 - [src/semantic_analyzer/mod.rs](../../src/semantic_analyzer/mod.rs)
 
 ---

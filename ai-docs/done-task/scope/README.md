@@ -39,7 +39,7 @@
 
 ## 関連仕様
 
-- [spec.md](../../../spec.md) セクション 7 - スコープの言語仕様
+- [docs/spec.md](../../../docs/spec.md) セクション 7 - スコープの言語仕様
 - [unimplemented-features.md](../unimplemented-features.md) - 未実装機能一覧
 
 ## 関連コード

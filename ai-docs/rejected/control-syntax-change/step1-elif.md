@@ -130,7 +130,7 @@ fn parse_to_expression_tree_if_body(&mut self) -> Box<Expression> {
 
 ### 5. ドキュメント
 
-- `spec.md`: if 文のセクションに `elif:` 記法を追加
+- `docs/spec.md`: if 文のセクションに `elif:` 記法を追加
 - `docs/grammar.bnf`: if_stmt の定義に `elif` を追加
 
 ## BNF の変更

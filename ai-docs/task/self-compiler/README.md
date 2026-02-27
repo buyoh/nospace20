@@ -16,7 +16,7 @@ nospace 言語でセルフコンパイラを実装するために、言語の機
 
 | ドキュメント | 内容 |
 |---|---|
-| [reduced-spec.md](reduced-spec.md) | nospace-core 仕様書（縮小版仕様の完全な定義） |
+| [reduced-docs/spec.md](reduced-docs/spec.md) | nospace-core 仕様書（縮小版仕様の完全な定義） |
 | [feature-analysis.md](feature-analysis.md) | 各機能の採用・除外の根拠と分析 |
 
 ## nospace-core と nospace の関係

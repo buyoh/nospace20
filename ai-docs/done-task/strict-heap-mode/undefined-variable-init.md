@@ -3,7 +3,7 @@
 ## 背景
 
 現在の仕様・実装:
-- spec.md (セクション4): 「変数は初期値 0 で初期化される。（TODO: 未定義に変更）。」
+- docs/spec.md (セクション4): 「変数は初期値 0 で初期化される。（TODO: 未定義に変更）。」
 - nospace インタプリタ: `vec![0; variable_count]` でゼロ初期化
 - Whitespace コンパイラ: `generate_local_allocate` はヒープポインタを進めるだけでゼロクリアしない（元からヒープに残っている値が見える）
 
@@ -11,7 +11,7 @@
 
 ## 仕様変更
 
-### spec.md の変更箇所
+### docs/spec.md の変更箇所
 
 ```diff
 - 変数は初期値 0 で初期化される。（TODO: 未定義に変更）。
@@ -76,7 +76,7 @@ strict-heap モード（Phase 1）で未初期化ヒープアクセスがエラ�
 
 | ファイル | 変更内容 | 規模 |
 |---------|---------|------|
-| `spec.md` | 初期値の記述を「未定義」に変更 | 小 |
+| `docs/spec.md` | 初期値の記述を「未定義」に変更 | 小 |
 | `src/interpreter/exec.rs` | `new_func`, `enter_block` の初期値 | 中 |
 | `src/interpreter/mod.rs` | `interpret_global`, `initialize_function_statics` の初期値 | 中 |
 

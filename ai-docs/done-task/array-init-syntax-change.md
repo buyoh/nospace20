@@ -70,7 +70,7 @@ string_init ::= string_literal
 
 ### 1. 仕様書・ドキュメント
 
-#### spec.md
+#### docs/spec.md
 
 - **§4.2 配列**: 構文例を更新
 - **§4.3 文字列**: 構文例を更新
@@ -90,7 +90,7 @@ let: arr2[3]([10, 20, 30]);    # 初期値付き配列宣言 #
 let: arr3[]([10, 20, 30]);     # サイズ省略（3と推論）#
 ```
 
-#### tutorial.md
+#### docs/tutorial.md
 
 - **Sorting (Quick Sort)** の例: `let: arr[9](3,1,4,1,5,9,2,6,5);`
   → `let: arr[9]([3,1,4,1,5,9,2,6,5]);` または `let: arr[]([3,1,4,1,5,9,2,6,5]);`
@@ -322,8 +322,8 @@ fn parse_variable_declarations(...) -> Vec<LocatedStatement> {
 
 ### Phase 1: 仕様書・BNFの更新
 
-1. `spec.md` の §4.2, §4.3 を更新
-2. `tutorial.md` の例を更新
+1. `docs/spec.md` の §4.2, §4.3 を更新
+2. `docs/tutorial.md` の例を更新
 3. `docs/grammar.bnf` を更新
 
 ### Phase 2: パーサーの実装
@@ -446,8 +446,8 @@ let: str[]("Hello");
 
 - [x] すべてのテストがパスする
 - [x] エラーメッセージが適切
-- [x] spec.md が更新されている
-- [x] tutorial.md が更新されている
+- [x] docs/spec.md が更新されている
+- [x] docs/tutorial.md が更新されている
 - [x] grammar.bnf が更新されている
 - [x] サイズ省略の動作確認
 - [x] エラーケースの動作確認
@@ -459,8 +459,8 @@ let: str[]("Hello");
 **完了した作業:**
 
 1. **仕様書・BNFの更新**
-   - `spec.md` §4.2（配列）・§4.3（文字列）を更新、TODOセクションを削除
-   - `tutorial.md` のサンプルコードを更新（`let: arr[]([3,1,4,1,5,9,2,6,5])`）
+   - `docs/spec.md` §4.2（配列）・§4.3（文字列）を更新、TODOセクションを削除
+   - `docs/tutorial.md` のサンプルコードを更新（`let: arr[]([3,1,4,1,5,9,2,6,5])`）
    - `docs/grammar.bnf` の `let_decl` 定義を更新、`array_init`・`string_init` 定義を追加
 
 2. **パーサーの実装** (`src/tree_parser/statement/mod.rs`)

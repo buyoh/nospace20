@@ -1,6 +1,6 @@
 # Nospace Grammar
 #
-# 現在の言語仕様 (spec.md) に基づく BNF 定義
+# 現在の言語仕様 (docs/spec.md) に基づく BNF 定義
 # 未実装の機能はコメントで注記
 
 program ::= (func | global_stmt)*

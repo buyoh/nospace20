@@ -83,7 +83,7 @@ while: cond, {
 | semantic_analyzer | `ExecExpression::If` / `While` の型変更 |
 | interpreter | `interpret_if` / `interpret_while` のロジック変更 |
 | compiler_ws | `generate_if_expression` / `generate_while_expression` の変更 |
-| spec.md | 仕様書更新 |
+| docs/spec.md | 仕様書更新 |
 | docs/grammar.bnf | BNF 更新 |
-| tutorial.md | チュートリアル更新 |
+| docs/tutorial.md | チュートリアル更新 |
 | resources/tests/ | ほぼ全テストケースの構文更新 |

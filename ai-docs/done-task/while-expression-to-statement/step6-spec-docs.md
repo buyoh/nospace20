@@ -6,7 +6,7 @@
 
 ## 変更内容
 
-### 6-1. spec.md
+### 6-1. docs/spec.md
 
 #### セクション「while 式」→「while 文」
 
@@ -43,7 +43,7 @@
 
 `Expression` enum の説明から `While` を削除し、`Statement` enum の説明に `While` を追加。
 
-### 6-4. tutorial.md
+### 6-4. docs/tutorial.md
 
 while の使用例が式として説明されている箇所がないか確認し、必要に応じて更新。
 

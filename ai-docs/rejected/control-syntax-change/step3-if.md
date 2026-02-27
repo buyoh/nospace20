@@ -305,7 +305,7 @@ ExecExpression::If(cond, then_expr, else_expr) => {
 
 ### 6. ドキュメント
 
-- `spec.md`: if 文のセクションを全面更新
+- `docs/spec.md`: if 文のセクションを全面更新
 - `docs/grammar.bnf`: if_stmt の定義を更新
 
 ## BNF の変更

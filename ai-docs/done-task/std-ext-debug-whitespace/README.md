@@ -8,7 +8,7 @@
 
 ## 仕様
 
-[spec-whitespace.md](../../../spec-whitespace.md) の拡張仕様セクションに記載。
+[docs/spec-whitespace.md](../../../docs/spec-whitespace.md) の拡張仕様セクションに記載。
 
 負ヒープアドレスへの Store 命令により拡張 API を呼び出す:
 

@@ -63,7 +63,10 @@ if: cond {block} else: if: cond {block} else: {block};
 
 ## 仕様の疑問点
 
-### 名前付きスコープ
+### 名前空間
+
+`{}` で記述されているが、これはスコープではない。
+制御構文でもないし…
 
 - `::` : `:` を識別子に使うので。
 - `.`
@@ -73,14 +76,28 @@ if: cond {block} else: if: cond {block} else: {block};
 
 ```
 let: x(1);
-scope: Scope1 {
+namespace: MySpace {
   let: x(2);
-  scope: Scope2 {
+  namespace: MySpace2 {
     let: x(3);
   }
   __clog(x);  # 2 を出力 #
-  __clog(Scope2::x);  # 3 を出力 #
+  __clog(MySpace2.x);  # 3 を出力 #
 }
+```
+
+ところで、chromiumスタイルのclang-formatは、`namespace` でインデントしない。
+
+```
+let: x(1);
+NAMESPACE: MySpace;
+let: x(2);
+NAMESPACE: MySpace2;
+let: x(3);
+__clog(x);  # 2 を出力 #
+__clog(MySpace2.x);  # 3 を出力 #
+NAMESPACE_END: MySpace2;
+NAMESPACE_END: MySpace;
 ```
 
 ### if 式。簡単だが、elseが無い場合の扱いは？
@@ -179,7 +196,7 @@ repeat: i(0), 5 {
 };
 ```
 
-そこで、 for を定義して、repeatは for の糖衣構文とする。
+そこで、 for を定義して、repeatは for の糖衣構文とする（解釈できるようにする）
 省略は出来ないが、`{}`と書けば空になる
 
 ```
@@ -187,14 +204,23 @@ repeat: i(0), 5 {
 for: i(0), i=0, i<5, i+=1 { __clog(i); };
 ```
 
-構文変えたくなってきた。ブロックの前に`,`を入れたい。`if` も同様に。
+構文変えたくなってきた。ブロックの前に`,`を入れたい。
 
 変数宣言はletと同様の特殊な構文だが、以降は全て式なので、馴染み深い書き方は、
 
 ```
-for: i(0), {}, i<5, i+=1 {
+for: i(0), {}, i<5, i+=1, {
   __clog(i);
 };
+```
+
+ただ、ifでrejectしたときと同様に、for, repeat をvoidを返す式として扱うと、関数呼び出しの中に含めることが可能になり、構文の区切り`,`が曖昧になる。
+なので、式にすることを諦め、`return` `let` 等と同様に文として扱う。
+`while` も式にする理由が無いので、文として扱うことにする。
+スコープ式を使うことで、文を含めることができるため、表現力は十分である。
+
+```
+__puti__({let: x(0); repeat: i(0), 5, x += i; x;});
 ```
 
 ## H alias

@@ -19,7 +19,7 @@ nospace20/
 │   └── code_test.rs        # 統合テスト (large テスト)
 ├── resources/
 │   └── tests/              # テストケース (.ns + .check.json)
-└── spec.md                 # 言語仕様書
+└── docs/spec.md            # 言語仕様書
 ```
 
 ## 公開 API (lib.rs)

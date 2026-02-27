@@ -208,7 +208,7 @@ ExecExpression::While(cond, body) => {
 
 ### 6. ドキュメント
 
-- `spec.md`: while 文のセクションを更新
+- `docs/spec.md`: while 文のセクションを更新
 - `docs/grammar.bnf`: while_stmt の定義を更新
 
 ## BNF の変更

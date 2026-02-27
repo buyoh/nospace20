@@ -169,7 +169,7 @@ fn test_whitespace_self_debug_base(test_name: &str) {
 - **`test_whitespace_self_io_base`**: 同上。影響なし。
 - **既存の `ws_self` テスト**: 影響なし。
 
-## spec-whitespace.md の修正
+## docs/spec-whitespace.md の修正
 
 仕様書の API テーブル (`-10`/`-11`/`-12`) に統一済み。
 詳細仕様セクションおよびコード実装も `-10`/`-11`/`-12` に修正済み。

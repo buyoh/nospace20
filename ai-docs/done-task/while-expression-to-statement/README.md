@@ -63,7 +63,7 @@ f(while: cond { body });      # 不可: 式ではない #
 - [x] Step 3: interpreter 変更完了
 - [x] Step 4: compiler_ws 変更完了
 - [x] Step 5: optimizer 変更完了 (condition_opt, dead_code, geti_opt, constant_folding, tests)
-- [x] Step 6: spec/docs 更新完了 (spec.md, ai-docs/architecture/modules.md)
+- [x] Step 6: spec/docs 更新完了 (docs/spec.md, ai-docs/architecture/modules.md)
 - [x] Step 7: テスト更新完了 (while_as_expression_001 追加, void_while_assign_001 を syntax_error に変更)
 - [x] 全テスト通過確認 (936 passed; 0 failed)
 
@@ -99,6 +99,6 @@ Step 1 → Step 2 は順序依存。Step 3/4/5 は Step 2 完了後に並行作�
 | optimizer (dead_code) | `src/optimizer/dead_code.rs` | While 処理を式→文レベルに移動 | 小 |
 | optimizer (geti_opt) | `src/optimizer/geti_opt.rs` | While 処理を式→文レベルに移動 | 小 |
 | optimizer (tests) | `src/optimizer/tests.rs` | ConditionMode 置換ヘルパー更新 | 小 |
-| 仕様書 | `spec.md` | \"while 式\" → \"while 文\" | 小 |
+| 仕様書 | `docs/spec.md` | \"while 式\" → \"while 文\" | 小 |
 | BNF | `docs/grammar.bnf` | 変更不要（既に while_stmt） | なし |
 | アーキテクチャ文書 | `ai-docs/architecture/modules.md` | enum 定義の更新 | 小 |

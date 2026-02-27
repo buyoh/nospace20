@@ -47,7 +47,7 @@ while は文であり、型推論の対象外となる。
 
 ### 2-4. 型システムドキュメント整合性
 
-`spec.md` の型テーブルから while を削除（Step 6 で実施）。
+`docs/spec.md` の型テーブルから while を削除（Step 6 で実施）。
 
 ### 2-5. `convert_to_exec_expression_with_resolver` から While 処理を削除
 

@@ -75,5 +75,5 @@ static 変数の永続化は以下のメカニズムで正しく実装されて�
 ## 参照
 
 - 本タスク: `ai-docs/task/implement-multi-variable-declaration.md`
-- 関連する未実装機能: spec.md §7 スコープ
+- 関連する未実装機能: docs/spec.md §7 スコープ
 - コメントアウトされたテスト: `resources/tests/passes/scope/scope_static_*.ns`

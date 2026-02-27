@@ -16,7 +16,7 @@ Whitespace 言語には対応する I/O 命令が存在するため、これら�
 | `InputNumber` | `TB LF TB TB` | `[..., addr] → [...]` | 整数を読み込み `heap[addr]` に格納 |
 | `InputChar` | `TB LF TB SP` | `[..., addr] → [...]` | 文字を読み込み `heap[addr]` に格納 |
 
-### nospace 仕様（spec.md §3.2）
+### nospace 仕様（docs/spec.md §3.2）
 
 | 関数 | 引数 | 戻り値 | 説明 |
 |------|------|--------|------|
@@ -213,7 +213,7 @@ fn generate_builtin_getc(
 ## 備考
 
 - `__trace`、`__assert`、`__assert_not` はヒープ経由の間接呼び出し方式で実装予定（`whitespace-runtime.md` に記載）。I/O 関数とは異なるアプローチ。
-- `__getiv`、`__getcv`（アドレス指定入力）は spec.md に記載がないため、今回のスコープ外とする。
+- `__getiv`、`__getcv`（アドレス指定入力）は docs/spec.md に記載がないため、今回のスコープ外とする。
 
 ---
 

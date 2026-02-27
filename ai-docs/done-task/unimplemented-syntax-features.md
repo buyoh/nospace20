@@ -91,7 +91,7 @@ y = while: i - 3 { i = i + 1; i; };  # y は最後のイテレーションの最
 - [resources/tests/passes/control_flow/while_expr_value_001.ns](../../resources/tests/passes/control_flow/while_expr_value_001.ns)
 
 **参照**:
-- [spec.md](../../spec.md) セクション 6.1, 6.2
+- [docs/spec.md](../../docs/spec.md) セクション 6.1, 6.2
 - [ai-docs/spec/implementation-status.md](../spec/implementation-status.md)
 
 ---
@@ -120,7 +120,7 @@ func: main() {
 - void 型の関数では引き続き暗黙的に終了（値を返さない）
 
 **参照**:
-- [spec.md](../../spec.md) セクション 5
+- [docs/spec.md](../../docs/spec.md) セクション 5
   - 「`return:` がない場合、0を返す。」
   - 「TODO: 型実装後、void 以外ではエラーとなる。」
 
@@ -140,7 +140,7 @@ func: main() {
 
 ## 関連ドキュメント
 
-- [spec.md](../../spec.md) - 言語仕様
+- [docs/spec.md](../../docs/spec.md) - 言語仕様
 - [ai-docs/spec/implementation-status.md](../spec/implementation-status.md) - 実装状況の詳細
 
 ---

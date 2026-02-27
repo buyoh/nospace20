@@ -144,7 +144,7 @@ elsif_chain ::=
 
 ### Step 4: 言語仕様の更新
 
-**ファイル**: `spec.md`
+**ファイル**: `docs/spec.md`
 
 - if 文のセクションに `elsif:` の説明を追加
 - `else: if:` を廃止（or 非推奨として残す）

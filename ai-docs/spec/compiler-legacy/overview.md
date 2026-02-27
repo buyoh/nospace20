@@ -53,4 +53,4 @@ Whitespace は空白文字のみで構成されるプログラミング言語で
 ## 関連ファイル
 
 - 旧実装: `.local/nospace/main.cpp`
-- Whitespace 仕様: `spec-whitespace.md`
+- Whitespace 仕様: `docs/spec-whitespace.md`

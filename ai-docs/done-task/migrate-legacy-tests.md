@@ -330,7 +330,7 @@ test_ok_coding_io!(test_io_stdio_002, "io/stdio_002");
 - [src/interpreter/mod.rs](../../src/interpreter/mod.rs) - インタプリタ実装
 - [src/lib.rs](../../src/lib.rs) - 公開API
 - [tests/code_test.rs](../../tests/code_test.rs) - テストハーネス
-- [spec.md](../../spec.md) - 言語仕様
+- [docs/spec.md](../../docs/spec.md) - 言語仕様
 - [ai-docs/spec/implementation-status.md](../spec/implementation-status.md) - 実装状況
 
 ## 8. 進捗
@@ -338,6 +338,6 @@ test_ok_coding_io!(test_io_stdio_002, "io/stdio_002");
 ### 2026-01-31
 
 - [x] 計画立案・ドキュメント作成
-- [x] spec.md に不足仕様を追記
+- [x] docs/spec.md に不足仕様を追記
 - [ ] Phase 1: I/O ビルトイン実装
 - [ ] Phase 2: 旧テストの移行

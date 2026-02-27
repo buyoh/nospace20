@@ -40,6 +40,6 @@ cd tools/vscode-ext && npm run build-ext
 
 | パス | 説明 |
 |------|------|
-| [../spec.md](../spec.md) | 言語仕様（正式） |
-| [../tutorial.md](../tutorial.md) | チュートリアル |
+| [../docs/spec.md](../docs/spec.md) | 言語仕様（正式） |
+| [../docs/tutorial.md](../docs/tutorial.md) | チュートリアル |
 | [../ai-docs/](../ai-docs/) | 開発者・AI向けドキュメント |

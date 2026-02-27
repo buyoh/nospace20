@@ -102,5 +102,5 @@ InputNumber,         // TB LF TB TB
 
 ## 参考資料
 
-- [spec-whitespace.md](../../spec-whitespace.md) - Whitespace言語仕様
+- [docs/spec-whitespace.md](../../docs/spec-whitespace.md) - Whitespace言語仕様
 - [ai-docs/task/compiler/test-strategy.md](test-strategy.md) - テスト戦略

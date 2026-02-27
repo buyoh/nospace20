@@ -5,7 +5,7 @@
 `src/whitespace/` の Whitespace パーサ・インタプリタを、nospace コンパイラを介さずに直接テストする。
 `resources/tests/` と同じ方針で `resources/tests_ws/` を作成し、Whitespace プログラムをテストコンテンツとして用意する。
 
-**対象**: `spec-whitespace.md` の標準仕様のみ（拡張仕様は対象外）
+**対象**: `docs/spec-whitespace.md` の標準仕様のみ（拡張仕様は対象外）
 
 ## 現状分析
 

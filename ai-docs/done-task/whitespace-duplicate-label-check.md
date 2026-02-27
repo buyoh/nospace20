@@ -308,6 +308,6 @@ cargo test
 
 ## 参考資料
 
-- Whitespace 仕様: `spec-whitespace.md`
+- Whitespace 仕様: `docs/spec-whitespace.md`
 - 過去の修正: `ai-docs/done-task/fix-ws-self-label-duplication.md` (compiler_ws のラベル ID 重複バグ)
 - テスト仕様: `resources/tests_ws/README.md`

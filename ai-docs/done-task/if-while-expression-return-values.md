@@ -130,7 +130,7 @@ func: main() {
 ## 関連ドキュメント
 
 - [ai-docs/task/unimplemented-syntax-features.md](../task/unimplemented-syntax-features.md) - セクション 2 を ✅ 実装済みに更新
-- [spec.md](../../spec.md) - セクション 6.1, 6.2 (将来的に更新予定)
+- [docs/spec.md](../../docs/spec.md) - セクション 6.1, 6.2 (将来的に更新予定)
 
 ## 備考
 

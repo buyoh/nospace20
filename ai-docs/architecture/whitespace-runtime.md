@@ -168,5 +168,5 @@ store           # ヒープ書き込み → 独自実装では __trace(42) と�
 
 ## 参考
 
-- whitespace 仕様: [spec-whitespace.md](../../spec-whitespace.md)
+- whitespace 仕様: [docs/spec-whitespace.md](../../docs/spec-whitespace.md)
 - whitespacers crate: https://crates.io/crates/whitespacers

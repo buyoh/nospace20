@@ -56,7 +56,7 @@ func: main() {
    - 再代入エラーの検出と報告
 
 **参照**:
-- [spec.md](../../spec.md) セクション 4
+- [docs/spec.md](../../docs/spec.md) セクション 4
 - テスト: [disabled_var_final_001.ns](../../resources/tests/passes/variables/disabled_var_final_001.ns)
 
 **優先度**: 中 - 安全性向上
@@ -71,7 +71,7 @@ func: main() {
 
 ## 関連ドキュメント
 
-- [spec.md](../../spec.md) - 言語仕様
+- [docs/spec.md](../../docs/spec.md) - 言語仕様
 - [ai-docs/done-task/block-scope-global-variables-implementation.md](../done-task/block-scope-global-variables-implementation.md) - 実装済みの変数機能
 - [ai-docs/done-task/implement-multi-variable-declaration.md](../done-task/implement-multi-variable-declaration.md) - 実装済みの変数初期化機能
 - [ai-docs/spec/implementation-status.md](../spec/implementation-status.md) - 実装状況の詳細

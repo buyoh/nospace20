@@ -76,4 +76,4 @@ Phase 4 で無効化されていた以下のテストを有効化:
 - [../../done-task/scope-phase5-stack-overflow-investigation.md](../../done-task/scope-phase5-stack-overflow-investigation.md) - スタックオーバーフロー問題の調査と解決
 - [../../done-task/scope-phase5-test-failure-investigation.md](../../done-task/scope-phase5-test-failure-investigation.md) - テスト失敗の調査
 - [../../done-task/scope-analysis.md](../../done-task/scope-analysis.md) - Phase 1-4 の実装分析
-- [spec.md](../../../spec.md) セクション 7 - スコープの言語仕様
+- [docs/spec.md](../../../docs/spec.md) セクション 7 - スコープの言語仕様

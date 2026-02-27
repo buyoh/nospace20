@@ -4,7 +4,7 @@
 
 明示的な `static` 修飾子による変数宣言をサポートし、親の関数スコープを越えたアクセスを可能にする。
 
-## 言語仕様 (spec.md セクション 7)
+## 言語仕様 (docs/spec.md セクション 7)
 
 > - 親の関数スコープにはアクセスできない（変数の場合）
 > - (未実装) static 変数は親の関数スコープにアクセス出来る。
@@ -331,7 +331,7 @@ fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
 ### Step 6: ドキュメント更新
 
 - BNF (docs/grammar.bnf) の更新
-- spec.md の未実装フラグを削除
+- docs/spec.md の未実装フラグを削除
 
 ---
 
@@ -359,7 +359,7 @@ fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
 6. **`docs/grammar.bnf`**
    - `static:` の BNF 追加
 
-7. **`spec.md`**
+7. **`docs/spec.md`**
    - 未実装フラグの削除
 
 ### 変更しないファイル
@@ -520,7 +520,7 @@ func: main() {
 - 関数呼び出し間で static 変数の値が保持される
 - ネスト関数から static 変数にアクセス可能
 - 非 static 変数への関数境界越えアクセスがエラー
-- BNF と spec.md が更新済み
+- BNF と docs/spec.md が更新済み
 
 ---
 

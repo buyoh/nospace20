@@ -6,8 +6,8 @@
 
 プログラミング言語仕様は以下に配置:
 
-- `spec.md` : nospace 言語仕様
-- `tutorial.md` : 簡単なチュートリアル
+- `docs/spec.md` : nospace 言語仕様
+- `docs/tutorial.md` : 簡単なチュートリアル
 
 ソフトウェアの使い方については、`--help` オプションで確認
 

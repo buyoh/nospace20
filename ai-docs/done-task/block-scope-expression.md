@@ -65,7 +65,7 @@ func: main() {
 2. **semantic_analyzer** - ブロック式の意味解析
 3. **interpreter** - ブロック式の実行
 4. **compiler_ws** - ブロック式の Whitespace コード生成
-5. **spec.md** - 言語仕様更新
+5. **docs/spec.md** - 言語仕様更新
 6. **grammar.bnf** - BNF 更新
 
 ### 1. tree_parser (構文解析)
@@ -191,7 +191,7 @@ ExecExpression::Block(block) => {
 
 > **NOTE**: `if`/`while` 式の戻り値機能はインタプリタでは実装済みだが、compiler_ws では未完全。ブロック式も同様に、compiler_ws では常に 0 を返す動作で初期実装する。
 
-### 5. spec.md 更新
+### 5. docs/spec.md 更新
 
 セクション 7 「スコープ」の近くに、ブロックスコープ式のセクションを追加する。
 または、セクション 6 「制御構文」にブロック式として追加する。
@@ -240,7 +240,7 @@ expr_val ::=
   - 親スコープ変数へのアクセス
 
 ### Step 6: ドキュメント更新
-- `spec.md` にブロックスコープ式の説明を追加
+- `docs/spec.md` にブロックスコープ式の説明を追加
 - `docs/grammar.bnf` を更新
 
 ## 考慮事項
@@ -273,7 +273,7 @@ expr_val ::=
    - `block_expr_empty_001`: 空ブロックが0を返すテスト
    - `block_expr_nested_001`: ネストしたブロックのテスト
    - `block_expr_parent_scope_001`: 親スコープへのアクセステスト
-6. ✅ **ドキュメント**: `spec.md` にセクション6.5追加、`grammar.bnf` 更新
+6. ✅ **ドキュメント**: `docs/spec.md` にセクション6.5追加、`grammar.bnf` 更新
 
 ### 既存テストの失敗
 

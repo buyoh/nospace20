@@ -80,7 +80,7 @@ Whitespace VM 自体も 39 テストで網羅的にテスト済み。`whitespace
 ## 関連ドキュメント
 
 - [whitespace-runtime.md](../../architecture/whitespace-runtime.md) — Whitespace 実行環境アーキテクチャ
-- [spec-whitespace.md](../../../spec-whitespace.md) — Whitespace 言語仕様
+- [docs/spec-whitespace.md](../../../docs/spec-whitespace.md) — Whitespace 言語仕様
 
 ---
 

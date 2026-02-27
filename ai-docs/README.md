@@ -28,4 +28,4 @@ echo 'func: main() { __clog(42); return: 0; }' | cargo run
 
 ## 言語仕様
 
-言語 `nospace` 自体の仕様は、リポジトリルートの [spec.md](../spec.md) に記載されています。
+言語 `nospace` 自体の仕様は、リポジトリルートの [docs/spec.md](../docs/spec.md) に記載されています。

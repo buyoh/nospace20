@@ -1,6 +1,6 @@
 # Nospace Tutorial
 
-Original: https://github.com/buyoh/nospace/blob/master/docs/tutorial.md
+Original: https://github.com/buyoh/nospace/blob/master/docs/docs/tutorial.md
 
 ## Hello World
 

@@ -71,5 +71,5 @@ cargo test --test compile_test -- --ignored
 ## 参考
 
 - 旧実装ソース: `.local/nospace/main.cpp`
-- Whitespace 仕様: `spec-whitespace.md`
-- nospace 言語仕様: `spec.md`
+- Whitespace 仕様: `docs/spec-whitespace.md`
+- nospace 言語仕様: `docs/spec.md`

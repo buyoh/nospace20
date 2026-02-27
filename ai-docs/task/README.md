@@ -68,7 +68,7 @@
 - [wasm-build/](../done-task/wasm-build/) - WASM ビルド完全完了（Phase 0/1/A/3 + サイズ最適化、269KB → 198KB）(2026-02-16完了)
 - [wasm-build-phase0-1-a-3-completion.md](../done-task/wasm-build-phase0-1-a-3-completion.md) - WASM ビルド Phase 0/1/A/3 完了（ビルド基盤、run/compile API、Whitespace VM ステップ実行、テスト環境）(2026-02-12完了)
 - [error-specification/](../done-task/error-specification/) - エラー仕様のドキュメント化と自動生成手段の検討（調査・設計フェーズ完了：6ドキュメント、計1600行以上のエラー仕様を記録）(2026-02-16完了)
-- [array-implementation/](../done-task/array-implementation/) - 配列（spec.md §4.2）・文字列リテラル（§4.3）の実装（Phase 1-5 全て完了：構文解析→意味解析→インタプリタ→WSコンパイラ→文字列）(2026-02-13完了)
+- [array-implementation/](../done-task/array-implementation/) - 配列（docs/spec.md §4.2）・文字列リテラル（§4.3）の実装（Phase 1-5 全て完了：構文解析→意味解析→インタプリタ→WSコンパイラ→文字列）(2026-02-13完了)
 
 - [identifier-management-improvement.md](../done-task/identifier-management-improvement.md) - 識別子管理改善設計（Variable.identifier 削除、IdentifierInfo 型安全化）(2026-02-11完了)
 - [scope/](../done-task/scope/) - スコープ機能の実装（Phase 1-5 全て完了：ブロックスコープ、識別子解決、グローバル変数、static変数、ネスト関数）(2026-02-11完了)

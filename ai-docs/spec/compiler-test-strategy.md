@@ -318,4 +318,4 @@ echo "42" | ./tools/wsc-install/bin/wsc path/to/file.ws
 
 - [whitespacers (crates.io)](https://crates.io/crates/whitespacers)
 - [whitespacers (GitHub)](https://github.com/CensoredUsername/whitespace-rs)
-- [Whitespace 仕様](../../spec-whitespace.md)
+- [Whitespace 仕様](../../docs/spec-whitespace.md)
