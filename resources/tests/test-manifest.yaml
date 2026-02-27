@@ -142,6 +142,17 @@ tests:
     path: operators/logical_short_circuit_002
     comment: "Logical short-circuit evaluation (OR)"
 
+  # 短絡評価の副作用を stdout で検証 (Whitespace コンパイラのバグ検出用)
+  - name: test_operators_logical_short_circuit_and_io
+    type: success_io
+    path: operators/logical_short_circuit_and_io
+    comment: "Logical AND short-circuit evaluation with side effect in stdout"
+
+  - name: test_operators_logical_short_circuit_or_io
+    type: success_io
+    path: operators/logical_short_circuit_or_io
+    comment: "Logical OR short-circuit evaluation with side effect in stdout"
+
   # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_logical_precedence_001
     type: success

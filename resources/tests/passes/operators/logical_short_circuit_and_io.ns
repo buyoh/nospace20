@@ -1,0 +1,16 @@
+# 短絡評価 AND: 副作用が stdout に現れる形でテスト #
+# 右辺の side_effect() は左辺が非0 のときのみ呼ばれる #
+
+func: side_effect() {
+    __puti(9);
+    return: 1;
+}
+
+func: main() {
+    let: a;
+    # 左辺が1なので右辺も評価される -> side_effect が呼ばれて "9" を出力 #
+    a = 1 && side_effect();
+    # 左辺が0なので右辺は評価されない -> side_effect は呼ばれず出力なし #
+    a = 0 && side_effect();
+    return: 0;
+}

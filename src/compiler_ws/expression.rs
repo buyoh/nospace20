@@ -307,16 +307,68 @@ fn generate_binary_op(
             prog.push(Instruction::Call(reserved_labels::COMPARATOR_NEGATIVE));
         }
 
-        // 論理演算
+        // 論理演算（短絡評価）
+        //
+        // バグ修正: 以前は両辺を先に評価してからサブルーチンに渡していたため、
+        // 右辺の副作用が仕様に反して常に実行されていた。
+        // インライン分岐に変換することで仕様準拠の短絡評価を実現する。
+        //
+        // `a && b` のインライン展開:
+        //   eval(a)
+        //   JumpIfZero(false_label)   # a == 0 なら短絡して偽
+        //   eval(b)
+        //   JumpIfZero(false_label)   # b == 0 なら偽
+        //   Push(1)
+        //   Jump(end_label)
+        //   Label(false_label): Push(0)
+        //   Label(end_label)
         Operator2::LogicalAnd => {
+            let false_label = ctx.new_label();
+            let end_label = ctx.new_label();
+            // 左辺を評価: a == 0 なら短絡
             prog.append(generate_expression(ctx, left)?);
+            prog.push(Instruction::JumpIfZero(false_label));
+            // 右辺を評価: b == 0 なら偽
             prog.append(generate_expression(ctx, right)?);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_AND));
+            prog.push(Instruction::JumpIfZero(false_label));
+            // 両辺とも非0 → 真
+            prog.push(Instruction::Push(WsNumber(1)));
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(false_label));
+            prog.push(Instruction::Push(WsNumber(0)));
+            prog.push(Instruction::Label(end_label));
         }
+        // `a || b` のインライン展開:
+        //   eval(a)
+        //   JumpIfZero(check_b_label) # a == 0 なら b をチェック
+        //   Push(1)                   # a != 0 → 短絡して真
+        //   Jump(end_label)
+        //   Label(check_b_label)
+        //   eval(b)
+        //   JumpIfZero(false_label)   # b == 0 なら偽
+        //   Push(1)
+        //   Jump(end_label)
+        //   Label(false_label): Push(0)
+        //   Label(end_label)
         Operator2::LogicalOr => {
+            let check_b_label = ctx.new_label();
+            let false_label = ctx.new_label();
+            let end_label = ctx.new_label();
+            // 左辺を評価: a == 0 なら b のチェックへ
             prog.append(generate_expression(ctx, left)?);
+            prog.push(Instruction::JumpIfZero(check_b_label));
+            // a != 0 → 短絡して真
+            prog.push(Instruction::Push(WsNumber(1)));
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(check_b_label));
+            // 右辺を評価: b == 0 なら偽
             prog.append(generate_expression(ctx, right)?);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_OR));
+            prog.push(Instruction::JumpIfZero(false_label));
+            prog.push(Instruction::Push(WsNumber(1)));
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(false_label));
+            prog.push(Instruction::Push(WsNumber(0)));
+            prog.push(Instruction::Label(end_label));
         }
 
         // 代入
