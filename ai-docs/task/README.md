@@ -49,6 +49,7 @@
 
 ### アクティブ
 
+- [while-expression-to-statement/](while-expression-to-statement/) - while を式から文に変更（Expression::While → Statement::While、7ステップ設計）
 - [alloc-reuse-efficiency-tests.md](alloc-reuse-efficiency-tests.md) - メモリアロケータ再利用効率テスト（VM ヒープ直接検査によるユニットテスト、Bump 2 件 + FSBA 9 件）
 - [ignore-debug-builtins.md](ignore-debug-builtins.md) - __assert/__trace 無視オプション（--ignore-debug CLI フラグ追加）
 - [fix-block-scope-offset/](fix-block-scope-offset/) - ブロックスコープ変数のヒープオフセット衝突修正設計（Bug D: scope_depth 無視による変数衝突）
