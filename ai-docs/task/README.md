@@ -21,6 +21,7 @@
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [repeat-form1-upper-bound.md](repeat-form1-upper-bound.md) - repeat Form 1 の意味論変更（ループ回数→上限値、隠し変数廃止）
 - [keyword-colon-token-design.md](keyword-colon-token-design.md) - Keyword トークンにコロンを内包する設計の検討（break/continue/return の不整合分析）
+- [rename-main-to-dunder-main.md](rename-main-to-dunder-main.md) - エントリーポイント名を `main` → `__main` に変更（組み込み識別子命名規約への統一）
 
 ## 現在のタスク
 
