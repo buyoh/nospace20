@@ -78,6 +78,11 @@ impl WsProgram {
         self.instructions
     }
 
+    /// Vec<Instruction> から WsProgram を生成
+    pub fn from_instructions(instructions: Vec<Instruction>) -> Self {
+        Self { instructions }
+    }
+
     /// 命令列への参照を返す
     #[allow(dead_code)]
     pub fn instructions(&self) -> &[Instruction] {

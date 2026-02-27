@@ -254,57 +254,96 @@ fn generate_binary_op(
             prog.push(Instruction::Mod);
         }
 
-        // 比較演算
+        // 比較演算（インライン化）
+        //
+        // サブルーチン呼び出し（COMPARATOR_ZERO / COMPARATOR_NEGATIVE）の代わりに、
+        // JumpIfZero / JumpIfNegative を使ったインライン分岐を生成する（comparison-inline 最適化）。
+        // 合計命令数: 約 8 命令（元の 11 命令から削減）
         Operator2::Equal => {
-            prog.push(Instruction::Push(WsNumber(1))); // zero → true
-            prog.push(Instruction::Push(WsNumber(0))); // non-zero → false
+            // x == y → (x - y) == 0
+            let eq_label = ctx.new_label();
+            let end_label = ctx.new_label();
             prog.append(generate_expression(ctx, left)?);
             prog.append(generate_expression(ctx, right)?);
             prog.push(Instruction::Sub);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_ZERO));
+            prog.push(Instruction::JumpIfZero(eq_label));
+            prog.push(Instruction::Push(WsNumber(0))); // x != y → false
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(eq_label));
+            prog.push(Instruction::Push(WsNumber(1))); // x == y → true
+            prog.push(Instruction::Label(end_label));
         }
         Operator2::NotEqual => {
-            prog.push(Instruction::Push(WsNumber(0))); // zero → false
-            prog.push(Instruction::Push(WsNumber(1))); // non-zero → true
+            // x != y → (x - y) != 0
+            let neq_label = ctx.new_label();
+            let end_label = ctx.new_label();
             prog.append(generate_expression(ctx, left)?);
             prog.append(generate_expression(ctx, right)?);
             prog.push(Instruction::Sub);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_ZERO));
+            prog.push(Instruction::JumpIfZero(neq_label));
+            prog.push(Instruction::Push(WsNumber(1))); // x != y → true
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(neq_label));
+            prog.push(Instruction::Push(WsNumber(0))); // x == y → false
+            prog.push(Instruction::Label(end_label));
         }
         Operator2::Less => {
-            prog.push(Instruction::Push(WsNumber(1))); // negative → true
-            prog.push(Instruction::Push(WsNumber(0))); // non-negative → false
+            // x < y → (x - y) < 0
+            let neg_label = ctx.new_label();
+            let end_label = ctx.new_label();
             prog.append(generate_expression(ctx, left)?);
             prog.append(generate_expression(ctx, right)?);
             prog.push(Instruction::Sub);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_NEGATIVE));
+            prog.push(Instruction::JumpIfNegative(neg_label));
+            prog.push(Instruction::Push(WsNumber(0))); // x >= y → false
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(neg_label));
+            prog.push(Instruction::Push(WsNumber(1))); // x < y → true
+            prog.push(Instruction::Label(end_label));
         }
         Operator2::LessEqual => {
-            // left <= right ⇔ !(left > right) ⇔ !(right < left)
-            prog.push(Instruction::Push(WsNumber(0))); // negative → false
-            prog.push(Instruction::Push(WsNumber(1))); // non-negative → true
+            // left <= right ⇔ !(right - left < 0)
+            // right - left が負 → right < left → false
+            let false_label = ctx.new_label();
+            let end_label = ctx.new_label();
             prog.append(generate_expression(ctx, right)?);
             prog.append(generate_expression(ctx, left)?);
-            prog.push(Instruction::Sub);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_NEGATIVE));
+            prog.push(Instruction::Sub); // right - left
+            prog.push(Instruction::JumpIfNegative(false_label));
+            prog.push(Instruction::Push(WsNumber(1))); // left <= right → true
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(false_label));
+            prog.push(Instruction::Push(WsNumber(0))); // left > right → false
+            prog.push(Instruction::Label(end_label));
         }
         Operator2::Greater => {
-            // left > right ⇔ right < left
-            prog.push(Instruction::Push(WsNumber(1))); // negative → true
-            prog.push(Instruction::Push(WsNumber(0))); // non-negative → false
+            // left > right ⇔ right - left < 0
+            let true_label = ctx.new_label();
+            let end_label = ctx.new_label();
             prog.append(generate_expression(ctx, right)?);
             prog.append(generate_expression(ctx, left)?);
-            prog.push(Instruction::Sub);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_NEGATIVE));
+            prog.push(Instruction::Sub); // right - left
+            prog.push(Instruction::JumpIfNegative(true_label));
+            prog.push(Instruction::Push(WsNumber(0))); // left <= right → false
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(true_label));
+            prog.push(Instruction::Push(WsNumber(1))); // left > right → true
+            prog.push(Instruction::Label(end_label));
         }
         Operator2::GreaterEqual => {
-            // left >= right ⇔ !(left < right)
-            prog.push(Instruction::Push(WsNumber(0))); // negative → false
-            prog.push(Instruction::Push(WsNumber(1))); // non-negative → true
+            // left >= right ⇔ !(left - right < 0)
+            // left - right が負 → left < right → false
+            let false_label = ctx.new_label();
+            let end_label = ctx.new_label();
             prog.append(generate_expression(ctx, left)?);
             prog.append(generate_expression(ctx, right)?);
-            prog.push(Instruction::Sub);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_NEGATIVE));
+            prog.push(Instruction::Sub); // left - right
+            prog.push(Instruction::JumpIfNegative(false_label));
+            prog.push(Instruction::Push(WsNumber(1))); // left >= right → true
+            prog.push(Instruction::Jump(end_label));
+            prog.push(Instruction::Label(false_label));
+            prog.push(Instruction::Push(WsNumber(0))); // left < right → false
+            prog.push(Instruction::Label(end_label));
         }
 
         // 論理演算（短絡評価）
@@ -844,4 +883,129 @@ fn generate_internal_builtin_function(
             Ok(prog)
         }
     }
+}
+
+/// 式文のコード生成（discard-assign-value 最適化）
+///
+/// 代入式 `x = expr;` では、代入後の値再取得（Retrieve）をスキップする。
+/// 代入式以外では通常の式評価 + Discard を行う。
+///
+/// これにより以下の命令を削減できる:
+/// - グローバル変数代入: Push + Retrieve + Discard → 3命令削減
+/// - ローカル変数代入: Push+Push+Retrieve+Add+Retrieve + Discard → 6命令削減
+/// - 連鎖代入 `x = y = 5;` では外側のみ void context、内側は value context のまま
+pub(crate) fn generate_expression_as_statement(
+    ctx: &mut CodeGenContext,
+    located_expr: &LocatedExecExpression,
+) -> Result<WsProgram, CompileError> {
+    ctx.set_location(&located_expr.location);
+    match &located_expr.expression {
+        ExecExpression::Operation2(Operator2::Assign, left, right) => {
+            // 代入式: void コンテキストで生成（Retrieve をスキップし、Discard も不要）
+            generate_assign_void(ctx, left, right)
+        }
+        _ => {
+            // 代入式以外: 通常の式評価 + Discard
+            let mut prog = generate_expression(ctx, located_expr)?;
+            prog.push(Instruction::Discard);
+            Ok(prog)
+        }
+    }
+}
+
+/// 代入式の void コンテキスト生成
+/// Store のみ実施し、値再取得（Retrieve）をスキップする
+fn generate_assign_void(
+    ctx: &mut CodeGenContext,
+    left: &LocatedExecExpression,
+    right: &LocatedExecExpression,
+) -> Result<WsProgram, CompileError> {
+    let mut prog = WsProgram::new();
+    match &left.expression {
+        ExecExpression::Variable(var_ref) => {
+            prog.append(generate_store_variable_void(ctx, var_ref, right)?);
+        }
+        ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
+            prog.append(generate_store_array_void(ctx, var_ref, index_expr, right)?);
+        }
+        ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
+            // デリファレンス代入: *ptr = value（Retrieve なし）
+            prog.append(generate_expression(ctx, addr_expr)?);
+            prog.append(generate_expression(ctx, right)?);
+            prog.push(Instruction::Store);
+        }
+        _ => {
+            // 非代入左辺: 通常の代入生成 + Discard にフォールバック
+            prog.append(generate_expression(ctx, left)?); // エラーになるはず
+            prog.push(Instruction::Discard);
+        }
+    }
+    Ok(prog)
+}
+
+/// 変数への値の格納（void context: 値再取得なし）
+fn generate_store_variable_void(
+    ctx: &mut CodeGenContext,
+    var_ref: &crate::semantic_analyzer::IdentifierRef,
+    value_expr: &LocatedExecExpression,
+) -> Result<WsProgram, CompileError> {
+    let var_info = ctx.get_var_info(var_ref);
+    let mut prog = WsProgram::new();
+
+    match var_info.scope {
+        VarScope::Global => {
+            let addr = heap_layout::GLOBAL_PTR + var_info.offset;
+            prog.push(Instruction::Push(WsNumber(addr)));
+            prog.append(generate_expression(ctx, value_expr)?);
+            prog.push(Instruction::Store);
+            // Retrieve を省略（void context）
+        }
+        VarScope::Local => {
+            prog.push(Instruction::Push(WsNumber(var_info.offset)));
+            prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
+            prog.push(Instruction::Retrieve);
+            prog.push(Instruction::Add);
+            prog.append(generate_expression(ctx, value_expr)?);
+            prog.push(Instruction::Store);
+            // Retrieve を省略（void context）
+        }
+    }
+
+    Ok(prog)
+}
+
+/// 配列要素への値の格納（void context: 値再取得なし）
+fn generate_store_array_void(
+    ctx: &mut CodeGenContext,
+    var_ref: &crate::semantic_analyzer::IdentifierRef,
+    index_expr: &LocatedExecExpression,
+    value_expr: &LocatedExecExpression,
+) -> Result<WsProgram, CompileError> {
+    let var_info = ctx.get_var_info(var_ref);
+    let mut prog = WsProgram::new();
+
+    match var_info.scope {
+        VarScope::Global => {
+            let base_addr = heap_layout::GLOBAL_PTR + var_info.offset;
+            prog.push(Instruction::Push(WsNumber(base_addr)));
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
+            prog.append(generate_expression(ctx, value_expr)?);
+            prog.push(Instruction::Store);
+            // Retrieve を省略（void context）
+        }
+        VarScope::Local => {
+            prog.push(Instruction::Push(WsNumber(var_info.offset)));
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
+            prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
+            prog.push(Instruction::Retrieve);
+            prog.push(Instruction::Add);
+            prog.append(generate_expression(ctx, value_expr)?);
+            prog.push(Instruction::Store);
+            // Retrieve を省略（void context）
+        }
+    }
+
+    Ok(prog)
 }

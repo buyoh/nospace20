@@ -115,6 +115,16 @@ tests:
     path: operators/compare_001
     comment: "Comparison operators"
 
+  - name: test_operators_compare_as_expr_001
+    type: success
+    path: operators/compare_as_expr_001
+    comment: "Comparison operators used as expressions (comparison-inline optimization)"
+
+  - name: test_operators_assign_stmt_001
+    type: success
+    path: operators/assign_stmt_001
+    comment: "Assignment as statement and chained assignment (discard-assign-value optimization)"
+
   - name: test_operators_logical_not_001
     type: success
     path: operators/logical_not_001

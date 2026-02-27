@@ -1,0 +1,30 @@
+# 代入文の正確性テスト (discard-assign-value 最適化の確認) #
+func: main() {
+  let: x(0);
+  let: y(0);
+  let: z(0);
+  __trace(0);
+
+  # 基本的な代入文 #
+  x = 42;
+  __assert(x == 42);
+
+  x = 100;
+  __assert(x == 100);
+
+  # グローバル変数への代入 #
+  y = x + 1;
+  __assert(y == 101);
+
+  # 連鎖代入 #
+  x = y = 7;
+  __assert(y == 7);
+  __assert(x == 7);
+
+  # 代入式の値を使う (value context) #
+  z = (x = 55);
+  __assert(x == 55);
+  __assert(z == 55);
+
+  __trace(1);
+}

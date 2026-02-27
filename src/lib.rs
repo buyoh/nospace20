@@ -165,6 +165,21 @@ pub fn compile_to_whitespace_with_options(
         .map_err(|e| vec![compile_error_to_code_parse_error(e)])
 }
 
+/// Whitespace にコンパイル（最適化オプション付き）
+///
+/// `OptimizationOptions` の `peephole` フラグによって
+/// ピープホール最適化を追加適用できる。
+pub fn compile_to_whitespace_with_opt(
+    scope: &Scope,
+    debug_ext: bool,
+    alloc_ext: bool,
+    opt: &OptimizationOptions,
+) -> Result<String, Vec<CodeParseError>> {
+    compiler_ws::compile_with_full_options(scope, debug_ext, alloc_ext, opt.peephole)
+        .map(|prog| prog.to_whitespace())
+        .map_err(|e| vec![compile_error_to_code_parse_error(e)])
+}
+
 /// Whitespace にコンパイル（デバッグ用ニーモニック、拡張オプション付き）
 pub fn compile_to_whitespace_debug_with_options(
     scope: &Scope,
@@ -172,6 +187,18 @@ pub fn compile_to_whitespace_debug_with_options(
     alloc_ext: bool,
 ) -> Result<String, Vec<CodeParseError>> {
     compiler_ws::compile_with_options(scope, debug_ext, alloc_ext)
+        .map(|prog| prog.to_debug_string())
+        .map_err(|e| vec![compile_error_to_code_parse_error(e)])
+}
+
+/// Whitespace にコンパイル（デバッグ用ニーモニック、最適化オプション付き）
+pub fn compile_to_whitespace_debug_with_opt(
+    scope: &Scope,
+    debug_ext: bool,
+    alloc_ext: bool,
+    opt: &OptimizationOptions,
+) -> Result<String, Vec<CodeParseError>> {
+    compiler_ws::compile_with_full_options(scope, debug_ext, alloc_ext, opt.peephole)
         .map(|prog| prog.to_debug_string())
         .map_err(|e| vec![compile_error_to_code_parse_error(e)])
 }

@@ -1,0 +1,54 @@
+# 比較演算子を式として使用するテスト (comparison-inline 最適化の確認) #
+func: main() {
+  let: x(0);
+  let: y(0);
+  __trace(0);
+
+  # 比較結果を変数に代入 #
+  x = (3 == 3);
+  __assert(x == 1);
+
+  x = (3 != 3);
+  __assert(x == 0);
+
+  x = (3 == 4);
+  __assert(x == 0);
+
+  x = (3 != 4);
+  __assert(x == 1);
+
+  x = (3 < 5);
+  __assert(x == 1);
+
+  x = (3 < 3);
+  __assert(x == 0);
+
+  x = (3 <= 3);
+  __assert(x == 1);
+
+  x = (3 <= 2);
+  __assert(x == 0);
+
+  x = (5 > 3);
+  __assert(x == 1);
+
+  x = (3 > 3);
+  __assert(x == 0);
+
+  x = (3 >= 3);
+  __assert(x == 1);
+
+  x = (2 >= 3);
+  __assert(x == 0);
+
+  # ネストした比較 #
+  y = 10;
+  x = (y == 10);
+  __assert(x == 1);
+  x = (y < 20);
+  __assert(x == 1);
+  x = (y > 20);
+  __assert(x == 0);
+
+  __trace(1);
+}

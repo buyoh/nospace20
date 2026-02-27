@@ -111,10 +111,9 @@ pub fn generate_statement(
 ) -> Result<WsProgram, CompileError> {
     match stmt {
         // 式文（結果を破棄）
+        // discard-assign-value 最適化: 代入式の場合は値再取得をスキップ
         ExecStatement::Expression(expr) => {
-            let mut prog = expression::generate_expression(ctx, expr)?;
-            prog.push(Instruction::Discard);
-            Ok(prog)
+            expression::generate_expression_as_statement(ctx, expr)
         }
 
         // return 文

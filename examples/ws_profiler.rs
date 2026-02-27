@@ -425,7 +425,7 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
     if opts.opt_options.any_enabled() {
         nospace20::optimize(&mut scope, &opts.opt_options);
     }
-    nospace20::compile_to_whitespace_with_options(&scope, opts.debug_ext, opts.alloc_ext)
+    nospace20::compile_to_whitespace_with_opt(&scope, opts.debug_ext, opts.alloc_ext, &opts.opt_options)
         .map_err(|errors| {
             errors
                 .iter()

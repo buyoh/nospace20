@@ -3,8 +3,8 @@ use std::{io::Read, iter::repeat, process};
 use clap::{Parser, ValueEnum};
 use nospace20::cli_utils::CliCompileArgs;
 use nospace20::{
-    compile_to_whitespace_debug_with_options,
-    compile_to_whitespace_with_options,
+    compile_to_whitespace_debug_with_opt,
+    compile_to_whitespace_with_opt,
     interpret_with_env,
     optimize,
     parse_to_tokens,
@@ -219,9 +219,9 @@ fn main() {
             let debug_ext = property.target_extensions.contains(&TargetExtension::Debug);
             let alloc_ext = property.target_extensions.contains(&TargetExtension::Alloc);
             let compiled = match property.target {
-                CompileTarget::Ws => compile_to_whitespace_with_options(&a, debug_ext, alloc_ext),
+                CompileTarget::Ws => compile_to_whitespace_with_opt(&a, debug_ext, alloc_ext, &opt_options),
                 CompileTarget::Mnemonic => {
-                    compile_to_whitespace_debug_with_options(&a, debug_ext, alloc_ext)
+                    compile_to_whitespace_debug_with_opt(&a, debug_ext, alloc_ext, &opt_options)
                 }
                 _ => unreachable!("Unsupported target should be caught by validation"),
             };

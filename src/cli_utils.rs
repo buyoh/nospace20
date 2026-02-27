@@ -58,6 +58,8 @@ pub enum CliOptPass {
     ConstantFolding,
     /// 未到達関数削除: main から到達不可能な関数をダミーに置換
     DeadCode,
+    /// ピープホール最適化: 生成済み Whitespace 命令列の冗長パターンを除去
+    Peephole,
 }
 
 /// コンパイル共通引数（`nospace20` と `ws_profiler` で共有）
@@ -93,6 +95,7 @@ impl CliCompileArgs {
             geti_opt: self.opt.contains(&CliOptPass::GetiOpt),
             constant_folding: self.opt.contains(&CliOptPass::ConstantFolding),
             dead_code: self.opt.contains(&CliOptPass::DeadCode),
+            peephole: self.opt.contains(&CliOptPass::Peephole),
         }
     }
 }

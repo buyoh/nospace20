@@ -26,6 +26,9 @@ nospace20 --mode compile --opt all -o out.ws program.ns
 | `condition-opt` | Whitespace | if/while の条件式を JumpIfZero/JumpIfNegative に直接変換する |
 | `geti-opt` | Whitespace | `p = __geti()` / `p = __getc()` の一時領域経由を排除する |
 | `dead-code` | 共通 | `main` から到達不可能な関数をコンパイル対象から除外する |
+| `peephole` | Whitespace | 生成済み命令列の冗長パターンを除去する（最終段の後処理）|
+
+> **注**: `comparison-inline` と `discard-assign-value` はコード生成に組み込まれた常時有効な最適化であり、独立したオプションフラグを持たない。
 
 ---
 
@@ -169,4 +172,98 @@ Whitespace バックエンドに固有の最適化。`p = __geti()` / `p = __get
 2. condition-opt
 3. geti-opt
 4. dead-code
+5. [コード生成: comparison-inline, discard-assign-value が常時適用]
+6. peephole          （最終段: 生成済み WsProgram に対して適用）
 ```
+
+> `comparison-inline` と `discard-assign-value` はコード生成パスに組み込まれており、`--opt` フラグなしに常時適用される。
+> `peephole` は `--opt peephole` または `--opt all` で有効化する。
+
+---
+
+## `comparison-inline` — 比較演算インライン化
+
+**常時有効（オプションフラグなし）**
+
+比較演算子（`==`, `!=`, `<`, `<=`, `>`, `>=`）のコード生成を、サブルーチン呼び出し（`COMPARATOR_ZERO` / `COMPARATOR_NEGATIVE`）からインライン分岐に変換する。
+
+### 背景
+
+`condition-opt` パスは if/while の条件式に直接現れる比較を最適化するが、**式として使用される比較**（例: `z = x == y;`, `f(a < b)`）は対象外だった。インライン化することで全ての比較演算でサブルーチン呼び出しが不要になる。
+
+### 変換パターン
+
+| 比較演算 | 変換前 | 変換後 |
+|---|---|---|
+| `x == y` | Push+Push+Sub+Call(COMPARATOR_ZERO) | Sub+JumpIfZero(eq)+Push(0)+Jump(end)+Label(eq)+Push(1)+Label(end) |
+| `x < y` | Push+Push+Sub+Call(COMPARATOR_NEGATIVE) | Sub+JumpIfNegative(neg)+Push(0)+Jump(end)+Label(neg)+Push(1)+Label(end) |
+
+### 命令削減量
+
+| 比較演算 | 最適化前 | 最適化後 | 削減 |
+|---|---|---|---|
+| `x == y` (式として) | 11 命令 | 8 命令 | 3 命令 |
+| `x < y` (式として) | 11 命令 | 8 命令 | 3 命令 |
+
+---
+
+## `discard-assign-value` — 代入文の値破棄最適化
+
+**常時有効（オプションフラグなし）**
+
+代入式 `x = expr` が文として使用される場合（結果が即座に破棄される場合）、代入後の値再取得（Retrieve）をスキップする。
+
+### 問題
+
+従来のコード生成では、代入は常に式としての値をスタックに残していた（Store の後に Retrieve）。文として使われる場合は直後に Discard されるため、この Retrieve が無駄だった。
+
+```
+# 従来: x = 5; のグローバル変数代入
+Push(addr)  Push(5)  Store    # 代入
+Push(addr)  Retrieve           # 値を再取得 (← 不要)
+Discard                        # 直後に破棄
+
+# 最適化後
+Push(addr)  Push(5)  Store    # 代入のみ
+```
+
+### 命令削減量
+
+| パターン | 変数種別 | 削減命令数 |
+|---|---|---|
+| `x = expr;` | グローバル | 3 命令 (Push+Retrieve+Discard) |
+| `x = expr;` | ローカル | 6 命令 (Push+Push+Retrieve+Add+Retrieve+Discard) |
+| `arr[i] = expr;` | グローバル | 4 命令 |
+| `arr[i] = expr;` | ローカル | 7 命令 |
+| `*ptr = expr;` | — | 2 命令 |
+
+### 注意点
+
+- 連鎖代入 `x = y = 5;` では外側の代入のみ void context となり、内側は value context のまま
+- 代入式の値を使用する場合（`z = (x = 5);`）は通常の value context で処理される
+
+---
+
+## `peephole` — ピープホール最適化
+
+`--opt peephole` または `--opt all` で有効化。
+
+生成された Whitespace 命令列に対して、局所的なパターンマッチで冗長命令を除去・簡約する後処理パス。他の最適化パスの相互作用で生じる残余の冗長を回収する安全網として機能する。
+
+### 適用パターン
+
+| パターン | 変換前 | 変換後 |
+|---|---|---|
+| Push + Discard | `Push(x)` `Discard` | 削除 |
+| Duplicate + Discard | `Duplicate` `Discard` | 削除 |
+| Push(0) + Add | `Push(0)` `Add` | 削除（オフセット 0 のアドレス計算） |
+| ジャンプ短絡 | `Jump(L1)` ... `Label(L1):Jump(L2)` | `Jump(L2)` に直接化 |
+| 到達不能コード | `Jump(L)`/`Return`/`Exit` + 非ラベル命令群 | 到達不能命令を削除 |
+
+### パイプラインの位置
+
+```
+Scope → Compiler WS → WsProgram → [Peephole] → エンコード → Whitespace 出力
+```
+
+中間表現の最適化（Phase 1/2 パス群）完了後、Whitespace エンコードの直前に適用。

@@ -44,6 +44,9 @@ pub struct OptimizationOptions {
     pub constant_folding: bool,
     /// 未到達関数削除パス: main から到達不可能な関数をダミーに置換する
     pub dead_code: bool,
+    /// ピープホール最適化パス: 生成済み Whitespace 命令列に対して冗長パターンを除去する
+    /// 中間表現レベルではなく WsProgram レベルで適用される（compiler_ws 内で処理）
+    pub peephole: bool,
 }
 
 impl OptimizationOptions {
@@ -55,6 +58,7 @@ impl OptimizationOptions {
             condition_opt: false,
             geti_opt: false,
             dead_code: false,
+            peephole: false,
         }
     }
 
@@ -66,10 +70,12 @@ impl OptimizationOptions {
             condition_opt: true,
             geti_opt: true,
             dead_code: true,
+            peephole: true,
         }
     }
 
-    /// いずれかの最適化が有効かどうか
+    /// 意味解析レベルのいずれかの最適化が有効かどうか
+    /// ※ peephole は WsProgram レベルのため含まない
     pub fn any_enabled(&self) -> bool {
         self.noop_test_pass || self.constant_folding || self.condition_opt || self.geti_opt || self.dead_code
     }

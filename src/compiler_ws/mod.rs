@@ -23,6 +23,7 @@ pub mod instruction;
 pub mod label;
 pub mod memory;
 pub mod program;
+mod peephole;
 mod statement;
 pub mod types;
 pub mod alloc_runtime;
@@ -121,3 +122,20 @@ pub fn compile_with_options(
     Ok(program)
 }
 
+/// Scope を Whitespace プログラムにコンパイル（最適化オプション付き）
+///
+/// `compile_with_options` に加えて、ピープホール最適化などの
+/// WsProgram レベルの最適化を制御できる。
+pub fn compile_with_full_options(
+    scope: &Scope,
+    debug_ext: bool,
+    alloc_ext: bool,
+    apply_peephole: bool,
+) -> Result<WsProgram, CompileError> {
+    let program = compile_with_options(scope, debug_ext, alloc_ext)?;
+    if apply_peephole {
+        Ok(peephole::optimize(program))
+    } else {
+        Ok(program)
+    }
+}
