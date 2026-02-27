@@ -127,3 +127,26 @@ Label(end_label)
 - 既存の `&&` / `||` テストケースがパスすることを確認
 - 副作用を伴う短絡評価のテストケースを追加（右辺で `__puti` を呼ぶなど）
 - ws_self / ws_profiler でプロファイル比較
+
+## 実施状況
+
+### 完了 (2026-02-27)
+
+**テスト追加**
+
+`success_io` 形式で副作用（`__puti(9)`）を使った短絡評価テストを追加。
+Whitespace コンパイラのバグを実際に検出するテストとなっている。
+
+- `resources/tests/passes/operators/logical_short_circuit_and_io.ns` / `.check.json`
+- `resources/tests/passes/operators/logical_short_circuit_or_io.ns` / `.check.json`
+- `resources/tests/test-manifest.yaml` に登録
+
+**実装**
+
+`src/compiler_ws/expression.rs` の `LogicalAnd` / `LogicalOr` コード生成を
+サブルーチン呼び出しからインライン分岐に変更し、短絡評価を実現。
+
+- `COMPARATOR_AND` / `COMPARATOR_OR` のサブルーチン定義は `builtin.rs` に残存
+  （削除は別タスクで対応可能）
+
+**結果**: 全テスト合格 (948 passed, 0 failed)
