@@ -20,6 +20,6 @@ func: test() {
   __assert(z == 30);
 }
 
-func: main() {
+func: __main() {
   test();
 }

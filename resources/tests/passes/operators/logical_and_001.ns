@@ -1,5 +1,5 @@
 # 論理演算子: 論理AND #
-func: main() {
+func: __main() {
     let: a; let: b; let: c; let: d;
     a = 1 && 1;
     b = 1 && 0;

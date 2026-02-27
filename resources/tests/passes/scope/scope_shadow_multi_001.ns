@@ -1,5 +1,5 @@
 # Multiple levels of shadowing #
-func: main() {
+func: __main() {
   let:x;
   x = 1;
   if:1{

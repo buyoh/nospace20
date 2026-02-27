@@ -25,7 +25,7 @@ nospace20 --mode compile --opt all -o out.ws program.ns
 | `constant-folding` | 共通 | コンパイル時に評価可能な定数式を事前計算して置換する |
 | `condition-opt` | Whitespace | if/while の条件式を JumpIfZero/JumpIfNegative に直接変換する |
 | `geti-opt` | Whitespace | `p = __geti()` / `p = __getc()` の一時領域経由を排除する |
-| `dead-code` | 共通 | `main` から到達不可能な関数をコンパイル対象から除外する |
+| `dead-code` | 共通 | `__main` から到達不可能な関数をコンパイル対象から除外する |
 | `peephole` | Whitespace | 生成済み命令列の冗長パターンを除去する（最終段の後処理）|
 
 > **注**: `comparison-inline` と `discard-assign-value` はコード生成に組み込まれた常時有効な最適化であり、独立したオプションフラグを持たない。
@@ -147,7 +147,7 @@ Whitespace バックエンドに固有の最適化。`p = __geti()` / `p = __get
 
 ## `dead-code` — 未使用関数削除
 
-`main` 関数を起点に呼び出しグラフをたどり（BFS）、到達不可能な関数をコンパイル対象から除外する。
+`__main` 関数を起点に呼び出しグラフをたどり（BFS）、到達不可能な関数をコンパイル対象から除外する。
 
 ### 効果
 
@@ -155,7 +155,7 @@ Whitespace バックエンドに固有の最適化。`p = __geti()` / `p = __get
 
 ### 対象
 
-- `main` から直接・間接的に呼ばれない関数
+- `__main` から直接・間接的に呼ばれない関数
 
 グローバル変数の初期化式から呼ばれる関数も「到達可能」とみなす。
 

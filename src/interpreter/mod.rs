@@ -136,7 +136,7 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) {
     }
 }
 
-/// グローバル変数を初期化してから main 関数を実行
+/// グローバル変数を初期化してから __main 関数を実行
 pub fn interpret_all(env: &mut Environment, scope: &Scope) -> Option<i64> {
     interpret_global(env, scope);
     // Phase 6: main_function_index を使用してインデックスベースでアクセス
@@ -150,7 +150,7 @@ pub fn interpret_all(env: &mut Environment, scope: &Scope) -> Option<i64> {
             None
         }
     } else {
-        eprintln!("error: function 'main' not found");
+        eprintln!("error: function '__main' not found");
         None
     }
 }

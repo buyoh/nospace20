@@ -1,6 +1,6 @@
 # Test all builtin functions #
 
-func: main() {
+func: __main() {
     # Test __puti #
     __puti(123);
 

@@ -6,6 +6,6 @@ func: intfn(x) {
   return:;
 }
 
-func: main() {
+func: __main() {
   intfn(1);
 }

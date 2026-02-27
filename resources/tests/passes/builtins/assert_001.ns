@@ -1,5 +1,5 @@
 # __assert と __assert_not のテスト #
-func: main() {
+func: __main() {
   __trace(0);
   __assert(1);
   __assert(42);

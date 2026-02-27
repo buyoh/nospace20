@@ -1,4 +1,4 @@
-func: main() {
+func: __main() {
     let: arr[3];
     let: p;
     p = &arr;

@@ -382,8 +382,8 @@ impl ScopeBuilder {
         }
         let variable_count = slot_index;
 
-        // Phase 6: main 関数のインデックスを解決
-        let main_function_index = function_names.iter().position(|name| name == "main");
+        // Phase 6: __main 関数のインデックスを解決
+        let main_function_index = function_names.iter().position(|name| name == "__main");
 
         // Phase 6: SymbolTable を構築
         let mut function_name_to_index = BTreeMap::new();

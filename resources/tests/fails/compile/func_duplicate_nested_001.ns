@@ -12,6 +12,6 @@ func: outer() {
   inner();
 }
 
-func: main() {
+func: __main() {
   outer();
 }

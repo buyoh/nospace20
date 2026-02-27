@@ -7,7 +7,7 @@ func:f(){
     __puti(*p);
 }
 
-func:main(){
+func:__main(){
     let: x;
     x = 1;
     p = &x;

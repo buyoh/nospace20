@@ -1,4 +1,4 @@
 # 文字リテラル中の予期しないEOF #
-func: main() {
+func: __main() {
   let: x;
   x = '

@@ -1,5 +1,5 @@
 # [未実装] final 変数(再代入不可) #
-func: main() {
+func: __main() {
   __trace(0);
   final:x;
   x = 10;

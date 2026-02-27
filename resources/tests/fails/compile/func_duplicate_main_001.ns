@@ -1,9 +1,9 @@
 # エラーケース: main 関数の重複定義 #
 
-func: main() {
+func: __main() {
   __puti(1);
 }
 
-func: main() {
+func: __main() {
   __puti(2);
 }

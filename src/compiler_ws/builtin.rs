@@ -35,7 +35,7 @@ pub fn generate_header(ctx: &CodeGenContext) -> Result<WsProgram, CompileError> 
 pub fn generate_footer(ctx: &CodeGenContext) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
-    // main 関数呼び出し
+    // __main 関数呼び出し
     // main_function_index を使用してラベルを取得（関数名ではなくインデックスで管理）
     let main_idx = ctx
         .scope()

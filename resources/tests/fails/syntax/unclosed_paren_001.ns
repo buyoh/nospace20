@@ -1,4 +1,4 @@
 // Unclosed parenthesis
-func: main() {
+func: __main() {
   var: x = (1 + 2;
 }

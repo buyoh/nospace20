@@ -1,2 +1,2 @@
 func:inc(a){return:a+1;}
-func:main(){__trace(inc(1,2));return:0;}
+func:__main(){__trace(inc(1,2));return:0;}

@@ -1,4 +1,4 @@
 # __assert_not が 非0 でパニックするケース #
-func: main() {
+func: __main() {
   __assert_not(1);
 }

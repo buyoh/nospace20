@@ -4,6 +4,6 @@ func: mixed(x) {
   };
 }
 
-func: main() {
+func: __main() {
   mixed(1);
 }

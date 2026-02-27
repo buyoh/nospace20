@@ -1,5 +1,5 @@
 # 数値の16進数リテラル #
-func: main() {
+func: __main() {
   # 基本的な16進数 #
   __trace(0); __assert(0x0 == 0);
   __trace(1); __assert(0x1 == 1);

@@ -2,6 +2,6 @@ func: voidfn() {
   let: x(1);
 }
 
-func: main() {
+func: __main() {
   while: voidfn() { };
 }

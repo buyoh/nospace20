@@ -1,5 +1,5 @@
 # コメントのテスト #
-func: main() {
+func: __main() {
   # これはコメント #
   __trace(0);
   let:x; # 変数定義 #

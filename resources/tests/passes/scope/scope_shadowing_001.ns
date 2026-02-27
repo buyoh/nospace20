@@ -15,7 +15,7 @@ func: bar() {
   return: x;
 }
 
-func: main() {
+func: __main() {
   let: result1;
   let: result2;
   result1 = foo();

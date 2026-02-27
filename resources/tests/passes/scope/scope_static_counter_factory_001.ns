@@ -19,6 +19,6 @@ func: counter_factory() {
   __assert(get() == 2);
 }
 
-func: main() {
+func: __main() {
   counter_factory();
 }

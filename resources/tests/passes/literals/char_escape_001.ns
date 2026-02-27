@@ -1,5 +1,5 @@
 # 文字リテラル: エスケープシーケンス #
-func: main() {
+func: __main() {
     let: nl; let: tab; let: sp; let: bs; let: sq;
     nl = '\n';
     tab = '\t';

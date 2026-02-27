@@ -1,5 +1,5 @@
 # 初期化式での計算 #
-func: main() {
+func: __main() {
   __trace(0);
   let: x(2 + 3);
   __assert_not(x - 5);

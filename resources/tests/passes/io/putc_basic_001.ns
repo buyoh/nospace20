@@ -1,5 +1,5 @@
 # __putc: 文字コードを標準出力に書き出す #
-func: main() {
+func: __main() {
     __putc(72);  # H #
     __putc(101); # e #
     __putc(108); # l #

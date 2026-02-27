@@ -12,6 +12,6 @@ func: test() {
   __assert(counter == 2);
 }
 
-func: main() {
+func: __main() {
   test();
 }

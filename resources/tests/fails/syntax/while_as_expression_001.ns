@@ -1,5 +1,5 @@
 # while を式として使用しようとするとエラー #
-func: main() {
+func: __main() {
   let: x;
   x = while: 0 { };
   return: 0;

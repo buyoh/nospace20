@@ -1,5 +1,5 @@
 # 文字リテラル: 演算で使用 #
-func: main() {
+func: __main() {
     let: a; let: b;
     a = 'A';
     b = a + 1;

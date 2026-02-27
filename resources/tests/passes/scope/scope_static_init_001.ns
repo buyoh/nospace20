@@ -1,7 +1,7 @@
 # ルートレベル static 変数が main 前に初期化される #
 static: s(10);
 
-func: main() {
+func: __main() {
   __assert(s == 10);
   __trace(0);
 }

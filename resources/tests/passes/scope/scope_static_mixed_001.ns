@@ -16,6 +16,6 @@ func: test() {
   __assert(local == 10);  # 変更されていない #
 }
 
-func: main() {
+func: __main() {
   test();
 }

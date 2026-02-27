@@ -10,7 +10,7 @@ func: set_global(val) {
   global_x = val;
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   x = get_global();

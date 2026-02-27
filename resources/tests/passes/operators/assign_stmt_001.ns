@@ -1,5 +1,5 @@
 # 代入文の正確性テスト (discard-assign-value 最適化の確認) #
-func: main() {
+func: __main() {
   let: x(0);
   let: y(0);
   let: z(0);

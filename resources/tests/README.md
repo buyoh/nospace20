@@ -29,7 +29,7 @@ resources/tests/
 **例:** [passes/c000.ns](passes/c000.ns)
 
 ```nospace
-func: main() {
+func: __main() {
   __trace(0);
 }
 ```
@@ -57,7 +57,7 @@ func: main() {
 **例:** [passes/io/puti_basic_001.ns](passes/io/puti_basic_001.ns)
 
 ```nospace
-func: main() {
+func: __main() {
     __puti(42);
     __puti(0);
 }
@@ -129,7 +129,7 @@ func: main() {
 **例:** [fails/syntax/invalid_token_001.ns](fails/syntax/invalid_token_001.ns)
 
 ```nospace
-func: main() {
+func: __main() {
   @ invalid token
 }
 ```

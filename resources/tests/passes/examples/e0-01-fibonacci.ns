@@ -7,7 +7,7 @@ func: fibo(n) {
         return: fibo(n-1) + fibo(n-2);
     };
 }
-func: main() {
+func: __main() {
   let: n;
   n = __geti();
   __puti(fibo(n));

@@ -1,5 +1,5 @@
 # __getc: 標準入力から1文字読み込む #
-func: main() {
+func: __main() {
     let: c;
     c = __getc();
     __putc(c);

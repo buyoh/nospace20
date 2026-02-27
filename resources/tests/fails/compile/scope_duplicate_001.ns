@@ -1,5 +1,5 @@
 # エラーケース: 変数の多重定義 #
-func:main() {
+func:__main() {
   let: v;
   __clog(v);
   let: v;

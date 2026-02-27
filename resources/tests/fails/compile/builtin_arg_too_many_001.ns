@@ -1,1 +1,1 @@
-func:main(){__clog(1,2);return:0;}
+func:__main(){__clog(1,2);return:0;}

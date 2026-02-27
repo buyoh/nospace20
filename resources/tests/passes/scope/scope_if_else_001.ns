@@ -1,5 +1,5 @@
 # Scope in if/else blocks #
-func: main() {
+func: __main() {
   let:cond;
   cond = 0;
   if:cond{

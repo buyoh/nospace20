@@ -1,5 +1,5 @@
 # __alloc → 使用 → __free → 再確保 #
-func: main() {
+func: __main() {
     let: p1(__alloc(2));
     *p1 = 100;
     *(p1 + 1) = 200;

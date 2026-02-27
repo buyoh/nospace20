@@ -1,4 +1,4 @@
 # repeat Form 1: カウンタ付き N 回ループ #
-func: main() {
+func: __main() {
   repeat: i(0), 5, __trace(0);
 }

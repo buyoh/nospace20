@@ -1,2 +1,2 @@
 func:fn(){__puti(2);}
-func:main(){__puti(1);fn();__puti(3);}
+func:__main(){__puti(1);fn();__puti(3);}

@@ -8,6 +8,6 @@ func: foo() {
   __puti(2);
 }
 
-func: main() {
+func: __main() {
   foo();
 }

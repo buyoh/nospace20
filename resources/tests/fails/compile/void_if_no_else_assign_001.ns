@@ -1,4 +1,4 @@
-func: main() {
+func: __main() {
   let: x;
   x = if: 1 { 5; };
 }

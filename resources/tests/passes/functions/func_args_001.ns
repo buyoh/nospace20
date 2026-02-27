@@ -14,7 +14,7 @@ func: test3(a, b, c) {
   return: a + b + c;
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   x=test0();

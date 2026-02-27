@@ -1,5 +1,5 @@
 # --std-ext alloc 未指定時の __free 使用 → コンパイルエラー #
-func: main() {
+func: __main() {
     let: x(0);
     __free(&x);
     return: 0;

@@ -1,5 +1,5 @@
 # 負の数(単項マイナス演算子) #
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   x = -7;

@@ -1,5 +1,5 @@
 # 式中の不正なトークン #
-func: main() {
+func: __main() {
   let: x;
   x = + ;
 }

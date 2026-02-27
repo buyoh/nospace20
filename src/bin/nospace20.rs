@@ -182,9 +182,9 @@ fn main() {
     // モードに応じて処理
     match property.mode {
         ExecutionMode::Run => {
-            // main 関数の存在チェック
-            if !a.has_function("main") {
-                eprintln!("error: function 'main' not found");
+            // __main 関数の存在チェック
+            if !a.has_function("__main") {
+                eprintln!("error: function '__main' not found");
                 process::exit(1);
             }
 

@@ -6,7 +6,7 @@ func: side_effect() {
     return: 1;
 }
 
-func: main() {
+func: __main() {
     let: a;
     # 左辺が1なので右辺も評価される (side_effect が呼ばれて trace[2] がインクリメント) #
     a = 1 && side_effect();

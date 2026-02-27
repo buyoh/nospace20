@@ -1,4 +1,4 @@
-func: main() {
+func: __main() {
     static: arr[3];
     arr[0] = 5;
     arr[1] = 15;

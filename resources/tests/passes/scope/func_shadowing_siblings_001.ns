@@ -16,7 +16,7 @@ func: outer2() {
   inner();
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   outer1();
   outer2();

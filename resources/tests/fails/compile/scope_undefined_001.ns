@@ -1,4 +1,4 @@
 # エラーケース: 未定義変数の使用 #
-func:main() {
+func:__main() {
   __clog(v);
 }

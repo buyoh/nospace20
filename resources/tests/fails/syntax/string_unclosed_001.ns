@@ -1,4 +1,4 @@
 # 閉じられていない文字列リテラル #
-func: main() {
+func: __main() {
   let: a[10] = "hello;
 }

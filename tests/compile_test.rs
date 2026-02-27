@@ -13,7 +13,7 @@ use nospace20::{
 #[test]
 fn test_compile_debug_string() {
     let source = r#"
-        func: main() {
+        func: __main() {
             return: 1;
         }
     "#
@@ -56,7 +56,7 @@ fn test_compile_error_returns_code_parse_error() {
     let errors = result.unwrap_err();
     assert!(!errors.is_empty(), "Should have at least one error");
     assert!(
-        errors[0].message.contains("main"),
+        errors[0].message.contains("__main"),
         "Error message should mention 'main': {}",
         errors[0].message
     );
@@ -72,7 +72,7 @@ fn test_compile_error_returns_code_parse_error() {
 fn test_compile_error_invalid_operation_has_location() {
     // continue をループ外で使用するコード
     // セマンティクス解析はパスするが、コンパイル時に continue outside loop エラーとなる
-    let source = "func:main(){continue:;return:0;}";
+    let source = "func:__main(){continue:;return:0;}";
 
     let tokens = parse_to_tokens(&source.to_string()).unwrap();
     let ast = parse_to_tree(&tokens).unwrap();

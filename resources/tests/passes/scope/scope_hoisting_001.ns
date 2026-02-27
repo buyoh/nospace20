@@ -1,5 +1,5 @@
 # Variable hoisting #
-func: main() {
+func: __main() {
   x = 5;  # Use before declaration #
   __assert(x == 5);
   let:x;

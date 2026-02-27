@@ -1,5 +1,5 @@
 # 論理演算子: 論理NOT #
-func: main() {
+func: __main() {
     let: a; let: b; let: c;
     a = !0;
     b = !1;

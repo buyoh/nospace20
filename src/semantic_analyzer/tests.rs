@@ -158,7 +158,7 @@ fn test_success_simple_function() {
     };
 
     let func = LocatedStatement {
-        statement: Statement::FunctionDeclaration("main".to_string(), vec![], vec![return_stmt]),
+        statement: Statement::FunctionDeclaration("__main".to_string(), vec![], vec![return_stmt]),
         location: SourceLocation::new(0, 35),
     };
 
@@ -195,7 +195,7 @@ fn test_success_ref_variable() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, ref_expr, return_stmt],
         ),
@@ -225,7 +225,7 @@ fn test_error_ref_literal() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![ref_expr, return_stmt],
         ),
@@ -278,7 +278,7 @@ fn test_error_ref_expression() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, ref_expr, return_stmt],
         ),
@@ -327,7 +327,7 @@ fn test_success_deref_variable() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, deref_expr, return_stmt],
         ),
@@ -361,7 +361,7 @@ fn test_success_array_declaration() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, return_stmt],
         ),
@@ -373,7 +373,7 @@ fn test_success_array_declaration() {
     assert!(result.is_ok());
 
     let scope = result.unwrap();
-    let func = scope.get_function("main").unwrap();
+    let func = scope.get_function("__main").unwrap();
     assert_eq!(func.block.scope.variable_count, 3); // 配列は3スロット占有
     assert_eq!(func.block.scope.variables.len(), 1); // 変数自体は1つ
     assert_eq!(func.block.scope.variables[0].array_size, Some(3));
@@ -419,7 +419,7 @@ fn test_success_multiple_variables_with_array() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_a, var_arr, var_b, return_stmt],
         ),
@@ -431,7 +431,7 @@ fn test_success_multiple_variables_with_array() {
     assert!(result.is_ok());
 
     let scope = result.unwrap();
-    let func = scope.get_function("main").unwrap();
+    let func = scope.get_function("__main").unwrap();
     assert_eq!(func.block.scope.variable_count, 5); // a(1) + arr(3) + b(1) = 5
     assert_eq!(*func.block.scope.variable_indices.get("a").unwrap(), 0);
     assert_eq!(*func.block.scope.variable_indices.get("arr").unwrap(), 1);
@@ -466,7 +466,7 @@ fn test_success_array_access() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, array_access, return_stmt],
         ),
@@ -510,7 +510,7 @@ fn test_success_array_assignment() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, array_assign, return_stmt],
         ),
@@ -551,7 +551,7 @@ fn test_error_array_access_non_array() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, array_access, return_stmt],
         ),
@@ -582,7 +582,7 @@ fn test_error_array_access_undefined() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![array_access, return_stmt],
         ),
@@ -631,7 +631,7 @@ fn test_success_ref_array_element() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, ref_expr, return_stmt],
         ),
@@ -663,7 +663,7 @@ fn test_success_static_array() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_decl, return_stmt],
         ),
@@ -675,7 +675,7 @@ fn test_success_static_array() {
     assert!(result.is_ok());
 
     let scope = result.unwrap();
-    let func = scope.get_function("main").unwrap();
+    let func = scope.get_function("__main").unwrap();
     assert!(func.block.scope.variables[0].is_static);
     assert_eq!(func.block.scope.variables[0].array_size, Some(3));
 }
@@ -721,7 +721,7 @@ fn test_variable_slot_index() {
 
     let func = LocatedStatement {
         statement: Statement::FunctionDeclaration(
-            "main".to_string(),
+            "__main".to_string(),
             vec![],
             vec![var_a, var_arr, var_b, ret],
         ),
@@ -733,7 +733,7 @@ fn test_variable_slot_index() {
     assert!(result.is_ok());
 
     let scope = result.unwrap();
-    let func = scope.get_function("main").unwrap();
+    let func = scope.get_function("__main").unwrap();
 
     // slot_index が正しく設定されていることを確認
     assert_eq!(func.block.scope.variables[0].slot_index, 0); // a

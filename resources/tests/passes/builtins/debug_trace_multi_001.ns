@@ -1,5 +1,5 @@
 # Multiple __trace with same value #
-func:main(){
+func:__main(){
   let:i;
   i=0;
   while:i-3{

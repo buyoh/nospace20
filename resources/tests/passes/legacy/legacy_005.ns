@@ -4,7 +4,7 @@ func:foo(){
     __puti(a);
 }
 
-func:main(){
+func:__main(){
     let:a;
     a=5;
     __puti(a);

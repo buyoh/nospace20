@@ -1,4 +1,4 @@
 # repeat Form 2: カウンタ付き無限ループ (break で脱出) #
-func: main() {
+func: __main() {
   repeat: i(0), { __trace(0); if: i == 4 { break:; }; };
 }

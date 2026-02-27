@@ -5,6 +5,6 @@ func: dummy() {}
 
 let: gv;
 
-func: main() {
+func: __main() {
   __clog(gv);
 }

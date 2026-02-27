@@ -1,4 +1,4 @@
-func: main() {
+func: __main() {
     let: str[]("ABC");
     __putc(str[0]);
     __putc(str[1]);

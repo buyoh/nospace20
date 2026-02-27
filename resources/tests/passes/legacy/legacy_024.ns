@@ -11,7 +11,7 @@ func:f(){
     v3(&b);
 }
 
-func:main(){
+func:__main(){
     let:a[3]([0,1,2]);
     v3(&a);
     f();

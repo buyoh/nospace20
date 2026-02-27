@@ -5,7 +5,7 @@ Original: https://github.com/buyoh/nospace/blob/master/docs/docs/tutorial.md
 ## Hello World
 
 ```
-func: main() {
+func: __main() {
     __putc('H');
     __putc('e');
     __putc('l');
@@ -16,8 +16,8 @@ func: main() {
 ```
 
 - `func` で関数を定義出来る
-- `main` 関数を定義しなければならない
-- `main` 関数が呼ばれて実行される
+- `__main` 関数を定義しなければならない
+- `__main` 関数が呼ばれて実行される
 - `__putc()` は文字を出力する
 - `_` 2つから始まる関数は組み込み関数
 - `'a'` はasciiコード
@@ -41,7 +41,7 @@ func: fibo(n) {
         return: fibo(n-1) + fibo(n-2);
     };
 }
-func: main() {
+func: __main() {
     let: n;
     n = __geti();
     __puti(fibo(n));
@@ -72,7 +72,7 @@ func: swap(p, q) {
     *p = *q;
     *q = t;
 }
-func: main() {
+func: __main() {
     let: a(1), b(2);
     swap(&a, &b);
     __puti(a);
@@ -95,7 +95,7 @@ func: rotate(begin, end) {
         end -= 1;
     };
 }
-func: main(){
+func: __main(){
     let: arr[4];
     arr[0] = __getc();
     arr[1] = __getc();
@@ -140,7 +140,7 @@ func: qsort(begin, end) {
     qsort(begin, pv);
     qsort(pv+1, end);
 }
-func: main() {
+func: __main() {
     let: arr[]([3,1,4,1,5,9,2,6,5]);
     qsort(&arr, &arr+9);
     let: i(0);

@@ -1,5 +1,5 @@
 # __alloc で動的配列をシミュレート #
-func: main() {
+func: __main() {
     let: size(5);
     let: arr(__alloc(size));
     let: i(0);

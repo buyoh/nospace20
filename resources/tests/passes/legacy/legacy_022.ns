@@ -9,7 +9,7 @@ func:rev(arr, n){
     }
 }
 
-func:main(){
+func:__main(){
     let:x[5]([1,2,3,4,5]);
 
     rev(&x, 5);

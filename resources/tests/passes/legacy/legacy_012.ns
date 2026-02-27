@@ -22,7 +22,7 @@ func:test(){
     };
 }
 
-func:main(){
+func:__main(){
     let:n;
     n = __geti();
     while:(n){

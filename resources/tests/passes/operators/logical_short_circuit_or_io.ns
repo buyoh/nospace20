@@ -6,7 +6,7 @@ func: side_effect() {
     return: 1;
 }
 
-func: main() {
+func: __main() {
     let: a;
     # 左辺が1なので右辺は評価されない -> side_effect は呼ばれず出力なし #
     a = 1 || side_effect();

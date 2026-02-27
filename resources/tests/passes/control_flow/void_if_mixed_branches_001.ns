@@ -1,5 +1,5 @@
 # void と int が混在する if/else の分岐 #
-func: main() {
+func: __main() {
   __trace(0);
   # while を含む else ブロックは void なので、全体が void #
   # 式文としては OK #

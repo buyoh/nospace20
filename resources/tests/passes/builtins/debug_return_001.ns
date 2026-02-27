@@ -1,5 +1,5 @@
 # デバッグ命令の戻り値テスト #
-func: main() {
+func: __main() {
     let: x;
     # __clog は引数の値を返す #
     x = __clog(7);

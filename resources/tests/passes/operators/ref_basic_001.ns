@@ -1,5 +1,5 @@
 # 基本的な参照とデリファレンス #
-func: main() {
+func: __main() {
     let: x; let: p;
     x = 42;
     p = &x;

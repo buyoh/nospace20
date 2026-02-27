@@ -1,5 +1,5 @@
 # repeat Form 3: 無限ループ (break で脱出) #
-func: main() {
+func: __main() {
   let: cnt(0);
   repeat: {
     __trace(0);

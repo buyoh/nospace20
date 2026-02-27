@@ -3,7 +3,7 @@
 let: g(s + 1);
 static: s(10);
 
-func: main() {
+func: __main() {
   __assert(s == 10);
   __assert(g == 11);
   __trace(0);

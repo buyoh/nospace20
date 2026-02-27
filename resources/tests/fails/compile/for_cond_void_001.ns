@@ -1,4 +1,4 @@
 # for 文の条件ブロックが void → コンパイルエラー #
-func: main() {
+func: __main() {
   for: { let: i(0); } {} { i += 1; } { __trace(0); };
 }

@@ -1,4 +1,4 @@
 # repeat Form 1: 上限値テスト - i(1), 5 は 4回ループ (1<=i<5) #
-func: main() {
+func: __main() {
   repeat: i(1), 5, __trace(0);
 }

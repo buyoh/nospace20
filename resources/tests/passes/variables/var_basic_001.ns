@@ -1,5 +1,5 @@
 # 変数の基本: 定義と代入 #
-func: main() {
+func: __main() {
   __trace(0);
   let:x(0);
   __assert_not(x);  # 明示的に0で初期化 #

@@ -1,5 +1,5 @@
 # 基本的な四則演算 #
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   x = 2 + 3;

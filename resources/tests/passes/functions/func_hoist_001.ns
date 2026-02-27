@@ -1,5 +1,5 @@
 # 関数のホイスティング #
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   x=helper(5);

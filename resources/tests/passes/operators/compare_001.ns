@@ -1,5 +1,5 @@
 # 比較演算子 #
-func: main() {
+func: __main() {
   __trace(0);
   __assert(1 == 1);
   __assert(1 != 2);

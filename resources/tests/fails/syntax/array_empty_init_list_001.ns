@@ -1,4 +1,4 @@
 # 空の初期化リスト #
-func: main() {
+func: __main() {
     let: arr[]([]);
 }

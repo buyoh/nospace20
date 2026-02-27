@@ -6,6 +6,6 @@ func: test() {
   __assert(x == 42);
 }
 
-func: main() {
+func: __main() {
   test();
 }

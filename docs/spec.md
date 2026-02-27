@@ -33,7 +33,7 @@ myVar123
 ### 予約語
 
 - `__` で始まる識別子は組み込み識別子として予約されている。エラーにはならないが、ユーザーコードで使用しないことが推奨される。
-- グローバルスコープの `main` はエントリポイント関数として予約されている。
+- グローバルスコープの `__main` はエントリポイント関数として予約されている。
 
 ### 文字リテラル
 
@@ -265,7 +265,7 @@ func: pow(a) {
   return: a*a;
 }
 
-func: main() {
+func: __main() {
   let: x1; let: y1;
   let: x2; let: y2;
   x1 = 3; y1 = 4;
@@ -277,7 +277,7 @@ func: main() {
 
 - `func: 関数名(引数, ...) { 文... }` の形式で関数を定義する。
 - 関数はホイスティングされる（定義より前に呼び出し可能）。
-- `main` 関数がエントリポイントとなる。
+- `__main` 関数がエントリポイントとなる。
 - `return: 式;` で関数から値を返す。式がない場合は `return:;` と書く。
 - 関数の戻り値型は自動推論される（→「型システム」節を参照）。
   - 本体に `return: 式;` がある関数は int 型を返す。
@@ -300,7 +300,7 @@ func: add(a, b) {
 ### while 文
 
 ```
-func: main() {
+func: __main() {
   let:i;
   i=5;
   while:i{
@@ -317,7 +317,7 @@ func: main() {
 ### break 文 / continue 文
 
 ```
-func: main() {
+func: __main() {
   let: i;
   i = 10;
   while: i {
@@ -396,7 +396,7 @@ for: {
 ### if 式
 
 ```
-func: main() {
+func: __main() {
   let: x;
   x = 10;
   if: x - 5 {
@@ -418,7 +418,7 @@ func: main() {
 ### ブロックスコープ 式
 
 ```
-func: main() {
+func: __main() {
   let: x;
   x = {
     let: a;
@@ -437,7 +437,7 @@ func: main() {
 - 親スコープの変数にアクセス可能。
 
 ```
-func: main() {
+func: __main() {
   let: result;
   result = {
     let: a(10);
@@ -460,7 +460,7 @@ __puti({let: x, y; x = 3; y = 4; x + y;});
 ## スコープ
 
 ```
-func: main() {
+func: __main() {
   let:a;
   a = 1;
   if:1{
@@ -491,7 +491,7 @@ func: setter() {
   global_var = static_var;  # グローバル変数に代入 #
 }
 
-func: main() {
+func: __main() {
   setter();
   __assert(global_var == 1);
   setter();

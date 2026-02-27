@@ -5,7 +5,7 @@ func: counter() {
   return: count;
 }
 
-func: main() {
+func: __main() {
   # count は main 前に 0 で初期化されている #
   # counter() を呼ぶたびに +1 されて値が保持される #
   __assert(counter() == 1);

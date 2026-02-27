@@ -8,6 +8,6 @@ func: bar() {
     return: 2;
 }
 
-func: main() {
+func: __main() {
     return: foo() + bar();
 }

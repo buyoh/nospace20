@@ -9,7 +9,7 @@ func: early_return(x) {
   return: 1;
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   x=early_return(10);

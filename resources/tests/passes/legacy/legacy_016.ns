@@ -18,6 +18,6 @@ func:d(){
     b();c();
 }
 
-func:main(){
+func:__main(){
     d();
 }

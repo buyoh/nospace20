@@ -1,5 +1,5 @@
 # Scope in while block #
-func: main() {
+func: __main() {
   let:i;
   let:sum;
   i = 3;

@@ -1,6 +1,6 @@
 # 関数外での continue 文 #
 continue:;
 
-func: main() {
+func: __main() {
   __trace(0);
 }

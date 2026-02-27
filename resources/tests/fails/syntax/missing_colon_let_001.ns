@@ -1,4 +1,4 @@
 # let 文のコロン欠落 #
-func: main() {
+func: __main() {
   let x;
 }

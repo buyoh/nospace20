@@ -1,5 +1,5 @@
 # 比較演算子を式として使用するテスト (comparison-inline 最適化の確認) #
-func: main() {
+func: __main() {
   let: x(0);
   let: y(0);
   __trace(0);

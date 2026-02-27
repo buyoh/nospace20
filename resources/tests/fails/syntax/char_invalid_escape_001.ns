@@ -1,5 +1,5 @@
 # 未知のエスケープシーケンス #
-func: main() {
+func: __main() {
   let: x;
   x = '\q';
 }

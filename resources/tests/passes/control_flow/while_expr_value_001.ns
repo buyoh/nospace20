@@ -1,5 +1,5 @@
 # while 文の使用 #
-func: main() {
+func: __main() {
   __trace(0);
   let: i;
 

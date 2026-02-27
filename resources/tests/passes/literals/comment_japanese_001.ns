@@ -1,5 +1,5 @@
 # Japanese comments test #
-func: main() {
+func: __main() {
   # 日本語のコメント #
   let:x;
   x = 1;

@@ -18,7 +18,7 @@ func: outer() {
   middle();
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   outer();
 }

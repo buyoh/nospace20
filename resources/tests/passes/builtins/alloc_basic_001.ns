@@ -1,5 +1,5 @@
 # __alloc で 3 セル確保し、ポインタ経由で書き込み・読み取り #
-func: main() {
+func: __main() {
     let: ptr(__alloc(3));
     *ptr = 10;
     *(ptr + 1) = 20;

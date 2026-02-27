@@ -1,5 +1,5 @@
 # 入出力の組み合わせテスト #
-func: main() {
+func: __main() {
     let: a; let: b;
     a = __geti();
     b = __geti();

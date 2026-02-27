@@ -1,5 +1,5 @@
 # break と continue #
-func: main() {
+func: __main() {
   let:i;
   __trace(0);
   while:i-5+__trace(1){

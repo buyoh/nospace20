@@ -1,4 +1,4 @@
-func: main() {
+func: __main() {
     let: arr[]([1, 2, 3]);
     __puti(arr[0]);
     __putc(10);

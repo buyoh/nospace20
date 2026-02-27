@@ -1,5 +1,5 @@
 
-func:main(){
+func:__main(){
     let:a,b;
     a = 3; b = 4;
     __puti(a + b);

@@ -1,5 +1,5 @@
 # 複数変数の初期化 #
-func: main() {
+func: __main() {
   __trace(0);
   let: a(1), b(2);
   __assert_not(a - 1);

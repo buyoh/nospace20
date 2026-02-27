@@ -1,4 +1,4 @@
-func:main(){
+func:__main(){
     let: a; let: b;
 
     a = 10; b = 20;

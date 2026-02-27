@@ -1,5 +1,5 @@
 # Multi-level nested blocks #
-func: main() {
+func: __main() {
   let:x;
   x = 1;
   if:1{

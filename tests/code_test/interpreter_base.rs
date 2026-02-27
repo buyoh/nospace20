@@ -17,7 +17,7 @@ pub fn test_ok_coding_base_opt_all(test_name: &str) -> Result {
     let s = parse_to_tree(&t).ok().unwrap();
     let mut a = syntactic_analyze(&s).ok().unwrap();
     nospace20::optimize(&mut a, &nospace20::OptimizationOptions::all());
-    let trace = interpret_func_testing(&a, "main");
+    let trace = interpret_func_testing(&a, "__main");
 
     let check_json = load_check_json(&path_base);
 
@@ -90,7 +90,7 @@ pub fn test_ok_coding_io_base_opt_all(test_name: &str) -> Result {
             );
         };
 
-        let (_, actual_stdout) = interpret_func_with_io(&a, "main", &stdin_content);
+        let (_, actual_stdout) = interpret_func_with_io(&a, "__main", &stdin_content);
 
         assert_eq!(
             expected_stdout, actual_stdout,
@@ -112,7 +112,7 @@ pub fn test_ok_coding_base(test_name: &str) -> Result {
     let t = parse_to_tokens(&ns_cnt).ok().unwrap();
     let s = parse_to_tree(&t).ok().unwrap();
     let a = syntactic_analyze(&s).ok().unwrap();
-    let trace = interpret_func_testing(&a, "main");
+    let trace = interpret_func_testing(&a, "__main");
 
     let check_json = load_check_json(&path_base);
 
@@ -148,7 +148,7 @@ pub fn test_ok_coding_base_randomize(test_name: &str) -> Result {
     let s = parse_to_tree(&t).ok().unwrap();
     let a = syntactic_analyze(&s).ok().unwrap();
     // randomize モードで実行
-    let trace = interpret_func_testing_randomize(&a, "main");
+    let trace = interpret_func_testing_randomize(&a, "__main");
 
     let check_json = load_check_json(&path_base);
 
@@ -222,7 +222,7 @@ pub fn test_ok_coding_io_base(test_name: &str) -> Result {
         };
 
         // 実行
-        let (_, actual_stdout) = interpret_func_with_io(&a, "main", &stdin_content);
+        let (_, actual_stdout) = interpret_func_with_io(&a, "__main", &stdin_content);
 
         assert_eq!(
             expected_stdout, actual_stdout,

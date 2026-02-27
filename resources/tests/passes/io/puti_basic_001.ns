@@ -1,5 +1,5 @@
 # __puti: 整数を標準出力に書き出す #
-func: main() {
+func: __main() {
     __puti(42);
     __puti(0);
     __puti(100);

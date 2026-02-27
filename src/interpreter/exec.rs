@@ -767,7 +767,7 @@ mod tests {
     #[test]
     fn test_resolve_address_local_variables() {
         let code = r#"
-func: main() {
+func: __main() {
     let: x; let: p;
     x = 42;
     p = 0;
@@ -778,7 +778,7 @@ func: main() {
         let mut env = create_test_env();
         env.global_variables = vec![0; scope.variable_count];
 
-        let func = scope.get_function("main").unwrap();
+        let func = scope.get_function("__main").unwrap();
         let local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
 
         // main 関数のローカル変数 x (local_index=0), p (local_index=1)
@@ -804,7 +804,7 @@ func: main() {
     #[test]
     fn test_get_set_by_address() {
         let code = r#"
-func: main() {
+func: __main() {
     let: x; let: p;
     return: 0;
 }
@@ -813,7 +813,7 @@ func: main() {
         let mut env = create_test_env();
         env.global_variables = vec![0; scope.variable_count];
 
-        let func = scope.get_function("main").unwrap();
+        let func = scope.get_function("__main").unwrap();
         let mut local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
 
         // アドレス 0 に値を設定
@@ -833,7 +833,7 @@ func: main() {
     #[test]
     fn test_ref_and_deref_integration() {
         let code = r#"
-func: main() {
+func: __main() {
     let: x; let: p;
     x = 42;
     p = &x;
@@ -854,7 +854,7 @@ func: main() {
     #[test]
     fn test_deref_assign_integration() {
         let code = r#"
-func: main() {
+func: __main() {
     let: x; let: p;
     x = 10;
     p = &x;
@@ -894,7 +894,7 @@ func: main() {
     #[test]
     fn test_builtin_trace() {
         let code = r#"
-func: main() {
+func: __main() {
     __trace(1);
     __trace(1);
     __trace(2);
@@ -919,7 +919,7 @@ func: main() {
     #[test]
     fn test_builtin_assert_pass() {
         let code = r#"
-func: main() {
+func: __main() {
     __assert(1);
     __assert(42);
     return: 0;
@@ -935,7 +935,7 @@ func: main() {
     #[should_panic(expected = "assertion failed")]
     fn test_builtin_assert_fail() {
         let code = r#"
-func: main() {
+func: __main() {
     __assert(0);
     return: 0;
 }
@@ -948,7 +948,7 @@ func: main() {
     #[test]
     fn test_builtin_puti() {
         let code = r#"
-func: main() {
+func: __main() {
     __puti(42);
     return: 0;
 }
@@ -963,7 +963,7 @@ func: main() {
     #[test]
     fn test_builtin_putc() {
         let code = r#"
-func: main() {
+func: __main() {
     __putc(65);
     return: 0;
 }
@@ -978,7 +978,7 @@ func: main() {
     #[test]
     fn test_builtin_geti() {
         let code = r#"
-func: main() {
+func: __main() {
     return: __geti();
 }
 "#;
@@ -991,7 +991,7 @@ func: main() {
     #[test]
     fn test_builtin_getc() {
         let code = r#"
-func: main() {
+func: __main() {
     return: __getc();
 }
 "#;
@@ -1005,7 +1005,7 @@ func: main() {
 
     #[test]
     fn test_binary_add() {
-        let code = "func: main() { return: 1 + 2; }";
+        let code = "func: __main() { return: 1 + 2; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1014,7 +1014,7 @@ func: main() {
 
     #[test]
     fn test_binary_sub() {
-        let code = "func: main() { return: 5 - 3; }";
+        let code = "func: __main() { return: 5 - 3; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1023,7 +1023,7 @@ func: main() {
 
     #[test]
     fn test_binary_mul() {
-        let code = "func: main() { return: 3 * 4; }";
+        let code = "func: __main() { return: 3 * 4; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1032,7 +1032,7 @@ func: main() {
 
     #[test]
     fn test_binary_div() {
-        let code = "func: main() { return: 10 / 3; }";
+        let code = "func: __main() { return: 10 / 3; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1041,7 +1041,7 @@ func: main() {
 
     #[test]
     fn test_binary_mod() {
-        let code = "func: main() { return: 10 % 3; }";
+        let code = "func: __main() { return: 10 % 3; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1050,7 +1050,7 @@ func: main() {
 
     #[test]
     fn test_binary_equal() {
-        let code = "func: main() { return: (3 == 3) + (3 == 4) * 10; }";
+        let code = "func: __main() { return: (3 == 3) + (3 == 4) * 10; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1059,7 +1059,7 @@ func: main() {
 
     #[test]
     fn test_binary_not_equal() {
-        let code = "func: main() { return: (3 != 4) + (3 != 3) * 10; }";
+        let code = "func: __main() { return: (3 != 4) + (3 != 3) * 10; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1068,7 +1068,7 @@ func: main() {
 
     #[test]
     fn test_binary_less() {
-        let code = "func: main() { return: (1 < 2) + (2 < 2) * 10 + (3 < 2) * 100; }";
+        let code = "func: __main() { return: (1 < 2) + (2 < 2) * 10 + (3 < 2) * 100; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1077,7 +1077,7 @@ func: main() {
 
     #[test]
     fn test_binary_less_equal() {
-        let code = "func: main() { return: (1 <= 2) + (2 <= 2) * 10 + (3 <= 2) * 100; }";
+        let code = "func: __main() { return: (1 <= 2) + (2 <= 2) * 10 + (3 <= 2) * 100; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1086,7 +1086,7 @@ func: main() {
 
     #[test]
     fn test_binary_greater() {
-        let code = "func: main() { return: (3 > 2) + (2 > 2) * 10 + (1 > 2) * 100; }";
+        let code = "func: __main() { return: (3 > 2) + (2 > 2) * 10 + (1 > 2) * 100; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1095,7 +1095,7 @@ func: main() {
 
     #[test]
     fn test_binary_greater_equal() {
-        let code = "func: main() { return: (3 >= 2) + (2 >= 2) * 10 + (1 >= 2) * 100; }";
+        let code = "func: __main() { return: (3 >= 2) + (2 >= 2) * 10 + (1 >= 2) * 100; }";
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
@@ -1105,7 +1105,7 @@ func: main() {
     #[test]
     fn test_binary_logical_and() {
         let code = r#"
-func: main() {
+func: __main() {
     return: (1 && 1) + (1 && 0) * 10 + (0 && 1) * 100 + (0 && 0) * 1000;
 }
 "#;
@@ -1118,7 +1118,7 @@ func: main() {
     #[test]
     fn test_binary_logical_or() {
         let code = r#"
-func: main() {
+func: __main() {
     return: (1 || 1) + (1 || 0) * 10 + (0 || 1) * 100 + (0 || 0) * 1000;
 }
 "#;
@@ -1133,7 +1133,7 @@ func: main() {
     #[test]
     fn test_if_else() {
         let code = r#"
-func: main() {
+func: __main() {
     let: x;
     x = if:(1) { 10; } else: { 20; };
     let: y;
@@ -1150,7 +1150,7 @@ func: main() {
     #[test]
     fn test_while_loop() {
         let code = r#"
-func: main() {
+func: __main() {
     let: i; let: sum;
     i = 0; sum = 0;
     while:(i < 5) {
@@ -1169,7 +1169,7 @@ func: main() {
     #[test]
     fn test_return_early() {
         let code = r#"
-func: main() {
+func: __main() {
     return: 42;
     return: 99;
 }
@@ -1183,7 +1183,7 @@ func: main() {
     #[test]
     fn test_break_in_while() {
         let code = r#"
-func: main() {
+func: __main() {
     let: i;
     i = 0;
     while:(1) {
@@ -1202,7 +1202,7 @@ func: main() {
     #[test]
     fn test_continue_in_while() {
         let code = r#"
-func: main() {
+func: __main() {
     let: i; let: sum;
     i = 0; sum = 0;
     while:(i < 6) {

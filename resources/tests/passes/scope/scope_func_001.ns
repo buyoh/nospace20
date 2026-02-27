@@ -13,7 +13,7 @@ func: func2() {
   __assert(a == 20);
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   func1();
   func2();

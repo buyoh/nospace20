@@ -7,7 +7,7 @@ func: foo() {
   return: 2;
 }
 
-func: main() {
+func: __main() {
   let: result;
   result = foo();
   __assert(result == 2);

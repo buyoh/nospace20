@@ -1,5 +1,5 @@
 # 空の文字リテラル #
-func: main() {
+func: __main() {
   let: x;
   x = '';
 }

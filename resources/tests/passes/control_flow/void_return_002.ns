@@ -7,7 +7,7 @@ func: print_positive(x) {
   __putc('\n');
 }
 
-func: main() {
+func: __main() {
   print_positive(5);
   print_positive(-3);
   print_positive(0);

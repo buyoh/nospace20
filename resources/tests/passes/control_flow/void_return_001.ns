@@ -7,7 +7,7 @@ func: voidfn(x) {
   __trace(2);
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   voidfn(1);
   voidfn(0);

@@ -1,5 +1,5 @@
 # Block scope variable must not collide with parent scope variable (Bug D) #
-func: main() {
+func: __main() {
   let: a(10);
   let: b(20);
   {

@@ -6,7 +6,7 @@ func:check(x){
     __puti(!(4 <= x && x <= 6));
 }
 
-func:main(){
+func:__main(){
     let:n,x;
     n = __geti();
     while: (n > 0){

@@ -1,4 +1,4 @@
 # サイズ省略で初期値なし #
-func: main() {
+func: __main() {
     let: arr[];
 }

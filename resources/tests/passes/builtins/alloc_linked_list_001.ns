@@ -16,7 +16,7 @@ func: sum_list(head) {
     return: total;
 }
 
-func: main() {
+func: __main() {
     let: list(0);
     list = new_node(3, list);
     list = new_node(2, list);

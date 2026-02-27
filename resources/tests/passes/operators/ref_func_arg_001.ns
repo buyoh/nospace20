@@ -3,7 +3,7 @@ func: set_value(ptr, val) {
     *ptr = val;
 }
 
-func: main() {
+func: __main() {
     let: x;
     x = 0;
     set_value(&x, 100);

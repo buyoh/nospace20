@@ -1,5 +1,5 @@
 # 基本的な数値リテラル #
-func: main() {
+func: __main() {
   __trace(0);
   __assert_not(0);
   __assert(1);

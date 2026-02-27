@@ -1,5 +1,5 @@
 # 文字リテラル: 基本的な文字リテラル #
-func: main() {
+func: __main() {
     let: a; let: b; let: c;
     a = 'A';
     b = '0';

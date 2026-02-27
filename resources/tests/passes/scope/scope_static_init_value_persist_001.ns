@@ -5,7 +5,7 @@ func: counter() {
   return: count;
 }
 
-func: main() {
+func: __main() {
   __assert(counter() == 101);
   __assert(counter() == 102);
   __assert(counter() == 103);

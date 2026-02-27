@@ -2,7 +2,7 @@
 func: foo(a, b) {
   return: a;
 }
-func: main() {
+func: __main() {
   let: x;
   x = foo(1,, 2);
 }

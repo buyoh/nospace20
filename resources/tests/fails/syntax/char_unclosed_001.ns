@@ -1,5 +1,5 @@
 # 閉じられていない文字リテラル #
-func: main() {
+func: __main() {
   let: x;
   x = 'ab;
 }

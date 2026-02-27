@@ -1,5 +1,5 @@
 
-func:main(){
+func:__main(){
     # Quoted literals can contain multiple characters. #
     let:pi('PIpi\nPie' + 't6`j($na');
 

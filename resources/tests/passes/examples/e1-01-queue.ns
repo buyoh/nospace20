@@ -20,7 +20,7 @@ func: pop() {
   return: res;
 }
 
-func: main() {
+func: __main() {
   while: 1 {
     let: c(__getc());
     if: '0' <= c && c <= '9' {

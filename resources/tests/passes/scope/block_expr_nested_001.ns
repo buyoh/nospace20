@@ -1,5 +1,5 @@
 # Nested block expressions #
-func: main() {
+func: __main() {
   __trace(0);
   let: result;
   result = {

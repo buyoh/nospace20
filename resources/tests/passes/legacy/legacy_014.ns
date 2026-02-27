@@ -4,7 +4,7 @@ func:f(x){
     __puti(-x);
 }
 
-func:main(){
+func:__main(){
     f(1);
     f(2);
 }

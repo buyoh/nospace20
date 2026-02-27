@@ -12,7 +12,7 @@ func: outer() {
   foo();
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   foo();
   outer();

@@ -17,7 +17,7 @@ func: qsort(begin, end) {
   qsort(begin, pv);
   qsort(pv+1, end);
 }
-func: main() {
+func: __main() {
   let: arr[20];
   let: n;
   n = __geti();

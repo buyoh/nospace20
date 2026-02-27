@@ -1,5 +1,5 @@
 # Block scope #
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   x=1;

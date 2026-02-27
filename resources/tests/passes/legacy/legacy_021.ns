@@ -1,6 +1,6 @@
 let:g[2]([2,3]);
 
-func:main(){
+func:__main(){
     let:a(1);
     __puti(a);
     __puti(g[1]);

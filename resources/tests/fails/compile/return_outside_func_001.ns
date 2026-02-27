@@ -1,6 +1,6 @@
 # 関数外での return 文 #
 return: 0;
 
-func: main() {
+func: __main() {
   __trace(0);
 }

@@ -6,6 +6,6 @@ func: foo() {
 
 let: foo;
 
-func: main() {
+func: __main() {
   foo();
 }

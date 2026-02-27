@@ -1,1 +1,1 @@
-func:main(){__puti();return:0;}
+func:__main(){__puti();return:0;}

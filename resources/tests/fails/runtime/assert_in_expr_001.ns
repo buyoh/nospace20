@@ -1,5 +1,5 @@
 # __assert が式の中で失敗するケース #
-func: main() {
+func: __main() {
   let: x;
   x = __assert(0) + 1;
 }

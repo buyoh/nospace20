@@ -12,7 +12,7 @@ func: accumulator(x) {
   return: total;
 }
 
-func: main() {
+func: __main() {
   # get_initial(): static val は 42 に初期化されているはず #
   __assert(get_initial() == 42);
 

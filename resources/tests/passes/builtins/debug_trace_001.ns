@@ -1,5 +1,5 @@
 # デバッグ命令を含むテスト - __trace #
-func: main() {
+func: __main() {
     let: i;
     i = 3;
     while: i {

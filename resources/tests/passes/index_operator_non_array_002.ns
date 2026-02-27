@@ -1,5 +1,5 @@
 # 非配列変数へのインデックス演算子書き込み #
-func: main() {
+func: __main() {
   let: x;
   let: y;
   x = 100;

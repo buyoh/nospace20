@@ -1,4 +1,4 @@
-func:main(){
+func:__main(){
 __puti(15--35-33);__putc(13);__putc(10);
 __puti(15+(25--10)-33);__putc(13);__putc(10);
 __puti(15--(25--10)-33);__putc(13);__putc(10);

@@ -1,5 +1,5 @@
 # 識別子の命名規則 #
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   let:_foo;

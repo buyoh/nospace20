@@ -1,4 +1,4 @@
 // Invalid token test
-func: main() {
+func: __main() {
   @ invalid token
 }

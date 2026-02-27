@@ -1,5 +1,5 @@
 # for 文のネスト: 3x3=9回 #
-func: main() {
+func: __main() {
   for: { let: i(0); } { i < 3; } { i += 1; } {
     for: { let: j(0); } { j < 3; } { j += 1; } {
       __trace(0);

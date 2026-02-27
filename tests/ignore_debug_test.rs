@@ -11,7 +11,7 @@ use std::rc::Rc;
 fn test_ignore_debug_assert_does_not_panic() {
     // __assert(0) は通常パニックするが、ignore_debug=true では無視される
     let source = r#"
-        func: main() {
+        func: __main() {
             __assert(0);
             __puti(42);
         }
@@ -23,7 +23,7 @@ fn test_ignore_debug_assert_does_not_panic() {
         ..Default::default()
     };
 
-    let (_, output) = interpret_func_with_config(&scope, "main", config);
+    let (_, output) = interpret_func_with_config(&scope, "__main", config);
     assert_eq!(output, "42");
 }
 
@@ -31,7 +31,7 @@ fn test_ignore_debug_assert_does_not_panic() {
 fn test_ignore_debug_assert_not_does_not_panic() {
     // __assert_not(1) は通常パニックするが、ignore_debug=true では無視される
     let source = r#"
-        func: main() {
+        func: __main() {
             __assert_not(1);
             __puti(99);
         }
@@ -43,7 +43,7 @@ fn test_ignore_debug_assert_not_does_not_panic() {
         ..Default::default()
     };
 
-    let (_, output) = interpret_func_with_config(&scope, "main", config);
+    let (_, output) = interpret_func_with_config(&scope, "__main", config);
     assert_eq!(output, "99");
 }
 
@@ -52,7 +52,7 @@ fn test_ignore_debug_preserves_side_effects() {
     // 副作用（代入）は ignore_debug=true でも保持される
     let source = r#"
         let: a;
-        func: main() {
+        func: __main() {
             a = 0;
             __assert(a = a + 2);
             __puti(a);
@@ -96,7 +96,7 @@ fn test_ignore_debug_preserves_side_effects() {
 fn test_ignore_debug_trace_does_not_record() {
     // __trace は ignore_debug=true で記録されない
     let source = r#"
-        func: main() {
+        func: __main() {
             __trace(1);
             __trace(2);
             __puti(0);
@@ -109,7 +109,7 @@ fn test_ignore_debug_trace_does_not_record() {
         ..Default::default()
     };
 
-    let (traced, output) = interpret_func_with_config(&scope, "main", config);
+    let (traced, output) = interpret_func_with_config(&scope, "__main", config);
     assert_eq!(traced.len(), 0); // traced が記録されない
     assert_eq!(output, "0");
 }
@@ -118,7 +118,7 @@ fn test_ignore_debug_trace_does_not_record() {
 fn test_ignore_debug_clog_does_not_print() {
     // __clog は ignore_debug=true で出力されない（ただし、stdout キャプチャしていないので間接的にテスト）
     let source = r#"
-        func: main() {
+        func: __main() {
             let: x;
             x = 42;
             __clog(x);
@@ -132,7 +132,7 @@ fn test_ignore_debug_clog_does_not_print() {
         ..Default::default()
     };
 
-    let (_, output) = interpret_func_with_config(&scope, "main", config);
+    let (_, output) = interpret_func_with_config(&scope, "__main", config);
     // __clog は無視されるので、stdout には 42 だけが出力される
     assert_eq!(output, "42");
 }
@@ -142,7 +142,7 @@ fn test_ignore_debug_clog_does_not_print() {
 fn test_normal_assert_panics() {
     // ignore_debug=false（デフォルト）では __assert(0) でパニックする
     let source = r#"
-        func: main() {
+        func: __main() {
             __assert(0);
         }
     "#;
@@ -150,7 +150,7 @@ fn test_normal_assert_panics() {
     let scope = parse_and_analyze(source);
     let config = EnvironmentConfig::new(); // ignore_debug=false
 
-    let _ = interpret_func_with_config(&scope, "main", config);
+    let _ = interpret_func_with_config(&scope, "__main", config);
     // ここでパニックするはず
 }
 
@@ -159,7 +159,7 @@ fn test_normal_assert_panics() {
 fn test_normal_assert_not_panics() {
     // ignore_debug=false（デフォルト）では __assert_not(1) でパニックする
     let source = r#"
-        func: main() {
+        func: __main() {
             __assert_not(1);
         }
     "#;
@@ -167,7 +167,7 @@ fn test_normal_assert_not_panics() {
     let scope = parse_and_analyze(source);
     let config = EnvironmentConfig::new(); // ignore_debug=false
 
-    let _ = interpret_func_with_config(&scope, "main", config);
+    let _ = interpret_func_with_config(&scope, "__main", config);
     // ここでパニックするはず
 }
 
@@ -175,7 +175,7 @@ fn test_normal_assert_not_panics() {
 fn test_normal_trace_records() {
     // ignore_debug=false（デフォルト）では __trace は記録される
     let source = r#"
-        func: main() {
+        func: __main() {
             __trace(0);
             __trace(1);
             __trace(0);
@@ -185,7 +185,7 @@ fn test_normal_trace_records() {
     let scope = parse_and_analyze(source);
     let config = EnvironmentConfig::new(); // ignore_debug=false
 
-    let (traced, _) = interpret_func_with_config(&scope, "main", config);
+    let (traced, _) = interpret_func_with_config(&scope, "__main", config);
     assert_eq!(traced.get(&0), Some(&2)); // trace(0) が 2 回
     assert_eq!(traced.get(&1), Some(&1)); // trace(1) が 1 回
 }

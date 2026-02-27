@@ -1,5 +1,5 @@
 # 不正な16進数リテラル #
-func: main() {
+func: __main() {
   let: x;
   x = 0xGG; # G は16進数文字でない #
 }

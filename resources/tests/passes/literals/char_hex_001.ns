@@ -1,5 +1,5 @@
 # 文字リテラル: 16進数エスケープシーケンス #
-func: main() {
+func: __main() {
     let: a; let: nul; let: nl; let: sp; let: ff;
     
     # 基本的な16進数エスケープ #

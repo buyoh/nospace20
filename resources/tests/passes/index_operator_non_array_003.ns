@@ -1,5 +1,5 @@
 # 非配列変数への & 演算子と [] の組み合わせ #
-func: main() {
+func: __main() {
   let: x;
   let: p;
   x = 123;

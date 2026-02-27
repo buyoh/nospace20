@@ -1,4 +1,4 @@
-func:main(){
+func:__main(){
 __puti(6*(7-4));
 __puti(999);
 __puti((1+999)/250);

@@ -1,5 +1,5 @@
 
-func:main(){
+func:__main(){
     let:a[4], b;
     a[0] = 1;
     a[1] = 2;

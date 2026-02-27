@@ -50,7 +50,7 @@ impl std::fmt::Display for CompileErrorKind {
         match self {
             CompileErrorKind::UndefinedVariable(name) => write!(f, "Undefined variable: {}", name),
             CompileErrorKind::UndefinedFunction(name) => write!(f, "Undefined function: {}", name),
-            CompileErrorKind::MainNotFound => write!(f, "main function not found"),
+            CompileErrorKind::MainNotFound => write!(f, "__main function not found"),
             CompileErrorKind::InvalidOperation(msg) => write!(f, "Invalid operation: {}", msg),
         }
     }

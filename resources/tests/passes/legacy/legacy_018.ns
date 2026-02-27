@@ -1,5 +1,5 @@
 
-func:main(){
+func:__main(){
     let:c;
     __puti(__getc() == 'A');
     __puti(__getc() == 'a');

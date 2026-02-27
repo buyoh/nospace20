@@ -66,7 +66,7 @@ fn patch_condition_mode_in_expression(expr: &mut LocatedExecExpression, mode: Co
 /// noop_test_pass: マジックナンバー変数が追加されること
 #[test]
 fn test_noop_pass_adds_marker_variable() {
-    let code = "func: main() { __trace(0); return: 0; }".to_string();
+    let code = "func: __main() { __trace(0); return: 0; }".to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
     let s = crate::parse_to_tree(&t).unwrap();
     let mut scope = crate::syntactic_analyze(&s).unwrap();
@@ -94,7 +94,7 @@ fn test_noop_pass_adds_marker_variable() {
 /// noop_test_pass: マジックナンバーが正しくグローバル変数に設定されること
 #[test]
 fn test_noop_pass_magic_number_initialized() {
-    let code = "func: main() { __trace(0); return: 0; }".to_string();
+    let code = "func: __main() { __trace(0); return: 0; }".to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
     let s = crate::parse_to_tree(&t).unwrap();
     let mut scope = crate::syntactic_analyze(&s).unwrap();
@@ -128,7 +128,7 @@ fn test_noop_pass_does_not_affect_execution() {
     let code = r#"
         let: x(10);
         let: y(20);
-        func: main() {
+        func: __main() {
             __trace(0);
             __trace(1);
             __trace(1);
@@ -141,7 +141,7 @@ fn test_noop_pass_does_not_affect_execution() {
     let mut scope = crate::syntactic_analyze(&s).unwrap();
 
     // 最適化なしの結果
-    let trace_before = crate::interpret_func_testing(&scope, "main");
+    let trace_before = crate::interpret_func_testing(&scope, "__main");
     let result_before = crate::interpret(&scope);
 
     // 最適化を適用
@@ -154,7 +154,7 @@ fn test_noop_pass_does_not_affect_execution() {
     );
 
     // 最適化ありの結果
-    let trace_after = crate::interpret_func_testing(&scope, "main");
+    let trace_after = crate::interpret_func_testing(&scope, "__main");
     let result_after = crate::interpret(&scope);
 
     assert_eq!(
@@ -170,7 +170,7 @@ fn test_noop_pass_does_not_affect_execution() {
 /// 最適化なしの場合、Scope が変更されないこと
 #[test]
 fn test_no_optimization_leaves_scope_unchanged() {
-    let code = "func: main() { return: 42; }".to_string();
+    let code = "func: __main() { return: 42; }".to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
     let s = crate::parse_to_tree(&t).unwrap();
     let mut scope = crate::syntactic_analyze(&s).unwrap();
@@ -188,7 +188,7 @@ fn test_no_optimization_leaves_scope_unchanged() {
 #[test]
 fn test_noop_pass_does_not_break_ws_compile() {
     let code = r#"
-        func: main() {
+        func: __main() {
             __puti(42);
             return: 0;
         }
@@ -221,7 +221,7 @@ fn test_noop_pass_does_not_break_ws_compile() {
 fn test_condition_mode_nonzero_if_false() {
     // NonZero: 0 != 0 = false → trace(2)
     let code = r#"
-func: main() {
+func: __main() {
     if:(0) { __trace(1); } else: { __trace(2); };
     return: 0;
 }
@@ -231,7 +231,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
     let scope = crate::syntactic_analyze(&s).unwrap();
 
-    let traces = crate::interpret_func_testing(&scope, "main");
+    let traces = crate::interpret_func_testing(&scope, "__main");
     assert_eq!(traces.get(&1), None, "then block should not execute");
     assert_eq!(traces.get(&2), Some(&1), "else block should execute once");
 }
@@ -241,7 +241,7 @@ func: main() {
 fn test_condition_mode_zero_if_true() {
     // Zero: 0 == 0 = true → trace(1)
     let code = r#"
-func: main() {
+func: __main() {
     if:(0) { __trace(1); } else: { __trace(2); };
     return: 0;
 }
@@ -253,7 +253,7 @@ func: main() {
 
     patch_condition_mode_in_scope(&mut scope, ConditionMode::Zero);
 
-    let traces = crate::interpret_func_testing(&scope, "main");
+    let traces = crate::interpret_func_testing(&scope, "__main");
     assert_eq!(
         traces.get(&1),
         Some(&1),
@@ -267,7 +267,7 @@ func: main() {
 fn test_condition_mode_zero_if_false() {
     // Zero: 1 == 0 = false → trace(2)
     let code = r#"
-func: main() {
+func: __main() {
     if:(1) { __trace(1); } else: { __trace(2); };
     return: 0;
 }
@@ -279,7 +279,7 @@ func: main() {
 
     patch_condition_mode_in_scope(&mut scope, ConditionMode::Zero);
 
-    let traces = crate::interpret_func_testing(&scope, "main");
+    let traces = crate::interpret_func_testing(&scope, "__main");
     assert_eq!(
         traces.get(&1),
         None,
@@ -293,7 +293,7 @@ func: main() {
 fn test_condition_mode_negative_if_true() {
     // Negative: -1 < 0 = true → trace(1)
     let code = r#"
-func: main() {
+func: __main() {
     if:(0 - 1) { __trace(1); } else: { __trace(2); };
     return: 0;
 }
@@ -305,7 +305,7 @@ func: main() {
 
     patch_condition_mode_in_scope(&mut scope, ConditionMode::Negative);
 
-    let traces = crate::interpret_func_testing(&scope, "main");
+    let traces = crate::interpret_func_testing(&scope, "__main");
     assert_eq!(
         traces.get(&1),
         Some(&1),
@@ -319,7 +319,7 @@ func: main() {
 fn test_condition_mode_negative_if_false() {
     // Negative: 0 < 0 = false → trace(2)
     let code = r#"
-func: main() {
+func: __main() {
     if:(0) { __trace(1); } else: { __trace(2); };
     return: 0;
 }
@@ -331,7 +331,7 @@ func: main() {
 
     patch_condition_mode_in_scope(&mut scope, ConditionMode::Negative);
 
-    let traces = crate::interpret_func_testing(&scope, "main");
+    let traces = crate::interpret_func_testing(&scope, "__main");
     assert_eq!(
         traces.get(&1),
         None,
@@ -346,7 +346,7 @@ fn test_condition_mode_zero_while() {
     // Zero mode で while: x == 0 のような式をパッチ
     // まず NonZero mode でのデフォルト動作を確認
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0);
     while:(x == 0) { __trace(0); x = x + 1; };
     return: 0;
@@ -358,7 +358,7 @@ func: main() {
     let scope = crate::syntactic_analyze(&s).unwrap();
 
     // NonZero mode (default): x==0 → 比較結果 1 (true) → loop runs, x=1 → x==0 → 0 (false) → exit
-    let traces = crate::interpret_func_testing(&scope, "main");
+    let traces = crate::interpret_func_testing(&scope, "__main");
     assert_eq!(traces.get(&0), Some(&1), "while(NonZero): should loop once");
 }
 
@@ -367,7 +367,7 @@ func: main() {
 fn test_condition_mode_nonzero_while_multiple() {
     // NonZero: x != 0 → loop continues. x=3,2,1 → 3 iterations
     let code = r#"
-func: main() {
+func: __main() {
     let: x(3);
     while:(x) { __trace(0); x = x - 1; };
     return: 0;
@@ -378,7 +378,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
     let scope = crate::syntactic_analyze(&s).unwrap();
 
-    let traces = crate::interpret_func_testing(&scope, "main");
+    let traces = crate::interpret_func_testing(&scope, "__main");
     assert_eq!(
         traces.get(&0),
         Some(&3),
@@ -393,7 +393,7 @@ fn test_condition_mode_zero_while_patched() {
     // NonZero (default): x=0 → 0 != 0 = false → ループせず
     // Zero (patched): x=0 → 0 == 0 = true → ループ, x=1 → 1 == 0 = false → 終了
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0);
     while:(x) { __trace(0); x = x + 1; };
     return: 0;
@@ -405,7 +405,7 @@ func: main() {
 
     // NonZero mode: x=0 → false → no loop
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
     assert_eq!(
         traces_orig.get(&0),
         None,
@@ -415,7 +415,7 @@ func: main() {
     // Zero mode: x=0 → 0 == 0 = true → loop once
     let mut scope_zero = crate::syntactic_analyze(&s).unwrap();
     patch_condition_mode_in_scope(&mut scope_zero, ConditionMode::Zero);
-    let traces_zero = crate::interpret_func_testing(&scope_zero, "main");
+    let traces_zero = crate::interpret_func_testing(&scope_zero, "__main");
     assert_eq!(
         traces_zero.get(&0),
         Some(&1),
@@ -427,7 +427,7 @@ func: main() {
 #[test]
 fn test_semantic_analyzer_produces_nonzero() {
     let code = r#"
-func: main() {
+func: __main() {
     if:(1) { __trace(1); } else: { __trace(2); };
     while:(0) { __trace(3); };
     return: 0;
@@ -439,7 +439,7 @@ func: main() {
     let scope = crate::syntactic_analyze(&s).unwrap();
 
     // if:(1) → NonZero: 1 != 0 = true → trace(1)
-    let traces = crate::interpret_func_testing(&scope, "main");
+    let traces = crate::interpret_func_testing(&scope, "__main");
     assert_eq!(
         traces.get(&1),
         Some(&1),
@@ -457,7 +457,7 @@ func: main() {
 #[test]
 fn test_condition_mode_zero_ws_compile() {
     let code = r#"
-func: main() {
+func: __main() {
     if:(0) { __puti(1); } else: { __puti(2); };
     return: 0;
 }
@@ -480,7 +480,7 @@ func: main() {
 #[test]
 fn test_condition_mode_negative_ws_compile() {
     let code = r#"
-func: main() {
+func: __main() {
     if:(0 - 1) { __puti(1); } else: { __puti(2); };
     while:(0) { __puti(3); };
     return: 0;
@@ -544,7 +544,7 @@ fn test_internal_builtin_getiv_interpreter() {
     // 既存の x = __geti() のコードを使い、interpreter_with_io で確認
     let code = r#"
         let: x(0);
-        func: main() {
+        func: __main() {
             x = __geti();
             return: x;
         }
@@ -569,7 +569,7 @@ fn test_internal_builtin_getiv_interpreter() {
 #[test]
 fn test_condition_opt_eq_zero_if_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0);
     if:(x == 0) { __trace(1); } else: { __trace(2); };
     x = 5;
@@ -583,7 +583,7 @@ func: main() {
 
     // 最適化なし
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     // 最適化あり
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
@@ -594,7 +594,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(
         traces_orig, traces_opt,
@@ -608,7 +608,7 @@ func: main() {
 #[test]
 fn test_condition_opt_neq_zero_if_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0);
     if:(x != 0) { __trace(1); } else: { __trace(2); };
     x = 5;
@@ -621,7 +621,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -631,7 +631,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(
@@ -646,7 +646,7 @@ func: main() {
 #[test]
 fn test_condition_opt_less_zero_if_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0 - 1);
     if:(x < 0) { __trace(1); } else: { __trace(2); };
     x = 0;
@@ -661,7 +661,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -671,7 +671,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(traces_orig.get(&1), Some(&1), "x=-1: then block (< 0)");
@@ -683,7 +683,7 @@ func: main() {
 #[test]
 fn test_condition_opt_geq_zero_if_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0);
     if:(x >= 0) { __trace(1); } else: { __trace(2); };
     x = 0 - 1;
@@ -696,7 +696,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -706,7 +706,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(traces_orig.get(&1), Some(&1), "x=0: then block (>= 0)");
@@ -717,7 +717,7 @@ func: main() {
 #[test]
 fn test_condition_opt_greater_if_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: a(5);
     let: b(3);
     if:(a > b) { __trace(1); } else: { __trace(2); };
@@ -730,7 +730,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -740,7 +740,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(traces_orig.get(&1), Some(&1), "5 > 3: then block");
@@ -751,7 +751,7 @@ func: main() {
 #[test]
 fn test_condition_opt_leq_if_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: a(3);
     let: b(5);
     if:(a <= b) { __trace(1); } else: { __trace(2); };
@@ -764,7 +764,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -774,7 +774,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(traces_orig.get(&1), Some(&1), "3 <= 5: then block");
@@ -785,7 +785,7 @@ func: main() {
 #[test]
 fn test_condition_opt_eq_general_if_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: a(3);
     let: b(3);
     if:(a == b) { __trace(1); } else: { __trace(2); };
@@ -799,7 +799,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -809,7 +809,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(traces_orig.get(&1), Some(&1), "a==b: then block");
@@ -820,7 +820,7 @@ func: main() {
 #[test]
 fn test_condition_opt_while_neq_zero_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(3);
     while:(x != 0) { __trace(0); x = x - 1; };
     return: 0;
@@ -831,7 +831,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -841,7 +841,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(traces_orig.get(&0), Some(&3), "should loop 3 times");
@@ -851,7 +851,7 @@ func: main() {
 #[test]
 fn test_condition_opt_while_eq_zero_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0);
     while:(x == 0) { __trace(0); x = x + 1; };
     return: 0;
@@ -862,7 +862,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -872,7 +872,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(traces_orig.get(&0), Some(&1), "should loop once");
@@ -882,7 +882,7 @@ func: main() {
 #[test]
 fn test_condition_opt_while_less_zero_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0 - 3);
     while:(x < 0) { __trace(0); x = x + 1; };
     return: 0;
@@ -893,7 +893,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -903,7 +903,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(traces_orig, traces_opt, "Semantics should not change");
     assert_eq!(
@@ -917,7 +917,7 @@ func: main() {
 #[test]
 fn test_condition_opt_eq_zero_ws_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0);
     if:(x == 0) { __puti(1); } else: { __puti(2); };
     return: 0;
@@ -953,7 +953,7 @@ func: main() {
 #[test]
 fn test_condition_opt_nested_if_semantics() {
     let code = r#"
-func: main() {
+func: __main() {
     let: x(0);
     let: y(0 - 1);
     if:(x == 0) {
@@ -969,7 +969,7 @@ func: main() {
     let s = crate::parse_to_tree(&t).unwrap();
 
     let scope_orig = crate::syntactic_analyze(&s).unwrap();
-    let traces_orig = crate::interpret_func_testing(&scope_orig, "main");
+    let traces_orig = crate::interpret_func_testing(&scope_orig, "__main");
 
     let mut scope_opt = crate::syntactic_analyze(&s).unwrap();
     optimizer::optimize(
@@ -979,7 +979,7 @@ func: main() {
             ..OptimizationOptions::none()
         },
     );
-    let traces_opt = crate::interpret_func_testing(&scope_opt, "main");
+    let traces_opt = crate::interpret_func_testing(&scope_opt, "__main");
 
     assert_eq!(
         traces_orig, traces_opt,
@@ -997,7 +997,7 @@ func: main() {
 fn test_geti_opt_global_geti_semantics() {
     let code = r#"
         let: x(0);
-        func: main() {
+        func: __main() {
             x = __geti();
             __puti(x);
             return: x;
@@ -1043,7 +1043,7 @@ fn test_geti_opt_global_geti_semantics() {
 #[test]
 fn test_geti_opt_local_geti_semantics() {
     let code = r#"
-        func: main() {
+        func: __main() {
             let: x(0);
             x = __geti();
             return: x;
@@ -1087,7 +1087,7 @@ fn test_geti_opt_local_geti_semantics() {
 fn test_geti_opt_getc_semantics() {
     let code = r#"
         let: c(0);
-        func: main() {
+        func: __main() {
             c = __getc();
             return: c;
         }
@@ -1129,7 +1129,7 @@ fn test_geti_opt_getc_semantics() {
 #[test]
 fn test_geti_opt_ws_compile_success() {
     let code = r#"
-        func: main() {
+        func: __main() {
             let: x(0);
             x = __geti();
             __puti(x);
@@ -1160,7 +1160,7 @@ fn test_geti_opt_ws_compile_success() {
 #[test]
 fn test_geti_opt_multiple_geti_semantics() {
     let code = r#"
-        func: main() {
+        func: __main() {
             let: a(0);
             let: b(0);
             a = __geti();
@@ -1205,7 +1205,7 @@ fn test_geti_opt_multiple_geti_semantics() {
 #[test]
 fn test_geti_opt_inside_block_semantics() {
     let code = r#"
-        func: main() {
+        func: __main() {
             let: x(0);
             if:(1) {
                 x = __geti();
@@ -1252,7 +1252,7 @@ fn test_geti_opt_inside_block_semantics() {
 #[test]
 fn test_geti_opt_combined_with_condition_opt() {
     let code = r#"
-        func: main() {
+        func: __main() {
             let: x(0);
             x = __geti();
             if:(x == 0) { __puti(0); } else: { __puti(1); };
@@ -1310,7 +1310,7 @@ fn test_geti_opt_combined_with_condition_opt() {
 fn test_dead_code_unreachable_func_becomes_dummy() {
     let code = r#"
         func: unused() { return: 42; }
-        func: main() { return: 0; }
+        func: __main() { return: 0; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1342,7 +1342,7 @@ fn test_dead_code_unreachable_func_becomes_dummy() {
 fn test_dead_code_main_not_dummy() {
     let code = r#"
         func: unused() { return: 99; }
-        func: main() { return: 0; }
+        func: __main() { return: 0; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1370,7 +1370,7 @@ fn test_dead_code_called_func_reachable() {
     let code = r#"
         func: helper() { return: 1; }
         func: unused() { return: 99; }
-        func: main() { return: helper(); }
+        func: __main() { return: helper(); }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1404,7 +1404,7 @@ fn test_dead_code_transitive_reachability() {
         func: level2() { return: 2; }
         func: level1() { return: level2(); }
         func: unused() { return: 99; }
-        func: main() { return: level1(); }
+        func: __main() { return: level1(); }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1443,7 +1443,7 @@ fn test_dead_code_semantics_unchanged() {
         func: unused1() { return: 100; }
         func: unused2() { return: unused1(); }
         func: helper() { return: 42; }
-        func: main() { return: helper(); }
+        func: __main() { return: helper(); }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1474,7 +1474,7 @@ fn test_dead_code_semantics_unchanged() {
 fn test_dead_code_ws_compile_success() {
     let code = r#"
         func: never_called() { __puti(999); return: 0; }
-        func: main() { __puti(1); return: 0; }
+        func: __main() { __puti(1); return: 0; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1536,7 +1536,7 @@ fn test_dead_code_combined_all_opts() {
     let code = r#"
         func: unused() { return: 0; }
         func: helper(a) { return: a + 1; }
-        func: main() {
+        func: __main() {
             let: x(0);
             x = __geti();
             if:(x == 0) { __puti(0); } else: { __puti(helper(x)); };
@@ -1589,7 +1589,7 @@ fn test_dead_code_combined_all_opts() {
 #[test]
 fn test_constant_folding_add() {
     let code = r#"
-        func: main() { return: 3 + 4; }
+        func: __main() { return: 3 + 4; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1612,7 +1612,7 @@ fn test_constant_folding_add() {
 #[test]
 fn test_constant_folding_multiply_divide() {
     let code = r#"
-        func: main() { return: 10 * 3 / 5; }
+        func: __main() { return: 10 * 3 / 5; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1635,7 +1635,7 @@ fn test_constant_folding_multiply_divide() {
 #[test]
 fn test_constant_folding_comparison() {
     let code = r#"
-        func: main() { return: 5 == 5; }
+        func: __main() { return: 5 == 5; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1658,7 +1658,7 @@ fn test_constant_folding_comparison() {
 #[test]
 fn test_constant_folding_unary_negative() {
     let code = r#"
-        func: main() { return: -7; }
+        func: __main() { return: -7; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1681,7 +1681,7 @@ fn test_constant_folding_unary_negative() {
 #[test]
 fn test_constant_folding_logical_not() {
     let code = r#"
-        func: main() { return: !0; }
+        func: __main() { return: !0; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1704,7 +1704,7 @@ fn test_constant_folding_logical_not() {
 #[test]
 fn test_constant_folding_zero_divide_not_folded() {
     let code = r#"
-        func: main() { return: 10 / 0; }
+        func: __main() { return: 10 / 0; }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1732,7 +1732,7 @@ fn test_constant_folding_zero_divide_not_folded() {
 #[test]
 fn test_constant_folding_const_if_true() {
     let code = r#"
-        func: main() {
+        func: __main() {
             if: (1) { return: 10; } else: { return: 20; };
             return: 0;
         }
@@ -1763,7 +1763,7 @@ fn test_constant_folding_const_if_true() {
 #[test]
 fn test_constant_folding_const_if_false() {
     let code = r#"
-        func: main() {
+        func: __main() {
             if: (0) { return: 10; } else: { return: 20; };
             return: 0;
         }
@@ -1794,7 +1794,7 @@ fn test_constant_folding_const_if_false() {
 #[test]
 fn test_constant_folding_const_while_zero() {
     let code = r#"
-        func: main() {
+        func: __main() {
             let: x(5);
             while: (0) { x = x + 1; };
             return: x;
@@ -1826,7 +1826,7 @@ fn test_constant_folding_const_while_zero() {
 #[test]
 fn test_constant_folding_recursive() {
     let code = r#"
-        func: main() { return: (2 + 3) * (4 - 1); }
+        func: __main() { return: (2 + 3) * (4 - 1); }
     "#
     .to_string();
     let t = crate::parse_to_tokens(&code).unwrap();
@@ -1849,7 +1849,7 @@ fn test_constant_folding_recursive() {
 #[test]
 fn test_constant_folding_semantics_unchanged_with_variable() {
     let code = r#"
-        func: main() {
+        func: __main() {
             let: x(0);
             x = __geti();
             return: x + (3 + 4);
@@ -1891,7 +1891,7 @@ fn test_constant_folding_semantics_unchanged_with_variable() {
 #[test]
 fn test_constant_folding_ws_compile_success() {
     let code = r#"
-        func: main() {
+        func: __main() {
             __puti(10 + 20);
             return: 0;
         }
@@ -1921,7 +1921,7 @@ fn test_constant_folding_ws_compile_success() {
 fn test_constant_folding_combined_with_condition_opt() {
     // 3 + 4 == 7 → Factor(7) == Factor(7) → Factor(1) → condition_opt: If(Zero, ...) 等に変換
     let code = r#"
-        func: main() {
+        func: __main() {
             if: (3 + 4 == 7) { return: 1; } else: { return: 0; };
             return: 0;
         }

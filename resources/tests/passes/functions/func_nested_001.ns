@@ -13,7 +13,7 @@ func: outer(x) {
   return: result;
 }
 
-func: main() {
+func: __main() {
   __trace(0);
   let:x;
   x=outer(5);

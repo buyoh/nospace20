@@ -1,5 +1,5 @@
 # 剰余演算子: 基本 #
-func: main() {
+func: __main() {
     let: a; let: b; let: c; let: d;
     a = 7 % 3;
     b = 10 % 5;

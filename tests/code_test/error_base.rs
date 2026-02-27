@@ -140,7 +140,7 @@ pub fn test_runtime_error_base(test_name: &str) -> Result {
 
             // 実行してパニックをキャッチ
             let result = std::panic::catch_unwind(|| {
-                interpret_func_with_io(&a, "main", "");
+                interpret_func_with_io(&a, "__main", "");
             });
 
             assert!(result.is_err(), "Expected runtime panic but succeeded");
