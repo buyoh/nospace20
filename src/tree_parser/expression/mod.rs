@@ -399,13 +399,10 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     // if 式の実際の解析処理
     fn parse_to_expression_tree_if_impl(&mut self) -> Box<LocatedExpression> {
         let start = self.current_pos();
-        let token = self.iter.next(); // if キーワードを消費
+        let token = self.iter.next(); // if キーワードを消費（コロンも内包済み）
         assert!(matches!(token, Some((Token::Keyword(Keyword::If), _))));
 
-        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
-            let end = self.current_pos();
-            return self.located(Expression::Invalid(e), start, end);
-        }
+        // Keyword トークンがコロンを内包済みのため、直接条件式をパース
         let cond = self.parse_to_expression_tree_root();
         if let Err(e) = match_expect_token!(self, self.iter.next(), Token::BraceL) {
             // NOTE: statements ではなく expression が来ても許容、でいいかもね?
@@ -423,8 +420,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         let stats_false = match self.iter.peek() {
             Some((Token::Keyword(Keyword::Else), token_info)) => {
                 let else_start = token_info.code_pointer;
-                self.iter.next();
-                match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+                self.iter.next(); // else キーワードを消費（コロンも内包済み）
+                // Keyword トークンがコロンを内包済みのため、コロン消費は不要
 
                 match self.iter.peek() {
                     Some((Token::Keyword(Keyword::If), _)) => {

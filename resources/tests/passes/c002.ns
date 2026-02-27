@@ -11,7 +11,7 @@ func: main() {
     __trace(4);
     if:j-3==0{
       __trace(5);
-      break;
+      break:;
     };
     __trace(6);
     j=j-1;
@@ -22,7 +22,7 @@ func: main() {
     if:j-4==0{
       __trace(9);
       j=j-2;
-      continue;
+      continue:;
     };
     __trace(10);
     j=j-1;

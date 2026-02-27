@@ -323,15 +323,15 @@ func: main() {
   while: i {
     i = i - 1;
     if: i - 5 {
-      continue;  # 次のループへ #
+      continue:;  # 次のループへ #
     };
-    break;  # ループを抜ける #
+    break:;  # ループを抜ける #
   };
 }
 ```
 
-- `break;` : 最も内側のループを抜ける。
-- `continue;` : 最も内側のループの次の反復へ進む。
+- `break:;` : 最も内側のループを抜ける。
+- `continue:;` : 最も内側のループの次の反復へ進む。
 
 ### repeat 文
 
@@ -357,7 +357,7 @@ repeat: i(1), 5, __puti(i);
 
 # Form 2: i(0) から始めて無限ループ
 repeat: i(0), {
-  if: i == 4 { break; };
+  if: i == 4 { break:; };
 };
 
 # Form 3: 無限ループ

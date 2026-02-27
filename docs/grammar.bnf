@@ -115,11 +115,10 @@ for_stmt ::=
 return_stmt ::=
     | "return" ":" expr ";"
     | "return" ":" ";"
-    | "return" ";"
 
 # break / continue
-break_stmt ::= "break" ";"
-continue_stmt ::= "continue" ";"
+break_stmt ::= "break" ":" ";"
+continue_stmt ::= "continue" ":" ";"
 
 block ::= "{" stmt* "}"
 

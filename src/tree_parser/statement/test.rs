@@ -42,6 +42,7 @@ fn token_number(value: i64) -> PrettyToken {
     (Token::Number(value), TokenInfo { code_pointer: 0 })
 }
 
+#[allow(dead_code)]
 fn token_colon() -> PrettyToken {
     (Token::Colon, TokenInfo { code_pointer: 0 })
 }
@@ -92,7 +93,6 @@ fn test_parse_let_statement() {
     // let: x;
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("x"),
         token_semicolon(),
     ];
@@ -144,7 +144,6 @@ fn test_parse_return_statement() {
     // return: 42;
     let tokens = vec![
         token_keyword_return(),
-        token_colon(),
         token_number(42),
         token_semicolon(),
     ];
@@ -163,7 +162,7 @@ fn test_parse_return_statement() {
 #[test]
 fn test_parse_void_return_with_colon() {
     // return:;
-    let tokens = vec![token_keyword_return(), token_colon(), token_semicolon()];
+    let tokens = vec![token_keyword_return(), token_semicolon()];
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
@@ -212,7 +211,6 @@ fn test_parse_func_no_args() {
     // func: foo() {}
     let tokens = vec![
         token_keyword_func(),
-        token_colon(),
         token_ident("foo"),
         token_paren_l(),
         token_paren_r(),
@@ -237,7 +235,6 @@ fn test_parse_func_one_arg() {
     // func: bar(x) {}
     let tokens = vec![
         token_keyword_func(),
-        token_colon(),
         token_ident("bar"),
         token_paren_l(),
         token_ident("x"),
@@ -264,7 +261,6 @@ fn test_parse_func_multi_args() {
     // func: baz(x, y) {}
     let tokens = vec![
         token_keyword_func(),
-        token_colon(),
         token_ident("baz"),
         token_paren_l(),
         token_ident("x"),
@@ -294,13 +290,11 @@ fn test_parse_func_with_body() {
     // func: foo() { return: 42; }
     let tokens = vec![
         token_keyword_func(),
-        token_colon(),
         token_ident("foo"),
         token_paren_l(),
         token_paren_r(),
         token_brace_l(),
         token_keyword_return(),
-        token_colon(),
         token_number(42),
         token_semicolon(),
         token_brace_r(),
@@ -328,11 +322,9 @@ fn test_parse_multiple_statements() {
     // let: y;
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("x"),
         token_semicolon(),
         token_keyword_let(),
-        token_colon(),
         token_ident("y"),
         token_semicolon(),
     ];
@@ -358,7 +350,6 @@ fn test_parse_multiple_statements() {
 fn test_parse_array_declaration() {
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("arr"),
         token_bracket_l(),
         token_number(4),
@@ -390,7 +381,6 @@ fn test_parse_array_declaration() {
 fn test_parse_array_declaration_with_init() {
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("arr"),
         token_bracket_l(),
         token_number(3),
@@ -461,7 +451,6 @@ fn test_parse_array_declaration_with_init() {
 fn test_parse_array_declaration_invalid_size() {
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("arr"),
         token_bracket_l(),
         token_number(0),
@@ -477,7 +466,6 @@ fn test_parse_array_declaration_invalid_size() {
 fn test_parse_array_declaration_size_omitted_with_init() {
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("arr"),
         token_bracket_l(),
         token_bracket_r(),
@@ -548,7 +536,6 @@ fn token_string_literal(s: &str) -> PrettyToken {
 fn test_parse_array_declaration_size_omitted_string() {
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("str"),
         token_bracket_l(),
         token_bracket_r(),
@@ -582,7 +569,6 @@ fn test_parse_array_declaration_size_omitted_string() {
 fn test_parse_array_declaration_size_omitted_no_init_error() {
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("arr"),
         token_bracket_l(),
         token_bracket_r(),
@@ -600,7 +586,6 @@ fn test_parse_array_declaration_size_omitted_no_init_error() {
 fn test_parse_array_declaration_empty_init_error() {
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("arr"),
         token_bracket_l(),
         token_bracket_r(),
@@ -631,7 +616,6 @@ fn test_parse_func_trailing_comma_error() {
     // func: f(x,) {}
     let tokens = vec![
         token_keyword_func(),
-        token_colon(),
         token_ident("f"),
         token_paren_l(),
         token_ident("x"),
@@ -653,7 +637,6 @@ fn test_parse_func_leading_comma_error() {
     // func: f(,x) {}
     let tokens = vec![
         token_keyword_func(),
-        token_colon(),
         token_ident("f"),
         token_paren_l(),
         token_comma(),
@@ -675,7 +658,6 @@ fn test_parse_array_zero_size_has_error() {
     // let: arr[0];
     let tokens = vec![
         token_keyword_let(),
-        token_colon(),
         token_ident("arr"),
         token_bracket_l(),
         token_number(0),
@@ -701,7 +683,6 @@ fn test_parse_static_variable() {
             Token::Keyword(Keyword::Static),
             TokenInfo { code_pointer: 0 },
         ),
-        token_colon(),
         token_ident("x"),
         token_semicolon(),
     ];

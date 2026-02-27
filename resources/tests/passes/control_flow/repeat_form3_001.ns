@@ -4,6 +4,6 @@ func: main() {
   repeat: {
     __trace(0);
     cnt += 1;
-    if: cnt == 5 { break; };
+    if: cnt == 5 { break:; };
   };
 }

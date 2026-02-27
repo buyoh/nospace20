@@ -28,7 +28,7 @@ func: main() {
     } else: if: c == 'p' {
       __putc(pop());
     } else: {
-      break;
+      break:;
     };
   };
   __putc('.');

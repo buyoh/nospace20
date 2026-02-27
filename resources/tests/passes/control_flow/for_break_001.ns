@@ -2,6 +2,6 @@
 func: main() {
   for: { let: i(0); } { i < 10; } { i += 1; } {
     __trace(0);
-    if: i == 3 { break; };
+    if: i == 3 { break:; };
   };
 }

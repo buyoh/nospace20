@@ -1187,7 +1187,7 @@ func: main() {
     let: i;
     i = 0;
     while:(1) {
-        if:(i == 3) { break; } else: {};
+        if:(i == 3) { break:; } else: {};
         i = i + 1;
     };
     return: i;
@@ -1207,7 +1207,7 @@ func: main() {
     i = 0; sum = 0;
     while:(i < 6) {
         i = i + 1;
-        if:(i % 2 == 0) { continue; } else: {};
+        if:(i % 2 == 0) { continue:; } else: {};
         sum = sum + i;
     };
     return: sum;

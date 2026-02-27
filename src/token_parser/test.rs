@@ -97,9 +97,43 @@ test_ok_parse!(test_ok_p_1, "2+3", it => {
 });
 
 test_ok_parse!(test_ok_p_2, "let:a;", it => {
+    // "let:" は一つの Keyword トークンとしてコロンを内包みになる
     assert_matches!(it.next(), Some(Token::Keyword(Keyword::Let)));
-    assert_matches!(it.next(), Some(Token::Colon));
     assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "a");
+    assert_matches!(it.next(), Some(Token::Semicolon));
+    assert_matches!(it.next(), None);
+});
+
+// コロンなしのキーワード候補は識別子としてパースされる
+test_ok_parse_identifier!(test_ok_pi_keyword_let_no_colon, "let");
+test_ok_parse_identifier!(test_ok_pi_keyword_break_no_colon, "break");
+test_ok_parse_identifier!(test_ok_pi_keyword_continue_no_colon, "continue");
+test_ok_parse_identifier!(test_ok_pi_keyword_return_no_colon, "return");
+
+// break:; → [Keyword(Break), Semicolon]
+test_ok_parse!(test_ok_break_colon_semicolon, "break:;", it => {
+    assert_matches!(it.next(), Some(Token::Keyword(Keyword::Break)));
+    assert_matches!(it.next(), Some(Token::Semicolon));
+    assert_matches!(it.next(), None);
+});
+
+// continue:; → [Keyword(Continue), Semicolon]
+test_ok_parse!(test_ok_continue_colon_semicolon, "continue:;", it => {
+    assert_matches!(it.next(), Some(Token::Keyword(Keyword::Continue)));
+    assert_matches!(it.next(), Some(Token::Semicolon));
+    assert_matches!(it.next(), None);
+});
+
+// return:; → [Keyword(Return), Semicolon]
+test_ok_parse!(test_ok_return_colon_semicolon, "return:;", it => {
+    assert_matches!(it.next(), Some(Token::Keyword(Keyword::Return)));
+    assert_matches!(it.next(), Some(Token::Semicolon));
+    assert_matches!(it.next(), None);
+});
+
+// コロンなしの break/continue は識別子としてパースされる
+test_ok_parse!(test_ok_break_no_colon_is_ident, "break;", it => {
+    assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "break");
     assert_matches!(it.next(), Some(Token::Semicolon));
     assert_matches!(it.next(), None);
 });

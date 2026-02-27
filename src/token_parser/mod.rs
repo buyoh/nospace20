@@ -279,23 +279,29 @@ fn parse_string_literal<I: Iterator<Item = (usize, char)>>(
     }
 }
 
-fn determine_keyword_or_identifier(id: String) -> Token {
-    match id.as_str() {
-        "let" => Token::Keyword(Keyword::Let),
-        "func" => Token::Keyword(Keyword::Func),
-        "if" => Token::Keyword(Keyword::If),
-        "else" => Token::Keyword(Keyword::Else),
-        "while" => Token::Keyword(Keyword::While),
-        "for" => Token::Keyword(Keyword::For),
-        "repeat" => Token::Keyword(Keyword::Repeat),
-        "return" => Token::Keyword(Keyword::Return),
-        "break" => Token::Keyword(Keyword::Break),
-        "continue" => Token::Keyword(Keyword::Continue),
-        "static" => Token::Keyword(Keyword::Static),
-        _ => Token::Identifier(id),
+/// キーワード候補の文字列を Keyword トークンに変換する。
+/// コロン付きの場合のみキーワードとして認識するため、コロン確認後に呼び出すこと。
+fn as_keyword_token(id: &str) -> Option<Token> {
+    match id {
+        "let" => Some(Token::Keyword(Keyword::Let)),
+        "func" => Some(Token::Keyword(Keyword::Func)),
+        "if" => Some(Token::Keyword(Keyword::If)),
+        "else" => Some(Token::Keyword(Keyword::Else)),
+        "while" => Some(Token::Keyword(Keyword::While)),
+        "for" => Some(Token::Keyword(Keyword::For)),
+        "repeat" => Some(Token::Keyword(Keyword::Repeat)),
+        "return" => Some(Token::Keyword(Keyword::Return)),
+        "break" => Some(Token::Keyword(Keyword::Break)),
+        "continue" => Some(Token::Keyword(Keyword::Continue)),
+        "static" => Some(Token::Keyword(Keyword::Static)),
+        _ => None,
     }
 }
 
+/// 識別子またはキーワードをパースする。
+///
+/// キーワードの直後にコロン (`:`) が続く場合のみ Keyword トークンを返す（コロンを内包して消費）。
+/// コロンが続かない場合は Identifier トークンを返す。これにより `let` 等の予約語をユーザー変数名として使用可能になる。
 fn parse_identifier<I: Iterator<Item = (usize, char)>>(iter: &mut iter::Peekable<I>) -> Token {
     if let Some((_, 'A'..='Z')) | Some((_, 'a'..='z')) | Some((_, '_')) = iter.peek() {
     } else {
@@ -309,8 +315,15 @@ fn parse_identifier<I: Iterator<Item = (usize, char)>>(iter: &mut iter::Peekable
             id.push(iter.next().unwrap().1);
         } else {
             id.shrink_to_fit();
-            // return Token::Identifier(id);
-            return determine_keyword_or_identifier(id);
+            // キーワード候補の場合、コロンが続く場合のみ Keyword トークンとして扱う
+            // コロンを内包（消費）することで、後段パーサーがコロンを期待しない設計になる
+            if let Some((_, ':')) = iter.peek() {
+                if let Some(kw) = as_keyword_token(&id) {
+                    iter.next(); // ':' を消費（Keyword トークンに内包）
+                    return kw;
+                }
+            }
+            return Token::Identifier(id);
         }
     }
 }

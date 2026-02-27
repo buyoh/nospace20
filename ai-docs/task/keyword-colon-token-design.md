@@ -45,6 +45,28 @@ nospace 言語では空白が無視されるため、`letx` のような文字�
 - `break:;` / `continue:;` は「コロンの後の引数が空」と解釈でき、`return:;`（void return）と一貫する
 - 全キーワードがコロン付きに統一されることで、token_parser でのキーワード判定がシンプルになる
 
+## 進捗
+
+### ステータス: 完了（2026-02-28）
+
+全 Step の実装・テストが完了。289 + 1034 + その他 = 全テスト通過。
+
+#### 変更ファイル一覧
+
+- `docs/grammar.bnf`: `break_stmt`, `continue_stmt`, `return_stmt` の BNF 更新
+- `docs/spec.md`: break/continue の構文例を `break:;` / `continue:;` に更新
+- `src/token_parser/mod.rs`: `determine_keyword_or_identifier` を `as_keyword_token` に置き換え。`parse_identifier` でコロン確認後にのみ Keyword トークンを返す設計に変更
+- `src/tree_parser/statement/mod.rs`: 全キーワード後の `Token::Colon` 消費ロジック削除（let/static/func/return/while/for/repeat）
+- `src/tree_parser/expression/mod.rs`: if/else 後の `Token::Colon` 消費ロジック削除
+- `src/tree_parser/statement/test.rs`: テストから `token_colon()` を全キーワード直後から削除
+- `src/token_parser/test.rs`: `test_ok_p_2` 更新 + break:;/continue:;/return:; の新テスト追加
+- `src/interpreter/exec.rs`: インライン nospace コードの `break;` / `continue;` を修正
+- `tests/compile_test.rs`: インライン nospace コードの `continue;` を修正
+- `resources/tests/passes/c002.ns` および control_flow/*.ns, examples/e1-01-queue.ns: `break;` / `continue;` を更新
+- `resources/tests/fails/compile/break_outside_func_001.ns`, `continue_outside_func_001.ns`: 更新
+
+---
+
 ## 実装計画
 
 ### Step 1: 言語仕様の更新

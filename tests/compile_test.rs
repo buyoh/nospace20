@@ -72,7 +72,7 @@ fn test_compile_error_returns_code_parse_error() {
 fn test_compile_error_invalid_operation_has_location() {
     // continue をループ外で使用するコード
     // セマンティクス解析はパスするが、コンパイル時に continue outside loop エラーとなる
-    let source = "func:main(){continue;return:0;}";
+    let source = "func:main(){continue:;return:0;}";
 
     let tokens = parse_to_tokens(&source.to_string()).unwrap();
     let ast = parse_to_tree(&tokens).unwrap();

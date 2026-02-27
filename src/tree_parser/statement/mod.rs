@@ -469,7 +469,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         start_pos: usize,
         is_static: bool,
     ) -> Vec<LocatedStatement> {
-        match_expect_token_unused!(self, self.iter.next(), Token::Colon);
+        // Keyword トークンがコロンを内包済みのため、ここでのコロン消費は不要
 
         let mut results = Vec::<LocatedStatement>::new();
 
@@ -608,8 +608,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
     fn parse_to_statements_func(&mut self, start_pos: usize) -> LocatedStatement {
         // 呼び出し元が既に Token::Keyword(Keyword::Func) を確認済み
+        // Keyword トークンがコロンを内包済みのため、コロン消費は不要
         self.iter.next();
-        match_expect_token_unused!(self, self.iter.next(), Token::Colon);
         let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
             Ok(x) => x,
             Err(e) => {
@@ -682,22 +682,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
     fn parse_to_statements_return(&mut self, start_pos: usize) -> LocatedStatement {
         // 呼び出し元が既に Token::Keyword(Keyword::Return) を確認済み
+        // Keyword トークンがコロンを内包済みのため、コロン消費は不要
+        // 極源: return:; 形式のみ有効。旧来の return; 構文は廃止。
         self.iter.next();
-        // return: expr; または return:; (void return)
-        // コロンの後にセミコロンが来たら void return
-        if let Some(token) = self.iter.peek() {
-            if matches!(token.0, Token::Semicolon) {
-                // return; (コロンなし)
-                let end_pos = self.current_pos_or(start_pos);
-                self.iter.next(); // consume semicolon
-                return LocatedStatement {
-                    statement: Statement::Return(None),
-                    location: SourceLocation::new(start_pos, end_pos),
-                };
-            }
-        }
-        match_expect_token_unused!(self, self.iter.next(), Token::Colon);
-        // return: の後にセミコロンが来たら void return
+        // return:; (void return) - セミコロンが次に来たら void return
         if let Some(token) = self.iter.peek() {
             if matches!(token.0, Token::Semicolon) {
                 let end_pos = self.current_pos_or(start_pos);
@@ -720,14 +708,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
     /// `for:` キーワードを消費して for 文をパースする。
     fn parse_to_statements_for(&mut self, start_pos: usize) -> LocatedStatement {
-        self.iter.next(); // 'for' キーワードを消費
-        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
-            self.skip_to_semicolon();
-            return LocatedStatement {
-                statement: Statement::Invalid(e),
-                location: SourceLocation::from_single(start_pos),
-            };
-        }
+        self.iter.next(); // 'for' キーワードを消費（コロンも内包済み）
         let init = self.parse_to_statements_block();
         let cond = self.parse_to_statements_block();
         let step = self.parse_to_statements_block();
@@ -742,14 +723,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
     /// `repeat:` キーワードを消費して repeat 文をパースし、Statement::For に脱糖する。
     fn parse_to_statements_repeat(&mut self, start_pos: usize) -> LocatedStatement {
-        self.iter.next(); // 'repeat' キーワードを消費
-        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
-            self.skip_to_semicolon();
-            return LocatedStatement {
-                statement: Statement::Invalid(e),
-                location: SourceLocation::from_single(start_pos),
-            };
-        }
+        self.iter.next(); // 'repeat' キーワードを消費（コロンも内包済み）
 
         // 最初の式をパース
         let (first_expr, mut first_errors) = parse_to_expression_tree_root(self.iter);
@@ -883,13 +857,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     continue;
                 }
                 Token::Keyword(Keyword::While) => {
-                    self.iter.next(); // while キーワードを消費
-
-                    // ':' を期待
-                    if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Colon) {
-                        self.skip_to_semicolon();
-                        continue;
-                    }
+                    self.iter.next(); // while キーワードを消費（コロンも内包済み）
 
                     // 条件式をパース
                     let (cond, mut cond_errors) = parse_to_expression_tree_root(self.iter);

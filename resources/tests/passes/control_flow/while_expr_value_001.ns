@@ -22,7 +22,7 @@ func: main() {
     i = i + 1;
     if: i - 5 {
     } else: {
-      break;
+      break:;
     };
   };
   __assert(i == 5);
