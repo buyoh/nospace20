@@ -18,8 +18,8 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
 
     // ② 関数内 static 変数の初期化
     for (func_idx, func) in scope.functions.iter().enumerate() {
-        // ダミー関数（未到達関数）はスキップ
-        if func.is_dummy() {
+        // 未使用関数（未到達関数）はスキップ
+        if func.is_unused() {
             continue;
         }
         if !func.block.scope.static_init_statements.is_empty() {
@@ -49,8 +49,8 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
     // 関数は symbol_table.function_names と functions が対応している
     for (i, func_name) in scope.symbol_table.function_names.iter().enumerate() {
         let func = &scope.functions[i];
-        // ダミー関数（未到達関数）はコード生成をスキップ
-        if func.is_dummy() {
+        // 未使用関数（未到達関数）はコード生成をスキップ
+        if func.is_unused() {
             continue;
         }
         prog.append(generate_function_definition(ctx, func_name, func, i)?);

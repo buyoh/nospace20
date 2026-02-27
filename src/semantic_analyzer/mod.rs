@@ -520,7 +520,7 @@ fn analyze_internal_with_parent(
                 global_functions.push(Function {
                     arg_indices: Vec::new(),
                     return_type,
-                    is_dummy: false,
+                    is_unused: false,
                     block: Block {
                         scope: Scope {
                             identifier_map: BTreeMap::new(),
@@ -713,7 +713,7 @@ fn analyze_internal_with_parent(
                 global_functions[global_idx] = Function {
                     arg_indices,
                     return_type: func_return_type,
-                    is_dummy: false,
+                    is_unused: false,
                     block: Block {
                         scope: built_scope,
                         statements: es,

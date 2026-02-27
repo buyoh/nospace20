@@ -33,7 +33,7 @@ use crate::tree_parser::{Operator1, Operator2};
 /// 定数畳み込みパスを適用する
 pub fn apply(scope: &mut Scope) {
     for func in &mut scope.functions {
-        if func.is_dummy() {
+        if func.is_unused() {
             continue;
         }
         fold_block(&mut func.block);

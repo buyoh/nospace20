@@ -1059,11 +1059,11 @@ fn test_dead_code_unreachable_func_becomes_dummy() {
     let mut scope = crate::syntactic_analyze(&s).unwrap();
 
     let unused_idx = scope.symbol_table.function_name_to_index["unused"];
-    assert!(!scope.functions[unused_idx].is_dummy(), "before: should not be dummy");
+    assert!(!scope.functions[unused_idx].is_unused(), "before: should not be unused");
 
     optimizer::optimize(&mut scope, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
 
-    assert!(scope.functions[unused_idx].is_dummy(), "after: unused function should be dummy");
+    assert!(scope.functions[unused_idx].is_unused(), "after: unused function should be unused");
 }
 
 /// dead_code: main 関数は常に到達可能（ダミーにならない）
@@ -1080,7 +1080,7 @@ fn test_dead_code_main_not_dummy() {
     let main_idx = scope.main_function_index.unwrap();
     optimizer::optimize(&mut scope, &OptimizationOptions { dead_code: true, ..OptimizationOptions::none() });
 
-    assert!(!scope.functions[main_idx].is_dummy(), "main should not be dummy");
+    assert!(!scope.functions[main_idx].is_unused(), "main should not be unused");
 }
 
 /// dead_code: main から直接呼ばれる関数は到達可能
@@ -1099,8 +1099,8 @@ fn test_dead_code_called_func_reachable() {
 
     let helper_idx = scope.symbol_table.function_name_to_index["helper"];
     let unused_idx = scope.symbol_table.function_name_to_index["unused"];
-    assert!(!scope.functions[helper_idx].is_dummy(), "helper (called) should not be dummy");
-    assert!(scope.functions[unused_idx].is_dummy(), "unused should be dummy");
+    assert!(!scope.functions[helper_idx].is_unused(), "helper (called) should not be unused");
+    assert!(scope.functions[unused_idx].is_unused(), "unused should be unused");
 }
 
 /// dead_code: 推移的に到達可能な関数は保持される
@@ -1121,9 +1121,9 @@ fn test_dead_code_transitive_reachability() {
     let l1_idx = scope.symbol_table.function_name_to_index["level1"];
     let l2_idx = scope.symbol_table.function_name_to_index["level2"];
     let unused_idx = scope.symbol_table.function_name_to_index["unused"];
-    assert!(!scope.functions[l1_idx].is_dummy(), "level1 should not be dummy");
-    assert!(!scope.functions[l2_idx].is_dummy(), "level2 should not be dummy");
-    assert!(scope.functions[unused_idx].is_dummy(), "unused should be dummy");
+    assert!(!scope.functions[l1_idx].is_unused(), "level1 should not be unused");
+    assert!(!scope.functions[l2_idx].is_unused(), "level2 should not be unused");
+    assert!(scope.functions[unused_idx].is_unused(), "unused should be unused");
 }
 
 /// dead_code: 実行結果が変わらないこと（インタープリタ）
@@ -1183,8 +1183,8 @@ fn test_dead_code_no_main_skips() {
 
     let foo_idx = scope.symbol_table.function_name_to_index["foo"];
     let bar_idx = scope.symbol_table.function_name_to_index["bar"];
-    assert!(!scope.functions[foo_idx].is_dummy(), "foo should not be dummy (no main)");
-    assert!(!scope.functions[bar_idx].is_dummy(), "bar should not be dummy (no main)");
+    assert!(!scope.functions[foo_idx].is_unused(), "foo should not be unused (no main)");
+    assert!(!scope.functions[bar_idx].is_unused(), "bar should not be unused (no main)");
 }
 
 /// dead_code + condition_opt + geti_opt の組み合わせが動作すること
@@ -1226,7 +1226,7 @@ fn test_dead_code_combined_all_opts() {
 
     // unused がダミーになっていること
     let unused_idx = scope_opt.symbol_table.function_name_to_index["unused"];
-    assert!(scope_opt.functions[unused_idx].is_dummy(), "unused should be dummy after all opts");
+    assert!(scope_opt.functions[unused_idx].is_unused(), "unused should be unused after all opts");
 }
 
 // --- constant_folding パステスト ---

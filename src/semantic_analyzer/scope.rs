@@ -43,9 +43,9 @@ pub struct Function {
     /// 関数本体に return: expr; が存在する → Int
     /// return: が存在しない（暗黙の void return）→ Void
     pub return_type: ValueType,
-    /// 最適化パス（dead_code）によってダミーに置換されたかどうか
+    /// 最適化パス（dead_code）によって未使用（到達不可能）とマークされたかどうか
     /// true の場合、コード生成・実行でスキップされる
-    pub is_dummy: bool,
+    pub is_unused: bool,
     // pub identifier: String,
 }
 
@@ -78,13 +78,13 @@ impl Function {
                 statements: Vec::new(),
             },
             return_type: ValueType::Void,
-            is_dummy: true,
+            is_unused: true,
         }
     }
 
-    /// この関数がダミー（到達不可能）かどうかを返す
-    pub fn is_dummy(&self) -> bool {
-        self.is_dummy
+    /// この関数が未使用（到達不可能）かどうかを返す
+    pub fn is_unused(&self) -> bool {
+        self.is_unused
     }
 }
 
