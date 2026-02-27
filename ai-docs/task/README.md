@@ -19,6 +19,7 @@
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
+- [for-repeat-statement.md](for-repeat-statement.md) - for 文・repeat 文の設計（4ブロック構文の for、糖衣構文の repeat、Step 1-7）
 
 ## 現在のタスク
 
