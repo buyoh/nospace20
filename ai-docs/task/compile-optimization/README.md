@@ -64,7 +64,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 - `src/optimizer/tests.rs` — ユニットテスト 59 件（フレームワーク 5 件 + ConditionMode 12 件 + InternalBuiltinFunction 2 件 + condition_opt 12 件 + geti_opt 7 件 + dead_code 8 件 + constant_folding 13 件）
 - `src/lib.rs` — `optimize()` 公開 API
 - `src/compile_property.rs` — `optimization_level` フィールド追加
-- CLI `--opt` オプション追加
+- CLI `--opt` オプション追加（個別パス有効化: `--opt all`, `--opt condition-opt`, `--opt constant-folding`, etc.）
 - アーキテクチャドキュメント更新
 - `src/semantic_analyzer/types.rs` — `ConditionMode` / `InternalBuiltinFunctionKind` / `ExecExpression` 拡張
 - `src/semantic_analyzer/mod.rs` — `If` / `While` 構築時に `ConditionMode::NonZero` 指定
