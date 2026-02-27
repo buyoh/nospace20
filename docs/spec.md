@@ -335,7 +335,36 @@ func: main() {
 
 ### for 文, repeat 文
 
-TODO:
+`repeat` 文には3つの形式がある。`varname(init_number)` はカウンタ変数とその初期値で、`N` は**上限値**（`varname < N` の間ループ）。カウンタ変数は body 内で書き換え可能で、その場合ループ回数も変化する。
+
+```
+# Form 1: i が N を下回る間ループ。i は毎回 +1 される。
+repeat: varname(init_number), N, body;
+
+# Form 2: カウンタ付き無限ループ（break で脱出）
+repeat: varname(init_number), body;
+
+# Form 3: 無限ループ（break で脱出）
+repeat: body;
+```
+
+```
+# Form 1: i(0) から始めて i < 5 の間実行（i = 0, 1, 2, 3, 4）
+repeat: i(0), 5, __puti(i);
+
+# Form 1: i(1) から始めて i < 5 の間実行（i = 1, 2, 3, 4）
+repeat: i(1), 5, __puti(i);
+
+# Form 2: i(0) から始めて無限ループ
+repeat: i(0), {
+  if: i == 4 { break; };
+};
+
+# Form 3: 無限ループ
+repeat: {
+  __putc('.');
+};
+```
 
 ## 制御構文: 式
 
