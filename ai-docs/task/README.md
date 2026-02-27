@@ -20,6 +20,7 @@
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [repeat-form1-upper-bound.md](repeat-form1-upper-bound.md) - repeat Form 1 の意味論変更（ループ回数→上限値、隠し変数廃止）
+- [keyword-colon-token-design.md](keyword-colon-token-design.md) - Keyword トークンにコロンを内包する設計の検討（break/continue/return の不整合分析）
 
 ## 現在のタスク
 
