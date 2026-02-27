@@ -20,11 +20,11 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 
 | ドキュメント | 内容 |
 |---|---|
-| [01-pass-framework.md](../../done-task/compile-optimization/01-pass-framework.md) | 最適化パスフレームワーク設計（モジュール構成、パスの実行制御、ExecExpression 拡張）✅ 実装完了 |
-| [02-pass-condition-opt.md](../../done-task/compile-optimization/02-pass-condition-opt.md) | if/while 条件式最適化（JumpIfZero/JumpIfNegative の直接利用）✅ 実装完了 |
-| [03-pass-geti-opt.md](../../done-task/compile-optimization/03-pass-geti-opt.md) | `__geti` / `__getc` 入力最適化（一時領域経由の排除）✅ 実装完了 |
-| [04-pass-dead-code.md](../../done-task/compile-optimization/04-pass-dead-code.md) | 未使用関数・変数の削除 ✅ 実装完了 |
-| [05-pass-constant-folding.md](../../done-task/compile-optimization/05-pass-constant-folding.md) | 定数畳み込み ✅ 実装完了 |
+| [01-pass-framework.md](01-pass-framework.md) | 最適化パスフレームワーク設計（モジュール構成、パスの実行制御、ExecExpression 拡張）✅ 実装完了 |
+| [02-pass-condition-opt.md](02-pass-condition-opt.md) | if/while 条件式最適化（JumpIfZero/JumpIfNegative の直接利用）✅ 実装完了 |
+| [03-pass-geti-opt.md](03-pass-geti-opt.md) | `__geti` / `__getc` 入力最適化（一時領域経由の排除）✅ 実装完了 |
+| [04-pass-dead-code.md](04-pass-dead-code.md) | 未使用関数・変数の削除 ✅ 実装完了 |
+| [05-pass-constant-folding.md](05-pass-constant-folding.md) | 定数畳み込み ✅ 実装完了 |
 
 ## 最適化パス一覧と優先度
 
@@ -46,7 +46,7 @@ Token Parser → Tree Parser → Semantic Analyzer → Scope → [Optimizer] →
 
 比較レポートは `tools/profile-report.py` で HTML 生成可能。
 
-## 実装順序
+## 実装状況（全完了 2026-02-27/28）
 
 1. **フレームワーク構築** — `src/optimizer/` モジュール作成、パイプライン統合 ✅ 完了
 2. **ExecExpression リファクタリング** — `ConditionMode` / `InternalBuiltinFunctionKind` 導入 ✅ 完了

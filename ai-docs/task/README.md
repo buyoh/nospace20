@@ -13,6 +13,7 @@
 - [multi-error-reporting.md](multi-error-reporting.md) - 意味解析における複数エラー報告（semantic_analyzer で複数箇所のコンパイルエラーを収集・表示）
 - [optional-trailing-semicolon.md](optional-trailing-semicolon.md) - ブロック末尾のセミコロン省略（最後のステートメントで `;` を省略可能にする設計）
 - [add-elsif-keyword.md](add-elsif-keyword.md) - elsif キーワードの追加（AST 不変方式、トークン追加・パーサー修正・else:if: 廃止、Step 1-7）
+- [compile-optimization-phase2/](compile-optimization-phase2/) - コンパイル最適化 Phase 2（短絡評価インライン化、代入値破棄最適化、比較演算インライン化、ピープホール最適化など6パス計画）
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
 - [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
