@@ -21,7 +21,6 @@
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [repeat-form1-upper-bound.md](repeat-form1-upper-bound.md) - repeat Form 1 の意味論変更（ループ回数→上限値、隠し変数廃止）
 - [keyword-colon-token-design.md](keyword-colon-token-design.md) - Keyword トークンにコロンを内包する設計の検討（break/continue/return の不整合分析）
-- [rename-main-to-dunder-main.md](rename-main-to-dunder-main.md) - エントリーポイント名を `main` → `__main` に変更（組み込み識別子命名規約への統一）
 
 ## 現在のタスク
 
@@ -31,6 +30,7 @@
 
 ### 完了済み (done-task/ に移動)
 
+- [rename-main-to-dunder-main.md](../done-task/rename-main-to-dunder-main.md) - エントリーポイント名を `main` → `__main` に変更（全ソース・テスト・ドキュメント更新完了）(2026-03-01完了)
 - [compile-optimization/](../done-task/compile-optimization/) - コンパイル時最適化全5パス実装完了（フレームワーク、条件式最適化、geti最適化、未使用関数削除、定数畳み込み、テスト59件追加）(2026-02-27/28完了)
 - [while-expression-to-statement/](../done-task/while-expression-to-statement/) - while を式から文に変更（Expression::While → Statement::While、7ステップ完了）(2026-02-27完了)
 - [split-build-rs.md](../done-task/split-build-rs.md) - build.rs の分割リファクタリング（523行→src_build/ ディレクトリへモジュール分割）(2026-02-26完了)
