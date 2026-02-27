@@ -75,7 +75,13 @@ fn fold_statement(stmt: &mut LocatedExecStatement) {
                 }
             }
         }
-        ExecStatement::For(ref mut init, ref mut mode, ref mut cond, ref mut step, ref mut body) => {
+        ExecStatement::For(
+            ref mut init,
+            ref mut mode,
+            ref mut cond,
+            ref mut step,
+            ref mut body,
+        ) => {
             fold_block(init);
             fold_block(cond);
             fold_block(step);
@@ -185,10 +191,18 @@ fn try_fold_op2(
             Operator2::Minus => Some(a.wrapping_sub(b)),
             Operator2::Multiply => Some(a.wrapping_mul(b)),
             Operator2::Divide => {
-                if b != 0 { Some(a.wrapping_div(b)) } else { None }
+                if b != 0 {
+                    Some(a.wrapping_div(b))
+                } else {
+                    None
+                }
             }
             Operator2::Modulo => {
-                if b != 0 { Some(a.wrapping_rem(b)) } else { None }
+                if b != 0 {
+                    Some(a.wrapping_rem(b))
+                } else {
+                    None
+                }
             }
             Operator2::Equal => Some(if a == b { 1 } else { 0 }),
             Operator2::NotEqual => Some(if a != b { 1 } else { 0 }),
@@ -205,12 +219,34 @@ fn try_fold_op2(
     }
 
     // 部分的な簡約（一方が定数 0 or 1 の場合）
-    let lhs_val = if let ExecExpression::Factor(v) = lhs.expression { Some(v) } else { None };
-    let rhs_val = if let ExecExpression::Factor(v) = rhs.expression { Some(v) } else { None };
+    let lhs_val = if let ExecExpression::Factor(v) = lhs.expression {
+        Some(v)
+    } else {
+        None
+    };
+    let rhs_val = if let ExecExpression::Factor(v) = rhs.expression {
+        Some(v)
+    } else {
+        None
+    };
 
     // 片方が定数の場合の簡約はオペランドを再構築して返す
-    let lhs = Box::new(LocatedExecExpression { expression: if let Some(v) = lhs_val { ExecExpression::Factor(v) } else { lhs.expression }, location: lhs.location });
-    let rhs = Box::new(LocatedExecExpression { expression: if let Some(v) = rhs_val { ExecExpression::Factor(v) } else { rhs.expression }, location: rhs.location });
+    let lhs = Box::new(LocatedExecExpression {
+        expression: if let Some(v) = lhs_val {
+            ExecExpression::Factor(v)
+        } else {
+            lhs.expression
+        },
+        location: lhs.location,
+    });
+    let rhs = Box::new(LocatedExecExpression {
+        expression: if let Some(v) = rhs_val {
+            ExecExpression::Factor(v)
+        } else {
+            rhs.expression
+        },
+        location: rhs.location,
+    });
 
     ExecExpression::Operation2(op, lhs, rhs)
 }
@@ -265,5 +301,3 @@ fn try_fold_if(
     }
     ExecExpression::If(mode, cond, then_block, else_block)
 }
-
-

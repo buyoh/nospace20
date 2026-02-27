@@ -4,7 +4,9 @@ use crate::compiler_ws::{
     context::CodeGenContext, context::VarScope, instruction::Instruction, label::reserved_labels,
     memory::heap_layout, program::WsProgram, types::WsNumber, CompileError, CompileErrorKind,
 };
-use crate::semantic_analyzer::{ConditionMode, ExecExpression, InternalBuiltinFunctionKind, LocatedExecExpression};
+use crate::semantic_analyzer::{
+    ConditionMode, ExecExpression, InternalBuiltinFunctionKind, LocatedExecExpression,
+};
 use crate::tree_parser::{Operator1, Operator2};
 
 /// コンパイルエラーを現在のコンテキスト位置情報付きで生成するヘルパー
@@ -756,7 +758,10 @@ fn generate_builtin_alloc(
     args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !ctx.is_alloc_ext() {
-        return Err(make_error(ctx, "__alloc requires --std-ext alloc".to_string()));
+        return Err(make_error(
+            ctx,
+            "__alloc requires --std-ext alloc".to_string(),
+        ));
     }
     if args.len() != 1 {
         return Err(make_error(
@@ -781,7 +786,10 @@ fn generate_builtin_free(
     args: &[Box<LocatedExecExpression>],
 ) -> Result<WsProgram, CompileError> {
     if !ctx.is_alloc_ext() {
-        return Err(make_error(ctx, "__free requires --std-ext alloc".to_string()));
+        return Err(make_error(
+            ctx,
+            "__free requires --std-ext alloc".to_string(),
+        ));
     }
     if args.len() != 1 {
         return Err(make_error(

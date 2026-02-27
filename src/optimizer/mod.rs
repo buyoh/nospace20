@@ -77,7 +77,11 @@ impl OptimizationOptions {
     /// 意味解析レベルのいずれかの最適化が有効かどうか
     /// ※ peephole は WsProgram レベルのため含まない
     pub fn any_enabled(&self) -> bool {
-        self.noop_test_pass || self.constant_folding || self.condition_opt || self.geti_opt || self.dead_code
+        self.noop_test_pass
+            || self.constant_folding
+            || self.condition_opt
+            || self.geti_opt
+            || self.dead_code
     }
 }
 

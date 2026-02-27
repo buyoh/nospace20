@@ -157,9 +157,9 @@ test_ok_parse_single!(test_char_literal_backslash, "'\\\\'", Token::Number(n) if
 test_ok_parse_single!(test_char_literal_quote, "'\\''", Token::Number(n) if *n == 39);
 
 // Hex escape sequence tests (variable-length)
-test_ok_parse_single!(test_char_literal_hex_2digit, "'\\x41'", Token::Number(n) if *n == 65);       // 'A'
+test_ok_parse_single!(test_char_literal_hex_2digit, "'\\x41'", Token::Number(n) if *n == 65); // 'A'
 test_ok_parse_single!(test_char_literal_hex_2digit_ff, "'\\xFF'", Token::Number(n) if *n == 255);
-test_ok_parse_single!(test_char_literal_hex_4digit, "'\\xFF03'", Token::Number(n) if *n == 0xFF03);  // 65283
+test_ok_parse_single!(test_char_literal_hex_4digit, "'\\xFF03'", Token::Number(n) if *n == 0xFF03); // 65283
 test_ok_parse_single!(test_char_literal_hex_5digit, "'\\x1F363'", Token::Number(n) if *n == 0x1F363); // 127843 (🍣)
 
 #[test]

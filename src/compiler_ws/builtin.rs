@@ -2,8 +2,8 @@
 
 use crate::compiler_ws::context::CodeGenContext;
 use crate::compiler_ws::{
-    instruction::Instruction, label::reserved_labels, program::WsProgram,
-    types::WsNumber, CompileError, CompileErrorKind,
+    instruction::Instruction, label::reserved_labels, program::WsProgram, types::WsNumber,
+    CompileError, CompileErrorKind,
 };
 
 /// ヘッダー部分を生成
@@ -11,7 +11,10 @@ pub fn generate_header(ctx: &CodeGenContext) -> Result<WsProgram, CompileError> 
     let mut prog = WsProgram::new();
 
     // === メモリ初期化（AllocRuntime 経由） ===
-    prog.append(ctx.alloc_runtime().generate_memory_init(ctx.global_heap_size()));
+    prog.append(
+        ctx.alloc_runtime()
+            .generate_memory_init(ctx.global_heap_size()),
+    );
 
     // === ユーザーコードへジャンプ ===
     prog.push(Instruction::Jump(reserved_labels::USER_CODE_BEGIN));

@@ -206,11 +206,7 @@ impl InteractiveBuffer {
     /// - バッファ不足 → Err(WouldBlock)
     fn read_line(&mut self) -> Result<String, ReadResult> {
         if let Some(newline_pos) = self.data.iter().position(|&b| b == b'\n') {
-            let line: String = self
-                .data
-                .drain(..=newline_pos)
-                .map(|b| b as char)
-                .collect();
+            let line: String = self.data.drain(..=newline_pos).map(|b| b as char).collect();
             return Ok(line);
         }
         if self.closed {

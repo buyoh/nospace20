@@ -4,7 +4,9 @@
 
 use std::collections::HashMap;
 
-use nospace20::compiler_ws::alloc_runtime::{AllocRuntime, BumpAllocRuntime, FsbaFirstFitAllocRuntime};
+use nospace20::compiler_ws::alloc_runtime::{
+    AllocRuntime, BumpAllocRuntime, FsbaFirstFitAllocRuntime,
+};
 use nospace20::compiler_ws::label::reserved_labels;
 use nospace20::compiler_ws::memory::heap_layout;
 use nospace20::compiler_ws::program::WsProgram;
@@ -310,9 +312,6 @@ impl MiniCompiler {
         ]);
 
         // ループ終了: カウンタをスタックから除去
-        prog.extend([
-            Instruction::Label(label_loop_end),
-            Instruction::Discard,
-        ]);
+        prog.extend([Instruction::Label(label_loop_end), Instruction::Discard]);
     }
 }

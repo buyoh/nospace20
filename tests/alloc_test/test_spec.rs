@@ -49,30 +49,13 @@ fn default_max_steps() -> usize {
 #[serde(tag = "op")]
 #[serde(rename_all = "snake_case")]
 pub enum AllocStep {
-    Alloc {
-        var: String,
-        size: i64,
-    },
-    Free {
-        var: String,
-    },
-    LoadPrint {
-        var: String,
-    },
-    Print {
-        value: i64,
-    },
-    AssertVarNe {
-        var1: String,
-        var2: String,
-    },
-    HeapPrint {
-        address: i64,
-    },
-    Loop {
-        count: i64,
-        body: Vec<AllocStep>,
-    },
+    Alloc { var: String, size: i64 },
+    Free { var: String },
+    LoadPrint { var: String },
+    Print { value: i64 },
+    AssertVarNe { var1: String, var2: String },
+    HeapPrint { address: i64 },
+    Loop { count: i64, body: Vec<AllocStep> },
 }
 
 /// 検証方法
@@ -80,7 +63,9 @@ pub enum AllocStep {
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum AllocCheck {
-    AllocIo { stdout: String },
+    AllocIo {
+        stdout: String,
+    },
     AllocRuntimeError {
         #[allow(dead_code)]
         error: String,

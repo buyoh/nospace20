@@ -37,11 +37,7 @@ pub trait AllocRuntime {
     /// - `heap[LOCAL_HEAP_BEGIN]` = 新フレーム先頭アドレス
     /// - 引数は `heap[LOCAL_HEAP_BEGIN + arg_offsets[i]]` に格納済み
     /// - `old_context` はエピローグで使用するコンテキスト復元データ
-    fn generate_function_prologue(
-        &self,
-        local_heap_size: i64,
-        arg_offsets: &[i64],
-    ) -> WsProgram;
+    fn generate_function_prologue(&self, local_heap_size: i64, arg_offsets: &[i64]) -> WsProgram;
 
     /// 関数エピローグ: フレーム解放 + コンテキスト復元
     ///
@@ -126,11 +122,7 @@ impl AllocRuntime for BumpAllocRuntime {
         prog
     }
 
-    fn generate_function_prologue(
-        &self,
-        local_heap_size: i64,
-        arg_offsets: &[i64],
-    ) -> WsProgram {
+    fn generate_function_prologue(&self, local_heap_size: i64, arg_offsets: &[i64]) -> WsProgram {
         let mut prog = WsProgram::new();
 
         // 1. 現在の LOCAL_HEAP_BEGIN をスタックに退避（old_context）
@@ -906,11 +898,7 @@ impl AllocRuntime for FsbaFirstFitAllocRuntime {
         prog
     }
 
-    fn generate_function_prologue(
-        &self,
-        local_heap_size: i64,
-        arg_offsets: &[i64],
-    ) -> WsProgram {
+    fn generate_function_prologue(&self, local_heap_size: i64, arg_offsets: &[i64]) -> WsProgram {
         // BumpAllocRuntime と同じフロー:
         // 1. old_LHB をスタックに退避
         // 2. __rt_alloc(local_heap_size) → ptr
@@ -989,10 +977,7 @@ mod tests {
     fn test_bump_memory_init_produces_instructions() {
         let bump = BumpAllocRuntime;
         let prog = bump.generate_memory_init(5);
-        assert!(
-            !prog.is_empty(),
-            "memory init should produce instructions"
-        );
+        assert!(!prog.is_empty(), "memory init should produce instructions");
     }
 
     #[test]
@@ -1005,12 +990,12 @@ mod tests {
         );
         // サブルーチンには Label, Return が含まれるはず
         let insts = prog.instructions();
-        let has_rt_alloc_label = insts.iter().any(|i| {
-            matches!(i, Instruction::Label(label) if *label == reserved_labels::RT_ALLOC)
-        });
-        let has_rt_free_label = insts.iter().any(|i| {
-            matches!(i, Instruction::Label(label) if *label == reserved_labels::RT_FREE)
-        });
+        let has_rt_alloc_label = insts
+            .iter()
+            .any(|i| matches!(i, Instruction::Label(label) if *label == reserved_labels::RT_ALLOC));
+        let has_rt_free_label = insts
+            .iter()
+            .any(|i| matches!(i, Instruction::Label(label) if *label == reserved_labels::RT_FREE));
         assert!(has_rt_alloc_label, "should contain __rt_alloc label");
         assert!(has_rt_free_label, "should contain __rt_free label");
     }
@@ -1019,10 +1004,7 @@ mod tests {
     fn test_bump_prologue_produces_instructions() {
         let bump = BumpAllocRuntime;
         let prog = bump.generate_function_prologue(3, &[0, 1, 2]);
-        assert!(
-            !prog.is_empty(),
-            "prologue should produce instructions"
-        );
+        assert!(!prog.is_empty(), "prologue should produce instructions");
     }
 
     #[test]
@@ -1030,9 +1012,9 @@ mod tests {
         let bump = BumpAllocRuntime;
         let prog = bump.generate_function_prologue(5, &[0, 1]);
         let insts = prog.instructions();
-        let has_alloc_call = insts.iter().any(|i| {
-            matches!(i, Instruction::Call(label) if *label == reserved_labels::RT_ALLOC)
-        });
+        let has_alloc_call = insts
+            .iter()
+            .any(|i| matches!(i, Instruction::Call(label) if *label == reserved_labels::RT_ALLOC));
         assert!(has_alloc_call, "prologue should call __rt_alloc");
     }
 
@@ -1040,10 +1022,7 @@ mod tests {
     fn test_bump_epilogue_produces_instructions() {
         let bump = BumpAllocRuntime;
         let prog = bump.generate_function_epilogue();
-        assert!(
-            !prog.is_empty(),
-            "epilogue should produce instructions"
-        );
+        assert!(!prog.is_empty(), "epilogue should produce instructions");
     }
 
     #[test]
@@ -1051,9 +1030,9 @@ mod tests {
         let bump = BumpAllocRuntime;
         let prog = bump.generate_function_epilogue();
         let insts = prog.instructions();
-        let has_free_call = insts.iter().any(|i| {
-            matches!(i, Instruction::Call(label) if *label == reserved_labels::RT_FREE)
-        });
+        let has_free_call = insts
+            .iter()
+            .any(|i| matches!(i, Instruction::Call(label) if *label == reserved_labels::RT_FREE));
         assert!(has_free_call, "epilogue should call __rt_free");
     }
 
@@ -1121,10 +1100,7 @@ mod tests {
         let stdout = Vec::<u8>::new();
         let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
             .unwrap()
-            .with_io(
-                Box::new(std::io::Cursor::new(Vec::new())),
-                Box::new(stdout),
-            );
+            .with_io(Box::new(std::io::Cursor::new(Vec::new())), Box::new(stdout));
         let result = vm.run(10000);
         assert!(
             matches!(result, StepResult::Complete),
@@ -1150,8 +1126,8 @@ mod tests {
 
         // 呼び出し規約: 引数は順序通りに push（arg(0)が最も深い位置）
         prog.extend([
-            Instruction::Push(WsNumber(42)),  // arg(0) - 先に push（深い）
-            Instruction::Push(WsNumber(99)),  // arg(1) - 後に push（トップ）
+            Instruction::Push(WsNumber(42)), // arg(0) - 先に push（深い）
+            Instruction::Push(WsNumber(99)), // arg(1) - 後に push（トップ）
         ]);
 
         // プロローグ: local_heap_size=4, arg_offsets=[0, 1]
@@ -1209,10 +1185,7 @@ mod tests {
         let stdout = Vec::<u8>::new();
         let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
             .unwrap()
-            .with_io(
-                Box::new(std::io::Cursor::new(Vec::new())),
-                Box::new(stdout),
-            );
+            .with_io(Box::new(std::io::Cursor::new(Vec::new())), Box::new(stdout));
         let result = vm.run(10000);
         assert!(
             matches!(result, StepResult::Complete),
@@ -1487,9 +1460,15 @@ mod tests {
 
         for (user_size, block_size) in &classes {
             let ops = vec![
-                AllocOp::Alloc { size: *user_size, slot: 0 },
+                AllocOp::Alloc {
+                    size: *user_size,
+                    slot: 0,
+                },
                 AllocOp::Free { slot: 0 },
-                AllocOp::Alloc { size: *user_size, slot: 1 },
+                AllocOp::Alloc {
+                    size: *user_size,
+                    slot: 1,
+                },
             ];
             let vm = run_alloc_free_sequence(&fsba, 0, &ops);
             let heap = vm.heap();
@@ -1623,7 +1602,10 @@ mod tests {
         let vm = run_alloc_free_sequence(&fsba, 0, &ops);
         let heap = vm.heap();
 
-        let afh = heap.get(&heap_layout::ALLOC_FREE_HEAD).copied().unwrap_or(0);
+        let afh = heap
+            .get(&heap_layout::ALLOC_FREE_HEAD)
+            .copied()
+            .unwrap_or(0);
         assert_ne!(
             afh, 0,
             "ALLOC_FREE_HEAD should be non-zero after general free"

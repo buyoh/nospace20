@@ -1,11 +1,11 @@
 mod common;
 
-#[path = "code_test/test_config.rs"]
-mod test_config;
-#[path = "code_test/interpreter_base.rs"]
-mod interpreter_base;
 #[path = "code_test/error_base.rs"]
 mod error_base;
+#[path = "code_test/interpreter_base.rs"]
+mod interpreter_base;
+#[path = "code_test/test_config.rs"]
+mod test_config;
 #[path = "code_test/whitespace_base.rs"]
 mod whitespace_base;
 #[path = "code_test/whitespace_self_base.rs"]

@@ -1,5 +1,8 @@
 use crate::{
-    semantic_analyzer::{Block, ConditionMode, ExecExpression, ExecStatement, Function, IdentifierRef, InternalBuiltinFunctionKind, LocatedExecExpression, LocatedExecStatement, Scope},
+    semantic_analyzer::{
+        Block, ConditionMode, ExecExpression, ExecStatement, Function, IdentifierRef,
+        InternalBuiltinFunctionKind, LocatedExecExpression, LocatedExecStatement, Scope,
+    },
     tree_parser::{Operator1, Operator2},
 };
 
@@ -321,9 +324,7 @@ impl LocalEnvironment<'_, '_> {
         loop {
             let cond_val = match self.interpret_expression(cond) {
                 ExpressionFlow::Value(e) => e,
-                ExpressionFlow::Jump(Flow::Return(x)) => {
-                    return Flow::Return(x)
-                }
+                ExpressionFlow::Jump(Flow::Return(x)) => return Flow::Return(x),
                 ExpressionFlow::Jump(Flow::Continue) => panic!(
                     "internal error: unexpected continue: Don't call continue in `while` condition"
                 ),
@@ -491,7 +492,10 @@ impl LocalEnvironment<'_, '_> {
     }
 
     /// 最適化パスで生成される内部組み込み関数を実行する
-    fn interpret_internal_builtin_function(&mut self, kind: &InternalBuiltinFunctionKind) -> ExpressionFlow {
+    fn interpret_internal_builtin_function(
+        &mut self,
+        kind: &InternalBuiltinFunctionKind,
+    ) -> ExpressionFlow {
         match kind {
             InternalBuiltinFunctionKind::Getiv(var_ref) => {
                 let value = self.env.read_int();
@@ -630,7 +634,10 @@ impl LocalEnvironment<'_, '_> {
     }
 
     // if while を式にした以上、式の中に文が含まれる可能性がある…
-    fn interpret_expression(&mut self, located_expr: &Box<LocatedExecExpression>) -> ExpressionFlow {
+    fn interpret_expression(
+        &mut self,
+        located_expr: &Box<LocatedExecExpression>,
+    ) -> ExpressionFlow {
         self.env.increment_expression_count();
         match &located_expr.expression {
             ExecExpression::Operation1(op, expr1) => self.interpret_operation1(op, expr1),
@@ -669,7 +676,10 @@ impl LocalEnvironment<'_, '_> {
 
     /// ブロックの文を実行し、最後の式の値も返す
     /// if/while 式の戻り値を実装するために使用
-    fn interpret_statements_with_value(&mut self, statements: &Vec<LocatedExecStatement>) -> (Flow, i64) {
+    fn interpret_statements_with_value(
+        &mut self,
+        statements: &Vec<LocatedExecStatement>,
+    ) -> (Flow, i64) {
         let mut last_value = 0;
         for located_stmt in statements {
             let statement = &located_stmt.statement;
@@ -722,7 +732,9 @@ impl LocalEnvironment<'_, '_> {
             ExecStatement::Return(None) => Flow::Return(0),
             ExecStatement::Break => Flow::Break,
             ExecStatement::Continue => Flow::Continue,
-            ExecStatement::While(mode, cond, block) => self.interpret_while_statement(mode, cond, block),
+            ExecStatement::While(mode, cond, block) => {
+                self.interpret_while_statement(mode, cond, block)
+            }
             ExecStatement::For(init, mode, cond, step, body) => {
                 self.interpret_for_statement(init, mode, cond, step, body)
             }

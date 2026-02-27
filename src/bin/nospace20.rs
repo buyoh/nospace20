@@ -219,7 +219,9 @@ fn main() {
             let debug_ext = property.target_extensions.contains(&TargetExtension::Debug);
             let alloc_ext = property.target_extensions.contains(&TargetExtension::Alloc);
             let compiled = match property.target {
-                CompileTarget::Ws => compile_to_whitespace_with_opt(&a, debug_ext, alloc_ext, &opt_options),
+                CompileTarget::Ws => {
+                    compile_to_whitespace_with_opt(&a, debug_ext, alloc_ext, &opt_options)
+                }
                 CompileTarget::Mnemonic => {
                     compile_to_whitespace_debug_with_opt(&a, debug_ext, alloc_ext, &opt_options)
                 }

@@ -12,9 +12,10 @@ use std::rc::Rc;
 
 use crate::whitespace::{InputWaitType, StepResult, WhitespaceVM};
 use crate::{
-    compile_to_whitespace_debug_with_options, compile_to_whitespace_with_options, interpret_with_env,
-    optimize, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError, CompileTarget, Environment,
-    EnvironmentConfig, LanguageStd, OptimizationOptions, TextCode,
+    compile_to_whitespace_debug_with_options, compile_to_whitespace_with_options,
+    interpret_with_env, optimize, parse_to_tokens, parse_to_tree, syntactic_analyze,
+    CodeParseError, CompileTarget, Environment, EnvironmentConfig, LanguageStd,
+    OptimizationOptions, TextCode,
 };
 
 // ========================================
@@ -177,7 +178,10 @@ fn parse_std_extensions(extensions: Option<JsStdExtensionArray>) -> Result<(bool
                 let result = ResultErr {
                     success: false,
                     errors: vec![WasmError {
-                        message: format!("unknown std extension: '{}' (use 'debug' or 'alloc')", ext),
+                        message: format!(
+                            "unknown std extension: '{}' (use 'debug' or 'alloc')",
+                            ext
+                        ),
                         line: None,
                         column: None,
                     }],
@@ -319,11 +323,8 @@ pub fn run(
     let stdout_clone = Rc::clone(&stdout_buf);
     let mut config = EnvironmentConfig::with_max_expression_count(100000);
     config.ignore_debug = ignore_debug.unwrap_or(false);
-    let mut env = Environment::new_with_config(
-        stdin_cursor,
-        Box::new(SharedWriter(stdout_clone)),
-        config,
-    );
+    let mut env =
+        Environment::new_with_config(stdin_cursor, Box::new(SharedWriter(stdout_clone)), config);
     interpret_with_env(&mut env, &scope);
     env.flush();
 
@@ -567,11 +568,7 @@ impl WasmWhitespaceVM {
         };
 
         // コンパイル
-        let ws_source = match compile_to_whitespace_with_options(
-            &scope,
-            debug_ext,
-            alloc_ext,
-        ) {
+        let ws_source = match compile_to_whitespace_with_options(&scope, debug_ext, alloc_ext) {
             Ok(output) => output,
             Err(errors) => return Err(convert_errors(&errors, &text)),
         };
@@ -823,7 +820,13 @@ pub fn get_options() -> JsOptionsDefinition {
         compile_targets: vec!["ws", "mnemonic"],
         language_stds: vec!["standard", "ws"],
         std_extensions: vec!["debug", "alloc"],
-        opt_passes: vec!["all", "condition-opt", "geti-opt", "constant-folding", "dead-code"],
+        opt_passes: vec![
+            "all",
+            "condition-opt",
+            "geti-opt",
+            "constant-folding",
+            "dead-code",
+        ],
     };
     let js: JsValue = serde_wasm_bindgen::to_value(&options).unwrap();
     js.into()

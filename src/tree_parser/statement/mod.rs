@@ -17,10 +17,15 @@ pub enum Statement {
     Continue,
     Break,
     Return(Option<Box<LocatedExpression>>),
-    While(Box<LocatedExpression>, Vec<LocatedStatement>),  // while 文
+    While(Box<LocatedExpression>, Vec<LocatedStatement>), // while 文
     /// for 文: (init block, cond block, step block, body block)
     /// repeat は tree_parser 段階で For に脱糖される
-    For(Vec<LocatedStatement>, Vec<LocatedStatement>, Vec<LocatedStatement>, Vec<LocatedStatement>),
+    For(
+        Vec<LocatedStatement>,
+        Vec<LocatedStatement>,
+        Vec<LocatedStatement>,
+        Vec<LocatedStatement>,
+    ),
     Expression(Box<LocatedExpression>),
     Invalid(usize), // See, Expression::Invalid
 }
@@ -96,7 +101,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
     /// `let:` または `static:` キーワードを消費して変数宣言をパースする。
     /// 呼び出し元が `is_static` フラグを渡すことで let/static の両方を統一的に扱う。
-    fn parse_to_statements_variable(&mut self, start_pos: usize, is_static: bool) -> Vec<LocatedStatement> {
+    fn parse_to_statements_variable(
+        &mut self,
+        start_pos: usize,
+        is_static: bool,
+    ) -> Vec<LocatedStatement> {
         // 呼び出し元が既にキーワードを確認済みなので、そのまま消費する
         self.iter.next();
         self.parse_variable_declarations(start_pos, is_static)
@@ -128,8 +137,12 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                         // エラー: 配列サイズは正の整数でなければならない
                         // Quality-1: エラー位置をサイズ値のトークン位置に修正
                         let err_pos = token_info.code_pointer;
-                        let err_idx = self
-                            .add_parse_error(&TokenInfo { code_pointer: err_pos }, "array size must be positive");
+                        let err_idx = self.add_parse_error(
+                            &TokenInfo {
+                                code_pointer: err_pos,
+                            },
+                            "array size must be positive",
+                        );
                         results.push(LocatedStatement {
                             statement: Statement::Invalid(err_idx),
                             location: SourceLocation::from_single(start_pos),
@@ -139,8 +152,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     *n
                 }
                 Some((_, token_info)) => {
-                    let err_idx =
-                        self.add_parse_error(token_info, "expected array size or ']'");
+                    let err_idx = self.add_parse_error(token_info, "expected array size or ']'");
                     results.push(LocatedStatement {
                         statement: Statement::Invalid(err_idx),
                         location: SourceLocation::from_single(start_pos),
@@ -197,7 +209,9 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             if string_size > explicit_size {
                 // Quality-1: エラー位置は start_pos（宣言の先頭）のまま適切
                 let err_idx = self.add_parse_error(
-                    &TokenInfo { code_pointer: start_pos },
+                    &TokenInfo {
+                        code_pointer: start_pos,
+                    },
                     format!(
                         "string literal too long for array of size {}: needs {}",
                         explicit_size, string_size
@@ -329,7 +343,9 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         // 空の初期化リストはエラー
         if init_values.is_empty() {
             let err_idx = self.add_parse_error(
-                &TokenInfo { code_pointer: start_pos },
+                &TokenInfo {
+                    code_pointer: start_pos,
+                },
                 "empty initializer list: array size cannot be 0",
             );
             results.push(LocatedStatement {
@@ -343,7 +359,9 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let actual_size = if let Some(explicit_size) = array_size {
             if init_values.len() > explicit_size as usize {
                 let err_idx = self.add_parse_error(
-                    &TokenInfo { code_pointer: start_pos },
+                    &TokenInfo {
+                        code_pointer: start_pos,
+                    },
                     format!(
                         "too many initializers for array of size {}: got {}",
                         explicit_size,
@@ -497,7 +515,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     if let Some((Token::StringLiteral(_), _)) = self.iter.peek() {
                         // 文字列初期化: ("Hello")
                         let ok = self.parse_array_string_init(
-                            &id, start_pos, array_size, is_static, &mut results,
+                            &id,
+                            start_pos,
+                            array_size,
+                            is_static,
+                            &mut results,
                         );
                         if !ok {
                             self.skip_to_semicolon();
@@ -507,7 +529,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                         // 数値リスト初期化: ([val1, val2, val3])
                         self.iter.next(); // '[' を消費
                         let ok = self.parse_array_list_init(
-                            &id, start_pos, array_size, is_static, &mut results,
+                            &id,
+                            start_pos,
+                            array_size,
+                            is_static,
+                            &mut results,
                         );
                         if !ok {
                             self.skip_to_semicolon();
@@ -516,7 +542,9 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     } else {
                         // エラー: 配列初期化には '[' か文字列リテラルが必要
                         let err_idx = self.add_parse_error(
-                            &TokenInfo { code_pointer: start_pos },
+                            &TokenInfo {
+                                code_pointer: start_pos,
+                            },
                             "expected '[' or string literal for array initialization",
                         );
                         results.push(LocatedStatement {
@@ -742,7 +770,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             }
         } else if next_is_comma {
             self.iter.next(); // ',' を消費
-            // 初期化宣言として解釈: first_expr は Expression::Function(name, [init_val]) であるべき
+                              // 初期化宣言として解釈: first_expr は Expression::Function(name, [init_val]) であるべき
             match first_expr.expression {
                 Expression::Function(name, mut args) if args.len() == 1 => {
                     let init_val = args.remove(0);
@@ -791,7 +819,9 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 _ => {
                     let err_idx = self.add_parse_error(
-                        &TokenInfo { code_pointer: start_pos },
+                        &TokenInfo {
+                            code_pointer: start_pos,
+                        },
                         "repeat: expected counter declaration like 'i(0)' before ','",
                     );
                     self.skip_to_semicolon();
@@ -802,8 +832,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
             }
         } else {
-            let err_idx =
-                self.add_end_error("expected ',' or ';' after repeat expression");
+            let err_idx = self.add_end_error("expected ',' or ';' after repeat expression");
             self.skip_to_semicolon();
             LocatedStatement {
                 statement: Statement::Invalid(err_idx),
@@ -1013,7 +1042,12 @@ fn desugar_repeat_form1(
         pos,
     );
     let init = vec![LocatedStatement {
-        statement: Statement::VariableDeclaration(counter_name.clone(), counter_assign, false, None),
+        statement: Statement::VariableDeclaration(
+            counter_name.clone(),
+            counter_assign,
+            false,
+            None,
+        ),
         location: loc.clone(),
     }];
     // 条件: i < N（n_expr は毎回評価される）

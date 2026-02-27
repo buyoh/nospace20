@@ -86,18 +86,20 @@ fn optimize_statement(stmt: &mut LocatedExecStatement) {
 /// `InternalBuiltinFunction(Getiv/Getcv(var_ref))` に変換する。
 ///
 /// 変換できた場合は `Some(new_inner_expression)` を返す。
-fn try_transform_geti(
-    located: &LocatedExecExpression,
-) -> Option<ExecExpression> {
+fn try_transform_geti(located: &LocatedExecExpression) -> Option<ExecExpression> {
     if let ExecExpression::Operation2(Operator2::Assign, lhs, rhs) = &located.expression {
         if let ExecExpression::Variable(var_ref) = &lhs.expression {
             match &rhs.expression {
-                ExecExpression::BuiltinFunction(BuiltinFunctionKind::Geti, args) if args.is_empty() => {
+                ExecExpression::BuiltinFunction(BuiltinFunctionKind::Geti, args)
+                    if args.is_empty() =>
+                {
                     Some(ExecExpression::InternalBuiltinFunction(
                         InternalBuiltinFunctionKind::Getiv(*var_ref),
                     ))
                 }
-                ExecExpression::BuiltinFunction(BuiltinFunctionKind::Getc, args) if args.is_empty() => {
+                ExecExpression::BuiltinFunction(BuiltinFunctionKind::Getc, args)
+                    if args.is_empty() =>
+                {
                     Some(ExecExpression::InternalBuiltinFunction(
                         InternalBuiltinFunctionKind::Getcv(*var_ref),
                     ))

@@ -125,10 +125,12 @@ fn test_parse_add() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Plus, left, right) => match (left.expression, right.expression) {
-            (Expression::Factor(1), Expression::Factor(2)) => (),
-            _ => panic!("Expected Factor(1) + Factor(2)"),
-        },
+        Expression::Operation2(Operator2::Plus, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Factor(1), Expression::Factor(2)) => (),
+                _ => panic!("Expected Factor(1) + Factor(2)"),
+            }
+        }
         _ => panic!("Expected Expression::Operation2(Plus)"),
     }
 }
@@ -139,10 +141,12 @@ fn test_parse_subtract() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Minus, left, right) => match (left.expression, right.expression) {
-            (Expression::Factor(5), Expression::Factor(3)) => (),
-            _ => panic!("Expected Factor(5) - Factor(3)"),
-        },
+        Expression::Operation2(Operator2::Minus, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Factor(5), Expression::Factor(3)) => (),
+                _ => panic!("Expected Factor(5) - Factor(3)"),
+            }
+        }
         _ => panic!("Expected Expression::Operation2(Minus)"),
     }
 }
@@ -153,10 +157,12 @@ fn test_parse_multiply() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Multiply, left, right) => match (left.expression, right.expression) {
-            (Expression::Factor(3), Expression::Factor(4)) => (),
-            _ => panic!("Expected Factor(3) * Factor(4)"),
-        },
+        Expression::Operation2(Operator2::Multiply, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Factor(3), Expression::Factor(4)) => (),
+                _ => panic!("Expected Factor(3) * Factor(4)"),
+            }
+        }
         _ => panic!("Expected Expression::Operation2(Multiply)"),
     }
 }
@@ -167,10 +173,12 @@ fn test_parse_divide() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Divide, left, right) => match (left.expression, right.expression) {
-            (Expression::Factor(10), Expression::Factor(2)) => (),
-            _ => panic!("Expected Factor(10) / Factor(2)"),
-        },
+        Expression::Operation2(Operator2::Divide, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Factor(10), Expression::Factor(2)) => (),
+                _ => panic!("Expected Factor(10) / Factor(2)"),
+            }
+        }
         _ => panic!("Expected Expression::Operation2(Divide)"),
     }
 }
@@ -181,10 +189,12 @@ fn test_parse_modulo() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Modulo, left, right) => match (left.expression, right.expression) {
-            (Expression::Factor(10), Expression::Factor(3)) => (),
-            _ => panic!("Expected Factor(10) % Factor(3)"),
-        },
+        Expression::Operation2(Operator2::Modulo, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Factor(10), Expression::Factor(3)) => (),
+                _ => panic!("Expected Factor(10) % Factor(3)"),
+            }
+        }
         _ => panic!("Expected Expression::Operation2(Modulo)"),
     }
 }
@@ -202,15 +212,17 @@ fn test_parse_precedence_mul_before_add() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Plus, left, right) => match (left.expression, right.expression) {
-            (Expression::Factor(1), Expression::Operation2(Operator2::Multiply, l2, r2)) => {
-                match (l2.expression, r2.expression) {
-                    (Expression::Factor(2), Expression::Factor(3)) => (),
-                    _ => panic!("Expected Factor(2) * Factor(3)"),
+        Expression::Operation2(Operator2::Plus, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Factor(1), Expression::Operation2(Operator2::Multiply, l2, r2)) => {
+                    match (l2.expression, r2.expression) {
+                        (Expression::Factor(2), Expression::Factor(3)) => (),
+                        _ => panic!("Expected Factor(2) * Factor(3)"),
+                    }
                 }
+                _ => panic!("Expected 1 + (2 * 3)"),
             }
-            _ => panic!("Expected 1 + (2 * 3)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(Plus)"),
     }
 }
@@ -230,15 +242,17 @@ fn test_parse_parenthesis() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Multiply, left, right) => match (left.expression, right.expression) {
-            (Expression::Operation2(Operator2::Plus, l2, r2), Expression::Factor(3)) => {
-                match (l2.expression, r2.expression) {
-                    (Expression::Factor(1), Expression::Factor(2)) => (),
-                    _ => panic!("Expected Factor(1) + Factor(2)"),
+        Expression::Operation2(Operator2::Multiply, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Operation2(Operator2::Plus, l2, r2), Expression::Factor(3)) => {
+                    match (l2.expression, r2.expression) {
+                        (Expression::Factor(1), Expression::Factor(2)) => (),
+                        _ => panic!("Expected Factor(1) + Factor(2)"),
+                    }
                 }
+                _ => panic!("Expected (1 + 2) * 3"),
             }
-            _ => panic!("Expected (1 + 2) * 3"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(Multiply)"),
     }
 }
@@ -345,13 +359,15 @@ fn test_parse_comparison_equal() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Equal, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Variable(b)) => {
-                assert_eq!(a, "a");
-                assert_eq!(b, "b");
+        Expression::Operation2(Operator2::Equal, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
+                }
+                _ => panic!("Expected Variable(a) == Variable(b)"),
             }
-            _ => panic!("Expected Variable(a) == Variable(b)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(Equal)"),
     }
 }
@@ -363,13 +379,15 @@ fn test_parse_comparison_not_equal() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::NotEqual, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Variable(b)) => {
-                assert_eq!(a, "a");
-                assert_eq!(b, "b");
+        Expression::Operation2(Operator2::NotEqual, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
+                }
+                _ => panic!("Expected Variable(a) != Variable(b)"),
             }
-            _ => panic!("Expected Variable(a) != Variable(b)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(NotEqual)"),
     }
 }
@@ -381,13 +399,15 @@ fn test_parse_comparison_less() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Less, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Variable(b)) => {
-                assert_eq!(a, "a");
-                assert_eq!(b, "b");
+        Expression::Operation2(Operator2::Less, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
+                }
+                _ => panic!("Expected Variable(a) < Variable(b)"),
             }
-            _ => panic!("Expected Variable(a) < Variable(b)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(Less)"),
     }
 }
@@ -399,13 +419,15 @@ fn test_parse_comparison_less_equal() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::LessEqual, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Variable(b)) => {
-                assert_eq!(a, "a");
-                assert_eq!(b, "b");
+        Expression::Operation2(Operator2::LessEqual, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
+                }
+                _ => panic!("Expected Variable(a) <= Variable(b)"),
             }
-            _ => panic!("Expected Variable(a) <= Variable(b)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(LessEqual)"),
     }
 }
@@ -417,13 +439,15 @@ fn test_parse_comparison_greater() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Greater, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Variable(b)) => {
-                assert_eq!(a, "a");
-                assert_eq!(b, "b");
+        Expression::Operation2(Operator2::Greater, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
+                }
+                _ => panic!("Expected Variable(a) > Variable(b)"),
             }
-            _ => panic!("Expected Variable(a) > Variable(b)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(Greater)"),
     }
 }
@@ -435,13 +459,15 @@ fn test_parse_comparison_greater_equal() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::GreaterEqual, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Variable(b)) => {
-                assert_eq!(a, "a");
-                assert_eq!(b, "b");
+        Expression::Operation2(Operator2::GreaterEqual, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
+                }
+                _ => panic!("Expected Variable(a) >= Variable(b)"),
             }
-            _ => panic!("Expected Variable(a) >= Variable(b)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(GreaterEqual)"),
     }
 }
@@ -453,13 +479,15 @@ fn test_parse_logical_and() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::LogicalAnd, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Variable(b)) => {
-                assert_eq!(a, "a");
-                assert_eq!(b, "b");
+        Expression::Operation2(Operator2::LogicalAnd, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
+                }
+                _ => panic!("Expected Variable(a) && Variable(b)"),
             }
-            _ => panic!("Expected Variable(a) && Variable(b)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(LogicalAnd)"),
     }
 }
@@ -471,13 +499,15 @@ fn test_parse_logical_or() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::LogicalOr, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Variable(b)) => {
-                assert_eq!(a, "a");
-                assert_eq!(b, "b");
+        Expression::Operation2(Operator2::LogicalOr, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Variable(b)) => {
+                    assert_eq!(a, "a");
+                    assert_eq!(b, "b");
+                }
+                _ => panic!("Expected Variable(a) || Variable(b)"),
             }
-            _ => panic!("Expected Variable(a) || Variable(b)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(LogicalOr)"),
     }
 }
@@ -489,12 +519,14 @@ fn test_parse_assignment() {
     let (expr, errs) = parse_expr(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     match expr.expression {
-        Expression::Operation2(Operator2::Assign, left, right) => match (left.expression, right.expression) {
-            (Expression::Variable(a), Expression::Factor(10)) => {
-                assert_eq!(a, "a");
+        Expression::Operation2(Operator2::Assign, left, right) => {
+            match (left.expression, right.expression) {
+                (Expression::Variable(a), Expression::Factor(10)) => {
+                    assert_eq!(a, "a");
+                }
+                _ => panic!("Expected Variable(a) = Factor(10)"),
             }
-            _ => panic!("Expected Variable(a) = Factor(10)"),
-        },
+        }
         _ => panic!("Expected Expression::Operation2(Assign)"),
     }
 }
@@ -678,12 +710,14 @@ fn test_parse_array_access_expr_index() {
         Expression::ArrayAccess(name, index) => {
             assert_eq!(name, "arr");
             match index.expression {
-                Expression::Operation2(Operator2::Plus, left, right) => match (left.expression, right.expression) {
-                    (Expression::Variable(v), Expression::Factor(1)) => {
-                        assert_eq!(v, "i");
+                Expression::Operation2(Operator2::Plus, left, right) => {
+                    match (left.expression, right.expression) {
+                        (Expression::Variable(v), Expression::Factor(1)) => {
+                            assert_eq!(v, "i");
+                        }
+                        _ => panic!("Expected Variable(i) + Factor(1)"),
                     }
-                    _ => panic!("Expected Variable(i) + Factor(1)"),
-                },
+                }
                 _ => panic!("Expected Operation2(Plus) as index"),
             }
         }

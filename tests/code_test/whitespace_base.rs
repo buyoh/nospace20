@@ -1,8 +1,6 @@
 use std::{fs, io};
 
-use nospace20::{
-    compile_to_whitespace, parse_to_tokens, parse_to_tree, syntactic_analyze,
-};
+use nospace20::{compile_to_whitespace, parse_to_tokens, parse_to_tree, syntactic_analyze};
 
 use super::test_config::TestConfig;
 

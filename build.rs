@@ -1,11 +1,11 @@
+#[path = "src_build/alloc_tests.rs"]
+mod alloc_tests;
 #[path = "src_build/common.rs"]
 mod common;
 #[path = "src_build/nospace_tests.rs"]
 mod nospace_tests;
 #[path = "src_build/ws_tests.rs"]
 mod ws_tests;
-#[path = "src_build/alloc_tests.rs"]
-mod alloc_tests;
 
 fn main() {
     // YAMLファイルが変更されたら再ビルド

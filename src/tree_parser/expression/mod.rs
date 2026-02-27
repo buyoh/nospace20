@@ -60,8 +60,8 @@ pub enum Expression {
         Vec<LocatedStatement>,
         Vec<LocatedStatement>,
     ),
-    Block(Vec<LocatedStatement>),                    // ブロックスコープ式
-    Function(String, Vec<Box<LocatedExpression>>),   // 関数呼び出し
+    Block(Vec<LocatedStatement>),                  // ブロックスコープ式
+    Function(String, Vec<Box<LocatedExpression>>), // 関数呼び出し
     Factor(i64),
     Variable(String),
     ArrayAccess(String, Box<LocatedExpression>), // 配列アクセス: arr[expr]
@@ -215,12 +215,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 e
             }
             // if/block を factor レベルで解析（while は文として parse_to_statements で処理）
-            Some((Token::Keyword(Keyword::If), _)) => {
-                self.parse_to_expression_tree_if_impl()
-            }
-            Some((Token::BraceL, _)) => {
-                self.parse_to_expression_tree_block_impl()
-            }
+            Some((Token::Keyword(Keyword::If), _)) => self.parse_to_expression_tree_if_impl(),
+            Some((Token::BraceL, _)) => self.parse_to_expression_tree_block_impl(),
             Some((_, token_info)) => {
                 let e = self.add_parse_error(token_info, "unexpected token");
                 let end = self.current_pos();

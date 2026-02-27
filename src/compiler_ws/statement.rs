@@ -33,7 +33,10 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
             );
             for located_stmt in &func.block.scope.static_init_statements {
                 static_ctx.set_location(&located_stmt.location);
-                prog.append(generate_statement(&mut static_ctx, &located_stmt.statement)?);
+                prog.append(generate_statement(
+                    &mut static_ctx,
+                    &located_stmt.statement,
+                )?);
             }
             ctx.sync_labels_from(&static_ctx);
         }
@@ -112,9 +115,7 @@ pub fn generate_statement(
     match stmt {
         // 式文（結果を破棄）
         // discard-assign-value 最適化: 代入式の場合は値再取得をスキップ
-        ExecStatement::Expression(expr) => {
-            expression::generate_expression_as_statement(ctx, expr)
-        }
+        ExecStatement::Expression(expr) => expression::generate_expression_as_statement(ctx, expr),
 
         // return 文
         ExecStatement::Return(Some(expr)) => generate_return(ctx, expr),
@@ -122,20 +123,18 @@ pub fn generate_statement(
 
         // break 文
         ExecStatement::Break => {
-            let loop_end = ctx
-                .current_loop_end()
-                .ok_or_else(|| {
-                    let loc = ctx.current_location();
-                    match loc {
-                        Some(l) => CompileError::with_location(
-                            CompileErrorKind::InvalidOperation("break outside loop".to_string()),
-                            l,
-                        ),
-                        None => CompileError::new(CompileErrorKind::InvalidOperation(
-                            "break outside loop".to_string(),
-                        )),
-                    }
-                })?;
+            let loop_end = ctx.current_loop_end().ok_or_else(|| {
+                let loc = ctx.current_location();
+                match loc {
+                    Some(l) => CompileError::with_location(
+                        CompileErrorKind::InvalidOperation("break outside loop".to_string()),
+                        l,
+                    ),
+                    None => CompileError::new(CompileErrorKind::InvalidOperation(
+                        "break outside loop".to_string(),
+                    )),
+                }
+            })?;
             let mut prog = WsProgram::new();
             prog.push(Instruction::Jump(loop_end));
             Ok(prog)
@@ -161,9 +160,7 @@ pub fn generate_statement(
         }
 
         // while 文
-        ExecStatement::While(mode, cond, body) => {
-            generate_while_statement(ctx, mode, cond, body)
-        }
+        ExecStatement::While(mode, cond, body) => generate_while_statement(ctx, mode, cond, body),
 
         // for 文
         ExecStatement::For(init, mode, cond, step, body) => {
@@ -250,7 +247,7 @@ fn generate_for_statement(
 
     let loop_start = ctx.new_label();
     let step_label = ctx.new_label(); // continue のジャンプ先（step ブロック先頭）
-    let loop_end = ctx.new_label();   // break のジャンプ先
+    let loop_end = ctx.new_label(); // break のジャンプ先
 
     // 1. init スコープに入る（for ループ変数が生存するスコープ）
     ctx.enter_block_scope(init.scope.variable_count);
@@ -449,7 +446,9 @@ fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {
     }
 }
 
-fn count_nested_vars_in_expression(located_expr: &crate::semantic_analyzer::LocatedExecExpression) -> usize {
+fn count_nested_vars_in_expression(
+    located_expr: &crate::semantic_analyzer::LocatedExecExpression,
+) -> usize {
     use crate::semantic_analyzer::ExecExpression;
     match &located_expr.expression {
         ExecExpression::If(_mode, cond, then_block, else_block) => {

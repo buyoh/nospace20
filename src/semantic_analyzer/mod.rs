@@ -17,11 +17,16 @@ use scope::{FunctionIndex, Identifier, ScopeBuilder, ScopeResolver, ScopeType, S
 use crate::{
     base::{CodeParseError, SourceLocation},
     code_parse_error,
-    tree_parser::{Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement},
+    tree_parser::{
+        Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement,
+    },
 };
 
 pub use scope::{Function, Scope};
-pub(crate) use types::{Block, ConditionMode, ExecExpression, ExecStatement, InternalBuiltinFunctionKind, LocatedExecExpression, LocatedExecStatement, Variable};
+pub(crate) use types::{
+    Block, ConditionMode, ExecExpression, ExecStatement, InternalBuiltinFunctionKind,
+    LocatedExecExpression, LocatedExecStatement, Variable,
+};
 pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
 
 /// 関数本体に return: 文が存在するか再帰的にチェックする
@@ -146,33 +151,54 @@ fn convert_to_exec_expression_with_resolver(
             match &inner.expression {
                 Expression::Variable(name) => {
                     let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
-                        vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))]
+                        vec![code_parse_error!(
+                            loc.start,
+                            format!("undefined variable: {}", name)
+                        )]
                     })?;
-                    Ok(make_located_exec(ExecExpression::Operation1(
-                        Operator1::Ref,
-                        make_located_exec(ExecExpression::Variable(id_ref), &inner.location),
-                    ), loc))
+                    Ok(make_located_exec(
+                        ExecExpression::Operation1(
+                            Operator1::Ref,
+                            make_located_exec(ExecExpression::Variable(id_ref), &inner.location),
+                        ),
+                        loc,
+                    ))
                 }
                 Expression::ArrayAccess(name, index_expr) => {
                     let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
-                        vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))]
+                        vec![code_parse_error!(
+                            loc.start,
+                            format!("undefined variable: {}", name)
+                        )]
                     })?;
 
                     // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
                     let array_size = parent_resolver
                         .get_array_size(name)
                         .ok_or_else(|| {
-                            vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))]
+                            vec![code_parse_error!(
+                                loc.start,
+                                format!("undefined variable: {}", name)
+                            )]
                         })?
                         .unwrap_or(1);
 
-                    let exec_index =
-                        convert_to_exec_expression_with_resolver(index_expr, parent_resolver, func_return_types)?;
+                    let exec_index = convert_to_exec_expression_with_resolver(
+                        index_expr,
+                        parent_resolver,
+                        func_return_types,
+                    )?;
 
-                    Ok(make_located_exec(ExecExpression::Operation1(
-                        Operator1::Ref,
-                        make_located_exec(ExecExpression::ArrayAccess(id_ref, exec_index, array_size), &inner.location),
-                    ), loc))
+                    Ok(make_located_exec(
+                        ExecExpression::Operation1(
+                            Operator1::Ref,
+                            make_located_exec(
+                                ExecExpression::ArrayAccess(id_ref, exec_index, array_size),
+                                &inner.location,
+                            ),
+                        ),
+                        loc,
+                    ))
                 }
                 _ => Err(vec![code_parse_error!(
                     loc.start,
@@ -181,10 +207,14 @@ fn convert_to_exec_expression_with_resolver(
             }
         }
         Expression::Operation1(op, x) => {
-            let exec_x = convert_to_exec_expression_with_resolver(&x, parent_resolver, func_return_types)?;
+            let exec_x =
+                convert_to_exec_expression_with_resolver(&x, parent_resolver, func_return_types)?;
             // void 型の式は単項演算のオペランドに使用不可
             require_int_type(&exec_x, func_return_types)?;
-            Ok(make_located_exec(ExecExpression::Operation1(op.to_owned(), exec_x), loc))
+            Ok(make_located_exec(
+                ExecExpression::Operation1(op.to_owned(), exec_x),
+                loc,
+            ))
         }
         Expression::Operation2(op, l, r) => {
             // 複合代入演算子 (+=, -=, *=, /=, %=) を a = a + b の形式に展開
@@ -193,11 +223,7 @@ fn convert_to_exec_expression_with_resolver(
                     Operator2::Assign,
                     l,
                     &Box::new(LocatedExpression {
-                        expression: Expression::Operation2(
-                            Operator2::Plus,
-                            l.clone(),
-                            r.clone(),
-                        ),
+                        expression: Expression::Operation2(Operator2::Plus, l.clone(), r.clone()),
                         location: loc.clone(),
                     }),
                 ),
@@ -205,11 +231,7 @@ fn convert_to_exec_expression_with_resolver(
                     Operator2::Assign,
                     l,
                     &Box::new(LocatedExpression {
-                        expression: Expression::Operation2(
-                            Operator2::Minus,
-                            l.clone(),
-                            r.clone(),
-                        ),
+                        expression: Expression::Operation2(Operator2::Minus, l.clone(), r.clone()),
                         location: loc.clone(),
                     }),
                 ),
@@ -229,11 +251,7 @@ fn convert_to_exec_expression_with_resolver(
                     Operator2::Assign,
                     l,
                     &Box::new(LocatedExpression {
-                        expression: Expression::Operation2(
-                            Operator2::Divide,
-                            l.clone(),
-                            r.clone(),
-                        ),
+                        expression: Expression::Operation2(Operator2::Divide, l.clone(), r.clone()),
                         location: loc.clone(),
                     }),
                 ),
@@ -241,19 +259,23 @@ fn convert_to_exec_expression_with_resolver(
                     Operator2::Assign,
                     l,
                     &Box::new(LocatedExpression {
-                        expression: Expression::Operation2(
-                            Operator2::Modulo,
-                            l.clone(),
-                            r.clone(),
-                        ),
+                        expression: Expression::Operation2(Operator2::Modulo, l.clone(), r.clone()),
                         location: loc.clone(),
                     }),
                 ),
                 _ => (op.to_owned(), l, r),
             };
 
-            let exec_l = convert_to_exec_expression_with_resolver(&actual_l, parent_resolver, func_return_types)?;
-            let exec_r = convert_to_exec_expression_with_resolver(&actual_r, parent_resolver, func_return_types)?;
+            let exec_l = convert_to_exec_expression_with_resolver(
+                &actual_l,
+                parent_resolver,
+                func_return_types,
+            )?;
+            let exec_r = convert_to_exec_expression_with_resolver(
+                &actual_r,
+                parent_resolver,
+                func_return_types,
+            )?;
 
             // 型チェック: void 式が二項演算のオペランドに使用されている場合はエラー
             match actual_op {
@@ -268,14 +290,14 @@ fn convert_to_exec_expression_with_resolver(
                 }
             }
 
-            Ok(make_located_exec(ExecExpression::Operation2(
-                actual_op,
-                exec_l,
-                exec_r,
-            ), loc))
+            Ok(make_located_exec(
+                ExecExpression::Operation2(actual_op, exec_l, exec_r),
+                loc,
+            ))
         }
         Expression::If(cond, stat1, stat2) => {
-            let exec_cond = convert_to_exec_expression_with_resolver(cond, parent_resolver, func_return_types)?;
+            let exec_cond =
+                convert_to_exec_expression_with_resolver(cond, parent_resolver, func_return_types)?;
             // void 型の式は条件式に使用不可
             require_int_type(&exec_cond, func_return_types)?;
             let (s1, es1) = analyze_internal_with_parent(
@@ -300,18 +322,21 @@ fn convert_to_exec_expression_with_resolver(
                 None,
                 func_return_types.to_vec(),
             )?;
-            Ok(make_located_exec(ExecExpression::If(
-                ConditionMode::NonZero,
-                exec_cond,
-                Block {
-                    scope: s1.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
-                    statements: es1,
-                },
-                Block {
-                    scope: s2.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
-                    statements: es2,
-                },
-            ), loc))
+            Ok(make_located_exec(
+                ExecExpression::If(
+                    ConditionMode::NonZero,
+                    exec_cond,
+                    Block {
+                        scope: s1.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
+                        statements: es1,
+                    },
+                    Block {
+                        scope: s2.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
+                        statements: es2,
+                    },
+                ),
+                loc,
+            ))
         }
         Expression::Block(statements) => {
             let (s, es) = analyze_internal_with_parent(
@@ -324,10 +349,13 @@ fn convert_to_exec_expression_with_resolver(
                 None,
                 func_return_types.to_vec(),
             )?;
-            Ok(make_located_exec(ExecExpression::Block(Block {
-                scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
-                statements: es,
-            }), loc))
+            Ok(make_located_exec(
+                ExecExpression::Block(Block {
+                    scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
+                    statements: es,
+                }),
+                loc,
+            ))
         }
         Expression::Function(f, a) => {
             // Phase 5: 組み込み関数とユーザー定義関数を区別
@@ -374,63 +402,94 @@ fn convert_to_exec_expression_with_resolver(
                     types::BuiltinFunctionKind::Free => 1,
                 };
                 if args.len() != expected {
-                    return Err(vec![code_parse_error!(loc.start, format!(
-                        "builtin function '{}' expects {} argument(s), but {} were provided",
-                        f,
-                        expected,
-                        args.len()
-                    ))]);
+                    return Err(vec![code_parse_error!(
+                        loc.start,
+                        format!(
+                            "builtin function '{}' expects {} argument(s), but {} were provided",
+                            f,
+                            expected,
+                            args.len()
+                        )
+                    )]);
                 }
                 // 組み込み関数
-                Ok(make_located_exec(ExecExpression::BuiltinFunction(kind, args), loc))
+                Ok(make_located_exec(
+                    ExecExpression::BuiltinFunction(kind, args),
+                    loc,
+                ))
             } else {
                 // ユーザー定義関数：resolve する
-                let func_ref = parent_resolver
-                    .resolve_function(f)
-                    .ok_or_else(|| vec![code_parse_error!(loc.start, format!("undefined function: {}", f))])?;
+                let func_ref = parent_resolver.resolve_function(f).ok_or_else(|| {
+                    vec![code_parse_error!(
+                        loc.start,
+                        format!("undefined function: {}", f)
+                    )]
+                })?;
 
                 // 引数数チェック
                 let expected_count = parent_resolver
                     .get_function_arg_count(f)
                     .expect("function should be resolvable");
                 if args.len() != expected_count {
-                    return Err(vec![code_parse_error!(loc.start, format!(
-                        "function '{}' expects {} argument(s), but {} were provided",
-                        f,
-                        expected_count,
-                        args.len()
-                    ))]);
+                    return Err(vec![code_parse_error!(
+                        loc.start,
+                        format!(
+                            "function '{}' expects {} argument(s), but {} were provided",
+                            f,
+                            expected_count,
+                            args.len()
+                        )
+                    )]);
                 }
 
-                Ok(make_located_exec(ExecExpression::UserFunction(func_ref, args), loc))
+                Ok(make_located_exec(
+                    ExecExpression::UserFunction(func_ref, args),
+                    loc,
+                ))
             }
         }
         Expression::Factor(v) => Ok(make_located_exec(ExecExpression::Factor(v.to_owned()), loc)),
         Expression::Variable(v) => {
             // 変数名を解決
-            let var_ref = parent_resolver
-                .resolve_variable(v)
-                .ok_or_else(|| vec![code_parse_error!(loc.start, format!("undefined variable: {}", v))])?;
+            let var_ref = parent_resolver.resolve_variable(v).ok_or_else(|| {
+                vec![code_parse_error!(
+                    loc.start,
+                    format!("undefined variable: {}", v)
+                )]
+            })?;
             Ok(make_located_exec(ExecExpression::Variable(var_ref), loc))
         }
         Expression::ArrayAccess(name, index_expr) => {
-            let id_ref = parent_resolver
-                .resolve_variable(name)
-                .ok_or_else(|| vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))])?;
+            let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
+                vec![code_parse_error!(
+                    loc.start,
+                    format!("undefined variable: {}", name)
+                )]
+            })?;
 
             // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
             let array_size = parent_resolver
                 .get_array_size(name)
-                .ok_or_else(|| vec![code_parse_error!(loc.start, format!("undefined variable: {}", name))])?
+                .ok_or_else(|| {
+                    vec![code_parse_error!(
+                        loc.start,
+                        format!("undefined variable: {}", name)
+                    )]
+                })?
                 .unwrap_or(1);
 
-            let exec_index = convert_to_exec_expression_with_resolver(index_expr, parent_resolver, func_return_types)?;
+            let exec_index = convert_to_exec_expression_with_resolver(
+                index_expr,
+                parent_resolver,
+                func_return_types,
+            )?;
             // 配列インデックスに void 型は使用不可
             require_int_type(&exec_index, func_return_types)?;
 
-            Ok(make_located_exec(ExecExpression::ArrayAccess(
-                id_ref, exec_index, array_size,
-            ), loc))
+            Ok(make_located_exec(
+                ExecExpression::ArrayAccess(id_ref, exec_index, array_size),
+                loc,
+            ))
         }
         // パースエラー時のみ Invalid が生成されるため、正常系では到達しない
         Expression::Invalid(_) => {
@@ -650,9 +709,12 @@ fn analyze_internal_with_parent(
         match stat {
             Statement::VariableDeclaration(_, init, is_static_explicit, _) => {
                 // 初期化式を変換（変数宣言自体はパス1で完了）
-                let exec_stmt = ExecStatement::Expression(convert_to_exec_expression_with_resolver(
-                    init, &resolver, &effective_func_return_types,
-                )?);
+                let exec_stmt =
+                    ExecStatement::Expression(convert_to_exec_expression_with_resolver(
+                        init,
+                        &resolver,
+                        &effective_func_return_types,
+                    )?);
                 let located = LocatedExecStatement {
                     statement: exec_stmt,
                     location: loc.clone(),
@@ -704,11 +766,12 @@ fn analyze_internal_with_parent(
                     .collect();
 
                 // 隢数の戻り値型はパス1aで決定済みの値を使用
-                let func_return_type = if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
-                    info.2
-                } else {
-                    panic!("internal error: function return_type should be in pass 1a info");
-                };
+                let func_return_type =
+                    if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
+                        info.2
+                    } else {
+                        panic!("internal error: function return_type should be in pass 1a info");
+                    };
 
                 global_functions[global_idx] = Function {
                     arg_indices,
@@ -729,7 +792,11 @@ fn analyze_internal_with_parent(
                 }
                 match e {
                     Some(expr) => {
-                        let exec_e = convert_to_exec_expression_with_resolver(expr, &resolver, &effective_func_return_types)?;
+                        let exec_e = convert_to_exec_expression_with_resolver(
+                            expr,
+                            &resolver,
+                            &effective_func_return_types,
+                        )?;
                         // return: の式は Int でなければならない
                         require_int_type(&exec_e, &effective_func_return_types)?;
                         exec_statements.push(LocatedExecStatement {
@@ -758,9 +825,11 @@ fn analyze_internal_with_parent(
                 // ルートスコープでも式文を許可（グローバル変数の初期化式）
                 // 式文は void 型でも OK（値は捨てられる）
                 exec_statements.push(LocatedExecStatement {
-                    statement: ExecStatement::Expression(
-                        convert_to_exec_expression_with_resolver(e, &resolver, &effective_func_return_types)?,
-                    ),
+                    statement: ExecStatement::Expression(convert_to_exec_expression_with_resolver(
+                        e,
+                        &resolver,
+                        &effective_func_return_types,
+                    )?),
                     location: loc.clone(),
                 });
             }
@@ -795,7 +864,11 @@ fn analyze_internal_with_parent(
                         "semantic error: while statement outside of function"
                     )]);
                 }
-                let exec_cond = convert_to_exec_expression_with_resolver(expr, &resolver, &effective_func_return_types)?;
+                let exec_cond = convert_to_exec_expression_with_resolver(
+                    expr,
+                    &resolver,
+                    &effective_func_return_types,
+                )?;
                 // void 型の式は条件式に使用不可
                 require_int_type(&exec_cond, &effective_func_return_types)?;
                 let (s, es) = analyze_internal_with_parent(
@@ -871,14 +944,22 @@ fn analyze_internal_with_parent(
                 let cond_scope = cond_sb.build(Vec::new(), Vec::new(), Vec::new());
 
                 // 条件ブロックの型チェック: 最後の式が int 型でなければならない
-                let temp_cond_block = Block { scope: cond_scope, statements: cond_es };
-                if types::infer_block_type(&temp_cond_block, &effective_func_return_types) != ValueType::Int {
+                let temp_cond_block = Block {
+                    scope: cond_scope,
+                    statements: cond_es,
+                };
+                if types::infer_block_type(&temp_cond_block, &effective_func_return_types)
+                    != ValueType::Int
+                {
                     return Err(vec![code_parse_error!(
                         loc.start,
                         "semantic error: for condition block must end with an int-typed expression"
                     )]);
                 }
-                let Block { scope: cond_scope, statements: cond_es } = temp_cond_block;
+                let Block {
+                    scope: cond_scope,
+                    statements: cond_es,
+                } = temp_cond_block;
 
                 // Step 4: step ブロックを解析
                 let (step_sb, step_es) = analyze_internal_with_parent(
@@ -906,11 +987,23 @@ fn analyze_internal_with_parent(
 
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::For(
-                        Block { scope: init_scope, statements: init_es },
+                        Block {
+                            scope: init_scope,
+                            statements: init_es,
+                        },
                         ConditionMode::NonZero,
-                        Block { scope: cond_scope, statements: cond_es },
-                        Block { scope: step_sb.build(Vec::new(), Vec::new(), Vec::new()), statements: step_es },
-                        Block { scope: body_sb.build(Vec::new(), Vec::new(), Vec::new()), statements: body_es },
+                        Block {
+                            scope: cond_scope,
+                            statements: cond_es,
+                        },
+                        Block {
+                            scope: step_sb.build(Vec::new(), Vec::new(), Vec::new()),
+                            statements: step_es,
+                        },
+                        Block {
+                            scope: body_sb.build(Vec::new(), Vec::new(), Vec::new()),
+                            statements: body_es,
+                        },
                     ),
                     location: loc.clone(),
                 });

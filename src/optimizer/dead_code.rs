@@ -17,8 +17,7 @@
 use std::collections::{HashSet, VecDeque};
 
 use crate::semantic_analyzer::{
-    Block, ExecExpression, ExecStatement, Function, LocatedExecStatement,
-    Scope,
+    Block, ExecExpression, ExecStatement, Function, LocatedExecStatement, Scope,
 };
 
 /// dead_code パスを適用する
@@ -67,7 +66,11 @@ fn collect_reachable(scope: &Scope, main_idx: usize) -> HashSet<usize> {
     reachable
 }
 
-fn collect_called_in_block(block: &Block, reachable: &mut HashSet<usize>, worklist: &mut VecDeque<usize>) {
+fn collect_called_in_block(
+    block: &Block,
+    reachable: &mut HashSet<usize>,
+    worklist: &mut VecDeque<usize>,
+) {
     // 関数ブロックの static_init_statements も走査
     for stmt in &block.scope.static_init_statements {
         collect_called_in_statement(stmt, reachable, worklist);
@@ -83,8 +86,12 @@ fn collect_called_in_statement(
     worklist: &mut VecDeque<usize>,
 ) {
     match &stmt.statement {
-        ExecStatement::Expression(expr) => collect_called_in_expr(&expr.expression, reachable, worklist),
-        ExecStatement::Return(Some(expr)) => collect_called_in_expr(&expr.expression, reachable, worklist),
+        ExecStatement::Expression(expr) => {
+            collect_called_in_expr(&expr.expression, reachable, worklist)
+        }
+        ExecStatement::Return(Some(expr)) => {
+            collect_called_in_expr(&expr.expression, reachable, worklist)
+        }
         ExecStatement::While(_, cond, body) => {
             collect_called_in_expr(&cond.expression, reachable, worklist);
             collect_called_in_block(body, reachable, worklist);

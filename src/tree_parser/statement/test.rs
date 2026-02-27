@@ -163,11 +163,7 @@ fn test_parse_return_statement() {
 #[test]
 fn test_parse_void_return_with_colon() {
     // return:;
-    let tokens = vec![
-        token_keyword_return(),
-        token_colon(),
-        token_semicolon(),
-    ];
+    let tokens = vec![token_keyword_return(), token_colon(), token_semicolon()];
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
@@ -180,10 +176,7 @@ fn test_parse_void_return_with_colon() {
 #[test]
 fn test_parse_void_return_without_colon() {
     // return;
-    let tokens = vec![
-        token_keyword_return(),
-        token_semicolon(),
-    ];
+    let tokens = vec![token_keyword_return(), token_semicolon()];
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
@@ -574,7 +567,11 @@ fn test_parse_array_declaration_size_omitted_string() {
         Statement::VariableDeclaration(name, _, is_static, array_size) => {
             assert_eq!(name, "str");
             assert_eq!(*is_static, false);
-            assert_eq!(*array_size, Some(4), "Expected inferred size 4 (3 chars + null)");
+            assert_eq!(
+                *array_size,
+                Some(4),
+                "Expected inferred size 4 (3 chars + null)"
+            );
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
@@ -614,7 +611,10 @@ fn test_parse_array_declaration_empty_init_error() {
         token_semicolon(),
     ];
     let (_stmts, errs) = parse_stmts(tokens);
-    assert!(!errs.is_empty(), "Expected error for empty initializer list");
+    assert!(
+        !errs.is_empty(),
+        "Expected error for empty initializer list"
+    );
 }
 
 #[test]
@@ -641,7 +641,10 @@ fn test_parse_func_trailing_comma_error() {
         token_brace_r(),
     ];
     let (_stmts, errs) = parse_stmts(tokens);
-    assert!(!errs.is_empty(), "Expected error for trailing comma in func args");
+    assert!(
+        !errs.is_empty(),
+        "Expected error for trailing comma in func args"
+    );
 }
 
 // Quality-5: 先頭カンマ `func: f(,x)` はエラーとなること
@@ -660,7 +663,10 @@ fn test_parse_func_leading_comma_error() {
         token_brace_r(),
     ];
     let (_stmts, errs) = parse_stmts(tokens);
-    assert!(!errs.is_empty(), "Expected error for leading comma in func args");
+    assert!(
+        !errs.is_empty(),
+        "Expected error for leading comma in func args"
+    );
 }
 
 // Quality-1: 配列サイズ 0 のエラー位置確認（エラーが記録されること）
@@ -691,7 +697,10 @@ fn test_parse_array_zero_size_has_error() {
 fn test_parse_static_variable() {
     // static: x;
     let tokens = vec![
-        (Token::Keyword(Keyword::Static), TokenInfo { code_pointer: 0 }),
+        (
+            Token::Keyword(Keyword::Static),
+            TokenInfo { code_pointer: 0 },
+        ),
         token_colon(),
         token_ident("x"),
         token_semicolon(),
@@ -702,7 +711,10 @@ fn test_parse_static_variable() {
     match &stmts[0].statement {
         Statement::VariableDeclaration(name, _, is_static, _) => {
             assert_eq!(name, "x");
-            assert_eq!(*is_static, true, "Expected is_static = true for static declaration");
+            assert_eq!(
+                *is_static, true,
+                "Expected is_static = true for static declaration"
+            );
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }

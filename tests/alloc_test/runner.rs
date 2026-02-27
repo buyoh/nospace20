@@ -23,7 +23,9 @@ pub fn run_alloc_test(test_path: &str) {
     let mut vm = WhitespaceVM::from_instructions(instructions)
         .unwrap_or_else(|e| panic!("Failed to create VM: {:?}", e))
         .with_io(
-            Box::new(std::io::BufReader::new(std::io::Cursor::new(Vec::<u8>::new()))),
+            Box::new(std::io::BufReader::new(std::io::Cursor::new(
+                Vec::<u8>::new(),
+            ))),
             Box::new(Vec::<u8>::new()),
         );
 
@@ -35,12 +37,10 @@ pub fn run_alloc_test(test_path: &str) {
             assert!(
                 matches!(result, StepResult::Complete),
                 "VM should exit normally, got: {:?}\nstdout so far: {}",
-                result, output
+                result,
+                output
             );
-            assert_eq!(
-                output, *stdout,
-                "stdout mismatch"
-            );
+            assert_eq!(output, *stdout, "stdout mismatch");
         }
         AllocCheck::AllocRuntimeError { error: _ } => {
             // ランタイムエラーの場合: VM が Error を返すか、
@@ -50,7 +50,8 @@ pub fn run_alloc_test(test_path: &str) {
             assert!(
                 is_error || has_fail_marker,
                 "Expected runtime error, got: {:?}\nstdout: {}",
-                result, output
+                result,
+                output
             );
         }
     }

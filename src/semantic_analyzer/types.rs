@@ -134,7 +134,11 @@ pub(crate) struct LocatedExecExpression {
 ///   関数も IdentifierRef を使用し、スコープ解決を行う（Phase 5 で実装）。
 pub(crate) enum ExecExpression {
     Operation1(Operator1, Box<LocatedExecExpression>),
-    Operation2(Operator2, Box<LocatedExecExpression>, Box<LocatedExecExpression>),
+    Operation2(
+        Operator2,
+        Box<LocatedExecExpression>,
+        Box<LocatedExecExpression>,
+    ),
     /// if 式: (条件モード, 条件式, then ブロック, else ブロック)
     /// 意味解析では ConditionMode::NonZero で生成。最適化パスが Zero/Negative に変換可能。
     If(ConditionMode, Box<LocatedExecExpression>, Block, Block),
@@ -244,7 +248,9 @@ impl ExecExpression {
 pub(crate) fn infer_block_type(block: &Block, func_return_types: &[ValueType]) -> ValueType {
     match block.statements.last() {
         Some(located_stmt) => match &located_stmt.statement {
-            ExecStatement::Expression(located_expr) => located_expr.expression.infer_type(func_return_types),
+            ExecStatement::Expression(located_expr) => {
+                located_expr.expression.infer_type(func_return_types)
+            }
             _ => ValueType::Void, // 空ブロック、または最後が return/break/continue
         },
         None => ValueType::Void,

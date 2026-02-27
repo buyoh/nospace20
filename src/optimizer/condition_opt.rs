@@ -69,7 +69,13 @@ fn optimize_statement(stmt: &mut LocatedExecStatement) {
                 cond.expression = new_cond_expr;
             }
         }
-        ExecStatement::For(ref mut init, ref mut mode, ref mut cond, ref mut step, ref mut body) => {
+        ExecStatement::For(
+            ref mut init,
+            ref mut mode,
+            ref mut cond,
+            ref mut step,
+            ref mut body,
+        ) => {
             // 全ブロックを再帰最適化
             optimize_block(init);
             optimize_block(cond);
@@ -85,8 +91,7 @@ fn optimize_statement(stmt: &mut LocatedExecStatement) {
                             &mut located_expr.expression,
                             ExecExpression::Factor(0),
                         );
-                        let (new_mode, new_cond_expr) =
-                            optimize_while_nonzero(cond_expr, cond_loc);
+                        let (new_mode, new_cond_expr) = optimize_while_nonzero(cond_expr, cond_loc);
                         *mode = new_mode;
                         located_expr.expression = new_cond_expr;
                     }
@@ -297,9 +302,10 @@ fn optimize_while_nonzero(
         }
 
         // パターンに一致しない場合はそのまま返す
-        other => {
-            (ConditionMode::NonZero, wrap_expr(other, cond_loc).expression)
-        }
+        other => (
+            ConditionMode::NonZero,
+            wrap_expr(other, cond_loc).expression,
+        ),
     }
 }
 
@@ -309,10 +315,7 @@ fn is_zero_factor(expr: &Box<LocatedExecExpression>) -> bool {
 }
 
 /// `lhs - rhs` の Operation2(Minus, ...) を生成する
-fn make_sub(
-    lhs: Box<LocatedExecExpression>,
-    rhs: Box<LocatedExecExpression>,
-) -> ExecExpression {
+fn make_sub(lhs: Box<LocatedExecExpression>, rhs: Box<LocatedExecExpression>) -> ExecExpression {
     ExecExpression::Operation2(Operator2::Minus, lhs, rhs)
 }
 

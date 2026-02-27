@@ -333,7 +333,6 @@ impl<'a> ScopeResolver<'a> {
         }
         None
     }
-
 }
 
 /// スコープビルダー

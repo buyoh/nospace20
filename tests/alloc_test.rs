@@ -6,12 +6,12 @@
 //! nospace パイプライン（token_parser, tree_parser, semantic_analyzer, interpreter）に
 //! 一切依存せず、alloc_runtime + WhitespaceVM のみで完結する。
 
-#[path = "alloc_test/test_spec.rs"]
-mod test_spec;
 #[path = "alloc_test/mini_compiler.rs"]
 mod mini_compiler;
 #[path = "alloc_test/runner.rs"]
 mod runner;
+#[path = "alloc_test/test_spec.rs"]
+mod test_spec;
 
 use runner::run_alloc_test;
 

@@ -51,10 +51,7 @@ fn test_compile_error_returns_code_parse_error() {
     let scope = syntactic_analyze(&ast).unwrap();
 
     let result = compile_to_whitespace(&scope);
-    assert!(
-        result.is_err(),
-        "Should fail when main function is missing"
-    );
+    assert!(result.is_err(), "Should fail when main function is missing");
 
     let errors = result.unwrap_err();
     assert!(!errors.is_empty(), "Should have at least one error");

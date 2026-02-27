@@ -220,8 +220,8 @@ fn main() {
             .collect()
     } else {
         // デフォルト: profile-targets.yaml からロード
-        let yaml_content = fs::read_to_string(PROFILE_TARGETS_PATH)
-            .expect("Failed to read profile-targets.yaml");
+        let yaml_content =
+            fs::read_to_string(PROFILE_TARGETS_PATH).expect("Failed to read profile-targets.yaml");
         let manifest: ProfileTargets =
             serde_yaml::from_str(&yaml_content).expect("Failed to parse profile-targets.yaml");
         manifest.targets
@@ -425,14 +425,19 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
     if opts.opt_options.any_enabled() {
         nospace20::optimize(&mut scope, &opts.opt_options);
     }
-    nospace20::compile_to_whitespace_with_opt(&scope, opts.debug_ext, opts.alloc_ext, &opts.opt_options)
-        .map_err(|errors| {
-            errors
-                .iter()
-                .map(|e| format!("{:?}", e))
-                .collect::<Vec<_>>()
-                .join("; ")
-        })
+    nospace20::compile_to_whitespace_with_opt(
+        &scope,
+        opts.debug_ext,
+        opts.alloc_ext,
+        &opts.opt_options,
+    )
+    .map_err(|errors| {
+        errors
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<_>>()
+            .join("; ")
+    })
 }
 
 /// Whitespace テキストの静的命令数を計算する（パースして命令列長を得る）

@@ -60,7 +60,10 @@ fn apply_patterns(instructions: Vec<Instruction>) -> (Vec<Instruction>, bool) {
 
         // パターン 3: Push(0) + Add → 削除
         if let Instruction::Push(n) = inst {
-            if n.0 == 0 && i + 1 < instructions.len() && matches!(instructions[i + 1], Instruction::Add) {
+            if n.0 == 0
+                && i + 1 < instructions.len()
+                && matches!(instructions[i + 1], Instruction::Add)
+            {
                 i += 2;
                 changed = true;
                 continue;
@@ -269,10 +272,7 @@ mod tests {
     /// パターン 3: Push(0) 以外は削除しない
     #[test]
     fn test_pattern3_push_nonzero_add_kept() {
-        let prog = make_prog(vec![
-            Instruction::Push(WsNumber(1)),
-            Instruction::Add,
-        ]);
+        let prog = make_prog(vec![Instruction::Push(WsNumber(1)), Instruction::Add]);
         let result = optimize(prog);
         let insts = result.into_instructions();
         assert_eq!(insts.len(), 2);
@@ -301,7 +301,7 @@ mod tests {
         let prog = make_prog(vec![
             Instruction::Jump(l1),
             Instruction::Push(WsNumber(99)), // 到達不能
-            Instruction::Add,               // 到達不能
+            Instruction::Add,                // 到達不能
             Instruction::Label(l1),
             Instruction::Exit,
         ]);

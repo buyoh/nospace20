@@ -15,6 +15,6 @@ pub use parser::{parse, ParseError};
 
 // インタプリタ
 pub use interpreter::{
-    HeapProfileStats, InstructionCounts, InputWaitType, ProfileStats, RuntimeError, StackProfileStats,
-    StepResult, WhitespaceVM,
+    HeapProfileStats, InputWaitType, InstructionCounts, ProfileStats, RuntimeError,
+    StackProfileStats, StepResult, WhitespaceVM,
 };

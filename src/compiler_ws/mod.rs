@@ -15,6 +15,7 @@
 //! - `expression` - 式のコード生成
 //! - `statement` - 文のコード生成
 
+pub mod alloc_runtime;
 mod builtin;
 mod context;
 mod encoder;
@@ -22,11 +23,10 @@ mod expression;
 pub mod instruction;
 pub mod label;
 pub mod memory;
-pub mod program;
 mod peephole;
+pub mod program;
 mod statement;
 pub mod types;
-pub mod alloc_runtime;
 
 pub use program::WsProgram;
 

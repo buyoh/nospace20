@@ -80,7 +80,9 @@ impl TargetFlags {
             // whitespace-self 自体が除外されていれば opt_all も除外
             has_whitespace_self_opt_all: !has_alloc_ext
                 && !exclude_targets.iter().any(|t| t == "whitespace-self")
-                && !exclude_targets.iter().any(|t| t == "whitespace-self-opt-all"),
+                && !exclude_targets
+                    .iter()
+                    .any(|t| t == "whitespace-self-opt-all"),
             has_debug_ext,
             has_alloc_ext,
         }

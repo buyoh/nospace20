@@ -5,7 +5,9 @@
 //! 実行結果には影響しない。
 
 use crate::base::SourceLocation;
-use crate::semantic_analyzer::{ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Scope, Variable};
+use crate::semantic_analyzer::{
+    ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Scope, Variable,
+};
 use crate::tree_parser::Operator2;
 
 /// マジックナンバー定数
@@ -31,8 +33,12 @@ pub fn apply(scope: &mut Scope) {
     let var_index = scope.variables.len();
     scope.variables.push(var);
     scope.variable_count += 1;
-    scope.variable_indices.insert(MARKER_VAR_NAME.to_string(), slot_index);
-    scope.variable_name_to_var_index.insert(MARKER_VAR_NAME.to_string(), var_index);
+    scope
+        .variable_indices
+        .insert(MARKER_VAR_NAME.to_string(), slot_index);
+    scope
+        .variable_name_to_var_index
+        .insert(MARKER_VAR_NAME.to_string(), var_index);
 
     // 初期化文を生成: __opt_marker = 0xDEAD
     // IdentifierRef: scope_depth=0, local_index=slot_index, is_global=true
