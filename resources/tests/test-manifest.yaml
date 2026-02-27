@@ -1159,7 +1159,17 @@ tests:
   - name: test_control_flow_repeat_form1_001
     type: success
     path: control_flow/repeat_form1_001
-    comment: "repeat Form 1: カウンタ付き N 回ループ"
+    comment: "repeat Form 1: i(0) N 回ループ（上限値）"
+
+  - name: test_control_flow_repeat_form1_upper_bound_001
+    type: success
+    path: control_flow/repeat_form1_upper_bound_001
+    comment: "repeat Form 1: i(1), 5 は 4回ループ（上限値セマンティクス）"
+
+  - name: test_control_flow_repeat_form1_upper_bound_002
+    type: success
+    path: control_flow/repeat_form1_upper_bound_002
+    comment: "repeat Form 1: body 内で i 変更がループ回数に影響する"
 
   - name: test_control_flow_repeat_form2_001
     type: success

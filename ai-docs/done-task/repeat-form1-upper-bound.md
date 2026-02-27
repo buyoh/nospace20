@@ -40,7 +40,17 @@ repeat: i(init), N, body;
 
 N は条件ブロックで毎回評価される（`{ i < N; }`）。N が変数の場合、外部から変更されればループ回数が変化する。これは C 言語の `for(i=init; i<N; i++)` と同等の動作。
 
-## 実装変更
+## 進捗
+
+### 完了 (2026-02-27)
+
+- `desugar_repeat_form1` を `i < N` 方式に変更（`__rpt_n` 変数を廃止）
+- `StatementBuilder` から `repeat_counter` フィールドを削除
+- `parse_to_statements_repeat` から `rpt_n_name` / `repeat_counter` 使用を削除
+- テスト追加:
+  - `repeat_form1_upper_bound_001`: `i(1), 5` → 4回（上限値セマンティクス確認）
+  - `repeat_form1_upper_bound_002`: body 内で `i` 変更 → ループ回数に影響することを確認
+- 全テスト (1381) パス
 
 ### tree_parser（`src/tree_parser/statement/mod.rs`）
 

@@ -1,0 +1,4 @@
+# repeat Form 1: body 内で i を変更するとループ回数に影響する #
+func: main() {
+  repeat: i(0), 5, { i += 2; __trace(0); };
+}

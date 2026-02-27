@@ -37,8 +37,6 @@ pub struct LocatedStatement {
 struct StatementBuilder<'b: 'a, 'a> {
     iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
     code_parse_error: Vec<CodeParseError>,
-    /// repeat 脱糖時の隠し変数連番カウンタ（__rpt_n0, __rpt_n1, ...）
-    repeat_counter: usize,
 }
 
 impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
@@ -48,7 +46,6 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let mut b = Self {
             iter,
             code_parse_error: vec![],
-            repeat_counter: 0,
         };
         let e = b.parse_to_statements();
         (e, b.code_parse_error)
@@ -770,8 +767,6 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                         let (body_expr, mut body_errors) = parse_to_expression_tree_root(self.iter);
                         self.code_parse_error.append(&mut body_errors);
                         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
-                        let rpt_n_name = format!("__rpt_n{}", self.repeat_counter);
-                        self.repeat_counter += 1;
                         let end_pos = self.current_pos_or(start_pos);
                         LocatedStatement {
                             statement: desugar_repeat_form1(
@@ -779,7 +774,6 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                                 init_val,
                                 second_expr,
                                 body_expr,
-                                rpt_n_name,
                                 start_pos,
                             ),
                             location: SourceLocation::new(start_pos, end_pos),
@@ -999,13 +993,13 @@ fn desugar_repeat_form2(
 }
 
 /// repeat Form 1 の脱糖: `repeat: i(init), N, body;`
-/// → `for: { let: i(init); let: __rpt_nX(N); } { __rpt_nX > 0; } { i += 1; __rpt_nX -= 1; } { body; };`
+/// → `for: { let: i(init); } { i < N; } { i += 1; } { body; };`
+/// i の初期値から N 未満の間ループする（C言語の for(i=init; i<N; i++) と同等）
 fn desugar_repeat_form1(
     counter_name: String,
     init_val: Box<LocatedExpression>,
     n_expr: Box<LocatedExpression>,
     body_expr: Box<LocatedExpression>,
-    rpt_n_name: String,
     pos: usize,
 ) -> Statement {
     let loc = SourceLocation::from_single(pos);
@@ -1018,37 +1012,23 @@ fn desugar_repeat_form1(
         ),
         pos,
     );
-    let rpt_n_assign = make_located_expr_at(
-        Expression::Operation2(
-            Operator2::Assign,
-            make_located_expr_at(Expression::Variable(rpt_n_name.clone()), pos),
-            n_expr,
-        ),
-        pos,
-    );
-    let init = vec![
-        LocatedStatement {
-            statement: Statement::VariableDeclaration(counter_name.clone(), counter_assign, false, None),
-            location: loc.clone(),
-        },
-        LocatedStatement {
-            statement: Statement::VariableDeclaration(rpt_n_name.clone(), rpt_n_assign, false, None),
-            location: loc.clone(),
-        },
-    ];
-    // 条件: __rpt_nX > 0
+    let init = vec![LocatedStatement {
+        statement: Statement::VariableDeclaration(counter_name.clone(), counter_assign, false, None),
+        location: loc.clone(),
+    }];
+    // 条件: i < N（n_expr は毎回評価される）
     let cond = vec![LocatedStatement {
         statement: Statement::Expression(make_located_expr_at(
             Expression::Operation2(
-                Operator2::Greater,
-                make_located_expr_at(Expression::Variable(rpt_n_name.clone()), pos),
-                make_located_expr_at(Expression::Factor(0), pos),
+                Operator2::Less,
+                make_located_expr_at(Expression::Variable(counter_name.clone()), pos),
+                n_expr,
             ),
             pos,
         )),
         location: loc.clone(),
     }];
-    // ステップ: i += 1; __rpt_nX -= 1;
+    // ステップ: i += 1
     let step_i_plus = make_located_expr_at(
         Expression::Operation2(
             Operator2::PlusAssign,
@@ -1057,24 +1037,10 @@ fn desugar_repeat_form1(
         ),
         pos,
     );
-    let step_rpt_minus = make_located_expr_at(
-        Expression::Operation2(
-            Operator2::MinusAssign,
-            make_located_expr_at(Expression::Variable(rpt_n_name), pos),
-            make_located_expr_at(Expression::Factor(1), pos),
-        ),
-        pos,
-    );
-    let step = vec![
-        LocatedStatement {
-            statement: Statement::Expression(step_i_plus),
-            location: loc.clone(),
-        },
-        LocatedStatement {
-            statement: Statement::Expression(step_rpt_minus),
-            location: loc.clone(),
-        },
-    ];
+    let step = vec![LocatedStatement {
+        statement: Statement::Expression(step_i_plus),
+        location: loc.clone(),
+    }];
     let body = vec![LocatedStatement {
         statement: Statement::Expression(body_expr),
         location: loc,
