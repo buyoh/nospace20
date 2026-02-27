@@ -333,7 +333,7 @@ func: main() {
 - `break;` : 最も内側のループを抜ける。
 - `continue;` : 最も内側のループの次の反復へ進む。
 
-### for 文, repeat 文
+### repeat 文
 
 `repeat` 文には3つの形式がある。`varname(init_number)` はカウンタ変数とその初期値で、`N` は**上限値**（`varname < N` の間ループ）。カウンタ変数は body 内で書き換え可能で、その場合ループ回数も変化する。
 
@@ -363,6 +363,31 @@ repeat: i(0), {
 # Form 3: 無限ループ
 repeat: {
   __putc('.');
+};
+```
+
+### for 文
+
+より柔軟なループ構文。4つのブロック（init, cond, step, body）で構成される。
+
+```
+for: { init_block } { cond_block } { step_block } { body_block };
+```
+
+- cond_block、step_block、body_block はinit_block スコープの子スコープであり、init_block で定義された変数にアクセス可能。
+- cond_block が 0 以外の間、step_block と body_block を繰り返し実行する。
+- step_block は body_block の後や continue が呼ばれたときに実行される。
+- 省略は出来ないが、空のブロックを指定することは可能。
+
+```
+for: {
+  let: i(10);
+} {
+  i > 0;
+} {
+  i -= 1;
+} {
+  __clog(i);
 };
 ```
 

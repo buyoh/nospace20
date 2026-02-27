@@ -31,7 +31,7 @@
       "patterns": [
         {
           "name": "keyword.control.nospace",
-          "match": "\\b(if|else|while|return|break|continue)\\b"
+          "match": "\\b(if|else|while|repeat|for|return|break|continue)\\b"
         },
         {
           "name": "keyword.declaration.nospace",
