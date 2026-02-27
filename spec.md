@@ -301,10 +301,9 @@ func: main() {
 
 - `while: 条件式 { 文... };` の形式。
 - 条件式が 0 以外の間、ブロックを繰り返し実行する。
-- while は式であるため、末尾に `;` が必要。
-- while 式の型は void である。値として使用することはできない。
+- while は文である。式として使用することはできない（代入や演算の中では使えない）。
 
-### if 文
+### if 式
 
 ```
 func: main() {
@@ -326,7 +325,7 @@ func: main() {
 - else 付きの場合、then ブロックと else ブロックの最後の式の型が両方 int なら全体は int、いずれかが void なら全体は void となる。
 - else if は `else: if: 条件式 { ... }` の形式で記述可能。
 
-### break / continue
+### break 文 / continue 文
 
 ```
 func: main() {
@@ -480,7 +479,6 @@ nospace は内部的に **int** と **void** の2つの型を持つ。型注釈�
 
 | 式 | 条件 |
 |---|---|
-| while | 常に void |
 | if（else なし） | 常に void |
 | if（else 付き） | いずれかのブロックが void の場合 |
 | ブロック式 `{}` | 空の場合、または最後の式が void の場合 |

@@ -28,6 +28,11 @@ fn patch_condition_mode_in_statement(stmt: &mut LocatedExecStatement, mode: Cond
     match &mut stmt.statement {
         ExecStatement::Expression(expr) => patch_condition_mode_in_expression(expr, mode),
         ExecStatement::Return(Some(expr)) => patch_condition_mode_in_expression(expr, mode),
+        ExecStatement::While(ref mut m, cond, block) => {
+            *m = mode;
+            patch_condition_mode_in_expression(cond, mode);
+            patch_condition_mode_in_block(block, mode);
+        }
         _ => {}
     }
 }
@@ -39,11 +44,6 @@ fn patch_condition_mode_in_expression(expr: &mut LocatedExecExpression, mode: Co
             patch_condition_mode_in_expression(cond, mode);
             patch_condition_mode_in_block(then_block, mode);
             patch_condition_mode_in_block(else_block, mode);
-        }
-        ExecExpression::While(ref mut m, cond, block) => {
-            *m = mode;
-            patch_condition_mode_in_expression(cond, mode);
-            patch_condition_mode_in_block(block, mode);
         }
         ExecExpression::Block(block) => patch_condition_mode_in_block(block, mode),
         ExecExpression::Operation1(_, inner) => patch_condition_mode_in_expression(inner, mode),

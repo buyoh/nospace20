@@ -4,7 +4,7 @@ use crate::compiler_ws::{
     context::CodeGenContext, expression, instruction::Instruction, program::WsProgram,
     types::WsNumber, CompileError, CompileErrorKind,
 };
-use crate::semantic_analyzer::{Block, ExecStatement, LocatedExecStatement, Scope};
+use crate::semantic_analyzer::{Block, ConditionMode, ExecStatement, LocatedExecStatement, Scope};
 
 /// スコープ全体のコードを生成
 pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgram, CompileError> {
@@ -160,7 +160,75 @@ pub fn generate_statement(
             prog.push(Instruction::Jump(loop_start));
             Ok(prog)
         }
+
+        // while 文
+        ExecStatement::While(mode, cond, body) => {
+            generate_while_statement(ctx, mode, cond, body)
+        }
     }
+}
+
+/// while 文のコード生成
+///
+/// 式版との差異: ループ終了後に Push(0) しない（値を返す必要がない）
+fn generate_while_statement(
+    ctx: &mut CodeGenContext,
+    mode: &ConditionMode,
+    cond: &crate::semantic_analyzer::LocatedExecExpression,
+    body: &Block,
+) -> Result<WsProgram, CompileError> {
+    let mut prog = WsProgram::new();
+
+    let loop_start = ctx.new_label();
+    let loop_end = ctx.new_label();
+
+    // ループラベルをスタックにプッシュ (break/continue のため)
+    ctx.push_loop_labels(loop_start, loop_end);
+
+    // ループ開始ラベル
+    prog.push(Instruction::Label(loop_start));
+
+    // 条件評価
+    prog.append(expression::generate_expression(ctx, cond)?);
+
+    // ConditionMode に応じたループ終了ジャンプ命令
+    match mode {
+        ConditionMode::NonZero => {
+            // cond == 0 (偽) ならループ終了
+            prog.push(Instruction::JumpIfZero(loop_end));
+        }
+        ConditionMode::Zero => {
+            // cond == 0 → ループ継続 なので、cond != 0 ならループ終了
+            let continue_label = ctx.new_label();
+            prog.push(Instruction::JumpIfZero(continue_label));
+            prog.push(Instruction::Jump(loop_end));
+            prog.push(Instruction::Label(continue_label));
+        }
+        ConditionMode::Negative => {
+            // cond < 0 → ループ継続 なので、cond >= 0 ならループ終了
+            let continue_label = ctx.new_label();
+            prog.push(Instruction::JumpIfNegative(continue_label));
+            prog.push(Instruction::Jump(loop_end));
+            prog.push(Instruction::Label(continue_label));
+        }
+    }
+
+    // ループ本体
+    prog.append(generate_block(ctx, body)?);
+
+    // ブロック値をクリアアップ（generate_block は常に値をプッシュする）
+    prog.push(Instruction::Discard);
+
+    // ループ開始へジャンプ
+    prog.push(Instruction::Jump(loop_start));
+
+    // ループ終了ラベル
+    prog.push(Instruction::Label(loop_end));
+
+    ctx.pop_loop_labels();
+
+    // 注: 式版では Push(0) していたが、文版では不要
+    Ok(prog)
 }
 
 /// return 文のコード生成
@@ -281,6 +349,9 @@ fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {
         ExecStatement::Expression(located_expr) | ExecStatement::Return(Some(located_expr)) => {
             count_nested_vars_in_expression(located_expr)
         }
+        ExecStatement::While(_mode, cond, body) => {
+            count_nested_vars_in_expression(cond) + calculate_total_variable_count(body)
+        }
         ExecStatement::Return(None) | ExecStatement::Break | ExecStatement::Continue => 0,
     }
 }
@@ -292,9 +363,6 @@ fn count_nested_vars_in_expression(located_expr: &crate::semantic_analyzer::Loca
             count_nested_vars_in_expression(cond)
                 + calculate_total_variable_count(then_block)
                 + calculate_total_variable_count(else_block)
-        }
-        ExecExpression::While(_mode, cond, body) => {
-            count_nested_vars_in_expression(cond) + calculate_total_variable_count(body)
         }
         ExecExpression::Block(block) => calculate_total_variable_count(block),
         ExecExpression::Operation1(_, inner) => count_nested_vars_in_expression(inner),

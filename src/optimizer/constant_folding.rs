@@ -60,6 +60,24 @@ fn fold_statement(stmt: &mut LocatedExecStatement) {
     match &mut stmt.statement {
         ExecStatement::Expression(expr) => fold_located_expr(expr),
         ExecStatement::Return(Some(expr)) => fold_located_expr(expr),
+        ExecStatement::While(ref mut mode, ref mut cond, ref mut body) => {
+            fold_located_expr(cond);
+            fold_block(body);
+            // 定数条件の while は文レベルで処理
+            if let ExecExpression::Factor(v) = cond.expression {
+                let runs = match *mode {
+                    ConditionMode::NonZero => v != 0,
+                    ConditionMode::Zero => v == 0,
+                    ConditionMode::Negative => v < 0,
+                };
+                if !runs {
+                    // ループが実行されない → 空の式文に置換
+                    // 文の while は void を返すため、空の式文に置換することはできないが、
+                    // body をクリアすることでコード生成を最小化する
+                    body.statements.clear();
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -97,13 +115,6 @@ fn fold_expression(expr: ExecExpression, loc: SourceLocation) -> ExecExpression 
             fold_block(&mut then_block);
             fold_block(&mut else_block);
             try_fold_if(mode, cond, then_block, else_block)
-        }
-
-        // --- While 式 ---
-        ExecExpression::While(mode, mut cond, mut body) => {
-            fold_located_expr(&mut cond);
-            fold_block(&mut body);
-            try_fold_while(mode, cond, body)
         }
 
         // --- Block ---
@@ -235,41 +246,4 @@ fn try_fold_if(
     ExecExpression::If(mode, cond, then_block, else_block)
 }
 
-/// While の定数条件畳み込みを試みる
-///
-/// 初回から条件が偽の場合、空ブロックに置換する。
-/// 常に真（無限ループ）の場合は変換しない。
-fn try_fold_while(
-    mode: ConditionMode,
-    cond: Box<LocatedExecExpression>,
-    body: Block,
-) -> ExecExpression {
-    if let ExecExpression::Factor(v) = cond.expression {
-        let runs = match mode {
-            ConditionMode::NonZero => v != 0,
-            ConditionMode::Zero => v == 0,
-            ConditionMode::Negative => v < 0,
-        };
-        if !runs {
-            // ループが実行されない → 空ブロックに置換（While の戻り値は Void）
-            let empty_block = make_empty_block_from(body);
-            return ExecExpression::Block(empty_block);
-        }
-        // 無限ループは変換しない（条件を Factor に戻す）
-        let cond = Box::new(LocatedExecExpression {
-            expression: ExecExpression::Factor(v),
-            location: cond.location,
-        });
-        return ExecExpression::While(mode, cond, body);
-    }
-    ExecExpression::While(mode, cond, body)
-}
 
-/// body ブロックの Scope 情報を引き継いだ空のブロックを生成する
-///
-/// 空ブロックの statements を消去するが、Scope（変数定義情報等）は保持することで
-/// 不整合を避ける。
-fn make_empty_block_from(mut block: Block) -> Block {
-    block.statements.clear();
-    block
-}

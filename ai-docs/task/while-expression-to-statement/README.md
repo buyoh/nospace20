@@ -56,6 +56,17 @@ f(while: cond { body });      # 不可: 式ではない #
 - [step6-spec-docs.md](step6-spec-docs.md) - 仕様書・ドキュメントの更新
 - [step7-tests.md](step7-tests.md) - テストの更新
 
+## 進捗
+
+- [x] Step 1: tree_parser 変更完了
+- [x] Step 2: semantic_analyzer 変更完了
+- [x] Step 3: interpreter 変更完了
+- [x] Step 4: compiler_ws 変更完了
+- [x] Step 5: optimizer 変更完了 (condition_opt, dead_code, geti_opt, constant_folding, tests)
+- [x] Step 6: spec/docs 更新完了 (spec.md, ai-docs/architecture/modules.md)
+- [x] Step 7: テスト更新完了 (while_as_expression_001 追加, void_while_assign_001 を syntax_error に変更)
+- [x] 全テスト通過確認 (936 passed; 0 failed)
+
 ### 依存関係
 
 ```

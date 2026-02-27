@@ -55,6 +55,20 @@ fn optimize_statement(stmt: &mut LocatedExecStatement) {
     match &mut stmt.statement {
         ExecStatement::Expression(expr) => optimize_located_expr(expr),
         ExecStatement::Return(Some(expr)) => optimize_located_expr(expr),
+        ExecStatement::While(ref mut mode, ref mut cond, ref mut body) => {
+            // 子ノードを先に再帰最適化
+            optimize_located_expr(cond);
+            optimize_block(body);
+
+            // NonZero の場合のみパターン変換を試みる
+            if *mode == ConditionMode::NonZero {
+                let cond_loc = cond.location.clone();
+                let cond_expr = std::mem::replace(&mut cond.expression, ExecExpression::Factor(0));
+                let (new_mode, new_cond_expr) = optimize_while_nonzero(cond_expr, cond_loc);
+                *mode = new_mode;
+                cond.expression = new_cond_expr;
+            }
+        }
         _ => {}
     }
 }
@@ -95,25 +109,7 @@ fn optimize_expression(expr: ExecExpression, loc: SourceLocation) -> ExecExpress
             ExecExpression::If(mode, cond, then_block, else_block)
         }
 
-        // While(NonZero, ...) のみパターン変換を試みる
-        ExecExpression::While(ConditionMode::NonZero, mut cond, mut body) => {
-            optimize_located_expr(&mut cond);
-            optimize_block(&mut body);
-
-            let LocatedExecExpression {
-                expression: cond_expr,
-                location: cond_loc,
-            } = *cond;
-            optimize_while_nonzero(cond_expr, cond_loc, body, loc)
-        }
-
-        // 既に NonZero 以外の ConditionMode は子ノードのみ再帰最適化
-        ExecExpression::While(mode, mut cond, mut body) => {
-            optimize_located_expr(&mut cond);
-            optimize_block(&mut body);
-            ExecExpression::While(mode, cond, body)
-        }
-
+        // While(NonZero, ...) は文レベルで処理されるため、式レベルでは処理不要
         // ブロック式
         ExecExpression::Block(mut block) => {
             optimize_block(&mut block);
@@ -232,23 +228,23 @@ fn optimize_if_nonzero(
 }
 
 /// `While(NonZero, cond_expr, body)` のパターンマッチによる最適化
+///
+/// 戻り値: (最適化された ConditionMode, 最適化された条件式)
 fn optimize_while_nonzero(
     cond_expr: ExecExpression,
     cond_loc: SourceLocation,
-    body: Block,
-    loc: SourceLocation,
-) -> ExecExpression {
+) -> (ConditionMode, ExecExpression) {
     match cond_expr {
         // expr != 0 → While(NonZero, expr, body)  ← 条件式を単純化（COMPARATOR 不要）
         // expr1 != expr2 → While(NonZero, expr1 - expr2, body)
         ExecExpression::Operation2(Operator2::NotEqual, lhs, rhs) => {
             if is_zero_factor(&rhs) {
-                ExecExpression::While(ConditionMode::NonZero, lhs, body)
+                (ConditionMode::NonZero, lhs.expression)
             } else if is_zero_factor(&lhs) {
-                ExecExpression::While(ConditionMode::NonZero, rhs, body)
+                (ConditionMode::NonZero, rhs.expression)
             } else {
-                let sub = wrap_expr(make_sub(lhs, rhs), loc);
-                ExecExpression::While(ConditionMode::NonZero, sub, body)
+                let sub = make_sub(lhs, rhs);
+                (ConditionMode::NonZero, wrap_expr(sub, cond_loc).expression)
             }
         }
 
@@ -256,12 +252,12 @@ fn optimize_while_nonzero(
         // expr1 == expr2 → While(Zero, expr1 - expr2, body)
         ExecExpression::Operation2(Operator2::Equal, lhs, rhs) => {
             if is_zero_factor(&rhs) {
-                ExecExpression::While(ConditionMode::Zero, lhs, body)
+                (ConditionMode::Zero, lhs.expression)
             } else if is_zero_factor(&lhs) {
-                ExecExpression::While(ConditionMode::Zero, rhs, body)
+                (ConditionMode::Zero, rhs.expression)
             } else {
-                let sub = wrap_expr(make_sub(lhs, rhs), loc);
-                ExecExpression::While(ConditionMode::Zero, sub, body)
+                let sub = make_sub(lhs, rhs);
+                (ConditionMode::Zero, wrap_expr(sub, cond_loc).expression)
             }
         }
 
@@ -269,17 +265,16 @@ fn optimize_while_nonzero(
         // expr1 < expr2 → While(Negative, expr1 - expr2, body)
         ExecExpression::Operation2(Operator2::Less, lhs, rhs) => {
             if is_zero_factor(&rhs) {
-                ExecExpression::While(ConditionMode::Negative, lhs, body)
+                (ConditionMode::Negative, lhs.expression)
             } else {
-                let sub = wrap_expr(make_sub(lhs, rhs), loc);
-                ExecExpression::While(ConditionMode::Negative, sub, body)
+                let sub = make_sub(lhs, rhs);
+                (ConditionMode::Negative, wrap_expr(sub, cond_loc).expression)
             }
         }
 
         // パターンに一致しない場合はそのまま返す
         other => {
-            let cond = wrap_expr(other, cond_loc);
-            ExecExpression::While(ConditionMode::NonZero, cond, body)
+            (ConditionMode::NonZero, wrap_expr(other, cond_loc).expression)
         }
     }
 }

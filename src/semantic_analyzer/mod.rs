@@ -37,6 +37,11 @@ fn has_return_statement(statements: &[LocatedStatement]) -> bool {
                     return true;
                 }
             }
+            Statement::While(_, stmts) => {
+                if has_return_statement(stmts) {
+                    return true;
+                }
+            }
             // ネストした関数宣言は除外（別の関数の return なので）
             Statement::FunctionDeclaration(_, _, _) => {}
             _ => {}
@@ -45,14 +50,13 @@ fn has_return_statement(statements: &[LocatedStatement]) -> bool {
     false
 }
 
-/// 式の中に return: 文が含まれるかチェックする。if/while/block 内の return: を再帰的にチェック
+/// 式の中に return: 文が含まれるかチェックする。if/block 内の return: を再帰的にチェック
 fn expr_contains_return(expr: &crate::tree_parser::Expression) -> bool {
     use crate::tree_parser::Expression;
     match expr {
         Expression::If(_, then_stmts, else_stmts) => {
             has_return_statement(then_stmts) || has_return_statement(else_stmts)
         }
-        Expression::While(_, stmts) => has_return_statement(stmts),
         Expression::Block(stmts) => has_return_statement(stmts),
         _ => false,
     }
@@ -299,29 +303,6 @@ fn convert_to_exec_expression_with_resolver(
                 Block {
                     scope: s2.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
                     statements: es2,
-                },
-            ), loc))
-        }
-        Expression::While(expr, stat) => {
-            let exec_cond = convert_to_exec_expression_with_resolver(expr, parent_resolver, func_return_types)?;
-            // void 型の式は条件式に使用不可
-            require_int_type(&exec_cond, func_return_types)?;
-            let (s, es) = analyze_internal_with_parent(
-                stat,
-                ScopeType::Block,
-                Vec::new(),
-                Some(parent_resolver),
-                &mut Vec::new(),
-                &mut Vec::new(),
-                None,
-                func_return_types.to_vec(),
-            )?;
-            Ok(make_located_exec(ExecExpression::While(
-                ConditionMode::NonZero,
-                exec_cond,
-                Block {
-                    scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
-                    statements: es,
                 },
             ), loc))
         }
@@ -797,6 +778,38 @@ fn analyze_internal_with_parent(
                 }
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::Break,
+                    location: loc.clone(),
+                });
+            }
+            Statement::While(expr, stat) => {
+                if let ScopeType::Root = scope_type {
+                    return Err(vec![code_parse_error!(
+                        loc.start,
+                        "semantic error: while statement outside of function"
+                    )]);
+                }
+                let exec_cond = convert_to_exec_expression_with_resolver(expr, &resolver, &effective_func_return_types)?;
+                // void 型の式は条件式に使用不可
+                require_int_type(&exec_cond, &effective_func_return_types)?;
+                let (s, es) = analyze_internal_with_parent(
+                    stat,
+                    ScopeType::Block,
+                    Vec::new(),
+                    Some(&resolver),
+                    &mut Vec::new(),
+                    &mut Vec::new(),
+                    None,
+                    effective_func_return_types.to_vec(),
+                )?;
+                exec_statements.push(LocatedExecStatement {
+                    statement: ExecStatement::While(
+                        ConditionMode::NonZero,
+                        exec_cond,
+                        Block {
+                            scope: s.build(Vec::new(), Vec::new(), Vec::new()),
+                            statements: es,
+                        },
+                    ),
                     location: loc.clone(),
                 });
             }

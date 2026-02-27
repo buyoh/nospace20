@@ -17,6 +17,7 @@ pub enum Statement {
     Continue,
     Break,
     Return(Option<Box<LocatedExpression>>),
+    While(Box<LocatedExpression>, Vec<LocatedStatement>),  // while 文
     Expression(Box<LocatedExpression>),
     Invalid(usize), // See, Expression::Invalid
 }
@@ -725,6 +726,39 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                         location: SourceLocation::new(start_pos, end_pos),
                     });
                     match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+                    continue;
+                }
+                Token::Keyword(Keyword::While) => {
+                    self.iter.next(); // while キーワードを消費
+
+                    // ':' を期待
+                    if let Err(_) = match_expect_token!(self, self.iter.next(), Token::Colon) {
+                        self.skip_to_semicolon();
+                        continue;
+                    }
+
+                    // 条件式をパース
+                    let (cond, mut cond_errors) = parse_to_expression_tree_root(self.iter);
+                    if !cond_errors.is_empty() {
+                        self.code_parse_error.append(&mut cond_errors);
+                    }
+
+                    // '{' を期待
+                    match_expect_token_unused!(self, self.iter.next(), Token::BraceL);
+                    let (body, mut body_errors) = parse_to_statements(self.iter);
+                    if !body_errors.is_empty() {
+                        self.code_parse_error.append(&mut body_errors);
+                    }
+                    match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
+
+                    // ';' を消費
+                    match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+
+                    let end_pos = self.current_pos_or(start_pos);
+                    statements.push(LocatedStatement {
+                        statement: Statement::While(cond, body),
+                        location: SourceLocation::new(start_pos, end_pos),
+                    });
                     continue;
                 }
                 Token::BraceR => {

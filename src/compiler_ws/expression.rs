@@ -78,9 +78,6 @@ pub fn generate_expression(
             generate_if_expression(ctx, mode, cond, then_block, else_block)
         }
 
-        // while 式
-        ExecExpression::While(mode, cond, body) => generate_while_expression(ctx, mode, cond, body),
-
         // ブロック式
         ExecExpression::Block(block) => super::statement::generate_block(ctx, block),
 
@@ -764,71 +761,6 @@ fn generate_if_expression(
 
     // 終了ラベル
     prog.push(Instruction::Label(end_label));
-
-    Ok(prog)
-}
-
-/// while 式
-fn generate_while_expression(
-    ctx: &mut CodeGenContext,
-    mode: &ConditionMode,
-    cond: &LocatedExecExpression,
-    body: &crate::semantic_analyzer::Block,
-) -> Result<WsProgram, CompileError> {
-    let mut prog = WsProgram::new();
-
-    let loop_start = ctx.new_label();
-    let loop_end = ctx.new_label();
-
-    // ループラベルをスタックにプッシュ (break/continue のため)
-    ctx.push_loop_labels(loop_start, loop_end);
-
-    // ループ開始ラベル
-    prog.push(Instruction::Label(loop_start));
-
-    // 条件評価
-    prog.append(generate_expression(ctx, cond)?);
-
-    // ConditionMode に応じたループ終了ジャンプ命令
-    match mode {
-        ConditionMode::NonZero => {
-            // cond == 0 (偽) ならループ終了（既存動作）
-            prog.push(Instruction::JumpIfZero(loop_end));
-        }
-        ConditionMode::Zero => {
-            // cond == 0 → ループ継続 なので、cond != 0 ならループ終了
-            // JumpIfZero で continue_label に飛ばす方式
-            let continue_label = ctx.new_label();
-            prog.push(Instruction::JumpIfZero(continue_label));
-            prog.push(Instruction::Jump(loop_end));
-            prog.push(Instruction::Label(continue_label));
-        }
-        ConditionMode::Negative => {
-            // cond < 0 → ループ継続 なので、cond >= 0 ならループ終了
-            let continue_label = ctx.new_label();
-            prog.push(Instruction::JumpIfNegative(continue_label));
-            prog.push(Instruction::Jump(loop_end));
-            prog.push(Instruction::Label(continue_label));
-        }
-    }
-
-    // ループ本体
-    prog.append(super::statement::generate_block(ctx, body)?);
-
-    // ブロック値をクリーンアップ（Bug C 修正: while ループ本体のスタックリーク防止）
-    prog.push(Instruction::Discard);
-
-    // ループ開始へジャンプ
-    prog.push(Instruction::Jump(loop_start));
-
-    // ループ終了ラベル
-    prog.push(Instruction::Label(loop_end));
-
-    // ループラベルをポップ
-    ctx.pop_loop_labels();
-
-    // while式の値として0を返す
-    prog.push(Instruction::Push(WsNumber(0)));
 
     Ok(prog)
 }

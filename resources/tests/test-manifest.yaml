@@ -617,6 +617,11 @@ tests:
     path: unexpected_factor_001
     comment: "Error: unexpected token in expression"
 
+  - name: test_syntax_error_while_as_expression_001
+    type: syntax_error
+    path: while_as_expression_001
+    comment: "Error: while cannot be used as an expression"
+
   - name: test_syntax_error_array_size_zero_001
     type: syntax_error
     path: array_size_zero_001
@@ -1063,9 +1068,9 @@ tests:
   # Type system: void型エラー
   # ========================================
   - name: test_type_void_while_assign_001
-    type: compile_error
+    type: syntax_error
     path: void_while_assign_001
-    comment: "while式の戻り値を変数に代入→コンパイルエラー"
+    comment: "while文を式として使うとパースエラー（while は文になったため式中では使えない）"
 
   - name: test_type_void_if_no_else_assign_001
     type: compile_error

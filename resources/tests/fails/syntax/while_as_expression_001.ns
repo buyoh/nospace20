@@ -1,0 +1,6 @@
+# while を式として使用しようとするとエラー #
+func: main() {
+  let: x;
+  x = while: 0 { };
+  return: 0;
+}

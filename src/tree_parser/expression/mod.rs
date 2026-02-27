@@ -60,7 +60,6 @@ pub enum Expression {
         Vec<LocatedStatement>,
         Vec<LocatedStatement>,
     ),
-    While(Box<LocatedExpression>, Vec<LocatedStatement>),
     Block(Vec<LocatedStatement>),                    // ブロックスコープ式
     Function(String, Vec<Box<LocatedExpression>>),   // 関数呼び出し
     Factor(i64),
@@ -215,12 +214,9 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 // 括弧式はその中身の位置をそのまま引き継ぐ
                 e
             }
-            // if/while/block を factor レベルで解析
+            // if/block を factor レベルで解析（while は文として parse_to_statements で処理）
             Some((Token::Keyword(Keyword::If), _)) => {
                 self.parse_to_expression_tree_if_impl()
-            }
-            Some((Token::Keyword(Keyword::While), _)) => {
-                self.parse_to_expression_tree_while_impl()
             }
             Some((Token::BraceL, _)) => {
                 self.parse_to_expression_tree_block_impl()
@@ -389,30 +385,6 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         let start = left.location.start;
         let end = right.location.end;
         self.located(Expression::Operation2(op, left, right), start, end)
-    }
-
-    // while 式の実際の解析処理
-    fn parse_to_expression_tree_while_impl(&mut self) -> Box<LocatedExpression> {
-        let start = self.current_pos();
-        let token = self.iter.next(); // while キーワードを消費
-        assert!(matches!(token, Some((Token::Keyword(Keyword::While), _))));
-
-        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
-            let end = self.current_pos();
-            return self.located(Expression::Invalid(e), start, end);
-        }
-        let cond = self.parse_to_expression_tree_root();
-        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::BraceL) {
-            let end = self.current_pos();
-            return self.located(Expression::Invalid(e), start, end);
-        }
-        let (stat, mut stat_err) = parse_to_statements(self.iter);
-        if !stat_err.is_empty() {
-            self.code_parse_error.append(&mut stat_err);
-        }
-        match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
-        let end = self.current_pos();
-        self.located(Expression::While(cond, stat), start, end)
     }
 
     // ブロックスコープ式の解析処理

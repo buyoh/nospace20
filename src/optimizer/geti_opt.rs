@@ -68,6 +68,10 @@ fn optimize_statement(stmt: &mut LocatedExecStatement) {
         ExecStatement::Return(Some(expr)) => {
             recurse_into_expr(expr);
         }
+        ExecStatement::While(_, cond, body) => {
+            recurse_into_expr(cond);
+            optimize_block(body);
+        }
         _ => {}
     }
 }
@@ -102,17 +106,13 @@ fn try_transform_geti(
     }
 }
 
-/// 式の子ノードを再帰的に処理する（ブロック式・If・While など）
+/// 式の子ノードを再帰的に処理する（ブロック式・ If など）
 fn recurse_into_expr(located: &mut Box<LocatedExecExpression>) {
     match &mut located.expression {
         ExecExpression::If(_, cond, then_block, else_block) => {
             recurse_into_expr(cond);
             optimize_block(then_block);
             optimize_block(else_block);
-        }
-        ExecExpression::While(_, cond, body) => {
-            recurse_into_expr(cond);
-            optimize_block(body);
         }
         ExecExpression::Block(block) => {
             optimize_block(block);

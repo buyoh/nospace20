@@ -311,13 +311,18 @@ impl LocalEnvironment<'_, '_> {
         result
     }
 
-    /// while 式は常に 0 を返す (spec §6.1)
-    fn interpret_while(&mut self, mode: &ConditionMode, cond: &Box<LocatedExecExpression>, block: &Block) -> ExpressionFlow {
+    /// while 文のループ実行
+    fn interpret_while_statement(
+        &mut self,
+        mode: &ConditionMode,
+        cond: &Box<LocatedExecExpression>,
+        block: &Block,
+    ) -> Flow {
         loop {
             let cond_val = match self.interpret_expression(cond) {
                 ExpressionFlow::Value(e) => e,
                 ExpressionFlow::Jump(Flow::Return(x)) => {
-                    return ExpressionFlow::Jump(Flow::Return(x))
+                    return Flow::Return(x)
                 }
                 ExpressionFlow::Jump(Flow::Continue) => panic!(
                     "internal error: unexpected continue: Don't call continue in `while` condition"
@@ -339,21 +344,21 @@ impl LocalEnvironment<'_, '_> {
             }
             self.enter_block(&block.scope);
             let (flow, _value) = self.interpret_statements_with_value(&block.statements);
-            let result = match flow {
-                Flow::Proceed => None,
-                Flow::Return(v) => Some(ExpressionFlow::Jump(Flow::Return(v))),
-                Flow::Continue => None,
+            match flow {
+                Flow::Proceed | Flow::Continue => {
+                    self.leave_block();
+                }
+                Flow::Return(v) => {
+                    self.leave_block();
+                    return Flow::Return(v);
+                }
                 Flow::Break => {
                     self.leave_block();
                     break;
                 }
-            };
-            self.leave_block();
-            if let Some(r) = result {
-                return r;
             }
         }
-        ExpressionFlow::Value(0)
+        Flow::Proceed
     }
 
     fn interpret_if(
@@ -561,7 +566,6 @@ impl LocalEnvironment<'_, '_> {
             ExecExpression::If(mode, cond, then_block, else_block) => {
                 self.interpret_if(mode, cond, then_block, else_block)
             }
-            ExecExpression::While(mode, cond, block) => self.interpret_while(mode, cond, block),
             ExecExpression::Block(block) => self.interpret_block(block),
             ExecExpression::InternalBuiltinFunction(kind) => {
                 self.interpret_internal_builtin_function(kind)
@@ -587,6 +591,13 @@ impl LocalEnvironment<'_, '_> {
                 ExecStatement::Return(None) => return (Flow::Return(0), last_value),
                 ExecStatement::Break => return (Flow::Break, last_value),
                 ExecStatement::Continue => return (Flow::Continue, last_value),
+                ExecStatement::While(mode, cond, block) => {
+                    let flow = self.interpret_while_statement(mode, cond, block);
+                    match flow {
+                        Flow::Proceed => {}
+                        other => return (other, last_value),
+                    }
+                }
             }
         }
         (Flow::Proceed, last_value)
@@ -610,6 +621,7 @@ impl LocalEnvironment<'_, '_> {
             ExecStatement::Return(None) => Flow::Return(0),
             ExecStatement::Break => Flow::Break,
             ExecStatement::Continue => Flow::Continue,
+            ExecStatement::While(mode, cond, block) => self.interpret_while_statement(mode, cond, block),
         }
     }
 }

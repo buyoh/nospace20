@@ -85,6 +85,10 @@ fn collect_called_in_statement(
     match &stmt.statement {
         ExecStatement::Expression(expr) => collect_called_in_expr(&expr.expression, reachable, worklist),
         ExecStatement::Return(Some(expr)) => collect_called_in_expr(&expr.expression, reachable, worklist),
+        ExecStatement::While(_, cond, body) => {
+            collect_called_in_expr(&cond.expression, reachable, worklist);
+            collect_called_in_block(body, reachable, worklist);
+        }
         _ => {}
     }
 }
@@ -108,10 +112,6 @@ fn collect_called_in_expr(
             collect_called_in_expr(&cond.expression, reachable, worklist);
             collect_called_in_block(then_block, reachable, worklist);
             collect_called_in_block(else_block, reachable, worklist);
-        }
-        ExecExpression::While(_, cond, body) => {
-            collect_called_in_expr(&cond.expression, reachable, worklist);
-            collect_called_in_block(body, reachable, worklist);
         }
         ExecExpression::Block(block) => {
             collect_called_in_block(block, reachable, worklist);

@@ -138,9 +138,6 @@ pub(crate) enum ExecExpression {
     /// if 式: (条件モード, 条件式, then ブロック, else ブロック)
     /// 意味解析では ConditionMode::NonZero で生成。最適化パスが Zero/Negative に変換可能。
     If(ConditionMode, Box<LocatedExecExpression>, Block, Block),
-    /// while 式: (条件モード, 条件式, ループ本体)
-    /// 意味解析では ConditionMode::NonZero で生成。最適化パスが Zero/Negative に変換可能。
-    While(ConditionMode, Box<LocatedExecExpression>, Block),
     Block(Block), // ブロックスコープ式
     /// 組み込み関数呼び出し
     /// Phase 6: 組み込み関数は BuiltinFunctionKind enum で識別
@@ -170,6 +167,9 @@ pub(crate) enum ExecStatement {
     Break,
     Continue,
     Expression(Box<LocatedExecExpression>),
+    /// while 文: (条件モード, 条件式, ループ本体)
+    /// 意味解析では ConditionMode::NonZero で生成。最適化パスが Zero/Negative に変換可能。
+    While(ConditionMode, Box<LocatedExecExpression>, Block),
 }
 
 /// 位置情報を持つ実行可能な文
@@ -211,7 +211,6 @@ impl ExecExpression {
                 rhs.expression.infer_type(func_return_types)
             }
             ExecExpression::Operation2(_, _, _) => ValueType::Int,
-            ExecExpression::While(_, _, _) => ValueType::Void,
             ExecExpression::If(_, _, then_block, else_block) => {
                 // 両ブロックが Int のときのみ Int、それ以外は Void
                 infer_block_type(then_block, func_return_types)

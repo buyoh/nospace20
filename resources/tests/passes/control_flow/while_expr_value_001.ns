@@ -1,9 +1,9 @@
-# while 式の式文としての使用 #
+# while 文の使用 #
 func: main() {
   __trace(0);
   let: i;
 
-  # while 式は void 型 - 式文として使用可能 #
+  # while 文は void 型 - 式文として使用可能 #
   i = 0;
   while: i - 3 {
     i = i + 1;
@@ -11,12 +11,12 @@ func: main() {
   };
   __assert(i == 3);
 
-  # ループしない場合も式文として使用可能 #
+  # ループしない場合も文として使用可能 #
   while: 0 {
     42;
   };
 
-  # break で抜けた場合も式文として使用可能 #
+  # break で抜けた場合も文として使用可能 #
   i = 0;
   while: 1 {
     i = i + 1;

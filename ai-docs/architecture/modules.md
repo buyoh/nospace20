@@ -64,7 +64,7 @@
 | 型 | 説明 |
 |----|------|
 | `Statement` | 文 (変数宣言、関数宣言、return、式文等) |
-| `Expression` | 式 (演算、if/while、関数呼び出し、リテラル、変数参照) |
+| `Expression` | 式 (演算、if、関数呼び出し、リテラル、変数参照) |
 | `Operator1` | 単項演算子 |
 | `Operator2` | 二項演算子 |
 
@@ -77,6 +77,7 @@ pub enum Statement {
     Continue,
     Break,
     Return(Box<Expression>),  // return: expr;
+    While(Box<Expression>, Vec<Statement>),  // while: cond { ... };
     Expression(Box<Expression>),  // 式文
     Invalid(usize),
 }
@@ -89,7 +90,6 @@ pub enum Expression {
     Operation1(Operator1, Box<Expression>),
     Operation2(Operator2, Box<Expression>, Box<Expression>),
     If(Box<Expression>, Vec<Statement>, Vec<Statement>),
-    While(Box<Expression>, Vec<Statement>),
     Function(String, Vec<Box<Expression>>),
     Factor(i64),
     Variable(String),
