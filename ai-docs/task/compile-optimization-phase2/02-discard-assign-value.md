@@ -104,3 +104,9 @@ Operator2::Assign if void_context => {
 - 既存テスト全通過の確認
 - 代入文・連鎖代入・配列代入の動作確認
 - プロファイルによる命令数削減の計測
+
+## ドキュメント更新
+
+- `docs/optimize.md` に `discard-assign-value` パスの説明セクションを追加
+- パス一覧テーブルへの追記
+- パスの実行順序への追記
