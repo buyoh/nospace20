@@ -1,91 +1,156 @@
-# Keyword トークンにコロンを内包する設計の検討
+# Keyword トークンにコロンを内包する設計
 
 ## 概要
 
-token_parser において、Keyword の直後に必ずコロンが来ることを利用し、コロンまで確認した上で Keyword トークンとして認識する（コロンがなければ Identifier として扱う）設計の検討。
+token_parser において、Keyword の直後にコロンが来ることを利用し、コロンまで確認した上で Keyword トークンとして認識する（コロンがなければ Identifier として扱う）設計。
 
 ## 動機
 
-nospace 言語では空白が無視されるため、`letx` のような文字列は `let` + `x` ではなく `Identifier("letx")` として正しくパースされる。しかし、`let` 単体が出現した場合は Keyword として認識される。Keyword の直後にコロンが必ず来るのであれば、コロンの有無で Keyword/Identifier を判別することで、以下のメリットが期待できる：
+nospace 言語では空白が無視されるため、`letx` のような文字列は `let` + `x` ではなく `Identifier("letx")` として正しくパースされる。しかし、`let` 単体が出現した場合は Keyword として認識される。Keyword の直後にコロンが必ず来るようにすれば、コロンの有無で Keyword/Identifier を判別できる：
 
 - 予約語を減らし、`let` 等をユーザー変数名として使用可能にする
 - token_parser レベルでの曖昧性を排除し、後段パーサーの簡略化
 
-## 調査結果: 「Keyword の直後に必ずコロンが来る」は正しいか？
+## 前提調査
 
-**結論: 正しくない。** `break`、`continue` はコロン無し、`return` はコロンありと無しの両方がある。
+### 各キーワードのコロン有無（現状）
 
-### 各キーワードのコロン有無
+| キーワード | コロン | 構文例 |
+|---|---|---|
+| `let` | 常にあり | `let: x;` |
+| `static` | 常にあり | `static: x;` |
+| `func` | 常にあり | `func: name() {}` |
+| `if` | 常にあり | `if: expr {}` |
+| `else` | 常にあり | `else: {}` |
+| `while` | 常にあり | `while: expr {}` |
+| `for` | 常にあり | `for: {} {} {} {};` |
+| `repeat` | 常にあり | `repeat: body;` |
+| **`return`** | **両方** | `return;` / `return: expr;` |
+| **`break`** | **なし** | `break;` |
+| **`continue`** | **なし** | `continue;` |
 
-| キーワード | コロン | 構文例 | 根拠（コード） |
-|---|---|---|---|
-| `let` | 常にあり | `let: x;` | `parse_variable_declarations` で `Token::Colon` 消費 |
-| `static` | 常にあり | `static: x;` | 同上 |
-| `func` | 常にあり | `func: name() {}` | `parse_to_statements_func` で `Token::Colon` 消費 |
-| `if` | 常にあり | `if: expr {}` | `parse_to_expression_tree_if_impl` で `Token::Colon` 消費 |
-| `else` | 常にあり | `else: {}` | 式パーサーで `Token::Colon` 消費 |
-| `while` | 常にあり | `while: expr {}` | `parse_to_statements` 内で `Token::Colon` 期待 |
-| `for` | 常にあり | `for: {} {} {} {};` | `parse_to_statements_for` で `Token::Colon` 消費 |
-| `repeat` | 常にあり | `repeat: body;` | `parse_to_statements_repeat` で `Token::Colon` 消費 |
-| **`return`** | **両方** | `return;` / `return: expr;` | `parse_to_statements_return`: セミコロン先読みでコロン無し分岐 |
-| **`break`** | **なし** | `break;` | `parse_to_statements`: キーワード消費後、直接セミコロン期待 |
-| **`continue`** | **なし** | `continue;` | 同上 |
+11キーワードのうち3つ（`break`、`continue`、`return` の一部構文）がコロン無し。
 
-### grammar.bnf からの確認
+## 方針決定
+
+**言語仕様を変更し、全キーワードの直後にコロンを必須化する。**
+
+- `break;` → `break:;`
+- `continue;` → `continue:;`
+- `return;` → `return:;`（`return;` 形式を廃止）
+
+### 根拠
+
+- 例外が3つのみであり、変更の影響範囲は限定的
+- `break:;` / `continue:;` は「コロンの後の引数が空」と解釈でき、`return:;`（void return）と一貫する
+- 全キーワードがコロン付きに統一されることで、token_parser でのキーワード判定がシンプルになる
+
+## 実装計画
+
+### Step 1: 言語仕様の更新
+
+対象ファイル:
+- `docs/spec.md`
+- `docs/grammar.bnf`
+
+変更内容:
 
 ```bnf
-return_stmt ::= "return" ":" expr ";" | "return" ":" ";" | "return" ";"
-break_stmt  ::= "break" ";"
+# Before
+return_stmt   ::= "return" ":" expr ";" | "return" ":" ";" | "return" ";"
+break_stmt    ::= "break" ";"
 continue_stmt ::= "continue" ";"
+
+# After
+return_stmt   ::= "return" ":" expr ";" | "return" ":" ";"
+break_stmt    ::= "break" ":" ";"
+continue_stmt ::= "continue" ":" ";"
 ```
 
-## 競合・矛盾の分析
+`docs/spec.md` 内の break/continue の説明・コード例を `break:;` / `continue:;` に更新。
+`return;` 形式の記述を削除。
 
-### 1. `break` / `continue` がコロンを持たない
+### Step 2: token_parser の変更
 
-最も大きな問題。これらはコロン無しで `break;`、`continue;` と記述するため、「Keyword の直後にコロンが来る」前提が成り立たない。
+対象ファイル: `src/token_parser/mod.rs`
 
-**対処案:**
+変更概要:
+- `determine_keyword_or_identifier` 関数を変更し、キーワード候補の検出後に次の文字がコロン (`:`) であるかを確認する
+- コロンが続く場合のみ Keyword トークンを返す（コロンを内包）
+- コロンが続かない場合は Identifier として返す
+- `Token::Colon` トークンは Keyword 直後には出現しなくなる（Keyword が `:` を内包するため）
 
-- **A. 言語仕様を変更して `break:;` `continue:;` とする** — 一貫性は得られるが、意味的に空のコロン後置が不自然（`break:` の後ろに何も来ない）。
-- **B. `break` / `continue` を Keyword 分類から除外し、別のトークン種別にする** — 例: `Token::Break` `Token::Continue` として独立させる。Keyword カテゴリからは外す。
-- **C. Keyword を「コロン付きキーワード」「コロン無しキーワード」に二分する** — `KeywordWithColon` と `KeywordBare` に分割。
+注意点:
+- `determine_keyword_or_identifier` は現在 `iter` を受け取っていないため、シグネチャを変更するか、呼び出し側の `parse_identifier` でピーク確認を行う必要がある
+- `parse_to_tokens_internal` 内の識別子パース直後にコロンをピークする方式が最もシンプル
 
-### 2. `return` のコロン有無の二面性
+### Step 3: tree_parser の変更
 
-`return` は `return;`（void return、コロン無し）と `return: expr;`（値付き return）の両方が有効。
+対象ファイル:
+- `src/tree_parser/statement/mod.rs`
+- `src/tree_parser/expression/mod.rs`
 
-**対処案:**
+変更概要:
+- Keyword トークンの直後の `Token::Colon` 消費を全箇所で削除
+  - `parse_variable_declarations`: `match_expect_token_unused!(... Token::Colon)` 削除
+  - `parse_to_statements_func`: `match_expect_token_unused!(... Token::Colon)` 削除
+  - `parse_to_statements_return`: コロン消費ロジックと `return;` 分岐を除去し、`return:;` のみに簡素化
+  - while の `Token::Colon` 期待を削除
+  - `parse_to_statements_for`: `match_expect_token!(... Token::Colon)` 削除
+  - `parse_to_statements_repeat`: `match_expect_token!(... Token::Colon)` 削除
+  - `parse_to_expression_tree_if_impl`: `match_expect_token!(... Token::Colon)` 削除
+  - else 後の `match_expect_token_unused!(... Token::Colon)` 削除
+- `break` / `continue` のパース:
+  - 現状: キーワード消費 → セミコロン期待
+  - 変更: 同じ動作のまま（Keyword トークンがコロンを内包しているため、コロンの処理追加は不要）
 
-- **A. `return;` 構文を廃止し、`return:;` に統一する** — `return:;` は既に有効な構文なので、`return;`（コロン無し）を deprecated → 廃止とする。
-- **B. `return` を `break`/`continue` と同様に特別扱いする** — token_parser で `return` の後がコロンかどうかで分岐。コロンがあれば `Keyword::Return`（コロン内包）、コロンがなければ `Token::Identifier("return")` ではなく別のトークン種別。
-- **C. `return` を二つのトークンに分ける** — `Keyword::Return`（コロンあり `return:`）と `Keyword::ReturnVoid`（コロンなし `return`）。
+### Step 4: Unit テストの更新
 
-### 3. Keyword を Identifier として使えるようになる副作用
+対象ファイル:
+- `src/tree_parser/statement/test.rs`
+- `src/token_parser/test.rs`（存在する場合）
 
-コロン付きでのみ Keyword と認識する場合、`let = 5;` のようなコードが合法になる。これは：
+変更概要:
+- `test_parse_break_statement`: トークン列にコロンを追加（不要、Keywordがコロン内包のため変更不要。ただし token_parser テストでは更新が必要）
+- `test_parse_continue_statement`: 同上
+- `test_parse_void_return_without_colon`: このテストは廃止または `return:;` に変更
+- `test_parse_return_statement`: トークン列からコロンを削除（Keyword がコロン内包のため）
+- `test_parse_void_return_with_colon`: トークン列からコロンを削除
 
-- **利点:** 予約語が存在しなくなり、言語の制約が減る
-- **懸念:** 混乱を招く可能性がある（`let = let: x; x;` のような意味の読み取りが困難なコード）
+tree_parser のテストでは、Keyword トークンがすでにコロンを内包した状態で渡されるため、
+各テストから `token_colon()` の挿入/削除を調整する。
 
-### 4. `else` の特殊性
+### Step 5: Large テスト（テストリソース）の更新
 
-`else` は文の先頭ではなく、`if` の後に出現するキーワード。`else:` を単一トークンとして扱うことは技術的に可能だが、式パーサー側で分岐が発生する。現在は `Keyword::Else` → `Token::Colon` の2トークンとして処理している。
+対象ファイル（`break;` / `continue;` を含むもの）:
+- `resources/tests/passes/c002.ns`
+- `resources/tests/passes/control_flow/break_continue_001.ns`
+- `resources/tests/passes/control_flow/for_break_001.ns`
+- `resources/tests/passes/control_flow/for_continue_001.ns`
+- `resources/tests/passes/control_flow/repeat_form2_001.ns`
+- `resources/tests/passes/control_flow/repeat_form3_001.ns`
+- `resources/tests/passes/control_flow/while_expr_value_001.ns`
+- `resources/tests/passes/examples/e1-01-queue.ns`
+- `resources/tests/fails/compile/break_outside_func_001.ns`
+- `resources/tests/fails/compile/continue_outside_func_001.ns`
 
-## 結論
+変更: `break;` → `break:;`、`continue;` → `continue:;`
 
-「Keyword の直後に必ずコロンが来る」は **3つのキーワード（`break`、`continue`、`return`の一部構文）について成り立たない**。
+`return;` 形式のテストリソースは存在しない（調査済み）。
 
-この設計を進めるためには、以下のいずれかの方針決定が必要：
+### Step 6: ドキュメント更新
 
-1. **言語仕様の変更**: `break:;`、`continue:;`、`return:;` への統一（`return;` 廃止）
-2. **Keyword の二分類化**: コロン付きキーワード群とコロン無しキーワード群に分割
-3. **部分適用**: `break`、`continue`、`return` を除く8キーワードのみに適用し、これら3つは別扱い
+- `docs/tutorial.md`: break/continue の例があれば更新
+- `ai-docs/task/self-compiler/`: nospace-core 仕様にも反映が必要な可能性
 
-いずれの方針でも実装は可能だが、仕様変更を伴う案は既存コードとの互換性に影響するため、慎重な検討が必要。
+## 影響分析
 
-## 未決定事項
+### 後方互換性
 
-- 上記方針のいずれを採用するか
-- `break`、`continue` にコロンを付けた場合の直感性
-- 既存テストケースへの影響範囲
+- `break;`、`continue;`、`return;` の3構文は**破壊的変更**
+- 既存の nospace プログラムは修正が必要（機械的な置換で対応可能）
+
+### 他タスクへの影響
+
+- `ai-docs/task/self-compiler/`: nospace-core の break/continue/return 仕様にも同様の変更が必要
+- `ai-docs/task/add-elsif-keyword.md`: elsif キーワード追加時にもコロン付きで一貫させる
