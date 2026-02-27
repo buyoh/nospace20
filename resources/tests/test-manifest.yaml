@@ -1132,3 +1132,56 @@ tests:
     type: success_io
     path: control_flow/void_return_002
     comment: "void return:;による早期脱出（IO付き）"
+
+  # ========================================
+  # for / repeat 文
+  # ========================================
+  - name: test_control_flow_for_basic_001
+    type: success
+    path: control_flow/for_basic_001
+    comment: "for 文の基本動作: 0から4まで繰り返す"
+
+  - name: test_control_flow_for_continue_001
+    type: success
+    path: control_flow/for_continue_001
+    comment: "for continue: step は実行される"
+
+  - name: test_control_flow_for_break_001
+    type: success
+    path: control_flow/for_break_001
+    comment: "for break"
+
+  - name: test_control_flow_for_nested_001
+    type: success
+    path: control_flow/for_nested_001
+    comment: "for ネスト 3x3"
+
+  - name: test_control_flow_repeat_form1_001
+    type: success
+    path: control_flow/repeat_form1_001
+    comment: "repeat Form 1: カウンタ付き N 回ループ"
+
+  - name: test_control_flow_repeat_form2_001
+    type: success
+    path: control_flow/repeat_form2_001
+    comment: "repeat Form 2: カウンタ付き無限ループ"
+
+  - name: test_control_flow_repeat_form3_001
+    type: success
+    path: control_flow/repeat_form3_001
+    comment: "repeat Form 3: 無限ループ"
+
+  - name: test_control_flow_repeat_nested_001
+    type: success
+    path: control_flow/repeat_nested_001
+    comment: "repeat ネスト 3x3"
+
+  - name: test_for_in_global_001
+    type: compile_error
+    path: for_in_global_001
+    comment: "for 文をグローバルスコープで使用→コンパイルエラー"
+
+  - name: test_for_cond_void_001
+    type: compile_error
+    path: for_cond_void_001
+    comment: "for 文の条件ブロックが void→コンパイルエラー"

@@ -1,0 +1,4 @@
+{
+  "type": "compile_error",
+  "contains": ["for condition block must end with an int-typed expression"]
+}

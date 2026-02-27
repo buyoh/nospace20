@@ -1,0 +1,8 @@
+# for 文の continue: step は実行される #
+# i=2 のとき continue → step (i += 1) は実行される → i=3 → trace(0) は呼ばれない #
+func: main() {
+  for: { let: i(0); } { i < 5; } { i += 1; } {
+    if: i == 2 { continue; };
+    __trace(0);
+  };
+}

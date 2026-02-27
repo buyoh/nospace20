@@ -71,10 +71,30 @@ fn fold_statement(stmt: &mut LocatedExecStatement) {
                     ConditionMode::Negative => v < 0,
                 };
                 if !runs {
-                    // ループが実行されない → 空の式文に置換
-                    // 文の while は void を返すため、空の式文に置換することはできないが、
-                    // body をクリアすることでコード生成を最小化する
                     body.statements.clear();
+                }
+            }
+        }
+        ExecStatement::For(ref mut init, ref mut mode, ref mut cond, ref mut step, ref mut body) => {
+            fold_block(init);
+            fold_block(cond);
+            fold_block(step);
+            fold_block(body);
+            // 定数条件の for: cond ブロックの最後の文が Factor(定数) なら評価可能
+            if let Some(last_stmt) = cond.statements.last() {
+                if let ExecStatement::Expression(located_expr) = &last_stmt.statement {
+                    if let ExecExpression::Factor(v) = located_expr.expression {
+                        let runs = match *mode {
+                            ConditionMode::NonZero => v != 0,
+                            ConditionMode::Zero => v == 0,
+                            ConditionMode::Negative => v < 0,
+                        };
+                        if !runs {
+                            // ループが実行されない → body をクリア
+                            body.statements.clear();
+                            step.statements.clear();
+                        }
+                    }
                 }
             }
         }

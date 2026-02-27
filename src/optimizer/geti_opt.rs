@@ -72,6 +72,12 @@ fn optimize_statement(stmt: &mut LocatedExecStatement) {
             recurse_into_expr(cond);
             optimize_block(body);
         }
+        ExecStatement::For(init, _, cond, step, body) => {
+            optimize_block(init);
+            optimize_block(cond);
+            optimize_block(step);
+            optimize_block(body);
+        }
         _ => {}
     }
 }

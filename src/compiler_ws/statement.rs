@@ -164,6 +164,11 @@ pub fn generate_statement(
         ExecStatement::While(mode, cond, body) => {
             generate_while_statement(ctx, mode, cond, body)
         }
+
+        // for 文
+        ExecStatement::For(init, mode, cond, step, body) => {
+            generate_for_statement(ctx, init, mode, cond, step, body)
+        }
     }
 }
 
@@ -227,6 +232,87 @@ fn generate_while_statement(
     ctx.pop_loop_labels();
 
     // 注: 式版では Push(0) していたが、文版では不要
+    Ok(prog)
+}
+
+/// for 文のコード生成
+///
+/// while との違い: continue は step ブロックへジャンプする（ループ先頭ではない）
+fn generate_for_statement(
+    ctx: &mut CodeGenContext,
+    init: &Block,
+    mode: &ConditionMode,
+    cond: &Block,
+    step: &Block,
+    body: &Block,
+) -> Result<WsProgram, CompileError> {
+    let mut prog = WsProgram::new();
+
+    let loop_start = ctx.new_label();
+    let step_label = ctx.new_label(); // continue のジャンプ先（step ブロック先頭）
+    let loop_end = ctx.new_label();   // break のジャンプ先
+
+    // 1. init スコープに入る（for ループ変数が生存するスコープ）
+    ctx.enter_block_scope(init.scope.variable_count);
+
+    // 2. init 文を実行（変数宣言・初期化）
+    for located in &init.statements {
+        ctx.set_location(&located.location);
+        prog.append(generate_statement(ctx, &located.statement)?);
+    }
+
+    // 3. ループラベルをプッシュ
+    // continue_target = step_label（step ブロック先頭）
+    // break_target = loop_end
+    ctx.push_loop_labels(step_label, loop_end);
+
+    // 4. ループ開始ラベル
+    prog.push(Instruction::Label(loop_start));
+
+    // 5. 条件ブロックを生成（generate_block は値をスタックに残す）
+    prog.append(generate_block(ctx, cond)?);
+
+    // 6. ConditionMode に応じたループ終了ジャンプ命令
+    match mode {
+        ConditionMode::NonZero => {
+            prog.push(Instruction::JumpIfZero(loop_end));
+        }
+        ConditionMode::Zero => {
+            let cont_label = ctx.new_label();
+            prog.push(Instruction::JumpIfZero(cont_label));
+            prog.push(Instruction::Jump(loop_end));
+            prog.push(Instruction::Label(cont_label));
+        }
+        ConditionMode::Negative => {
+            let cont_label = ctx.new_label();
+            prog.push(Instruction::JumpIfNegative(cont_label));
+            prog.push(Instruction::Jump(loop_end));
+            prog.push(Instruction::Label(cont_label));
+        }
+    }
+
+    // 7. body ブロックを生成
+    prog.append(generate_block(ctx, body)?);
+    prog.push(Instruction::Discard); // body の値は破棄
+
+    // 8. step ラベル（continue のジャンプ先）
+    prog.push(Instruction::Label(step_label));
+
+    // 9. step ブロックを生成
+    prog.append(generate_block(ctx, step)?);
+    prog.push(Instruction::Discard); // step の値は破棄
+
+    // 10. ループ先頭へジャンプ
+    prog.push(Instruction::Jump(loop_start));
+
+    // 11. ループ終了ラベル
+    prog.push(Instruction::Label(loop_end));
+
+    ctx.pop_loop_labels();
+
+    // 12. init スコープを出る
+    ctx.leave_block_scope();
+
     Ok(prog)
 }
 
@@ -350,6 +436,14 @@ fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {
         }
         ExecStatement::While(_mode, cond, body) => {
             count_nested_vars_in_expression(cond) + calculate_total_variable_count(body)
+        }
+        ExecStatement::For(init, _mode, cond, step, body) => {
+            // init は for スコープ自体（変数は init.scope.variable_count に含まれる）
+            // init.statements の中に更にネストされた変数がある場合を処理
+            calculate_total_variable_count(init)
+                + calculate_total_variable_count(cond)
+                + calculate_total_variable_count(step)
+                + calculate_total_variable_count(body)
         }
         ExecStatement::Return(None) | ExecStatement::Break | ExecStatement::Continue => 0,
     }

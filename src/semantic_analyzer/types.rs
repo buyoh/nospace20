@@ -170,6 +170,10 @@ pub(crate) enum ExecStatement {
     /// while 文: (条件モード, 条件式, ループ本体)
     /// 意味解析では ConditionMode::NonZero で生成。最適化パスが Zero/Negative に変換可能。
     While(ConditionMode, Box<LocatedExecExpression>, Block),
+    /// for 文: (初期化ブロック, 条件モード, 条件ブロック, ステップブロック, 本体ブロック)
+    /// repeat は tree_parser で For に脱糖される。
+    /// continue は step ブロックへジャンプし、その後条件を再評価する。
+    For(Block, ConditionMode, Block, Block, Block),
 }
 
 /// 位置情報を持つ実行可能な文

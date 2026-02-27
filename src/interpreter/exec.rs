@@ -361,6 +361,100 @@ impl LocalEnvironment<'_, '_> {
         Flow::Proceed
     }
 
+    /// for 文のループ実行
+    ///
+    /// continue は step ブロックを実行してから条件評価に戻る（while とは異なる）。
+    fn interpret_for_statement(
+        &mut self,
+        init: &Block,
+        mode: &ConditionMode,
+        cond: &Block,
+        step: &Block,
+        body: &Block,
+    ) -> Flow {
+        // for スコープ（init 変数のスコープ）に入る
+        self.enter_block(&init.scope);
+
+        // 初期化ブロックを実行
+        let (init_flow, _) = self.interpret_statements_with_value(&init.statements);
+        match init_flow {
+            Flow::Return(v) => {
+                self.leave_block();
+                return Flow::Return(v);
+            }
+            Flow::Break | Flow::Continue => {
+                // 初期化ブロックで break/continue は意味をなさないが、安全にハンドリング
+                self.leave_block();
+                return Flow::Proceed;
+            }
+            Flow::Proceed => {}
+        }
+
+        loop {
+            // 条件ブロックを評価
+            self.enter_block(&cond.scope);
+            let (cond_flow, cond_val) = self.interpret_statements_with_value(&cond.statements);
+            self.leave_block();
+            match cond_flow {
+                Flow::Return(v) => {
+                    self.leave_block(); // init scope
+                    return Flow::Return(v);
+                }
+                Flow::Break => {
+                    self.leave_block(); // init scope
+                    return Flow::Proceed;
+                }
+                Flow::Continue | Flow::Proceed => {}
+            }
+
+            // 条件判定
+            let condition = match mode {
+                ConditionMode::NonZero => cond_val != 0,
+                ConditionMode::Zero => cond_val == 0,
+                ConditionMode::Negative => cond_val < 0,
+            };
+            if !condition {
+                break;
+            }
+
+            // body ブロックを実行
+            self.enter_block(&body.scope);
+            let (body_flow, _) = self.interpret_statements_with_value(&body.statements);
+            self.leave_block();
+            match body_flow {
+                Flow::Return(v) => {
+                    self.leave_block(); // init scope
+                    return Flow::Return(v);
+                }
+                Flow::Break => {
+                    break;
+                }
+                Flow::Proceed | Flow::Continue => {
+                    // continue の場合は step を実行してから条件再評価
+                }
+            }
+
+            // step ブロックを実行
+            self.enter_block(&step.scope);
+            let (step_flow, _) = self.interpret_statements_with_value(&step.statements);
+            self.leave_block();
+            match step_flow {
+                Flow::Return(v) => {
+                    self.leave_block(); // init scope
+                    return Flow::Return(v);
+                }
+                Flow::Break => {
+                    break;
+                }
+                Flow::Continue | Flow::Proceed => {}
+            }
+        }
+
+        // for スコープ（init 変数スコープ）を出る
+        self.leave_block();
+        Flow::Proceed
+    }
+
     fn interpret_if(
         &mut self,
         mode: &ConditionMode,
@@ -598,6 +692,13 @@ impl LocalEnvironment<'_, '_> {
                         other => return (other, last_value),
                     }
                 }
+                ExecStatement::For(init, mode, cond, step, body) => {
+                    let flow = self.interpret_for_statement(init, mode, cond, step, body);
+                    match flow {
+                        Flow::Proceed => {}
+                        other => return (other, last_value),
+                    }
+                }
             }
         }
         (Flow::Proceed, last_value)
@@ -622,6 +723,9 @@ impl LocalEnvironment<'_, '_> {
             ExecStatement::Break => Flow::Break,
             ExecStatement::Continue => Flow::Continue,
             ExecStatement::While(mode, cond, block) => self.interpret_while_statement(mode, cond, block),
+            ExecStatement::For(init, mode, cond, step, body) => {
+                self.interpret_for_statement(init, mode, cond, step, body)
+            }
         }
     }
 }

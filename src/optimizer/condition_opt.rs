@@ -69,6 +69,30 @@ fn optimize_statement(stmt: &mut LocatedExecStatement) {
                 cond.expression = new_cond_expr;
             }
         }
+        ExecStatement::For(ref mut init, ref mut mode, ref mut cond, ref mut step, ref mut body) => {
+            // 全ブロックを再帰最適化
+            optimize_block(init);
+            optimize_block(cond);
+            optimize_block(step);
+            optimize_block(body);
+
+            // NonZero の場合のみ: cond ブロックの最後の式に対して ConditionMode 最適化を適用
+            if *mode == ConditionMode::NonZero {
+                if let Some(last_stmt) = cond.statements.last_mut() {
+                    if let ExecStatement::Expression(ref mut located_expr) = last_stmt.statement {
+                        let cond_loc = located_expr.location.clone();
+                        let cond_expr = std::mem::replace(
+                            &mut located_expr.expression,
+                            ExecExpression::Factor(0),
+                        );
+                        let (new_mode, new_cond_expr) =
+                            optimize_while_nonzero(cond_expr, cond_loc);
+                        *mode = new_mode;
+                        located_expr.expression = new_cond_expr;
+                    }
+                }
+            }
+        }
         _ => {}
     }
 }

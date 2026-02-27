@@ -18,6 +18,9 @@ pub enum Statement {
     Break,
     Return(Option<Box<LocatedExpression>>),
     While(Box<LocatedExpression>, Vec<LocatedStatement>),  // while 文
+    /// for 文: (init block, cond block, step block, body block)
+    /// repeat は tree_parser 段階で For に脱糖される
+    For(Vec<LocatedStatement>, Vec<LocatedStatement>, Vec<LocatedStatement>, Vec<LocatedStatement>),
     Expression(Box<LocatedExpression>),
     Invalid(usize), // See, Expression::Invalid
 }
@@ -34,6 +37,8 @@ pub struct LocatedStatement {
 struct StatementBuilder<'b: 'a, 'a> {
     iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
     code_parse_error: Vec<CodeParseError>,
+    /// repeat 脱糖時の隠し変数連番カウンタ（__rpt_n0, __rpt_n1, ...）
+    repeat_counter: usize,
 }
 
 impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
@@ -43,6 +48,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let mut b = Self {
             iter,
             code_parse_error: vec![],
+            repeat_counter: 0,
         };
         let e = b.parse_to_statements();
         (e, b.code_parse_error)
@@ -687,6 +693,131 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         }
     }
 
+    /// `for:` キーワードを消費して for 文をパースする。
+    fn parse_to_statements_for(&mut self, start_pos: usize) -> LocatedStatement {
+        self.iter.next(); // 'for' キーワードを消費
+        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
+            self.skip_to_semicolon();
+            return LocatedStatement {
+                statement: Statement::Invalid(e),
+                location: SourceLocation::from_single(start_pos),
+            };
+        }
+        let init = self.parse_to_statements_block();
+        let cond = self.parse_to_statements_block();
+        let step = self.parse_to_statements_block();
+        let body = self.parse_to_statements_block();
+        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+        let end_pos = self.current_pos_or(start_pos);
+        LocatedStatement {
+            statement: Statement::For(init, cond, step, body),
+            location: SourceLocation::new(start_pos, end_pos),
+        }
+    }
+
+    /// `repeat:` キーワードを消費して repeat 文をパースし、Statement::For に脱糖する。
+    fn parse_to_statements_repeat(&mut self, start_pos: usize) -> LocatedStatement {
+        self.iter.next(); // 'repeat' キーワードを消費
+        if let Err(e) = match_expect_token!(self, self.iter.next(), Token::Colon) {
+            self.skip_to_semicolon();
+            return LocatedStatement {
+                statement: Statement::Invalid(e),
+                location: SourceLocation::from_single(start_pos),
+            };
+        }
+
+        // 最初の式をパース
+        let (first_expr, mut first_errors) = parse_to_expression_tree_root(self.iter);
+        self.code_parse_error.append(&mut first_errors);
+
+        // 次のトークンによって形式を判定
+        // ここで peek() の型は &(Token, TokenInfo)
+        let next_is_semi = matches!(self.iter.peek(), Some((Token::Semicolon, _)));
+        let next_is_comma = matches!(self.iter.peek(), Some((Token::Comma, _)));
+
+        if next_is_semi {
+            // Form 3: repeat: body; → 無限ループ
+            self.iter.next(); // ';' を消費
+            let end_pos = self.current_pos_or(start_pos);
+            LocatedStatement {
+                statement: desugar_repeat_form3(first_expr, start_pos),
+                location: SourceLocation::new(start_pos, end_pos),
+            }
+        } else if next_is_comma {
+            self.iter.next(); // ',' を消費
+            // 初期化宣言として解釈: first_expr は Expression::Function(name, [init_val]) であるべき
+            match first_expr.expression {
+                Expression::Function(name, mut args) if args.len() == 1 => {
+                    let init_val = args.remove(0);
+                    // 2番目の式をパース
+                    let (second_expr, mut second_errors) = parse_to_expression_tree_root(self.iter);
+                    self.code_parse_error.append(&mut second_errors);
+
+                    let next2_is_semi = matches!(self.iter.peek(), Some((Token::Semicolon, _)));
+                    let next2_is_comma = matches!(self.iter.peek(), Some((Token::Comma, _)));
+
+                    if next2_is_semi {
+                        // Form 2: repeat: i(init), body; → カウンタ付き無限ループ
+                        self.iter.next(); // ';' を消費
+                        let end_pos = self.current_pos_or(start_pos);
+                        LocatedStatement {
+                            statement: desugar_repeat_form2(name, init_val, second_expr, start_pos),
+                            location: SourceLocation::new(start_pos, end_pos),
+                        }
+                    } else if next2_is_comma {
+                        // Form 1: repeat: i(init), N, body;
+                        self.iter.next(); // ',' を消費
+                        let (body_expr, mut body_errors) = parse_to_expression_tree_root(self.iter);
+                        self.code_parse_error.append(&mut body_errors);
+                        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+                        let rpt_n_name = format!("__rpt_n{}", self.repeat_counter);
+                        self.repeat_counter += 1;
+                        let end_pos = self.current_pos_or(start_pos);
+                        LocatedStatement {
+                            statement: desugar_repeat_form1(
+                                name,
+                                init_val,
+                                second_expr,
+                                body_expr,
+                                rpt_n_name,
+                                start_pos,
+                            ),
+                            location: SourceLocation::new(start_pos, end_pos),
+                        }
+                    } else {
+                        let err_idx = self.add_end_error(
+                            "expected ',' or ';' after repeat counter/limit expression",
+                        );
+                        self.skip_to_semicolon();
+                        LocatedStatement {
+                            statement: Statement::Invalid(err_idx),
+                            location: SourceLocation::from_single(start_pos),
+                        }
+                    }
+                }
+                _ => {
+                    let err_idx = self.add_parse_error(
+                        &TokenInfo { code_pointer: start_pos },
+                        "repeat: expected counter declaration like 'i(0)' before ','",
+                    );
+                    self.skip_to_semicolon();
+                    LocatedStatement {
+                        statement: Statement::Invalid(err_idx),
+                        location: SourceLocation::from_single(start_pos),
+                    }
+                }
+            }
+        } else {
+            let err_idx =
+                self.add_end_error("expected ',' or ';' after repeat expression");
+            self.skip_to_semicolon();
+            LocatedStatement {
+                statement: Statement::Invalid(err_idx),
+                location: SourceLocation::from_single(start_pos),
+            }
+        }
+    }
+
     fn parse_to_statements(&mut self) -> Vec<LocatedStatement> {
         let mut statements = Vec::<LocatedStatement>::new();
         while let Some(token) = self.iter.peek() {
@@ -761,6 +892,16 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     });
                     continue;
                 }
+                Token::Keyword(Keyword::For) => {
+                    let stmt = self.parse_to_statements_for(start_pos);
+                    statements.push(stmt);
+                    continue;
+                }
+                Token::Keyword(Keyword::Repeat) => {
+                    let stmt = self.parse_to_statements_repeat(start_pos);
+                    statements.push(stmt);
+                    continue;
+                }
                 Token::BraceR => {
                     break;
                 }
@@ -783,6 +924,162 @@ pub(super) fn parse_to_statements(
     iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
 ) -> (Vec<LocatedStatement>, Vec<CodeParseError>) {
     StatementBuilder::parse(iter)
+}
+
+// ============================================================
+// repeat 脱糖ヘルパー
+// ============================================================
+
+/// 指定した位置の LocatedExpression を構築するヘルパー
+fn make_located_expr_at(expr: Expression, pos: usize) -> Box<LocatedExpression> {
+    Box::new(LocatedExpression {
+        expression: expr,
+        location: SourceLocation::from_single(pos),
+    })
+}
+
+/// repeat Form 3 の脱糖: `repeat: body;`
+/// → `for: {} { 1; } {} { body; };`
+fn desugar_repeat_form3(body_expr: Box<LocatedExpression>, pos: usize) -> Statement {
+    let loc = SourceLocation::from_single(pos);
+    let cond = vec![LocatedStatement {
+        statement: Statement::Expression(make_located_expr_at(Expression::Factor(1), pos)),
+        location: loc.clone(),
+    }];
+    let body = vec![LocatedStatement {
+        statement: Statement::Expression(body_expr),
+        location: loc,
+    }];
+    Statement::For(vec![], cond, vec![], body)
+}
+
+/// repeat Form 2 の脱糖: `repeat: i(init), body;`
+/// → `for: { let: i(init); } { 1; } { i += 1; } { body; };`
+fn desugar_repeat_form2(
+    counter_name: String,
+    init_val: Box<LocatedExpression>,
+    body_expr: Box<LocatedExpression>,
+    pos: usize,
+) -> Statement {
+    let loc = SourceLocation::from_single(pos);
+    // 初期化式は代入式 `counter_name = init_val` として構築（パーサと同様）
+    let init_assign = make_located_expr_at(
+        Expression::Operation2(
+            Operator2::Assign,
+            make_located_expr_at(Expression::Variable(counter_name.clone()), pos),
+            init_val,
+        ),
+        pos,
+    );
+    let init = vec![LocatedStatement {
+        statement: Statement::VariableDeclaration(counter_name.clone(), init_assign, false, None),
+        location: loc.clone(),
+    }];
+    let cond = vec![LocatedStatement {
+        statement: Statement::Expression(make_located_expr_at(Expression::Factor(1), pos)),
+        location: loc.clone(),
+    }];
+    let step_plus = make_located_expr_at(
+        Expression::Operation2(
+            Operator2::PlusAssign,
+            make_located_expr_at(Expression::Variable(counter_name.clone()), pos),
+            make_located_expr_at(Expression::Factor(1), pos),
+        ),
+        pos,
+    );
+    let step = vec![LocatedStatement {
+        statement: Statement::Expression(step_plus),
+        location: loc.clone(),
+    }];
+    let body = vec![LocatedStatement {
+        statement: Statement::Expression(body_expr),
+        location: loc,
+    }];
+    Statement::For(init, cond, step, body)
+}
+
+/// repeat Form 1 の脱糖: `repeat: i(init), N, body;`
+/// → `for: { let: i(init); let: __rpt_nX(N); } { __rpt_nX > 0; } { i += 1; __rpt_nX -= 1; } { body; };`
+fn desugar_repeat_form1(
+    counter_name: String,
+    init_val: Box<LocatedExpression>,
+    n_expr: Box<LocatedExpression>,
+    body_expr: Box<LocatedExpression>,
+    rpt_n_name: String,
+    pos: usize,
+) -> Statement {
+    let loc = SourceLocation::from_single(pos);
+    // 初期化式は代入式として構築（パーサと同様）
+    let counter_assign = make_located_expr_at(
+        Expression::Operation2(
+            Operator2::Assign,
+            make_located_expr_at(Expression::Variable(counter_name.clone()), pos),
+            init_val,
+        ),
+        pos,
+    );
+    let rpt_n_assign = make_located_expr_at(
+        Expression::Operation2(
+            Operator2::Assign,
+            make_located_expr_at(Expression::Variable(rpt_n_name.clone()), pos),
+            n_expr,
+        ),
+        pos,
+    );
+    let init = vec![
+        LocatedStatement {
+            statement: Statement::VariableDeclaration(counter_name.clone(), counter_assign, false, None),
+            location: loc.clone(),
+        },
+        LocatedStatement {
+            statement: Statement::VariableDeclaration(rpt_n_name.clone(), rpt_n_assign, false, None),
+            location: loc.clone(),
+        },
+    ];
+    // 条件: __rpt_nX > 0
+    let cond = vec![LocatedStatement {
+        statement: Statement::Expression(make_located_expr_at(
+            Expression::Operation2(
+                Operator2::Greater,
+                make_located_expr_at(Expression::Variable(rpt_n_name.clone()), pos),
+                make_located_expr_at(Expression::Factor(0), pos),
+            ),
+            pos,
+        )),
+        location: loc.clone(),
+    }];
+    // ステップ: i += 1; __rpt_nX -= 1;
+    let step_i_plus = make_located_expr_at(
+        Expression::Operation2(
+            Operator2::PlusAssign,
+            make_located_expr_at(Expression::Variable(counter_name.clone()), pos),
+            make_located_expr_at(Expression::Factor(1), pos),
+        ),
+        pos,
+    );
+    let step_rpt_minus = make_located_expr_at(
+        Expression::Operation2(
+            Operator2::MinusAssign,
+            make_located_expr_at(Expression::Variable(rpt_n_name), pos),
+            make_located_expr_at(Expression::Factor(1), pos),
+        ),
+        pos,
+    );
+    let step = vec![
+        LocatedStatement {
+            statement: Statement::Expression(step_i_plus),
+            location: loc.clone(),
+        },
+        LocatedStatement {
+            statement: Statement::Expression(step_rpt_minus),
+            location: loc.clone(),
+        },
+    ];
+    let body = vec![LocatedStatement {
+        statement: Statement::Expression(body_expr),
+        location: loc,
+    }];
+    Statement::For(init, cond, step, body)
 }
 
 #[cfg(test)]

@@ -42,6 +42,13 @@ fn has_return_statement(statements: &[LocatedStatement]) -> bool {
                     return true;
                 }
             }
+            Statement::For(init, cond, step, body) => {
+                for block in &[init, cond, step, body] {
+                    if has_return_statement(block) {
+                        return true;
+                    }
+                }
+            }
             // ネストした関数宣言は除外（別の関数の return なので）
             Statement::FunctionDeclaration(_, _, _) => {}
             _ => {}
@@ -809,6 +816,101 @@ fn analyze_internal_with_parent(
                             scope: s.build(Vec::new(), Vec::new(), Vec::new()),
                             statements: es,
                         },
+                    ),
+                    location: loc.clone(),
+                });
+            }
+            Statement::For(init_stmts, cond_stmts, step_stmts, body_stmts) => {
+                if let ScopeType::Root = scope_type {
+                    return Err(vec![code_parse_error!(
+                        loc.start,
+                        "semantic error: for statement outside of function"
+                    )]);
+                }
+
+                // Step 1: init ブロックを解析（現在のスコープの子として）
+                // init スコープには for ループ変数が含まれる
+                let (init_sb, init_es) = analyze_internal_with_parent(
+                    init_stmts,
+                    ScopeType::Block,
+                    Vec::new(),
+                    Some(&resolver),
+                    global_functions,
+                    global_function_names,
+                    None,
+                    effective_func_return_types.to_vec(),
+                )?;
+                let init_scope = init_sb.build(Vec::new(), Vec::new(), Vec::new());
+
+                // Step 2: for スコープのリゾルバを構築
+                // 現在のスコープに init スコープを重ねることで、
+                // cond/step/body から init 変数を scope_depth=1 でアクセス可能にする
+                let mut for_resolver: ScopeResolver<'_> = ScopeResolver {
+                    scope_stack: resolver.scope_stack.clone(),
+                };
+                for_resolver.enter_scope(
+                    &init_scope.variable_indices,
+                    &init_scope.variable_name_to_var_index,
+                    &init_scope.variables,
+                    &init_scope.identifier_map,
+                    false,
+                    None,
+                );
+
+                // Step 3: cond ブロックを解析
+                let (cond_sb, cond_es) = analyze_internal_with_parent(
+                    cond_stmts,
+                    ScopeType::Block,
+                    Vec::new(),
+                    Some(&for_resolver),
+                    &mut Vec::new(),
+                    &mut Vec::new(),
+                    None,
+                    effective_func_return_types.to_vec(),
+                )?;
+                let cond_scope = cond_sb.build(Vec::new(), Vec::new(), Vec::new());
+
+                // 条件ブロックの型チェック: 最後の式が int 型でなければならない
+                let temp_cond_block = Block { scope: cond_scope, statements: cond_es };
+                if types::infer_block_type(&temp_cond_block, &effective_func_return_types) != ValueType::Int {
+                    return Err(vec![code_parse_error!(
+                        loc.start,
+                        "semantic error: for condition block must end with an int-typed expression"
+                    )]);
+                }
+                let Block { scope: cond_scope, statements: cond_es } = temp_cond_block;
+
+                // Step 4: step ブロックを解析
+                let (step_sb, step_es) = analyze_internal_with_parent(
+                    step_stmts,
+                    ScopeType::Block,
+                    Vec::new(),
+                    Some(&for_resolver),
+                    &mut Vec::new(),
+                    &mut Vec::new(),
+                    None,
+                    effective_func_return_types.to_vec(),
+                )?;
+
+                // Step 5: body ブロックを解析
+                let (body_sb, body_es) = analyze_internal_with_parent(
+                    body_stmts,
+                    ScopeType::Block,
+                    Vec::new(),
+                    Some(&for_resolver),
+                    &mut Vec::new(),
+                    &mut Vec::new(),
+                    None,
+                    effective_func_return_types.to_vec(),
+                )?;
+
+                exec_statements.push(LocatedExecStatement {
+                    statement: ExecStatement::For(
+                        Block { scope: init_scope, statements: init_es },
+                        ConditionMode::NonZero,
+                        Block { scope: cond_scope, statements: cond_es },
+                        Block { scope: step_sb.build(Vec::new(), Vec::new(), Vec::new()), statements: step_es },
+                        Block { scope: body_sb.build(Vec::new(), Vec::new(), Vec::new()), statements: body_es },
                     ),
                     location: loc.clone(),
                 });

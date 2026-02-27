@@ -1,0 +1,9 @@
+# repeat Form 3: 無限ループ (break で脱出) #
+func: main() {
+  let: cnt(0);
+  repeat: {
+    __trace(0);
+    cnt += 1;
+    if: cnt == 5 { break; };
+  };
+}

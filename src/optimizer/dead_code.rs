@@ -89,6 +89,12 @@ fn collect_called_in_statement(
             collect_called_in_expr(&cond.expression, reachable, worklist);
             collect_called_in_block(body, reachable, worklist);
         }
+        ExecStatement::For(init, _, cond, step, body) => {
+            collect_called_in_block(init, reachable, worklist);
+            collect_called_in_block(cond, reachable, worklist);
+            collect_called_in_block(step, reachable, worklist);
+            collect_called_in_block(body, reachable, worklist);
+        }
         _ => {}
     }
 }

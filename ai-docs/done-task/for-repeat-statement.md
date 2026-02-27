@@ -1,5 +1,18 @@
 # for 文・repeat 文の設計
 
+## 実装状況: 完了 ✅
+
+全ステップ実装済み・全テスト通過。
+
+### 発見した不具合と修正
+
+- `desugar_repeat_form1/2` で変数宣言の init_expr が単なる値式（例: `Factor(0)`）
+  になっており、変数への代入が行われていなかった。
+  - `enter_block` で変数スロットが 0 初期化されるが、`__rpt_n0(5)` のように
+    0 以外の値の場合、代入式 `Operation2(Assign, Variable(name), value)` が
+    必要。
+  - 修正: `make_assign_expr` パターンで代入式を構築するよう desugar 関数を修正。
+
 ## 概要
 
 nospace 言語に `for` 文と `repeat` 文を追加する。

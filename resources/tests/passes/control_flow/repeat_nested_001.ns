@@ -1,0 +1,6 @@
+# repeat ネスト: 3x3=9回 #
+func: main() {
+  repeat: i(0), 3, {
+    repeat: j(0), 3, __trace(0);
+  };
+}
