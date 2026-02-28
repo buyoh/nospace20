@@ -1,0 +1,9 @@
+# constexpr: ブロック形式 - let 変数を使った計算 #
+func: __main() {
+  __trace(0);
+  constexpr: SQ {
+    let: tmp(3);
+    tmp * tmp;
+  };
+  __assert_not(SQ - 9);
+}

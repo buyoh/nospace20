@@ -82,7 +82,8 @@ final ::=
 final_decl ::= ident ("[" integer? "]")? ("(" array_init | string_init | expr ")")?
 
 constexpr ::=
-    | "constexpr" ":" ident "(" expr ")" ("," ident "(" expr ")")* ";"
+    | "constexpr" ":" ident "(" expr ")" ("," ident "(" expr ")")* ";"  # 式形式（複数定義可）
+    | "constexpr" ":" ident block ";"                                    # ブロック形式（単一定義）
 
 alias ::=
     | "alias" ":" ident "(" ident ")" ("," ident "(" ident ")")* ";"   # 識別子エイリアス

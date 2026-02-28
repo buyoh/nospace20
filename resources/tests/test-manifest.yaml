@@ -319,6 +319,31 @@ tests:
     path: variables/constexpr_forward_ref_001
     comment: "Constexpr forward reference (hoisting)"
 
+  - name: test_variables_constexpr_block_basic_001
+    type: success
+    path: variables/constexpr_block_basic_001
+    comment: "Constexpr block form: basic value"
+
+  - name: test_variables_constexpr_block_let_001
+    type: success
+    path: variables/constexpr_block_let_001
+    comment: "Constexpr block form: let variable and arithmetic"
+
+  - name: test_variables_constexpr_block_if_001
+    type: success
+    path: variables/constexpr_block_if_001
+    comment: "Constexpr block form: if branch"
+
+  - name: test_variables_constexpr_block_assign_001
+    type: success
+    path: variables/constexpr_block_assign_001
+    comment: "Constexpr block form: variable assignment and compound assignment"
+
+  - name: test_variables_constexpr_block_mixed_001
+    type: success
+    path: variables/constexpr_block_mixed_001
+    comment: "Constexpr block form: mixed with expression form"
+
   - name: test_variables_alias_var_001
     type: success
     path: variables/alias_var_001
@@ -821,6 +846,21 @@ tests:
     type: compile_error
     path: constexpr_non_const_func_001
     comment: "Error: function call in constexpr expression"
+
+  - name: test_compile_error_constexpr_block_loop_001
+    type: compile_error
+    path: constexpr_block_loop_001
+    comment: "Error: while loop in constexpr block"
+
+  - name: test_compile_error_constexpr_block_func_001
+    type: compile_error
+    path: constexpr_block_func_001
+    comment: "Error: function call in constexpr block"
+
+  - name: test_compile_error_constexpr_block_empty_001
+    type: compile_error
+    path: constexpr_block_empty_001
+    comment: "Error: empty constexpr block (no value)"
 
   - name: test_compile_error_alias_circular_001
     type: compile_error

@@ -1,0 +1,11 @@
+# constexpr: ブロック形式 - 変数代入を含む #
+func: __main() {
+  __trace(0);
+  constexpr: RESULT {
+    let: x(1);
+    x = 10;
+    x += 5;
+    x;
+  };
+  __assert_not(RESULT - 15);
+}

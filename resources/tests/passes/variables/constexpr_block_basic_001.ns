@@ -1,0 +1,8 @@
+# constexpr: ブロック形式の基本テスト #
+func: __main() {
+  __trace(0);
+  constexpr: VALUE {
+    9;
+  };
+  __assert_not(VALUE - 9);
+}

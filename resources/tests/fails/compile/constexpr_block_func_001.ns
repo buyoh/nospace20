@@ -1,0 +1,10 @@
+# エラーケース: constexpr ブロック内で関数呼び出し #
+func: square(n) {
+  return: n * n;
+}
+func: __main() {
+  constexpr: BAD {
+    square(5);
+  };
+  __puti(BAD);
+}

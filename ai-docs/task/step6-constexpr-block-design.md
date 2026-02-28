@@ -1,5 +1,30 @@
 # Step 6: constexpr ブロック形式 詳細設計
 
+## 実装状況: **完了**
+
+すべての実装ステップが完了し、テストが全て通過した。
+
+### 完了した変更
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/base/constexpr_eval.rs` | 新規作成: `ConstexprEnv`, `eval_constexpr_expr`, `eval_constexpr_block`, Unit テスト |
+| `src/base/mod.rs` | `pub mod constexpr_eval;` を追加 |
+| `src/tree_parser/statement/mod.rs` | `parse_constexpr_declarations` にブロック形式パース追加 |
+| `src/semantic_analyzer/mod.rs` | `evaluate_constexpr_by_name` で `Expression::Block` 検出時にブロック評価器を呼び出す |
+| `resources/tests/passes/variables/constexpr_block_*.ns` | 成功テスト5件追加 |
+| `resources/tests/fails/compile/constexpr_block_*.ns` | エラーテスト3件追加 |
+| `resources/tests/test-manifest.yaml` | テスト登録 |
+| `docs/spec.md` | constexpr ブロック形式の仕様追記 |
+| `docs/grammar.bnf` | constexpr ブロック形式の文法追記 |
+
+### 実装時に判明した設計上の注意点
+
+1. **`VariableDeclaration` init_expr の形式**: `parse_variable_init` は `let: name(expr)` の init_expr を `Operation2(Assign, Variable(name), expr)` として生成する。`eval_constexpr_block_inner` でこれを考慮して RHS を取り出す必要があった。
+2. **ブロック形式での前方参照制限**: `ConstexprEnv` に渡す `constexpr_table` は `resolved`（解決済みテーブル）のみ。BTreeMap の辞書順評価のため、ブロック形式 constexpr が他の constexpr を参照する場合、参照先が辞書順で前にある必要がある。
+
+---
+
 ## 概要
 
 ブロック形式の constexpr 定義を実装する。

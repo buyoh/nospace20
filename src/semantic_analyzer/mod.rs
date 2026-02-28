@@ -16,7 +16,7 @@ use std::collections::BTreeSet;
 use scope::{FunctionIndex, Identifier, ScopeBuilder, ScopeResolver, ScopeType, SymbolTable};
 
 use crate::{
-    base::{pure_eval, CodeParseError, SourceLocation},
+    base::{constexpr_eval, pure_eval, CodeParseError, SourceLocation},
     code_parse_error,
     tree_parser::{
         Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement,
@@ -144,7 +144,18 @@ fn evaluate_constexpr_by_name(
         }
     };
     evaluating.insert(name.to_string());
-    let v = evaluate_constexpr_expr(&expr, raw, resolved, evaluating)?;
+    let v = match &expr.expression {
+        Expression::Block(stmts) => {
+            // ブロック形式: base/constexpr_eval を使用して評価
+            // resolved テーブルを ConstexprEnv に渡し、解決済み定数を参照可能にする
+            let mut env = constexpr_eval::ConstexprEnv::new(resolved);
+            constexpr_eval::eval_constexpr_block(stmts, &mut env)?
+        }
+        _ => {
+            // 式形式: 既存のロジックを使用
+            evaluate_constexpr_expr(&expr, raw, resolved, evaluating)?
+        }
+    };
     evaluating.remove(name);
     resolved.insert(name.to_string(), v);
     Ok(v)

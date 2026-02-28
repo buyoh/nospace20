@@ -1,0 +1,6 @@
+# エラーケース: constexpr ブロックが空（値なし）#
+func: __main() {
+  constexpr: BAD {
+  };
+  __puti(BAD);
+}

@@ -151,11 +151,56 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
             };
 
-            // '(' を期待
-            match self.iter.next() {
-                Some((Token::ParenthesisL, _)) => {}
+            // 識別子の直後のトークンで式形式かブロック形式かを決定
+            match self.iter.peek() {
+                Some((Token::BraceL, _)) => {
+                    // ブロック形式: constexpr: name { 文... };
+                    let body = self.parse_to_statements_block();
+                    let end_pos = self.current_pos_or(start_pos);
+                    let loc = SourceLocation::new(start_pos, end_pos);
+                    results.push(LocatedStatement {
+                        statement: Statement::ConstexprDeclaration(
+                            id.to_string(),
+                            Box::new(LocatedExpression {
+                                expression: Expression::Block(body),
+                                location: loc.clone(),
+                            }),
+                        ),
+                        location: loc,
+                    });
+                    // ブロック形式は単一定義 → ループを抜けてセミコロンを消費
+                    break;
+                }
+                Some((Token::ParenthesisL, _)) => {
+                    // 式形式: constexpr: name(expr)
+                    self.iter.next(); // '(' を消費
+
+                    // 定数式をパース（')' の直前まで）
+                    let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+                    self.code_parse_error.append(&mut errs);
+
+                    // ')' を消費
+                    match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
+
+                    let end_pos = self.current_pos_or(start_pos);
+                    let loc = SourceLocation::new(start_pos, end_pos);
+
+                    results.push(LocatedStatement {
+                        statement: Statement::ConstexprDeclaration(id.to_string(), expr),
+                        location: loc,
+                    });
+
+                    // ',' または ';' を確認
+                    match self.iter.peek() {
+                        Some((Token::Comma, _)) => {
+                            self.iter.next(); // ',' を消費して次の定義へ
+                        }
+                        _ => break, // ';' または予期しないトークン → ループを抜ける
+                    }
+                }
                 Some((_, token_info)) => {
-                    let err_idx = self.add_parse_error(&token_info, "expected '(' after constexpr identifier");
+                    let err_idx =
+                        self.add_parse_error(token_info, "expected '(' or '{' after constexpr identifier");
                     results.push(LocatedStatement {
                         statement: Statement::Invalid(err_idx),
                         location: SourceLocation::from_single(start_pos),
@@ -164,36 +209,14 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     return results;
                 }
                 None => {
-                    let err_idx = self.add_end_error("unexpected end of input in constexpr declaration");
+                    let err_idx =
+                        self.add_end_error("unexpected end of input in constexpr declaration");
                     results.push(LocatedStatement {
                         statement: Statement::Invalid(err_idx),
                         location: SourceLocation::from_single(start_pos),
                     });
                     return results;
                 }
-            }
-
-            // 定数式をパース（')' の直前まで）
-            let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
-            self.code_parse_error.append(&mut errs);
-
-            // ')' を消費
-            match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
-
-            let end_pos = self.current_pos_or(start_pos);
-            let loc = SourceLocation::new(start_pos, end_pos);
-
-            results.push(LocatedStatement {
-                statement: Statement::ConstexprDeclaration(id.to_string(), expr),
-                location: loc,
-            });
-
-            // ',' または ';' を確認
-            match self.iter.peek() {
-                Some((Token::Comma, _)) => {
-                    self.iter.next(); // ',' を消費して次の定義へ
-                }
-                _ => break, // ';' または予期しないトークン → ループを抜ける
             }
         }
 

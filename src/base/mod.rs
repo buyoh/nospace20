@@ -36,3 +36,4 @@ mod location;
 pub use location::SourceLocation;
 
 pub mod pure_eval;
+pub mod constexpr_eval;

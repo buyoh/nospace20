@@ -1,0 +1,12 @@
+# constexpr: ブロック形式 - 式形式との混在 #
+# ALPHA < BETA の辞書順で ALPHA が先に評価されるため、BETA 内から参照可能 #
+func: __main() {
+  __trace(0);
+  constexpr: ALPHA(10);
+  constexpr: BETA {
+    let: x(ALPHA);
+    x * 2;
+  };
+  __assert_not(ALPHA - 10);
+  __assert_not(BETA - 20);
+}

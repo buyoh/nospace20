@@ -1,0 +1,11 @@
+# エラーケース: constexpr ブロック内で while を使用 #
+func: __main() {
+  constexpr: BAD {
+    let: x(0);
+    while: (x < 10) {
+      x += 1;
+    };
+    x;
+  };
+  __puti(BAD);
+}
