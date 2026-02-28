@@ -100,6 +100,7 @@ fn test_success_block_scoped_variable() {
             "x".to_string(),
             loc_expr(Expression::Factor(0)),
             false, // non-static
+            false,
             None,  // not an array
         ),
         location: SourceLocation::new(150, 160),
@@ -134,6 +135,7 @@ fn test_success_global_variable() {
             "global".to_string(),
             loc_expr(Expression::Factor(42)),
             false, // non-static explicitly, but global is implicitly static
+            false,
             None,  // not an array
         ),
         location: SourceLocation::new(200, 210),
@@ -174,6 +176,7 @@ fn test_success_ref_variable() {
         statement: Statement::VariableDeclaration(
             "x".to_string(),
             loc_expr(Expression::Factor(0)),
+            false,
             false,
             None,
         ),
@@ -254,6 +257,7 @@ fn test_error_ref_expression() {
             "x".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             None,
         ),
         location: SourceLocation::new(20, 30),
@@ -307,6 +311,7 @@ fn test_success_deref_variable() {
             "p".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             None,
         ),
         location: SourceLocation::new(20, 30),
@@ -349,6 +354,7 @@ fn test_success_array_declaration() {
             "arr".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             Some(3), // array size
         ),
         location: SourceLocation::new(20, 30),
@@ -387,6 +393,7 @@ fn test_success_multiple_variables_with_array() {
             "a".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             None,
         ),
         location: SourceLocation::new(20, 25),
@@ -397,6 +404,7 @@ fn test_success_multiple_variables_with_array() {
             "arr".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             Some(3),
         ),
         location: SourceLocation::new(30, 40),
@@ -406,6 +414,7 @@ fn test_success_multiple_variables_with_array() {
         statement: Statement::VariableDeclaration(
             "b".to_string(),
             loc_expr(Expression::Factor(0)),
+            false,
             false,
             None,
         ),
@@ -446,6 +455,7 @@ fn test_success_array_access() {
             "arr".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             Some(3),
         ),
         location: SourceLocation::new(20, 30),
@@ -485,6 +495,7 @@ fn test_success_array_assignment() {
         statement: Statement::VariableDeclaration(
             "arr".to_string(),
             loc_expr(Expression::Factor(0)),
+            false,
             false,
             Some(3),
         ),
@@ -530,6 +541,7 @@ fn test_error_array_access_non_array() {
         statement: Statement::VariableDeclaration(
             "x".to_string(),
             loc_expr(Expression::Factor(0)),
+            false,
             false,
             None, // not an array
         ),
@@ -608,6 +620,7 @@ fn test_success_ref_array_element() {
             "arr".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             Some(3),
         ),
         location: SourceLocation::new(20, 30),
@@ -651,6 +664,7 @@ fn test_success_static_array() {
             "arr".to_string(),
             loc_expr(Expression::Factor(0)),
             true, // static
+            false,
             Some(3),
         ),
         location: SourceLocation::new(20, 30),
@@ -689,6 +703,7 @@ fn test_variable_slot_index() {
             "a".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             None,
         ),
         location: SourceLocation::new(20, 30),
@@ -699,6 +714,7 @@ fn test_variable_slot_index() {
             "arr".to_string(),
             loc_expr(Expression::Factor(0)),
             false,
+            false,
             Some(3),
         ),
         location: SourceLocation::new(40, 50),
@@ -708,6 +724,7 @@ fn test_variable_slot_index() {
         statement: Statement::VariableDeclaration(
             "b".to_string(),
             loc_expr(Expression::Factor(0)),
+            false,
             false,
             None,
         ),

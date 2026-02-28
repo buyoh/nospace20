@@ -13,7 +13,7 @@ use super::{LocatedStatement, Statement};
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operator2 {
     Plus,
     Minus,

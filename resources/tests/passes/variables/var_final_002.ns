@@ -1,0 +1,7 @@
+# final 変数: ランタイム値で初期化 #
+func: add(a, b) { return: a + b; }
+func: __main() {
+  __trace(0);
+  final: x(add(3, 7));
+  __assert(x == 10);
+}

@@ -12,7 +12,7 @@ use super::expression::*;
 
 #[derive(Clone, Debug)]
 pub enum Statement {
-    VariableDeclaration(String, Box<LocatedExpression>, bool, Option<i64>), // (name, init_expr, is_static, array_size)
+    VariableDeclaration(String, Box<LocatedExpression>, bool, bool, Option<i64>), // (name, init_expr, is_static, is_final, array_size)
     /// コンパイル時定数定義: `constexpr: name(expr);`
     /// スタックスロットを確保せず、コンパイル時に定数値に解決される
     ConstexprDeclaration(String, Box<LocatedExpression>), // (name, expr)
@@ -117,7 +117,17 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     ) -> Vec<LocatedStatement> {
         // 呼び出し元が既にキーワードを確認済みなので、そのまま消費する
         self.iter.next();
-        self.parse_variable_declarations(start_pos, is_static)
+        self.parse_variable_declarations(start_pos, is_static, false)
+    }
+
+    /// `final:` キーワードを消費して final 変数宣言をパースする。
+    /// `final: name(expr);` のように複数定義にも対応。
+    fn parse_to_statements_final_variable(
+        &mut self,
+        start_pos: usize,
+    ) -> Vec<LocatedStatement> {
+        self.iter.next(); // Final キーワードを消費
+        self.parse_variable_declarations(start_pos, false, true) // is_static=false, is_final=true
     }
 
     /// `constexpr:` キーワードを消費して定数定義をパースする。
@@ -368,6 +378,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         start_pos: usize,
         array_size: Option<i64>,
         is_static: bool,
+        is_final: bool,
         results: &mut Vec<LocatedStatement>,
     ) -> bool {
         let chars = match self.iter.peek() {
@@ -422,6 +433,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     location: loc.clone(),
                 }),
                 is_static,
+                is_final,
                 Some(actual_size),
             ),
             location: loc.clone(),
@@ -495,6 +507,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         start_pos: usize,
         array_size: Option<i64>,
         is_static: bool,
+        is_final: bool,
         results: &mut Vec<LocatedStatement>,
     ) -> bool {
         let mut init_values = Vec::new();
@@ -573,6 +586,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     location: loc.clone(),
                 }),
                 is_static,
+                is_final,
                 Some(actual_size),
             ),
             location: loc.clone(),
@@ -614,6 +628,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         id: &str,
         start_pos: usize,
         is_static: bool,
+        is_final: bool,
         results: &mut Vec<LocatedStatement>,
     ) {
         let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
@@ -640,7 +655,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         });
 
         results.push(LocatedStatement {
-            statement: Statement::VariableDeclaration(id.to_string(), init_expr, is_static, None),
+            statement: Statement::VariableDeclaration(id.to_string(), init_expr, is_static, is_final, None),
             location: loc,
         });
     }
@@ -649,6 +664,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         &mut self,
         start_pos: usize,
         is_static: bool,
+        is_final: bool,
     ) -> Vec<LocatedStatement> {
         // Keyword トークンがコロンを内包済みのため、ここでのコロン消費は不要
 
@@ -700,6 +716,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             start_pos,
                             array_size,
                             is_static,
+                            is_final,
                             &mut results,
                         );
                         if !ok {
@@ -714,6 +731,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             start_pos,
                             array_size,
                             is_static,
+                            is_final,
                             &mut results,
                         );
                         if !ok {
@@ -737,7 +755,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     }
                 } else {
                     // 通常変数の初期化: (expr)
-                    self.parse_variable_init(&id, start_pos, is_static, &mut results);
+                    self.parse_variable_init(&id, start_pos, is_static, is_final, &mut results);
                 }
             } else {
                 // 初期化式なし
@@ -766,6 +784,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             location: loc.clone(),
                         }),
                         is_static,
+                        is_final,
                         array_size,
                     ),
                     location: loc,
@@ -1017,6 +1036,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     statements.extend(self.parse_alias_declarations(start_pos));
                     continue;
                 }
+                Token::Keyword(Keyword::Final) => {
+                    statements.extend(self.parse_to_statements_final_variable(start_pos));
+                    continue;
+                }
                 Token::Keyword(Keyword::Func) => {
                     statements.push(self.parse_to_statements_func(start_pos));
                     continue;
@@ -1152,7 +1175,7 @@ fn desugar_repeat_form2(
         pos,
     );
     let init = vec![LocatedStatement {
-        statement: Statement::VariableDeclaration(counter_name.clone(), init_assign, false, None),
+        statement: Statement::VariableDeclaration(counter_name.clone(), init_assign, false, false, None),
         location: loc.clone(),
     }];
     let cond = vec![LocatedStatement {
@@ -1202,6 +1225,7 @@ fn desugar_repeat_form1(
         statement: Statement::VariableDeclaration(
             counter_name.clone(),
             counter_assign,
+            false,
             false,
             None,
         ),

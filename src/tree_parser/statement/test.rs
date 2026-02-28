@@ -100,7 +100,7 @@ fn test_parse_let_statement() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, expr, is_static, array_size) => {
+        Statement::VariableDeclaration(name, expr, is_static, _, array_size) => {
             assert_eq!(name, "x");
             assert_eq!(*is_static, false); // non-static
             assert_eq!(*array_size, None); // not an array
@@ -332,13 +332,13 @@ fn test_parse_multiple_statements() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 2);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, _, _) => {
+        Statement::VariableDeclaration(name, _, _, _, _) => {
             assert_eq!(name, "x");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
     match &stmts[1].statement {
-        Statement::VariableDeclaration(name, _, _, _) => {
+        Statement::VariableDeclaration(name, _, _, _, _) => {
             assert_eq!(name, "y");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
@@ -360,7 +360,7 @@ fn test_parse_array_declaration() {
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, expr, is_static, array_size) => {
+        Statement::VariableDeclaration(name, expr, is_static, _, array_size) => {
             assert_eq!(name, "arr");
             assert_eq!(*is_static, false);
             assert_eq!(*array_size, Some(4));
@@ -407,7 +407,7 @@ fn test_parse_array_declaration_with_init() {
 
     // 1つ目: 配列宣言
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, array_size) => {
+        Statement::VariableDeclaration(name, _, is_static, _, array_size) => {
             assert_eq!(name, "arr");
             assert_eq!(*is_static, false);
             assert_eq!(*array_size, Some(3));
@@ -491,7 +491,7 @@ fn test_parse_array_declaration_size_omitted_with_init() {
 
     // 1つ目: 配列宣言（サイズ3と推論）
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, array_size) => {
+        Statement::VariableDeclaration(name, _, is_static, _, array_size) => {
             assert_eq!(name, "arr");
             assert_eq!(*is_static, false);
             assert_eq!(*array_size, Some(3), "Expected inferred size 3");
@@ -551,7 +551,7 @@ fn test_parse_array_declaration_size_omitted_string() {
 
     // 1つ目: 配列宣言（サイズ4と推論: 3文字 + null）
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, array_size) => {
+        Statement::VariableDeclaration(name, _, is_static, _, array_size) => {
             assert_eq!(name, "str");
             assert_eq!(*is_static, false);
             assert_eq!(
@@ -690,7 +690,7 @@ fn test_parse_static_variable() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, _) => {
+        Statement::VariableDeclaration(name, _, is_static, _, _) => {
             assert_eq!(name, "x");
             assert_eq!(
                 *is_static, true,

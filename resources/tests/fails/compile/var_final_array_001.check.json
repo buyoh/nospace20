@@ -1,0 +1,4 @@
+{
+  "type": "compile_error",
+  "contains": ["cannot assign to element of final array"]
+}

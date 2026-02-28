@@ -22,6 +22,7 @@ pub enum Keyword {
     Static,
     Constexpr,
     Alias,
+    Final,
 }
 
 #[derive(Debug)]
@@ -298,6 +299,7 @@ fn as_keyword_token(id: &str) -> Option<Token> {
         "static" => Some(Token::Keyword(Keyword::Static)),
         "constexpr" => Some(Token::Keyword(Keyword::Constexpr)),
         "alias" => Some(Token::Keyword(Keyword::Alias)),
+        "final" => Some(Token::Keyword(Keyword::Final)),
         _ => None,
     }
 }

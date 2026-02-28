@@ -117,6 +117,8 @@ pub(crate) struct Variable {
     pub is_static: bool,
     /// 配列サイズ。None なら通常変数（1スロット）、Some(n) なら n スロットの配列。
     pub array_size: Option<usize>,
+    /// final フラグ。true の場合、初期値設定後は再代入不可。
+    pub is_final: bool,
 }
 
 /// 位置情報付きの実行可能な式

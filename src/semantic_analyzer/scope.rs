@@ -296,13 +296,25 @@ impl<'a> ScopeResolver<'a> {
         None
     }
 
+    /// 変数が final かどうかを返す
+    ///
+    /// スコープスタックを内側から外側へ探索し、変数の is_final フラグを返す。
+    /// 変数が見つからない場合は false を返す。
+    pub fn is_final_variable(&self, name: &str) -> bool {
+        for scope_info in self.scope_stack.iter().rev() {
+            if let Some(&var_idx) = scope_info.var_name_to_var_index.get(name) {
+                return scope_info.variables[var_idx].is_final;
+            }
+        }
+        false
+    }
+
     /// 変数の配列サイズを取得
     ///
     /// None の場合、変数が見つからない
     /// Some(None) の場合、通常変数（配列ではない）
     /// Some(Some(n)) の場合、サイズ n の配列
-    pub fn get_array_size(&self, name: &str) -> Option<Option<usize>> {
-        for scope_info in self.scope_stack.iter().rev() {
+    pub fn get_array_size(&self, name: &str) -> Option<Option<usize>> {        for scope_info in self.scope_stack.iter().rev() {
             if let Some(&var_idx) = scope_info.var_name_to_var_index.get(name) {
                 return Some(scope_info.variables[var_idx].array_size);
             }

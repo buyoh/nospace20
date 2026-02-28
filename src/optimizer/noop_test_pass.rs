@@ -28,6 +28,7 @@ pub fn apply(scope: &mut Scope) {
     let var = Variable {
         slot_index,
         is_static: false,
+        is_final: false,
         array_size: None,
     };
     let var_index = scope.variables.len();

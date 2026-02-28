@@ -285,7 +285,7 @@ fn collect_block_alias_refs_in_stmt(
             collect_block_alias_refs_in_stmts(step, block_alias_map, alias_map, refs);
             collect_block_alias_refs_in_stmts(body, block_alias_map, alias_map, refs);
         }
-        Statement::VariableDeclaration(_, expr, _, _) => {
+        Statement::VariableDeclaration(_, expr, _, _, _) => {
             collect_block_alias_refs_in_expr(expr, block_alias_map, alias_map, refs)
         }
         Statement::AliasBlock(_, body) => {
@@ -642,6 +642,37 @@ fn convert_to_exec_expression_with_resolver(
                 _ => (op.to_owned(), l, r),
             };
 
+            // final 変数への代入チェック: 再代入不可の変数への書き込みはコンパイルエラー
+            if actual_op == Operator2::Assign {
+                match &actual_l.expression {
+                    Expression::Variable(name) => {
+                        let resolved_name = parent_resolver.resolve_alias_chain(name).map_err(|e| {
+                            vec![code_parse_error!(loc.start, e)]
+                        })?;
+                        if parent_resolver.is_final_variable(&resolved_name) {
+                            return Err(vec![code_parse_error!(
+                                loc.start,
+                                format!("cannot assign to final variable '{}'", name)
+                            )]);
+                        }
+                    }
+                    Expression::ArrayAccess(name, _) => {
+                        let resolved_name = parent_resolver.resolve_alias_chain(name).map_err(|e| {
+                            vec![code_parse_error!(loc.start, e)]
+                        })?;
+                        if parent_resolver.is_final_variable(&resolved_name) {
+                            return Err(vec![code_parse_error!(
+                                loc.start,
+                                format!("cannot assign to element of final array '{}'", name)
+                            )]);
+                        }
+                    }
+                    _ => {
+                        // *ptr = value のような間接代入は静的チェック不可
+                    }
+                }
+            }
+
             let exec_l = convert_to_exec_expression_with_resolver(
                 &actual_l,
                 parent_resolver,
@@ -964,6 +995,7 @@ fn analyze_internal_with_parent(
                 slot_index: 0,    // build() で正しい値に設定される
                 is_static: false, // 関数引数は非 static
                 array_size: None, // 関数引数は配列ではない
+                is_final: false,  // 関数引数は final 不可
             },
         )?;
     }
@@ -1053,7 +1085,7 @@ fn analyze_internal_with_parent(
     for located_stat in statements {
         let stat = &located_stat.statement;
         match stat {
-            Statement::VariableDeclaration(name, _, is_static_explicit, array_size) => {
+            Statement::VariableDeclaration(name, _, is_static_explicit, is_final, array_size) => {
                 // グローバル変数は暗黙的に static、明示的 static も考慮
                 let final_is_static = *is_static_explicit || is_static;
                 scope.add_variable(
@@ -1062,6 +1094,7 @@ fn analyze_internal_with_parent(
                         slot_index: 0, // build() で正しい値に設定される
                         is_static: final_is_static,
                         array_size: array_size.map(|n| n as usize),
+                        is_final: *is_final,
                     },
                 )?;
             }
@@ -1153,14 +1186,43 @@ fn analyze_internal_with_parent(
         let stat = &located_stat.statement;
         let loc = &located_stat.location;
         match stat {
-            Statement::VariableDeclaration(_, init, is_static_explicit, _) => {
+            Statement::VariableDeclaration(_name, init, is_static_explicit, _, _) => {
                 // 初期化式を変換（変数宣言自体はパス1で完了）
-                let exec_stmt =
-                    ExecStatement::Expression(convert_to_exec_expression_with_resolver(
-                        init,
-                        &resolver,
-                        &effective_func_return_types,
-                    )?);
+                // final 変数の初期化代入は再代入ブロックの対象外にするため、
+                // init_expr のトップレベルの Assign を分解して直接構築する
+                let exec_init =
+                    if let Expression::Operation2(Operator2::Assign, lhs_expr, rhs_expr) =
+                        &init.expression
+                    {
+                        // 初期化代入: rhs のみ変換し、Assign を直接構築（final チェックなし）
+                        let exec_rhs = convert_to_exec_expression_with_resolver(
+                            rhs_expr,
+                            &resolver,
+                            &effective_func_return_types,
+                        )?;
+                        require_int_type(&exec_rhs, &effective_func_return_types)?;
+                        let exec_lhs = convert_to_exec_expression_with_resolver(
+                            lhs_expr,
+                            &resolver,
+                            &effective_func_return_types,
+                        )?;
+                        make_located_exec(
+                            ExecExpression::Operation2(
+                                Operator2::Assign,
+                                exec_lhs,
+                                exec_rhs,
+                            ),
+                            &init.location,
+                        )
+                    } else {
+                        // 初期値なし（Factor(0)）の場合は通常変換
+                        convert_to_exec_expression_with_resolver(
+                            init,
+                            &resolver,
+                            &effective_func_return_types,
+                        )?
+                    };
+                let exec_stmt = ExecStatement::Expression(exec_init);
                 let located = LocatedExecStatement {
                     statement: exec_stmt,
                     location: loc.clone(),

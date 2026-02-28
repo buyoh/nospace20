@@ -1,0 +1,6 @@
+# final 変数の基本テスト #
+func: __main() {
+  __trace(0);
+  final: x(10);
+  __assert(x == 10);
+}
