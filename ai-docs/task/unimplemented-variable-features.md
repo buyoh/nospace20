@@ -298,78 +298,34 @@ func: __main() {
 
 ## 4. 実装計画
 
-### 4.1 モジュールごとの変更一覧
+### 4.1 ステップ一覧
 
-#### token_parser
+| Step | 内容 | 依存 | 状態 |
+|------|------|------|------|
+| 1 | 純粋演算評価の共有モジュール (`base/pure_eval`) | なし | ❌ 未実装 |
+| 2 | constexpr（式形式） | Step 1 | ❌ 未実装 |
+| 3 | alias（識別子エイリアス） | なし | ❌ 未実装 |
+| 4 | alias（ブロックエイリアス） | Step 3 | ❌ 未実装 |
+| 5 | final 変数 | なし | ❌ 未実装 |
+| 6 | constexpr ブロック形式 | Step 2 | ❌ 未設計 |
+| 7 | spec.md / grammar.bnf への反映 | Step 2–5 | ❌ 未実装 |
 
-| 変更 | 内容 |
-|------|------|
-| `Keyword` enum に追加 | `Alias`, `Constexpr` (final は別タスク) |
-| `as_keyword_token` に追加 | `"alias"` → `Keyword::Alias`, `"constexpr"` → `Keyword::Constexpr` |
-
-#### tree_parser/statement
-
-| 変更 | 内容 |
-|------|------|
-| `Statement` enum に追加 | `AliasIdentifier(String, String)` — 識別子エイリアス (name, target) |
-| `Statement` enum に追加 | `AliasBlock(String, Vec<LocatedStatement>)` — ブロックエイリアス (name, block) |
-| `Statement` enum に追加 | `ConstexprDeclaration(String, Box<LocatedExpression>)` — 定数定義 (name, expr) |
-| パース処理追加 | `alias:` キーワード後の構文解析 |
-| パース処理追加 | `constexpr:` キーワード後の構文解析 |
-
-**alias 構文パース**:
+**依存関係**:
 ```
-"alias" ":" ident "(" ident ")" ";"              → AliasIdentifier
-"alias" ":" ident block ";"                       → AliasBlock
+Step 1 → Step 2 → Step 6
+Step 3 → Step 4
+Step 2–5 → Step 7
 ```
 
-**constexpr 構文パース**:
-```
-"constexpr" ":" ident "(" expr ")" ("," ident "(" expr ")")* ";"   → ConstexprDeclaration (複数定義可)
-```
+Step 1 と Step 3 と Step 5 は互いに独立しており、並行して実装可能。
 
-#### semantic_analyzer
+---
 
-| 変更 | 内容 |
-|------|------|
-| 新しいパス追加 | Pass 0: alias / constexpr 定義の収集 |
-| `ScopeBuilder` に追加 | `alias_map: BTreeMap<String, AliasEntry>` |
-| `ScopeBuilder` に追加 | `constexpr_table: BTreeMap<String, i64>` |
-| `ScopeResolver` に追加 | alias チェーン解決ロジック |
-| `ScopeResolver` に追加 | constexpr テーブル参照 |
-| 新規関数追加 | `evaluate_constexpr()` — 定数式評価器 |
-| 新規関数追加 | `resolve_alias_chain()` — エイリアスチェーン解決 |
-| 巡回検知追加 | 展開スタック / 訪問済みセットの管理 |
+### 4.2 Step 1: 純粋演算評価の共有モジュール
 
-**3パス → 4パス解析**:
-```
-Pass 0:  alias / constexpr 定義の収集・評価
-Pass 1a: 関数宣言のホイスティング（既存）
-Pass 1b: 変数宣言のホイスティング（既存）
-Pass 2:  文の変換・識別子解決（既存 + alias/constexpr 解決）
-```
+**目的**: constexpr 評価器・interpreter・optimizer で重複する算術/比較/論理演算の評価ロジックを共通化する。
 
-#### interpreter / compiler_ws
-
-- **変更不要**: alias と constexpr はコンパイル時に完全に解決されるため、
-  実行時の中間表現（ExecExpression / ExecStatement）には影響しない
-- alias → 名前解決の結果として IdentifierRef / ブロック式に変換済み
-- constexpr → `Factor(value)` に置換済み
-
-### 4.2 実装優先順位
-
-1. **constexpr** — 定数式評価器は比較的単純で、既存の定数畳み込みを流用可能
-2. **alias（識別子）** — 名前解決テーブルへの追加で実現可能
-3. **alias（ブロック）** — AST クローン・展開のロジックが必要でやや複雑
-4. **final** — 代入チェックの実装が必要（別タスクとして実装してもよい）
-
-### 4.3 純粋演算評価の共有モジュール
-
-constexpr の定数式評価器を実装する際、算術・比較・論理演算の評価ロジックが
-既存コード（interpreter、optimizer/constant_folding）と重複する。
-この重複を避けるため、純粋な演算評価を行う共有モジュールを導入する。
-
-#### 現状の重複
+#### 背景: 現状の重複
 
 以下の3箇所で同一の演算評価ロジックが必要になる:
 
@@ -442,7 +398,11 @@ pub fn eval_unary_pure(op: &Operator1, val: i64) -> Option<i64> {
 }
 ```
 
-#### 各モジュールの変更
+#### 変更対象モジュール
+
+**新規ファイル**:
+- `src/base/pure_eval.rs`: 上記の共有関数を定義
+- `src/base/mod.rs`: `pub mod pure_eval;` を追加
 
 **interpreter/exec.rs**:
 - `interpret_operation2` の純粋演算部分を `eval_binary_pure()` 呼び出しに置換
@@ -454,11 +414,7 @@ pub fn eval_unary_pure(op: &Operator1, val: i64) -> Option<i64> {
 - `try_fold_op2` の演算 match を `eval_binary_pure()` 呼び出しに置換
 - `try_fold_op1` の演算 match を `eval_unary_pure()` 呼び出しに置換
 
-**semantic_analyzer（新規 constexpr 評価器）**:
-- `evaluate_constexpr()` 内で `eval_binary_pure()` / `eval_unary_pure()` を使用
-- 0 除算時は `None` をコンパイルエラーとして報告
-
-#### 依存関係
+#### 依存関係の注意点
 
 ```
 base/pure_eval ← tree_parser（Operator1, Operator2 の定義を参照）
@@ -473,12 +429,196 @@ semantic_analyzer → base/pure_eval（constexpr 評価）
 `Operator1` / `Operator2` は単純な enum であり、この依存は許容範囲と考える。
 ただし、依存方向を逆転させたくない場合は、演算子 enum を `base` に移動する選択肢もある。
 
-### 4.4 spec.md への反映
+---
 
-実装後、以下のセクションを更新する必要がある:
-- 「代入・変数定義」セクション: constexpr / alias の構文・セマンティクスを追加
-- 「スコープ」セクション: alias のスコープルールを追加
-- grammar.bnf: alias / constexpr の文法規則を追加
+### 4.3 Step 2: constexpr（式形式）
+
+**目的**: コンパイル時定数式 `constexpr: name(expr);` を実装する。
+仕様の詳細は §2.1〜2.3, 2.5 を参照。
+
+#### 変更対象モジュール
+
+**token_parser**:
+
+| 変更 | 内容 |
+|------|------|
+| `Keyword` enum に追加 | `Constexpr` |
+| `as_keyword_token` に追加 | `"constexpr"` → `Keyword::Constexpr` |
+
+**tree_parser/statement**:
+
+| 変更 | 内容 |
+|------|------|
+| `Statement` enum に追加 | `ConstexprDeclaration(String, Box<LocatedExpression>)` — 定数定義 (name, expr) |
+| パース処理追加 | `constexpr:` キーワード後の構文解析 |
+
+パース規則:
+```
+"constexpr" ":" ident "(" expr ")" ("," ident "(" expr ")")* ";"   → ConstexprDeclaration (複数定義可)
+```
+
+**semantic_analyzer**:
+
+| 変更 | 内容 |
+|------|------|
+| 新しいパス追加 | Pass 0: constexpr 定義の収集・評価 |
+| `ScopeBuilder` に追加 | `constexpr_table: BTreeMap<String, i64>` |
+| `ScopeResolver` に追加 | constexpr テーブル参照（変数参照時に定数値に置換） |
+| 新規関数追加 | `evaluate_constexpr()` — `base::pure_eval` を利用した定数式評価器 |
+| 巡回検知追加 | 訪問済みセットによる巡回参照チェック |
+
+パス構成の変更（3パス → 4パス）:
+```
+Pass 0:  constexpr 定義の収集・評価（新規）
+Pass 1a: 関数宣言のホイスティング（既存）
+Pass 1b: 変数宣言のホイスティング（既存）
+Pass 2:  文の変換・識別子解決（既存 + constexpr 解決）
+```
+
+**interpreter / compiler_ws**: 変更不要（constexpr は `Factor(value)` に置換済み）
+
+**テスト**: constexpr の基本テストケースを追加
+
+---
+
+### 4.4 Step 3: alias（識別子エイリアス）
+
+**目的**: 識別子エイリアス `alias: name(target);` を実装する。
+仕様の詳細は §1.1, 1.3（巡回検知）, 1.4（ホイスティング）を参照。
+
+#### 変更対象モジュール
+
+**token_parser**:
+
+| 変更 | 内容 |
+|------|------|
+| `Keyword` enum に追加 | `Alias` |
+| `as_keyword_token` に追加 | `"alias"` → `Keyword::Alias` |
+
+**tree_parser/statement**:
+
+| 変更 | 内容 |
+|------|------|
+| `Statement` enum に追加 | `AliasIdentifier(String, String)` — 識別子エイリアス (name, target) |
+| パース処理追加 | `alias:` + `ident "(" ident ")"` の構文解析 |
+
+パース規則:
+```
+"alias" ":" ident "(" ident ")" ";"   → AliasIdentifier
+```
+
+**semantic_analyzer**:
+
+| 変更 | 内容 |
+|------|------|
+| Pass 0 に追加 | alias 識別子定義の収集 |
+| `ScopeBuilder` に追加 | `alias_map: BTreeMap<String, AliasEntry>` |
+| `ScopeResolver` に追加 | alias チェーン解決ロジック |
+| 新規関数追加 | `resolve_alias_chain()` — 訪問済みセットによる巡回検知付き |
+
+**interpreter / compiler_ws**: 変更不要（alias は名前解決時に IdentifierRef に変換済み）
+
+**テスト**: 識別子エイリアスの基本テストケースを追加
+
+---
+
+### 4.5 Step 4: alias（ブロックエイリアス）
+
+**目的**: ブロックエイリアス `alias: name { 文... };` を実装する。
+仕様の詳細は §1.2, 1.3（巡回検知）を参照。
+
+**前提**: Step 3 の alias 識別子エイリアスが実装済みであること。
+
+#### 変更対象モジュール
+
+**tree_parser/statement**:
+
+| 変更 | 内容 |
+|------|------|
+| `Statement` enum に追加 | `AliasBlock(String, Vec<LocatedStatement>)` — ブロックエイリアス (name, block) |
+| パース処理追加 | `alias:` + `ident block ";"` の構文解析 |
+
+パース規則:
+```
+"alias" ":" ident block ";"   → AliasBlock
+```
+
+**semantic_analyzer**:
+
+| 変更 | 内容 |
+|------|------|
+| Pass 0 に追加 | alias ブロック定義の収集（AST を保存） |
+| 式変換に追加 | `name()` 呼び出し時に AST をクローンして展開 |
+| 巡回検知追加 | 展開スタックによる再帰的展開チェック |
+
+**interpreter / compiler_ws**: 変更不要（ブロックエイリアスはブロック式に展開済み）
+
+**テスト**: ブロックエイリアスの基本テスト、巡回参照エラーテストを追加
+
+---
+
+### 4.6 Step 5: final 変数
+
+**目的**: 再代入不可の変数 `final: name(expr);` を実装する。
+仕様の詳細は §3 を参照。
+
+#### 変更対象モジュール
+
+**token_parser**:
+
+| 変更 | 内容 |
+|------|------|
+| `Keyword` enum に追加 | `Final` |
+| `as_keyword_token` に追加 | `"final"` → `Keyword::Final` |
+
+**tree_parser/statement**:
+
+| 変更 | 内容 |
+|------|------|
+| `Statement::VariableDeclaration` に追加 | mutability フラグ（`is_final: bool`）|
+
+**semantic_analyzer**:
+
+| 変更 | 内容 |
+|------|------|
+| `Variable` 構造体に追加 | `is_final: bool` フィールド |
+| 代入チェック追加 | `Operator2::Assign` で final 変数へのターゲットをエラー |
+
+**interpreter / compiler_ws**: 変更不要（final は意味解析でのみチェック）
+
+**テスト**: final 変数の基本テスト、再代入エラーテストを追加
+
+---
+
+### 4.7 Step 6: constexpr ブロック形式（将来拡張）
+
+**目的**: ブロック形式の constexpr を設計・実装する。
+仕様の概要は §2.4 を参照。
+
+**状態**: ❌ 未設計
+
+**前提**: Step 2 の constexpr（式形式）が実装済みであること。
+
+このステップでは以下を検討する:
+- ブロック内で許可される文の種類（let, if, while 等）
+- constexpr ブロック内の変数スコープの扱い
+- `evaluate_constexpr()` のブロック対応拡張
+- 既存の `constant_folding` との関係（ブロック畳み込みとの統合可能性）
+
+設計は Step 2 の実装経験を踏まえて行う。
+
+---
+
+### 4.8 Step 7: spec.md / grammar.bnf への反映
+
+**目的**: 実装完了した機能を言語仕様ドキュメントに反映する。
+
+**前提**: Step 2〜5 のうち、反映対象の機能が実装済みであること。
+
+更新対象:
+- `docs/spec.md`「代入・変数定義」セクション: constexpr / alias の構文・セマンティクスを追加
+- `docs/spec.md`「スコープ」セクション: alias のスコープルールを追加
+- `docs/grammar.bnf`: alias / constexpr / final の文法規則を追加
 
 ---
 
@@ -506,5 +646,6 @@ semantic_analyzer → base/pure_eval（constexpr 評価）
 
 - 2026-02-28: alias 設計・const 再設計を追加。const を変数からコンパイル時定数エイリアスに変更
 - 2026-02-28: const → constexpr にリネーム。純粋演算評価の共有モジュール設計を追加
+- 2026-02-28: 実装計画をステップごとに分割（Step 1〜7）
 - 2026-02-10: 変数初期化機能が実装済みのため、該当セクションを削除
 - 2026-02-07: unimplemented-features.md から分離して作成
