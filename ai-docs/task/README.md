@@ -9,7 +9,7 @@
 - ~~[unimplemented-variable-features.md](../done-task/unimplemented-variable-features.md)~~ - 未実装の変数関連機能（alias/const/final）→ done-task に移動
   - ~~[step4-block-alias-design.md](step4-block-alias-design.md)~~ - Step 4: ブロックエイリアス詳細設計（完了）
   - ~~[step5-final-variable-design.md](step5-final-variable-design.md)~~ - Step 5: final 変数詳細設計（完了）
-  - [step6-constexpr-block-design.md](step6-constexpr-block-design.md) - Step 6: constexpr ブロック形式 詳細設計
+  - ~~[step6-constexpr-block-design.md](../done-task/step6-constexpr-block-design.md)~~ - Step 6: constexpr ブロック形式 詳細設計（完了）
   - ~~[step7-spec-reflection-design.md](step7-spec-reflection-design.md)~~ - Step 7: spec.md / grammar.bnf 反映設計（完了）
 
 ### アクティブなタスク

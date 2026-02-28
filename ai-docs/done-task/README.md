@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [step6-constexpr-block-design.md](step6-constexpr-block-design.md) | constexpr ブロック形式の実装（`constexpr: NAME { ... };`、ConstexprEnv・eval_constexpr_block・パーサー拡張・意味解析統合、テスト8件追加） | 2026-02-28 |
 | [unimplemented-variable-features.md](unimplemented-variable-features.md) | 未実装の変数関連機能（alias/const/final）の追跡ドキュメント（Step 1-5, 7 全完了、Step 6 は別タスクとして分離） | 2026-03 |
 | [rename-main-to-dunder-main.md](rename-main-to-dunder-main.md) | エントリーポイント名を `main` → `__main` に変更（組み込み識別子命名規約への統一、全ソース・テスト・ドキュメント更新完了） | 2026-03-01 |
 | [while-expression-to-statement/](while-expression-to-statement/) | while を式から文に変更（Expression::While → Statement::While、7ステップ設計・実装完了、全テストPASS） | 2026-02-27 |
