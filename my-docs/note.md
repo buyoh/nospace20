@@ -70,14 +70,7 @@ if: cond {block} else: if: cond {block} else: {block};
 
 ### 名前空間
 
-`{}` で記述されているが、これはスコープではない。
-制御構文でもないし…
-
-- `::` : `:` を識別子に使うので。
-- `.`
-- `->` : 関数
-- `@` : 型に使いたい
-- `$`
+- スコープではないため、変数の確保・解放タイミングはnamespaceの外側のスコープに依存する。
 
 ```
 let: x(1);
@@ -89,20 +82,6 @@ namespace: MySpace {
   __clog(x);  # 2 を出力 #
   __clog(MySpace2.x);  # 3 を出力 #
 }
-```
-
-ところで、chromiumスタイルのclang-formatは、`namespace` でインデントしない。
-
-```
-let: x(1);
-NAMESPACE: MySpace;
-let: x(2);
-NAMESPACE: MySpace2;
-let: x(3);
-__clog(x);  # 2 を出力 #
-__clog(MySpace2.x);  # 3 を出力 #
-NAMESPACE_END: MySpace2;
-NAMESPACE_END: MySpace;
 ```
 
 ### if 式。簡単だが、elseが無い場合の扱いは？
@@ -164,6 +143,13 @@ C 言語の場合、型システムから `W` を得る。
 - いつ評価する？
   - C言語風: トークン解析の段階で、`include` 文を見つけたら、指定されたファイルを読み込んで、その内容を現在のファイルの内容に挿入する。
   - モジュール: `include` 文を見つけたら、指定されたファイルをモジュールとして読み込む？
+  - インクルードガードあり
+- スコープは？
+  - 案1: 同一スコープであり、直前に読み込まれたり既に定義された識別子の影響を受ける。C言語。
+  - 案2: モジュールとして独立したスコープを持つ。外部から参照できるようにするには、`func: export: a(){}` のように export が必要。export された識別子を参照するには `include: "filename.ns", namespace;` のように名前空間を指定して、`namespace.a()` のようにアクセスする。
+- include によってファイルが読み込まれたとき、そのファイルに`__main()`を含む場合は、そのタイミングでそのファイルの`__main()`が実行される。
+
+wasm / javascript 対応の考慮も必要。
 
 ## E 一時配列
 
@@ -182,47 +168,10 @@ C 言語の場合、型システムから `W` を得る。
 - 関数呼び出しで書き換えられると、以降の呼び出しでも書き換わった値が渡される
 - C や Java の文字列と同じ。
 
-## J テンプレート関数のようなもの
+## K constexpr ブロック形式でループをしたい
 
-関数ポインタの代替。引数に alias を指定できる。
-alias の中身が分からないため、構文相当の情報の伝達が必要
-
-```
-# ダメな設計例: compare_func の情報が不足 #
-func: sort_by(arr), alias: compare_func {
-  # arr を compare_func を使ってソートする #
-}
-# 案 #
-func: sort_by(arr), alias: func: compare_func(a,b) {
-  # arr を compare_func を使ってソートする #
-}
-func: find_of(arr), alias: constexpr: low, alias: constexpr: high {
-  # arr の中から low 以上 high 以下の要素を探す #
-}
-func: counter(), alias: static: inc {
-  static: count(0);
-  count = count + inc;
-  return: count;
-}
-```
-
-そのままでは呼び出せず、バイナリも生成しない。alias を使って、alias 引数を具体的な関数や値に置き換えると、関数が生成される。スコープも生成されるため、関数内にある static も alias ごとに独立して存在する
-
-```
-alias: sort_by_impl(sort_by, compare_string);
-alias: find_of_impl(find_of, 10, 99);
-alias: counter_inc1(counter, 1);
-alias: counter_inc10(counter, 10); # counter_inc1 と counter_inc10 は独立してカウントする #
-
-sort_by_impl(my_array);
-find_of_impl(my_array);
-counter_inc1(); # 1 を出力 #
-counter_inc1(); # 2 を出力 #
-counter_inc10(); # 10 を出力 #
-counter_inc10(); # 20 を出力 #
-```
-
-
+（特に指示していなかったが）ループをしない理由は、コンパイル時に計算量が増加する可能性があるため（と考えられる）。
+javascript 上で対応すると、重い処理を行うことは UI のフリーズにつながるため、実行フェーズ同様、ステップ実行が必要になる。先にインタプリタのステップ実行対応をしたほうが良いかもしれない。
 
 ## Agent の強化
 

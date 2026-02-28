@@ -114,6 +114,47 @@ for: { let: i(0); }, { i<5; }, { i+=1; }, { __clog(i); };
 
 
 
+## J テンプレート関数のようなもの
+
+関数ポインタの代替。引数に alias を指定できる。
+alias の中身が分からないため、構文相当の情報の伝達が必要
+
+```
+# ダメな設計例: compare_func の情報が不足 #
+func: sort_by(arr), alias: compare_func {
+  # arr を compare_func を使ってソートする #
+}
+# 案 `func:` で構文を伝える。 #
+func: sort_by(arr), alias: func: compare_func(a,b) {
+  # arr を compare_func を使ってソートする #
+}
+func: find_of(arr), alias: constexpr: low, alias: constexpr: high {
+  # arr の中から low 以上 high 以下の要素を探す #
+}
+func: counter(), alias: static: inc {
+  static: count(0);
+  count = count + inc;
+  return: count;
+}
+```
+
+そのままでは呼び出せず、バイナリも生成しない。alias を使って、alias 引数を具体的な関数や値に置き換えると、関数が生成される。スコープも生成されるため、関数内にある static も alias ごとに独立して存在する
+
+```
+alias: sort_by_impl(sort_by, compare_string);
+alias: find_of_impl(find_of, 10, 99);
+alias: counter_inc1(counter, 1);
+alias: counter_inc10(counter, 10); # counter_inc1 と counter_inc10 は独立してカウントする #
+
+sort_by_impl(my_array);
+find_of_impl(my_array);
+counter_inc1(); # 1 を出力 #
+counter_inc1(); # 2 を出力 #
+counter_inc10(); # 10 を出力 #
+counter_inc10(); # 20 を出力 #
+```
+
+
 ## 最適化・高速化
 
 ### 設計
