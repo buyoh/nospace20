@@ -27,7 +27,7 @@
 | [split-semantic-analyzer.md](split-semantic-analyzer.md) | semantic_analyzer/mod.rs | 1801行 | 3 Phase 分割: constexpr/alias/template 等を分離 |
 | [split-wasm-api.md](split-wasm-api.md) | wasm_api.rs | 834行 | 4 ファイル分割 + パイプライン重複解消 |
 | [split-compiler-ws-expression.md](split-compiler-ws-expression.md) | compiler_ws/expression.rs | 1020行 | コード重複解消 (void 統合/比較データ駆動化) |
-| [split-alloc-runtime.md](split-alloc-runtime.md) | compiler_ws/alloc_runtime.rs | 1713行 | 3 ファイル分割 (trait/bump/fsba) |
+| ~~split-alloc-runtime.md~~ | compiler_ws/alloc_runtime.rs | 1713行 | **完了** → [done-task/split-alloc-runtime.md](../../done-task/split-alloc-runtime.md) |
 
 ## 優先度サマリ
 

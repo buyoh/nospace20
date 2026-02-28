@@ -1,5 +1,32 @@
 # compiler_ws/alloc_runtime.rs 分割設計
 
+## 完了ステータス
+
+**作業完了** (2026-03-01)
+
+### 実施内容
+
+- `src/compiler_ws/alloc_runtime.rs` (1713行) をサブディレクトリ構成に分割した
+- `generate_function_prologue` / `generate_function_epilogue` の共通実装を `generate_common_prologue` / `generate_common_epilogue` として `mod.rs` に抽出
+- テストヘルパー (`AllocOp`, `run_alloc_free_sequence`) を `mod.rs` の `test_helpers` モジュールに共通化
+- `src/compiler_ws/label.rs` のコメントを `alloc_runtime/fsba.rs` に更新
+
+### 最終ファイル構成
+
+```
+src/compiler_ws/alloc_runtime/
+├── mod.rs      (~210行) AllocRuntime trait + generate_common_prologue/epilogue + test_helpers
+├── bump.rs     (~260行) BumpAllocRuntime + Bump テスト
+└── fsba.rs     (~670行) FsbaFirstFitAllocRuntime + FSBA テスト
+```
+
+### テスト結果
+
+`cargo test alloc_runtime` : 26 tests, 0 failed  
+`cargo test` (全体): 全テスト合格
+
+---
+
 ## 現状
 
 [src/compiler_ws/alloc_runtime.rs](../../../src/compiler_ws/alloc_runtime.rs) は 1713 行で、以下の構成:
