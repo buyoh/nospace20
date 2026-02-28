@@ -87,6 +87,11 @@ tests:
     path: literals/char_hex_multi_001
     comment: "Variable-length hex escape sequences in character literals"
 
+  - name: test_literals_keyword_as_ident_001
+    type: success
+    path: literals/keyword_as_ident_001
+    comment: "Keywords used as identifiers (no reserved words)"
+
   # ========================================
   # Operators
   # ========================================

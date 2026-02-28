@@ -1,0 +1,39 @@
+# キーワード的な名前を識別子として使用できることを確認 #
+# nospace には予約語が存在しない #
+func: func(return) {
+  let: let;
+  let = return - 1;
+  let: if(let > 0);
+  if: if {
+    return: func(let) + 1;
+  } else: {
+    return: 0;
+  };
+}
+
+func: __main() {
+  __trace(0);
+  let: while;
+  let: else;
+  let: break;
+  let: continue;
+  let: static;
+  let: repeat;
+  let: for;
+  while = 1;
+  else = 2;
+  break = 3;
+  continue = 4;
+  static = 5;
+  repeat = 6;
+  for = 7;
+  __assert(while == 1);
+  __assert(else == 2);
+  __assert(break == 3);
+  __assert(continue == 4);
+  __assert(static == 5);
+  __assert(repeat == 6);
+  __assert(for == 7);
+  __assert(func(3) == 2);
+  __assert(func(1) == 0);
+}
