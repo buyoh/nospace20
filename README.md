@@ -15,7 +15,7 @@ func: puts(str) {
   __putc('\n');
 }
 
-func: main() {
+func: __main() {
   let: g[12]("hello\sworld");
   puts(&g);
   return: 0;
