@@ -26,7 +26,7 @@
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [repeat-form1-upper-bound.md](repeat-form1-upper-bound.md) - repeat Form 1 の意味論変更（ループ回数→上限値、隠し変数廃止）
 - [keyword-colon-token-design.md](keyword-colon-token-design.md) - Keyword トークンにコロンを内包する設計の検討（break/continue/return の不整合分析）
-- [code-design-review/](code-design-review/) - コード全体の設計レビュー（エラー型統一、巨大モジュール分割、コード重複解消、API設計改善、Rustイディオム改善、依存構造改善）
+- [code-design-review/](code-design-review/) - コード設計レビュー残タスク（02-module-splitting のみ未着手。01,03,04,05,06 は [done-task](../done-task/code-design-review/) に移動済み）
 - [temporary-array-literals.md](temporary-array-literals.md) - 一時配列リテラル（文字列・配列を式として直接記述、候補1: 文スコープ一時 vs 候補2: 無名static変数、設計比較・推奨）
 
 ## 現在のタスク
