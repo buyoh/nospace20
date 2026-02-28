@@ -1,0 +1,13 @@
+# alias: ブロックエイリアスで外側スコープの変数にアクセスする #
+alias: increment {
+  x = x + 1;
+};
+
+func: __main() {
+  let: x(0);
+  increment();
+  increment();
+  increment();
+  __assert_not(x - 3);
+  __trace(0);
+}

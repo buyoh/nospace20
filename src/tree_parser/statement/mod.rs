@@ -19,6 +19,9 @@ pub enum Statement {
     /// 識別子エイリアス定義: `alias: name(target);`
     /// コンパイル時に名前を target に解決する
     AliasIdentifier(String, String), // (name, target)
+    /// ブロックエイリアス定義: `alias: name { 文... };`
+    /// コンパイル時にブロック AST を名前に紐付け、呼び出し時にインライン展開する
+    AliasBlock(String, Vec<LocatedStatement>), // (name, body)
     FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),
     Continue,
     Break,
@@ -190,8 +193,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         results
     }
 
-    /// `alias:` キーワードを消費して識別子エイリアス定義をパースする。
-    /// `alias: name(target), name2(target2);` のように複数定義にも対応。
+    /// `alias:` キーワードを消費して識別子エイリアスまたはブロックエイリアス定義をパースする。
+    ///
+    /// - `alias: name(target), name2(target2);` → 識別子エイリアス（複数定義可）
+    /// - `alias: name { 文... };` → ブロックエイリアス（単一定義のみ）
     fn parse_alias_declarations(&mut self, start_pos: usize) -> Vec<LocatedStatement> {
         self.iter.next(); // Alias キーワードを消費
 
@@ -211,11 +216,58 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
             };
 
-            // '(' を期待
-            match self.iter.next() {
-                Some((Token::ParenthesisL, _)) => {}
+            // 名前の直後のトークンで識別子エイリアスかブロックエイリアスかを決定
+            match self.iter.peek() {
+                Some((Token::BraceL, _)) => {
+                    // ブロックエイリアス: alias: name { 文... };
+                    let body = self.parse_to_statements_block();
+                    let end_pos = self.current_pos_or(start_pos);
+                    let loc = SourceLocation::new(start_pos, end_pos);
+                    results.push(LocatedStatement {
+                        statement: Statement::AliasBlock(name.to_string(), body),
+                        location: loc,
+                    });
+                    // ブロックエイリアスは単一定義 → ループを抜けてセミコロンを消費
+                    break;
+                }
+                Some((Token::ParenthesisL, _)) => {
+                    // 識別子エイリアス: alias: name(target)
+                    self.iter.next(); // '(' を消費
+
+                    // ターゲット識別子を取得
+                    let target = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            results.push(LocatedStatement {
+                                statement: Statement::Invalid(e),
+                                location: SourceLocation::from_single(start_pos),
+                            });
+                            self.skip_to_semicolon();
+                            return results;
+                        }
+                    };
+
+                    // ')' を消費
+                    match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
+
+                    let end_pos = self.current_pos_or(start_pos);
+                    let loc = SourceLocation::new(start_pos, end_pos);
+
+                    results.push(LocatedStatement {
+                        statement: Statement::AliasIdentifier(name.to_string(), target.to_string()),
+                        location: loc,
+                    });
+
+                    // ',' または ';' を確認
+                    match self.iter.peek() {
+                        Some((Token::Comma, _)) => {
+                            self.iter.next(); // ',' を消費して次の定義へ
+                        }
+                        _ => break, // ';' または予期しないトークン → ループを抜ける
+                    }
+                }
                 Some((_, token_info)) => {
-                    let err_idx = self.add_parse_error(&token_info, "expected '(' after alias identifier");
+                    let err_idx = self.add_parse_error(token_info, "expected '(' or '{' after alias identifier");
                     results.push(LocatedStatement {
                         statement: Statement::Invalid(err_idx),
                         location: SourceLocation::from_single(start_pos),
@@ -231,38 +283,6 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     });
                     return results;
                 }
-            }
-
-            // ターゲット識別子を取得
-            let target = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
-                Ok(x) => x,
-                Err(e) => {
-                    results.push(LocatedStatement {
-                        statement: Statement::Invalid(e),
-                        location: SourceLocation::from_single(start_pos),
-                    });
-                    self.skip_to_semicolon();
-                    return results;
-                }
-            };
-
-            // ')' を消費
-            match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
-
-            let end_pos = self.current_pos_or(start_pos);
-            let loc = SourceLocation::new(start_pos, end_pos);
-
-            results.push(LocatedStatement {
-                statement: Statement::AliasIdentifier(name.to_string(), target.to_string()),
-                location: loc,
-            });
-
-            // ',' または ';' を確認
-            match self.iter.peek() {
-                Some((Token::Comma, _)) => {
-                    self.iter.next(); // ',' を消費して次の定義へ
-                }
-                _ => break, // ';' または予期しないトークン → ループを抜ける
             }
         }
 

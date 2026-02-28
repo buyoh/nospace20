@@ -1,0 +1,12 @@
+# alias: ブロックエイリアスが別のブロックエイリアスを呼ぶ (ネスト) #
+alias: step1 {
+  __trace(0);
+};
+alias: step2 {
+  step1();
+  __trace(1);
+};
+
+func: __main() {
+  step2();
+}

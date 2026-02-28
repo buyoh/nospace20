@@ -214,6 +214,197 @@ fn collect_alias_map(
     Ok(alias_map)
 }
 
+/// ステートメント列からブロックエイリアス定義を収集し、
+/// ブロックエイリアステーブル `BTreeMap<String, Vec<LocatedStatement>>` を返す。
+///
+/// 重複定義・識別子エイリアスとの名前衝突はエラーとして報告する。
+fn collect_block_alias_map(
+    statements: &[LocatedStatement],
+    alias_map: &BTreeMap<String, String>,
+) -> Result<BTreeMap<String, Vec<LocatedStatement>>, Vec<CodeParseError>> {
+    let mut block_alias_map: BTreeMap<String, Vec<LocatedStatement>> = BTreeMap::new();
+    let mut errors: Vec<CodeParseError> = Vec::new();
+    for located_stat in statements {
+        if let Statement::AliasBlock(name, body) = &located_stat.statement {
+            if block_alias_map.contains_key(name) {
+                errors.push(code_parse_error!(
+                    located_stat.location.start,
+                    format!("duplicate block alias definition: '{}'", name)
+                ));
+            } else if alias_map.contains_key(name) {
+                errors.push(code_parse_error!(
+                    located_stat.location.start,
+                    format!(
+                        "alias '{}' is defined as both identifier alias and block alias",
+                        name
+                    )
+                ));
+            } else {
+                block_alias_map.insert(name.clone(), body.clone());
+            }
+        }
+    }
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    Ok(block_alias_map)
+}
+
+/// ブロックエイリアスの AST を走査し、直接参照する他のブロックエイリアス名のセットを返す
+fn collect_block_alias_refs_in_stmts(
+    stmts: &[LocatedStatement],
+    block_alias_map: &BTreeMap<String, Vec<LocatedStatement>>,
+    alias_map: &BTreeMap<String, String>,
+    refs: &mut BTreeSet<String>,
+) {
+    for stat in stmts {
+        collect_block_alias_refs_in_stmt(stat, block_alias_map, alias_map, refs);
+    }
+}
+
+fn collect_block_alias_refs_in_stmt(
+    stat: &LocatedStatement,
+    block_alias_map: &BTreeMap<String, Vec<LocatedStatement>>,
+    alias_map: &BTreeMap<String, String>,
+    refs: &mut BTreeSet<String>,
+) {
+    match &stat.statement {
+        Statement::Expression(expr) => {
+            collect_block_alias_refs_in_expr(expr, block_alias_map, alias_map, refs)
+        }
+        Statement::Return(Some(expr)) => {
+            collect_block_alias_refs_in_expr(expr, block_alias_map, alias_map, refs)
+        }
+        Statement::While(cond, body) => {
+            collect_block_alias_refs_in_expr(cond, block_alias_map, alias_map, refs);
+            collect_block_alias_refs_in_stmts(body, block_alias_map, alias_map, refs);
+        }
+        Statement::For(init, cond, step, body) => {
+            collect_block_alias_refs_in_stmts(init, block_alias_map, alias_map, refs);
+            collect_block_alias_refs_in_stmts(cond, block_alias_map, alias_map, refs);
+            collect_block_alias_refs_in_stmts(step, block_alias_map, alias_map, refs);
+            collect_block_alias_refs_in_stmts(body, block_alias_map, alias_map, refs);
+        }
+        Statement::VariableDeclaration(_, expr, _, _) => {
+            collect_block_alias_refs_in_expr(expr, block_alias_map, alias_map, refs)
+        }
+        Statement::AliasBlock(_, body) => {
+            // ネストしたブロックエイリアス定義内も走査しない（別スコープ）
+            let _ = body;
+        }
+        _ => {}
+    }
+}
+
+fn collect_block_alias_refs_in_expr(
+    expr: &LocatedExpression,
+    block_alias_map: &BTreeMap<String, Vec<LocatedStatement>>,
+    alias_map: &BTreeMap<String, String>,
+    refs: &mut BTreeSet<String>,
+) {
+    match &expr.expression {
+        Expression::Function(name, args) => {
+            // alias チェーン解決した上でブロックエイリアスかどうかを確認
+            let mut resolved = name.clone();
+            let mut visited = BTreeSet::new();
+            loop {
+                if visited.contains(&resolved) {
+                    break;
+                }
+                visited.insert(resolved.clone());
+                if let Some(target) = alias_map.get(&resolved) {
+                    resolved = target.clone();
+                } else {
+                    break;
+                }
+            }
+            if block_alias_map.contains_key(&resolved) {
+                refs.insert(resolved);
+            }
+            for arg in args {
+                collect_block_alias_refs_in_expr(arg, block_alias_map, alias_map, refs);
+            }
+        }
+        Expression::Operation1(_, inner) => {
+            collect_block_alias_refs_in_expr(inner, block_alias_map, alias_map, refs)
+        }
+        Expression::Operation2(_, l, r) => {
+            collect_block_alias_refs_in_expr(l, block_alias_map, alias_map, refs);
+            collect_block_alias_refs_in_expr(r, block_alias_map, alias_map, refs);
+        }
+        Expression::If(cond, then_stmts, else_stmts) => {
+            collect_block_alias_refs_in_expr(cond, block_alias_map, alias_map, refs);
+            collect_block_alias_refs_in_stmts(then_stmts, block_alias_map, alias_map, refs);
+            collect_block_alias_refs_in_stmts(else_stmts, block_alias_map, alias_map, refs);
+        }
+        Expression::Block(stmts) => {
+            collect_block_alias_refs_in_stmts(stmts, block_alias_map, alias_map, refs)
+        }
+        _ => {}
+    }
+}
+
+/// ブロックエイリアスの巡回参照を DFS で検知する
+///
+/// 同一スコープ内のブロックエイリアス定義間の依存グラフを走査し、
+/// 巡回参照がある場合はコンパイルエラーを返す。
+fn detect_block_alias_cycles(
+    block_alias_map: &BTreeMap<String, Vec<LocatedStatement>>,
+    alias_map: &BTreeMap<String, String>,
+) -> Result<(), Vec<CodeParseError>> {
+    // 依存グラフを構築: 各ブロックエイリアスが参照する他のブロックエイリアスのセット
+    let mut dep_graph: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for (name, body) in block_alias_map {
+        let mut refs = BTreeSet::new();
+        collect_block_alias_refs_in_stmts(body, block_alias_map, alias_map, &mut refs);
+        dep_graph.insert(name.clone(), refs);
+    }
+
+    // DFS で巡回を検知
+    let mut visited: BTreeSet<String> = BTreeSet::new();
+    let mut errors: Vec<CodeParseError> = Vec::new();
+
+    fn dfs(
+        node: &str,
+        dep_graph: &BTreeMap<String, BTreeSet<String>>,
+        visited: &mut BTreeSet<String>,
+        path: &mut Vec<String>,
+        errors: &mut Vec<CodeParseError>,
+    ) {
+        if let Some(pos) = path.iter().position(|x| x == node) {
+            // 巡回検知: path[pos..] が巡回しているサイクル
+            let cycle: Vec<&str> = path[pos..].iter().map(|s| s.as_str()).collect();
+            let chain = cycle.join(" → ");
+            errors.push(code_parse_error!(format!(
+                "recursive block alias expansion detected: {} → {}",
+                chain, node
+            )));
+            return;
+        }
+        if visited.contains(node) {
+            return;
+        }
+        path.push(node.to_string());
+        if let Some(deps) = dep_graph.get(node) {
+            for dep in deps {
+                dfs(dep, dep_graph, visited, path, errors);
+            }
+        }
+        path.pop();
+        visited.insert(node.to_string());
+    }
+
+    for name in block_alias_map.keys() {
+        let mut path = Vec::new();
+        dfs(name, &dep_graph, &mut visited, &mut path, &mut errors);
+    }
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    Ok(())
+}
+
 /// 関数本体に return: 文が存在するか再帰的にチェックする
 ///
 /// ネストした if/while/block の中もすべてチェックするが、ネストされた関数宣言の中は除外する
@@ -607,6 +798,40 @@ fn convert_to_exec_expression_with_resolver(
                 let resolved_f = parent_resolver.resolve_alias_chain(f).map_err(|e| {
                     vec![code_parse_error!(loc.start, e)]
                 })?;
+
+                // ブロックエイリアスのチェック: alias チェーン解決後の名前で検索
+                if let Some(block_body) = parent_resolver.resolve_block_alias(&resolved_f) {
+                    // ブロックエイリアスに引数は不可
+                    if !args.is_empty() {
+                        return Err(vec![code_parse_error!(
+                            loc.start,
+                            format!(
+                                "block alias '{}' cannot be called with arguments",
+                                f
+                            )
+                        )]);
+                    }
+                    // ブロックエイリアスをインライン展開: 呼び出し元スコープで本体を解析
+                    let block_body_clone = block_body.clone();
+                    let (s, es) = analyze_internal_with_parent(
+                        &block_body_clone,
+                        ScopeType::Block,
+                        Vec::new(),
+                        Some(parent_resolver),
+                        &mut Vec::new(),
+                        &mut Vec::new(),
+                        None,
+                        func_return_types.to_vec(),
+                    )?;
+                    return Ok(make_located_exec(
+                        ExecExpression::Block(Block {
+                            scope: s.build(Vec::new(), Vec::new(), Vec::new()),
+                            statements: es,
+                        }),
+                        loc,
+                    ));
+                }
+
                 let func_ref = parent_resolver.resolve_function(&resolved_f).ok_or_else(|| {
                     vec![code_parse_error!(
                         loc.start,
@@ -748,6 +973,10 @@ fn analyze_internal_with_parent(
     let constexpr_table_temp = collect_constexpr_table(statements)?;
     // パス0: alias（識別子エイリアス）定義の収集
     let alias_map_temp = collect_alias_map(statements)?;
+    // パス0: ブロックエイリアス定義の収集
+    let block_alias_map_temp = collect_block_alias_map(statements, &alias_map_temp)?;
+    // パス0: ブロックエイリアスの巡回参照チェック
+    detect_block_alias_cycles(&block_alias_map_temp, &alias_map_temp)?;
 
     // パス1a: 関数宣言を先にスキャンして登録（ホイスティング対応）
     // Phase 5: ネスト関数のサポート
@@ -845,6 +1074,9 @@ fn analyze_internal_with_parent(
             Statement::AliasIdentifier(_, _) => {
                 // エイリアスはシンボルテーブルに登録しない - パス0 で処理済み
             }
+            Statement::AliasBlock(_, _) => {
+                // ブロックエイリアスはシンボルテーブルに登録しない - パス0 で処理済み
+            }
             _ => {}
         }
     }
@@ -894,6 +1126,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.identifier_map,
             &constexpr_table_temp,
             &alias_map_temp,
+            &block_alias_map_temp,
             is_function_scope,
             func_global_index,
         );
@@ -907,6 +1140,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.identifier_map,
             &constexpr_table_temp,
             &alias_map_temp,
+            &block_alias_map_temp,
             is_function_scope,
             func_global_index,
         );
@@ -1137,6 +1371,8 @@ fn analyze_internal_with_parent(
                 let for_init_empty_constexpr: BTreeMap<String, i64> = BTreeMap::new();
                 // for-init スコープの alias は展開済みのため、空のテーブルを渡す
                 let for_init_empty_alias: BTreeMap<String, String> = BTreeMap::new();
+                // for-init スコープのブロックエイリアスは展開済みのため、空のテーブルを渡す
+                let for_init_empty_block_alias: BTreeMap<String, Vec<LocatedStatement>> = BTreeMap::new();
                 for_resolver.enter_scope(
                     &init_scope.variable_indices,
                     &init_scope.variable_name_to_var_index,
@@ -1144,6 +1380,7 @@ fn analyze_internal_with_parent(
                     &init_scope.identifier_map,
                     &for_init_empty_constexpr,
                     &for_init_empty_alias,
+                    &for_init_empty_block_alias,
                     false,
                     None,
                 );
@@ -1231,6 +1468,9 @@ fn analyze_internal_with_parent(
             }
             Statement::AliasIdentifier(_, _) => {
                 // エイリアスはパス0で処理済み。ExecStatement は生成しない
+            }
+            Statement::AliasBlock(_, _) => {
+                // ブロックエイリアスはパス0で処理済み。ExecStatement は生成しない
             }
             Statement::Invalid(_) => (),
         }

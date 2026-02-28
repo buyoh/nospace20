@@ -339,6 +339,21 @@ tests:
     path: variables/alias_forward_ref_001
     comment: "Alias forward reference (alias defined before variable)"
 
+  - name: test_variables_block_alias_basic_001
+    type: success
+    path: variables/block_alias_basic_001
+    comment: "Block alias basic: alias block body is expanded at call site"
+
+  - name: test_variables_block_alias_scope_001
+    type: success
+    path: variables/block_alias_scope_001
+    comment: "Block alias can access caller's scope variables"
+
+  - name: test_variables_block_alias_nested_001
+    type: success
+    path: variables/block_alias_nested_001
+    comment: "Block alias can call another block alias (nested expansion)"
+
   # ========================================
   # Functions
   # ========================================
@@ -800,6 +815,16 @@ tests:
     type: compile_error
     path: alias_circular_001
     comment: "Error: circular alias reference"
+
+  - name: test_compile_error_block_alias_circular_001
+    type: compile_error
+    path: block_alias_circular_001
+    comment: "Error: block alias circular reference"
+
+  - name: test_compile_error_block_alias_with_args_001
+    type: compile_error
+    path: block_alias_with_args_001
+    comment: "Error: block alias called with arguments"
 
   # ========================================
   # Runtime Errors

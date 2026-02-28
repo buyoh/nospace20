@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::{base::CodeParseError, code_parse_error};
 
+use crate::tree_parser::LocatedStatement;
 use super::types::{Block, IdentifierRef, LocatedExecStatement, ValueType, Variable};
 
 #[derive(Clone, Copy)]
@@ -174,6 +175,8 @@ pub(super) struct ScopeInfo<'a> {
     pub constexpr_table: &'a BTreeMap<String, i64>,
     /// alias テーブル（名前 → ターゲット識別子名）
     pub alias_map: &'a BTreeMap<String, String>,
+    /// ブロックエイリアステーブル（名前 → AST 本体）
+    pub block_alias_map: &'a BTreeMap<String, Vec<LocatedStatement>>,
     /// このスコープが関数スコープかどうか
     pub is_function_scope: bool,
     /// この関数スコープのグローバル関数インデックス
@@ -208,6 +211,7 @@ impl<'a> ScopeResolver<'a> {
         func_map: &'a BTreeMap<String, Identifier>,
         constexpr_table: &'a BTreeMap<String, i64>,
         alias_map: &'a BTreeMap<String, String>,
+        block_alias_map: &'a BTreeMap<String, Vec<LocatedStatement>>,
         is_function_scope: bool,
         func_global_index: Option<usize>,
     ) {
@@ -218,6 +222,7 @@ impl<'a> ScopeResolver<'a> {
             func_map,
             constexpr_table,
             alias_map,
+            block_alias_map,
             is_function_scope,
             func_global_index,
         });
@@ -350,6 +355,19 @@ impl<'a> ScopeResolver<'a> {
         for scope_info in self.scope_stack.iter().rev() {
             if let Some(&v) = scope_info.constexpr_table.get(name) {
                 return Some(v);
+            }
+        }
+        None
+    }
+
+    /// ブロックエイリアス名を解決し、AST 本体を返す
+    ///
+    /// スコープスタックを内側から外側へ探索する。
+    /// 見つからない場合は None を返す。
+    pub fn resolve_block_alias(&self, name: &str) -> Option<&Vec<LocatedStatement>> {
+        for scope_info in self.scope_stack.iter().rev() {
+            if let Some(body) = scope_info.block_alias_map.get(name) {
+                return Some(body);
             }
         }
         None

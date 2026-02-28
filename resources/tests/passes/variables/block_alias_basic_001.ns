@@ -1,0 +1,9 @@
+# alias: ブロックエイリアスの基本テスト #
+alias: do_work {
+  __trace(0);
+  __trace(1);
+};
+
+func: __main() {
+  do_work();
+}

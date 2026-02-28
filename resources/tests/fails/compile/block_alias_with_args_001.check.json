@@ -1,0 +1,4 @@
+{
+  "type": "compile_error",
+  "contains": ["block alias", "cannot be called with arguments"]
+}
