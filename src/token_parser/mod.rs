@@ -95,9 +95,15 @@ fn parse_number<I: Iterator<Item = (usize, char)>>(
             // 16進数をパース
             let mut value = 0i64;
             let mut has_digit = false;
-            while let Some((_, c)) = iter.peek() {
+            while let Some((idx, c)) = iter.peek() {
                 if let Some(d) = c.to_digit(16) {
-                    value = value * 16 + d as i64;
+                    let idx = *idx;
+                    value = value
+                        .checked_mul(16)
+                        .and_then(|v| v.checked_add(d as i64))
+                        .ok_or_else(|| {
+                            code_parse_error!(idx, "integer literal overflow")
+                        })?;
                     has_digit = true;
                     iter.next();
                 } else {
@@ -120,12 +126,16 @@ fn parse_number<I: Iterator<Item = (usize, char)>>(
 
     // 10進数をパース
     let mut value = 0i64;
-    while let Some((_, c)) = iter.peek() {
+    while let Some((idx, c)) = iter.peek() {
         if !c.is_ascii_digit() {
             break;
         }
+        let idx = *idx;
         let d = c.to_digit(10).unwrap();
-        value = value * 10 + d as i64;
+        value = value
+            .checked_mul(10)
+            .and_then(|v| v.checked_add(d as i64))
+            .ok_or_else(|| code_parse_error!(idx, "integer literal overflow"))?;
         iter.next();
     }
     Ok(Token::Number(value))

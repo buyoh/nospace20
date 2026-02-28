@@ -3,7 +3,7 @@
 //! このモジュールは構文木のノードに位置情報を付与するための型を提供します。
 
 /// ソースコード上の位置を表す構造体
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SourceLocation {
     /// 開始位置（バイト単位のインデックス）
     pub start: usize,

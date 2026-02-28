@@ -1,5 +1,24 @@
 # Rust イディオム・型安全性の改善
 
+## 進捗
+
+- [x] edition 2021 への移行（`cargo fix --edition` + Cargo.toml 変更）
+- [x] `assert_matches` を `dev-dependencies` に移動
+- [x] `SourceLocation` に `Copy`, `PartialEq`, `Eq` トレイトを追加
+- [x] `bool_to_int` の可視性を `pub` → `pub(crate)` に変更
+- [x] エラー表示で残りのエラー数を通知
+- [x] 整数リテラルのオーバーフロー検出（`checked_mul`/`checked_add`）
+- [x] `ConstexprEnv::assign_variable` の `contains_key` + `insert` を `get_mut` に改善
+
+### 未着手（大規模変更のため後回し）
+
+- [ ] リリースプロファイルの分離（wasm-pack が custom profile をサポートしないため保留）
+- [ ] `PrettyToken` の構造体化（影響範囲が広い）
+- [ ] `Statement` バリアントの構造体化（影響範囲が広い）
+- [ ] `target_extensions` の `HashSet` 化
+- [ ] `Token` / `Expression` への `PartialEq` 追加
+- [ ] `logger` → `source_map` リネーム
+
 ## Cargo.toml
 
 ### edition の更新

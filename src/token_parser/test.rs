@@ -27,7 +27,7 @@ fn to_iter(code: &str) -> Peekable<Enumerate<Chars<'_>>> {
 }
 
 macro_rules! test_ok_parse_single {
-    ($name: ident, $val: expr, $($pat:pat)|+ if $cond:expr ) => {
+    ($name: ident, $val: expr, $($pat:pat_param)|+ if $cond:expr ) => {
         // note: concat_idents! is only for nightly
         #[test]
         fn $name() -> Result<(), &'static str> {
@@ -41,7 +41,7 @@ macro_rules! test_ok_parse_single {
             }
         }
     };
-    ($name: ident, $val: expr, $($pat:pat)|+ ) => {
+    ($name: ident, $val: expr, $($pat:pat_param)|+ ) => {
         // note: concat_idents! is only for nightly
         #[test]
         fn $name() -> Result<(), &'static str> {
@@ -225,3 +225,28 @@ test_ok_parse!(test_double_ampersand, "&&", it => {
     assert_matches!(it.next(), Some(Token::DoubleAmpersand));
     assert_matches!(it.next(), None);
 });
+
+// Integer overflow tests
+#[test]
+fn test_integer_overflow_decimal() {
+    // i64::MAX = 9223372036854775807 なので、それより大きい数はエラー
+    let result = res_parse_to_tokens_internal(&mut to_iter("99999999999999999999"));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_integer_overflow_hex() {
+    // 0x の後に大きすぎる16進数
+    let result = res_parse_to_tokens_internal(&mut to_iter("0xFFFFFFFFFFFFFFFFFF"));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_integer_max_value() {
+    // i64::MAX は正常にパースできるべき
+    let result = res_parse_to_tokens_internal(&mut to_iter("9223372036854775807"));
+    assert!(result.is_ok());
+    let tokens = result.unwrap();
+    assert_eq!(tokens.len(), 1);
+    assert_matches!(&tokens[0].0, Token::Number(n) if *n == i64::MAX);
+}

@@ -67,8 +67,8 @@ impl<'a> ConstexprEnv<'a> {
     /// 戻り値: 変数が見つかって代入できた場合 `true`、見つからなかった場合 `false`
     fn assign_variable(&mut self, name: &str, value: i64) -> bool {
         for scope in self.scopes.iter_mut().rev() {
-            if scope.contains_key(name) {
-                scope.insert(name.to_string(), value);
+            if let Some(v) = scope.get_mut(name) {
+                *v = value;
                 return true;
             }
         }

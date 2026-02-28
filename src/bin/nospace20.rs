@@ -95,6 +95,7 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
         Err(e) => e,
     };
 
+    let total = errors.len();
     for error in errors.iter().take(3) {
         println!("error: {}", error.message);
 
@@ -124,6 +125,10 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
                     .collect::<String>()
             );
         }
+    }
+
+    if total > 3 {
+        println!("... and {} more errors", total - 3);
     }
 
     process::exit(1);
