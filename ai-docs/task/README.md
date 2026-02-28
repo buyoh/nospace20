@@ -6,7 +6,7 @@
 
 ### 未実装機能の追跡
 
-- [unimplemented-variable-features.md](unimplemented-variable-features.md) - 未実装の変数関連機能（final/const変数）
+- [unimplemented-variable-features.md](unimplemented-variable-features.md) - 未実装の変数関連機能（alias/const/final）
 
 ### アクティブなタスク
 
