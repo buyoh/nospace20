@@ -32,14 +32,14 @@ pub(super) fn random_uninit_value() -> i64 {
     })
 }
 
-/// 変数領域の初期フィル値を返す
+/// 指定サイズの未初期化変数ベクタを生成する
 ///
-/// `randomize` が true のときランダム値、false のとき 0 を返す。
-fn uninit_fill_value(randomize: bool) -> i64 {
+/// `randomize` が true のときランダム値、false のとき 0 で初期化する。
+pub(super) fn create_uninit_vec(size: usize, randomize: bool) -> Vec<i64> {
     if randomize {
-        random_uninit_value()
+        (0..size).map(|_| random_uninit_value()).collect()
     } else {
-        0
+        vec![0; size]
     }
 }
 
@@ -63,10 +63,7 @@ impl LocalEnvironment<'_, '_> {
     ) -> LocalEnvironment<'a, 'aenv> {
         // Vec<i64> ベースの変数管理
         // 変数の数だけ領域を確保し、引数で初期化
-        let randomize = env.config.randomize_uninit;
-        let mut variables: Vec<i64> = (0..func.block.scope.variable_count)
-            .map(|_| uninit_fill_value(randomize))
-            .collect();
+        let mut variables = create_uninit_vec(func.block.scope.variable_count, env.config.randomize_uninit);
 
         // 引数を対応する変数にセット（最適化: 事前計算されたインデックスを使用）
         for (i, arg_val) in args.iter().enumerate() {
@@ -86,10 +83,7 @@ impl LocalEnvironment<'_, '_> {
     /// ブロックに入る
     fn enter_block(&mut self, scope: &Scope) {
         // 変数の数だけ Vec を初期化（randomize_uninit モードではランダム値で埋める）
-        let randomize = self.env.config.randomize_uninit;
-        let vars: Vec<i64> = (0..scope.variable_count)
-            .map(|_| uninit_fill_value(randomize))
-            .collect();
+        let vars = create_uninit_vec(scope.variable_count, self.env.config.randomize_uninit);
         self.scope_stack.push(vars);
     }
 
@@ -265,10 +259,7 @@ impl LocalEnvironment<'_, '_> {
         let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
 
         // 新しい scope を既存の scope_stack に push（randomize_uninit モードではランダム値で初期化）
-        let randomize = self.env.config.randomize_uninit;
-        let mut variables: Vec<i64> = (0..func.block.scope.variable_count)
-            .map(|_| uninit_fill_value(randomize))
-            .collect();
+        let mut variables = create_uninit_vec(func.block.scope.variable_count, self.env.config.randomize_uninit);
 
         // static 変数があり、永続ストレージが存在する場合は値を復元
         // 関数インデックスをキーとして使用

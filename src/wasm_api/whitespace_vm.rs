@@ -21,20 +21,7 @@ use super::types::{
 // SharedWriter
 // ========================================
 
-/// `Rc<RefCell<Vec<u8>>>` をラップして `Write` トレイトを実装する
-///
-/// stdout バッファを VM と呼び出し元で共有するために使用する。
-pub(super) struct SharedWriter(pub Rc<RefCell<Vec<u8>>>);
-
-impl std::io::Write for SharedWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.borrow_mut().extend_from_slice(buf);
-        Ok(buf.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
+pub(super) use crate::base::shared_writer::SharedWriter;
 
 // ========================================
 // Whitespace VM ヘルパー

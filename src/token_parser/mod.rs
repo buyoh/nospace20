@@ -174,6 +174,38 @@ fn parse_hex_escape<I: Iterator<Item = (usize, char)>>(
     })
 }
 
+/// エスケープシーケンスをパースする共通関数
+///
+/// `\` の次の文字から処理を開始する。`iter` は `\` の次を指している状態で呼ぶこと。
+/// `context` はエラーメッセージ用（"character literal" or "string literal"）。
+fn parse_escape_sequence<I: Iterator<Item = (usize, char)>>(
+    iter: &mut iter::Peekable<I>,
+    start_idx: usize,
+    context: &str,
+) -> Result<i64, CodeParseError> {
+    match iter.next() {
+        Some((_, 'n')) => Ok(10),  // 改行 (LF)
+        Some((_, 'r')) => Ok(13),  // 復帰 (CR)
+        Some((_, 't')) => Ok(9),   // タブ
+        Some((_, 's')) => Ok(32),  // スペース
+        Some((_, '\\')) => Ok(92), // バックスラッシュ
+        Some((_, '"')) => Ok(34),  // ダブルクォート
+        Some((_, '\'')) => Ok(39), // シングルクォート
+        Some((idx, 'x')) => {
+            // 16進数エスケープシーケンス \xHH...（可変長、最低2桁）
+            parse_hex_escape(iter, idx)
+        }
+        Some((idx, c)) => Err(code_parse_error!(
+            idx,
+            format!("unknown escape sequence: \\{}", c)
+        )),
+        None => Err(code_parse_error!(
+            start_idx,
+            format!("unexpected end of input in {}", context)
+        )),
+    }
+}
+
 /// 文字リテラルをパースする。'a' のような形式で、エスケープシーケンスも対応。
 /// 呼び出し時点で開始の `'` は既に消費されている必要がある。
 fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
@@ -183,30 +215,7 @@ fn parse_char_literal<I: Iterator<Item = (usize, char)>>(
     let char_value = match iter.next() {
         Some((_, '\\')) => {
             // エスケープシーケンス
-            match iter.next() {
-                Some((_, 'n')) => 10,  // 改行 (LF)
-                Some((_, 'r')) => 13,  // 復帰 (CR)
-                Some((_, 't')) => 9,   // タブ
-                Some((_, 's')) => 32,  // スペース
-                Some((_, '\\')) => 92, // バックスラッシュ
-                Some((_, '\'')) => 39, // シングルクォート
-                Some((idx, 'x')) => {
-                    // 16進数エスケープシーケンス \xHH...（可変長、最低2桁）
-                    parse_hex_escape(iter, idx)?
-                }
-                Some((idx, c)) => {
-                    return Err(code_parse_error!(
-                        idx,
-                        format!("unknown escape sequence: \\{}", c)
-                    ));
-                }
-                None => {
-                    return Err(code_parse_error!(
-                        start_idx,
-                        "unexpected end of input in character literal"
-                    ));
-                }
-            }
+            parse_escape_sequence(iter, start_idx, "character literal")?
         }
         Some((_, '\'')) => {
             return Err(code_parse_error!(start_idx, "empty character literal"));
@@ -250,32 +259,8 @@ fn parse_string_literal<I: Iterator<Item = (usize, char)>>(
             Some((_, '\\')) => {
                 // エスケープシーケンス
                 iter.next(); // '\\' を消費
-                match iter.next() {
-                    Some((_, 'n')) => chars.push(10),  // 改行 (LF)
-                    Some((_, 'r')) => chars.push(13),  // 復帰 (CR)
-                    Some((_, 't')) => chars.push(9),   // タブ
-                    Some((_, 's')) => chars.push(32),  // スペース
-                    Some((_, '\\')) => chars.push(92), // バックスラッシュ
-                    Some((_, '"')) => chars.push(34),  // ダブルクォート
-                    Some((_, '\'')) => chars.push(39), // シングルクォート
-                    Some((idx, 'x')) => {
-                        // 16進数エスケープシーケンス \xHH...（可変長、最低2桁）
-                        let value = parse_hex_escape(iter, idx)?;
-                        chars.push(value);
-                    }
-                    Some((idx, c)) => {
-                        return Err(code_parse_error!(
-                            idx,
-                            format!("unknown escape sequence: \\{}", c)
-                        ));
-                    }
-                    None => {
-                        return Err(code_parse_error!(
-                            start_idx,
-                            "unexpected end of input in string literal"
-                        ));
-                    }
-                }
+                let value = parse_escape_sequence(iter, start_idx, "string literal")?;
+                chars.push(value);
             }
             Some((_, c)) => {
                 // 通常の文字（空白文字も含む - nospace では空白は無視されるが、文字列内では保持）

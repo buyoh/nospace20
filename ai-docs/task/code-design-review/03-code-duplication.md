@@ -110,3 +110,17 @@ fn generate_store_variable(
 | エスケープシーケンス | 1 | 約 30 行 | Low |
 | WASM パイプライン | 1 | 約 40 行 | Medium |
 | Store/Retrieve | 1 | 約 200 行 | Medium |
+
+## Progress
+
+### 実施済み
+
+- **SharedWriter**: `src/base/shared_writer.rs` に共通の `SharedWriter` 構造体を配置。`src/lib.rs` と `src/wasm_api/whitespace_vm.rs` から共通モジュールを参照するように変更。
+- **randomize_uninit**: `exec::create_uninit_vec(size, randomize)` ヘルパー関数を追加。`src/interpreter/exec.rs` と `src/interpreter/mod.rs` の全 6 箇所を統一。
+- **エスケープシーケンス**: `parse_escape_sequence` 共通関数を抽出。`parse_char_literal` と `parse_string_literal` の両方から共通関数を呼び出すように変更。統一により `\"` が文字リテラル内でもサポートされるようになった。
+- **WASM パイプライン**: 既に `analyze_source` / `analyze_and_optimize` に共通化済み（対応不要）。
+- **Store/Retrieve**: 既に `_impl` + `emit_retrieve: bool` パラメータで統合済み（対応不要）。
+
+### 未実施
+
+- **constexpr 評価ロジック**: `semantic_analyzer` と `constexpr_eval` のコア式評価の統一は、3 テーブル方式と ConstexprEnv 方式の構造差異が大きく、リファクタリングリスクが高いため見送り。

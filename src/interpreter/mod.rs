@@ -66,13 +66,7 @@ pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> 
 /// 3. 非 static グローバル変数の初期化式を実行
 pub fn interpret_global(env: &mut Environment, scope: &Scope) -> Result<(), InterpretError> {
     // グローバル変数の領域を確保（randomize_uninit モードではランダム値で初期化）
-    if env.config.randomize_uninit {
-        env.global_variables = (0..scope.variable_count)
-            .map(|_| exec::random_uninit_value())
-            .collect();
-    } else {
-        env.global_variables = vec![0; scope.variable_count];
-    }
+    env.global_variables = exec::create_uninit_vec(scope.variable_count, env.config.randomize_uninit);
 
     // ルートレベル static 変数の初期化式を先に実行
     if !scope.static_init_statements.is_empty() {
@@ -134,13 +128,10 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) -> Result<(
 
         let storage = if !func.block.scope.static_init_statements.is_empty() {
             // static 変数の初期化式を一時的なスコープで実行
-            let init_storage: Vec<i64> = if env.config.randomize_uninit {
-                (0..func.block.scope.variable_count)
-                    .map(|_| exec::random_uninit_value())
-                    .collect()
-            } else {
-                vec![0i64; func.block.scope.variable_count]
-            };
+            let init_storage = exec::create_uninit_vec(
+                func.block.scope.variable_count,
+                env.config.randomize_uninit,
+            );
             let mut local_env = LocalEnvironment {
                 env: &mut *env,
                 root_scope: scope,
@@ -160,13 +151,10 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) -> Result<(
             local_env.scope_stack.pop().unwrap()
         } else {
             // 初期化式なし: randomize_uninit モードではランダム値、それ以外は 0
-            if env.config.randomize_uninit {
-                (0..func.block.scope.variable_count)
-                    .map(|_| exec::random_uninit_value())
-                    .collect()
-            } else {
-                vec![0i64; func.block.scope.variable_count]
-            }
+            exec::create_uninit_vec(
+                func.block.scope.variable_count,
+                env.config.randomize_uninit,
+            )
         };
 
         // Phase 6: 関数インデックスをキーとして使用

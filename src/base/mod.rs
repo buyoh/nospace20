@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 use std::fmt;
 
+pub mod shared_writer;
+
 #[derive(Clone, Debug)]
 pub struct CodeParseError {
     pub code_pointer: Option<usize>,

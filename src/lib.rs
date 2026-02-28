@@ -131,17 +131,8 @@ pub fn interpret_func_with_io(
     let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
     let stdout_clone = Rc::clone(&stdout_buf);
 
-    struct SharedWriter(Rc<RefCell<Vec<u8>>>);
-    impl std::io::Write for SharedWriter {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            self.0.borrow_mut().write(buf)
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            self.0.borrow_mut().flush()
-        }
-    }
-
-    let stdout_writer: Box<dyn std::io::Write> = Box::new(SharedWriter(stdout_clone));
+    let stdout_writer: Box<dyn std::io::Write> =
+        Box::new(base::shared_writer::SharedWriter(stdout_clone));
     let config = EnvironmentConfig::with_max_expression_count(100000);
     let mut env = Environment::new_with_config(stdin_cursor, stdout_writer, config);
 
