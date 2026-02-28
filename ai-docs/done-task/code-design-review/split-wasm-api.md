@@ -1,5 +1,21 @@
 # wasm_api 分割設計
 
+## 進捗
+
+- **ステータス**: 完了
+- **完了日**: 2026-03-01
+- **実装内容**:
+  - `src/wasm_api.rs`（834行）を `src/wasm_api/` ディレクトリに分割
+  - `types.rs`: TS型定義・Serde構造体・`ResultErr::single_error` ヘルパー
+  - `pipeline.rs`: 共通パイプライン（`analyze_source`, `analyze_and_optimize`）・パラメータパーサ・エラー変換
+  - `api.rs`: `run`, `compile`, `parse`, ヘルパー関数・メタデータ
+  - `whitespace_vm.rs`: `SharedWriter`, `WasmWhitespaceVM`, `create_from_ws_source` ヘルパー
+  - 4箇所の重複パイプラインを `analyze_source` / `analyze_and_optimize` に統一
+  - 7箇所の手動 `ResultErr` 構築を `ResultErr::single_error()` に統一
+  - `from_whitespace` / `from_whitespace_interactive` の重複を `create_from_ws_source` ヘルパーで解消
+  - `cargo test`: 全40テスト通過
+  - `cargo build --features wasm`: 警告なしでビルド成功
+
 ## 現状
 
 [src/wasm_api.rs](../../../src/wasm_api.rs) は 834 行の単一ファイルで、以下の責務が混在:
