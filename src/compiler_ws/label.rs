@@ -33,7 +33,7 @@ pub mod reserved_labels {
     pub const RT_FREE: LabelId = LabelId(13);
 
     // 14-15: テスト等で使用可能な予備
-    // 16-47: FSBA アロケータ内部ラベル（alloc_runtime.rs で定義）
+    // 16-47: FSBA アロケータ内部ラベル（alloc_runtime/fsba.rs で定義）
 
     /// ユーザーラベルのオフセット
     /// 注: 0-47 はシステム予約（予約ラベル + FSBA 内部ラベル）
