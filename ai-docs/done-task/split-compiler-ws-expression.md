@@ -1,5 +1,18 @@
 # compiler_ws/expression.rs リファクタリング設計
 
+## 進捗
+
+**完了 (2026-03-01)**
+
+以下の3つのリファクタリングを実施。全テスト(1618 tests)パス。
+
+| 変更 | 削減行数 |
+|------|---------|
+| Store/Retrieve void 統合 (`emit_retrieve: bool`) | ~50行 |
+| 比較演算子データ駆動化 (`ComparisonSpec`) | ~45行 ※ヘルパー追加分で相殺 |
+| アドレス計算の共用化 (Store系が address 生成関数に委譲) | ~35行 |
+| **合計** | **1020 → 941 行 (79行削減)** |
+
 ## 現状
 
 [src/compiler_ws/expression.rs](../../../src/compiler_ws/expression.rs) は 1020 行で、24 個の関数が定義されている。
