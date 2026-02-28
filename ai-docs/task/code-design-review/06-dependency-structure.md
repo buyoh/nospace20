@@ -172,3 +172,21 @@ pub struct CodeGenContext {
 - `ws_types` を `base` 配下に新設
 - `whitespace` → `compiler_ws` の依存を解消
 - `compiler_ws` → `base/ws_types` に依存方向を修正
+
+## Progress
+
+### 実施済み
+
+- **問題 2 (unsafe キャストの除去)**:
+  - `WhitespaceVM` に `stdout_capture: Option<Rc<RefCell<Vec<u8>>>>` フィールドを追加
+  - `from_instructions` で `SharedWriter` + `stdout_capture` を使用し、デフォルト stdout をキャプチャ可能に
+  - `get_stdout_string` を type-safe な実装に変更（`stdout_capture` 経由で取得）
+  - `with_io` / `with_stdout` でカスタム stdout を設定した場合は `stdout_capture = None` に
+  - `with_stdin` メソッドを新規追加（stdin のみ設定、stdout_capture を維持）
+  - `src/interpreter/exec.rs` テスト内の unsafe キャストも同様に `SharedWriter` ベースに修正
+  - alloc_runtime テスト、whitespace_direct_test、whitespace_self_base テストを更新
+
+### 未実施（モジュール構造変更のため除外）
+
+- **問題 1 (ws_types の base 移動)**: モジュール分割・依存方向の変更は今回のスコープ外
+- **問題 3 (CodeGenContext 分割)**: 構造体の内部分割は今回のスコープ外

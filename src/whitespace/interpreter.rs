@@ -5,8 +5,10 @@
 
 use crate::compiler_ws::instruction::Instruction;
 use crate::compiler_ws::types::LabelId;
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::{BufRead, Write};
+use std::rc::Rc;
 
 // ===== プロファイリング用データ構造 =====
 
@@ -258,6 +260,8 @@ pub struct WhitespaceVM {
     // === I/O ===
     stdin: StdinSource,
     stdout: Box<dyn Write>,
+    /// テスト用: stdout の内容を型安全に取得するための共有バッファ
+    stdout_capture: Option<Rc<RefCell<Vec<u8>>>>,
 
     // === メトリクス ===
     /// 総実行命令数
@@ -300,6 +304,9 @@ impl WhitespaceVM {
     pub fn from_instructions(instructions: Vec<Instruction>) -> Result<Self, super::ParseError> {
         let labels = Self::collect_labels(&instructions)?;
 
+        let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
+        let writer = crate::base::shared_writer::SharedWriter(Rc::clone(&stdout_buf));
+
         Ok(Self {
             instructions,
             labels,
@@ -308,7 +315,8 @@ impl WhitespaceVM {
             call_stack: Vec::new(),
             heap: HashMap::new(),
             stdin: StdinSource::Buffered(Box::new(std::io::Cursor::new(Vec::new()))),
-            stdout: Box::new(Vec::<u8>::new()),
+            stdout: Box::new(writer),
+            stdout_capture: Some(stdout_buf),
             total_steps: 0,
             traced: BTreeMap::new(),
             debug_ext: false,
@@ -324,12 +332,20 @@ impl WhitespaceVM {
     pub fn with_io(mut self, stdin: Box<dyn BufRead>, stdout: Box<dyn Write>) -> Self {
         self.stdin = StdinSource::Buffered(stdin);
         self.stdout = stdout;
+        self.stdout_capture = None; // カスタム stdout では capture は無効化
+        self
+    }
+
+    /// stdin のみを設定する（stdout の capture は維持）
+    pub fn with_stdin(mut self, stdin: Box<dyn BufRead>) -> Self {
+        self.stdin = StdinSource::Buffered(stdin);
         self
     }
 
     /// stdout のみを設定する（interactive stdin モードと併用）
     pub fn with_stdout(mut self, stdout: Box<dyn Write>) -> Self {
         self.stdout = stdout;
+        self.stdout_capture = None; // カスタム stdout では capture は無効化
         self
     }
 
@@ -543,12 +559,14 @@ impl WhitespaceVM {
     }
 
     /// stdout の内容を文字列として取得（テスト用）
+    ///
+    /// デフォルトの stdout バッファ（SharedWriter）を使用している場合のみ動作する。
+    /// `with_io` や `with_stdout` でカスタム stdout を設定した場合は空文字列を返す。
     pub fn get_stdout_string(&self) -> String {
-        // stdout が Vec<u8> の場合のみ動作
-        let stdout_ref = &self.stdout;
-        let bytes: &Vec<u8> =
-            unsafe { &*(stdout_ref as *const Box<dyn Write> as *const Box<Vec<u8>>) };
-        String::from_utf8_lossy(bytes).to_string()
+        match &self.stdout_capture {
+            Some(buf) => String::from_utf8_lossy(&buf.borrow()).to_string(),
+            None => String::new(),
+        }
     }
 
     /// ラベル収集（重複チェック付き）

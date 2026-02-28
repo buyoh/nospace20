@@ -21,13 +21,7 @@ pub fn run_alloc_test(test_path: &str) {
 
     let instructions = program.into_instructions();
     let mut vm = WhitespaceVM::from_instructions(instructions)
-        .unwrap_or_else(|e| panic!("Failed to create VM: {:?}", e))
-        .with_io(
-            Box::new(std::io::BufReader::new(std::io::Cursor::new(
-                Vec::<u8>::new(),
-            ))),
-            Box::new(Vec::<u8>::new()),
-        );
+        .unwrap_or_else(|e| panic!("Failed to create VM: {:?}", e));
 
     let result = vm.run(max_steps);
     let output = vm.get_stdout_string();

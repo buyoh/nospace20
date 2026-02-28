@@ -106,8 +106,7 @@ pub fn test_whitespace_self_io_base_opt_all(test_name: &str) {
 
         let stdin_cursor: Box<dyn io::BufRead> =
             Box::new(io::Cursor::new(stdin_content.into_bytes()));
-        let stdout_buf: Box<dyn io::Write> = Box::new(Vec::<u8>::new());
-        vm = vm.with_io(stdin_cursor, stdout_buf);
+        vm = vm.with_stdin(stdin_cursor);
 
         let result = vm.run(1_000_000);
 
@@ -329,8 +328,7 @@ pub fn test_whitespace_self_io_base_alloc(test_name: &str, debug_ext: bool, allo
 
         let stdin_cursor: Box<dyn io::BufRead> =
             Box::new(io::Cursor::new(stdin_content.into_bytes()));
-        let stdout_buf: Box<dyn io::Write> = Box::new(Vec::<u8>::new());
-        vm = vm.with_io(stdin_cursor, stdout_buf);
+        vm = vm.with_stdin(stdin_cursor);
 
         let result = vm.run(1_000_000);
 
@@ -433,8 +431,7 @@ fn test_whitespace_self_io_base_impl(
 
         let stdin_cursor: Box<dyn io::BufRead> =
             Box::new(io::Cursor::new(stdin_content.into_bytes()));
-        let stdout_buf: Box<dyn io::Write> = Box::new(Vec::<u8>::new());
-        vm = vm.with_io(stdin_cursor, stdout_buf);
+        vm = vm.with_stdin(stdin_cursor);
 
         let result = vm.run(1_000_000);
 

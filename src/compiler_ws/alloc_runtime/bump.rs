@@ -221,10 +221,8 @@ mod tests {
         prog.push(Instruction::Exit);
         prog.append(bump.generate_subroutines());
 
-        let stdout = Vec::<u8>::new();
         let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
-            .unwrap()
-            .with_io(Box::new(std::io::Cursor::new(Vec::new())), Box::new(stdout));
+            .unwrap();
         let result = vm.run(10000);
         assert!(
             matches!(result, StepResult::Complete),
@@ -306,10 +304,8 @@ mod tests {
         prog.push(Instruction::Exit);
         prog.append(bump.generate_subroutines());
 
-        let stdout = Vec::<u8>::new();
         let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
-            .unwrap()
-            .with_io(Box::new(std::io::Cursor::new(Vec::new())), Box::new(stdout));
+            .unwrap();
         let result = vm.run(10000);
         assert!(
             matches!(result, StepResult::Complete),

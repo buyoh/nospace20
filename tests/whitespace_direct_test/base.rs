@@ -46,9 +46,8 @@ pub fn test_ws_io_base(test_name: &str) {
 
     let stdin_cursor: Box<dyn io::BufRead> =
         Box::new(io::Cursor::new(stdin_str.to_string().into_bytes()));
-    let stdout_buf: Box<dyn io::Write> = Box::new(Vec::<u8>::new());
 
-    let mut vm = vm.with_io(stdin_cursor, stdout_buf);
+    let mut vm = vm.with_stdin(stdin_cursor);
     let result = vm.run(100_000);
 
     assert_eq!(

@@ -214,11 +214,7 @@ pub(super) mod test_helpers {
         prog.append(runtime.generate_subroutines());
 
         let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
-            .unwrap()
-            .with_io(
-                Box::new(std::io::Cursor::new(Vec::new())),
-                Box::new(Vec::<u8>::new()),
-            );
+            .unwrap();
         let result = vm.run(1_000_000);
         assert!(
             matches!(result, StepResult::Complete),

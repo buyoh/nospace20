@@ -794,11 +794,7 @@ mod tests {
         prog.append(fsba.generate_subroutines());
 
         let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
-            .unwrap()
-            .with_io(
-                Box::new(std::io::Cursor::new(Vec::new())),
-                Box::new(Vec::<u8>::new()),
-            );
+            .unwrap();
         let result = vm.run(10000);
         assert!(
             matches!(result, StepResult::Complete),
@@ -1082,11 +1078,7 @@ mod tests {
         prog.append(fsba.generate_subroutines());
 
         let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
-            .unwrap()
-            .with_io(
-                Box::new(std::io::Cursor::new(Vec::new())),
-                Box::new(Vec::<u8>::new()),
-            );
+            .unwrap();
         let result = vm.run(10000);
         assert!(
             matches!(result, StepResult::Complete),

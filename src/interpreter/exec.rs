@@ -727,6 +727,14 @@ mod tests {
         Environment::new_with_config(stdin_cursor, stdout_buf, EnvironmentConfig::new())
     }
 
+    fn create_test_env_with_stdout_capture() -> (Environment, std::rc::Rc<std::cell::RefCell<Vec<u8>>>) {
+        let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(Vec::<u8>::new())));
+        let stdout_buf = std::rc::Rc::new(std::cell::RefCell::new(Vec::<u8>::new()));
+        let writer = crate::base::shared_writer::SharedWriter(std::rc::Rc::clone(&stdout_buf));
+        let stdout: Box<dyn std::io::Write> = Box::new(writer);
+        (Environment::new_with_config(stdin_cursor, stdout, EnvironmentConfig::new()), stdout_buf)
+    }
+
     fn parse_and_analyze(code: &str) -> Scope {
         let code_string = code.to_string();
         let tokens = parse_to_tokens(&code_string).expect("Failed to parse tokens");
@@ -841,24 +849,18 @@ func: __main() {
 
     // --- T1: 組み込み関数テスト ---
 
-    fn create_test_env_with_stdin(stdin_data: &str) -> Environment {
+    fn create_test_env_with_stdin(stdin_data: &str) -> (Environment, std::rc::Rc<std::cell::RefCell<Vec<u8>>>) {
         let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(
             stdin_data.as_bytes().to_vec(),
         )));
-        let stdout_buf: Box<dyn std::io::Write> = Box::new(Vec::<u8>::new());
-        Environment::new_with_config(stdin_cursor, stdout_buf, EnvironmentConfig::new())
+        let stdout_buf = std::rc::Rc::new(std::cell::RefCell::new(Vec::<u8>::new()));
+        let writer = crate::base::shared_writer::SharedWriter(std::rc::Rc::clone(&stdout_buf));
+        let stdout: Box<dyn std::io::Write> = Box::new(writer);
+        (Environment::new_with_config(stdin_cursor, stdout, EnvironmentConfig::new()), stdout_buf)
     }
 
-    fn get_stdout(env: &mut Environment) -> String {
-        env.flush();
-        let stdout = &env.stdout;
-        // stdout は Box<dyn Write> なので、Vec<u8> にダウンキャストはできない。
-        // interpret_func_with_io と同様の方法で取得する代わりに、
-        // 共有バッファを使う方法を採用する。
-        // ここでは unsafe でダウンキャストする。
-        let ptr = &**stdout as *const dyn std::io::Write as *const Vec<u8>;
-        let vec = unsafe { &*ptr };
-        String::from_utf8(vec.clone()).unwrap()
+    fn get_stdout_from_capture(capture: &std::rc::Rc<std::cell::RefCell<Vec<u8>>>) -> String {
+        String::from_utf8(capture.borrow().clone()).unwrap()
     }
 
     #[test]
@@ -924,9 +926,10 @@ func: __main() {
 }
 "#;
         let scope = parse_and_analyze(code);
-        let mut env = create_test_env();
+        let (mut env, capture) = create_test_env_with_stdout_capture();
         crate::interpreter::interpret_all(&mut env, &scope).unwrap();
-        let output = get_stdout(&mut env);
+        env.flush();
+        let output = get_stdout_from_capture(&capture);
         assert_eq!(output, "42", "__puti(42) should write '42' to stdout");
     }
 
@@ -939,9 +942,10 @@ func: __main() {
 }
 "#;
         let scope = parse_and_analyze(code);
-        let mut env = create_test_env();
+        let (mut env, capture) = create_test_env_with_stdout_capture();
         crate::interpreter::interpret_all(&mut env, &scope).unwrap();
-        let output = get_stdout(&mut env);
+        env.flush();
+        let output = get_stdout_from_capture(&capture);
         assert_eq!(output, "A", "__putc(65) should write 'A' to stdout");
     }
 
@@ -953,7 +957,7 @@ func: __main() {
 }
 "#;
         let scope = parse_and_analyze(code);
-        let mut env = create_test_env_with_stdin("42\n");
+        let (mut env, _) = create_test_env_with_stdin("42\n");
         let result = crate::interpreter::interpret_all(&mut env, &scope);
         assert_eq!(result, Ok(Some(42)), "__geti() should read 42 from stdin");
     }
@@ -966,7 +970,7 @@ func: __main() {
 }
 "#;
         let scope = parse_and_analyze(code);
-        let mut env = create_test_env_with_stdin("A");
+        let (mut env, _) = create_test_env_with_stdin("A");
         let result = crate::interpreter::interpret_all(&mut env, &scope);
         assert_eq!(result, Ok(Some(65)), "__getc() should read 'A' (65) from stdin");
     }
