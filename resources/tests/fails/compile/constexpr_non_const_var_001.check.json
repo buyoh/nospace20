@@ -1,0 +1,4 @@
+{
+  "type": "compile_error",
+  "contains": ["is not a compile-time constant"]
+}

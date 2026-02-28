@@ -1,0 +1,6 @@
+# エラーケース: constexpr 式内で通常変数を参照 #
+func: __main() {
+  let: x(10);
+  constexpr: C(x);
+  __puti(C);
+}

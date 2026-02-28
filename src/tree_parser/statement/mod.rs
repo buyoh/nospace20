@@ -13,6 +13,9 @@ use super::expression::*;
 #[derive(Clone, Debug)]
 pub enum Statement {
     VariableDeclaration(String, Box<LocatedExpression>, bool, Option<i64>), // (name, init_expr, is_static, array_size)
+    /// コンパイル時定数定義: `constexpr: name(expr);`
+    /// スタックスロットを確保せず、コンパイル時に定数値に解決される
+    ConstexprDeclaration(String, Box<LocatedExpression>), // (name, expr)
     FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),
     Continue,
     Break,
@@ -109,6 +112,79 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         // 呼び出し元が既にキーワードを確認済みなので、そのまま消費する
         self.iter.next();
         self.parse_variable_declarations(start_pos, is_static)
+    }
+
+    /// `constexpr:` キーワードを消費して定数定義をパースする。
+    /// `constexpr: name(expr), name2(expr2);` のように複数定義にも対応。
+    fn parse_constexpr_declarations(&mut self, start_pos: usize) -> Vec<LocatedStatement> {
+        self.iter.next(); // Constexpr キーワードを消費
+
+        let mut results = Vec::<LocatedStatement>::new();
+
+        loop {
+            // 識別子を取得
+            let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                Ok(x) => x,
+                Err(e) => {
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(e),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    self.skip_to_semicolon();
+                    return results;
+                }
+            };
+
+            // '(' を期待
+            match self.iter.next() {
+                Some((Token::ParenthesisL, _)) => {}
+                Some((_, token_info)) => {
+                    let err_idx = self.add_parse_error(&token_info, "expected '(' after constexpr identifier");
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(err_idx),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    self.skip_to_semicolon();
+                    return results;
+                }
+                None => {
+                    let err_idx = self.add_end_error("unexpected end of input in constexpr declaration");
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(err_idx),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    return results;
+                }
+            }
+
+            // 定数式をパース（')' の直前まで）
+            let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+            self.code_parse_error.append(&mut errs);
+
+            // ')' を消費
+            match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
+
+            let end_pos = self.current_pos_or(start_pos);
+            let loc = SourceLocation::new(start_pos, end_pos);
+
+            results.push(LocatedStatement {
+                statement: Statement::ConstexprDeclaration(id.to_string(), expr),
+                location: loc,
+            });
+
+            // ',' または ';' を確認
+            match self.iter.peek() {
+                Some((Token::Comma, _)) => {
+                    self.iter.next(); // ',' を消費して次の定義へ
+                }
+                _ => break, // ';' または予期しないトークン → ループを抜ける
+            }
+        }
+
+        // ';' を消費
+        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+
+        results
     }
 
     /// 配列サイズ `[N]` または `[]` をパースする。
@@ -826,6 +902,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 Token::Keyword(Keyword::Static) => {
                     statements.extend(self.parse_to_statements_variable(start_pos, true));
+                    continue;
+                }
+                Token::Keyword(Keyword::Constexpr) => {
+                    statements.extend(self.parse_constexpr_declarations(start_pos));
                     continue;
                 }
                 Token::Keyword(Keyword::Func) => {

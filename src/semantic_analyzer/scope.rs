@@ -170,6 +170,8 @@ pub(super) struct ScopeInfo<'a> {
     /// 関数名からマップへの参照（関数可視性チェック用）
     /// Phase 5 で追加
     pub func_map: &'a BTreeMap<String, Identifier>,
+    /// constexpr 定数テーブル（名前 → 定数値）
+    pub constexpr_table: &'a BTreeMap<String, i64>,
     /// このスコープが関数スコープかどうか
     pub is_function_scope: bool,
     /// この関数スコープのグローバル関数インデックス
@@ -202,6 +204,7 @@ impl<'a> ScopeResolver<'a> {
         var_name_to_var_index: &'a BTreeMap<String, usize>,
         variables: &'a Vec<Variable>,
         func_map: &'a BTreeMap<String, Identifier>,
+        constexpr_table: &'a BTreeMap<String, i64>,
         is_function_scope: bool,
         func_global_index: Option<usize>,
     ) {
@@ -210,6 +213,7 @@ impl<'a> ScopeResolver<'a> {
             var_name_to_var_index,
             variables,
             func_map,
+            constexpr_table,
             is_function_scope,
             func_global_index,
         });
@@ -329,6 +333,19 @@ impl<'a> ScopeResolver<'a> {
         for scope_info in self.scope_stack.iter().rev() {
             if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
                 return Some(info.1);
+            }
+        }
+        None
+    }
+
+    /// constexpr 定数名を解決し、定数値を返す
+    ///
+    /// スコープスタックを内側から外側へ探索し、最も近いスコープの constexpr 値を返す。
+    /// 見つからない場合は None を返す。
+    pub fn resolve_constexpr(&self, name: &str) -> Option<i64> {
+        for scope_info in self.scope_stack.iter().rev() {
+            if let Some(&v) = scope_info.constexpr_table.get(name) {
+                return Some(v);
             }
         }
         None

@@ -161,7 +161,17 @@ alias: b { a(); };  # 識別子 a → 変数/関数 b? → ブロック b? #
 
 ## 2. constexpr（コンパイル時定数エイリアス）
 
-**状態**: ❌ 未実装（旧設計から変更）
+**状態**: ✅ 実装済み
+
+**実装内容**:
+- `token_parser/mod.rs`: `Keyword::Constexpr` を追加
+- `tree_parser/statement/mod.rs`: `Statement::ConstexprDeclaration(String, Box<LocatedExpression>)` を追加、パーサー実装
+- `semantic_analyzer/scope.rs`: `ScopeInfo::constexpr_table` フィールド追加、`ScopeResolver::resolve_constexpr` メソッド追加
+- `semantic_analyzer/mod.rs`: Pass0（constexpr 収集・評価）追加、式変換時に constexpr → `Factor(value)` に置換
+- テストケース追加: `constexpr_basic_001`, `constexpr_expr_001`, `constexpr_chain_001`, `constexpr_forward_ref_001`（成功）、`constexpr_circular_001`, `constexpr_non_const_var_001`, `constexpr_non_const_func_001`（コンパイルエラー）
+
+**制限事項**:
+- `for:` の初期化ブロック内の constexpr は、同 for の条件・更新・本体ブロックからは不可視（空の constexpr テーブルを渡している）
 
 **旧設計との違い**:
 - 旧設計: `const` は再代入不可の変数（スタックスロットを確保）

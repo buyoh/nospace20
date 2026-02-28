@@ -20,6 +20,7 @@ pub enum Keyword {
     Break,
     Continue,
     Static,
+    Constexpr,
 }
 
 #[derive(Debug)]
@@ -294,6 +295,7 @@ fn as_keyword_token(id: &str) -> Option<Token> {
         "break" => Some(Token::Keyword(Keyword::Break)),
         "continue" => Some(Token::Keyword(Keyword::Continue)),
         "static" => Some(Token::Keyword(Keyword::Static)),
+        "constexpr" => Some(Token::Keyword(Keyword::Constexpr)),
         _ => None,
     }
 }

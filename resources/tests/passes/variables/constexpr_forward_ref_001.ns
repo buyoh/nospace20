@@ -1,0 +1,8 @@
+# constexpr: 前方参照（後で定義された constexpr を先に参照する） #
+func: __main() {
+  __trace(0);
+  constexpr: A(B + 1);   # B より前に定義されるが B を参照 #
+  constexpr: B(10);
+  __assert_not(B - 10);
+  __assert_not(A - 11);
+}

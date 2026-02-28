@@ -299,6 +299,26 @@ tests:
     path: variables/var_init_expr
     comment: "Variable initialization with expression"
 
+  - name: test_variables_constexpr_basic_001
+    type: success
+    path: variables/constexpr_basic_001
+    comment: "Basic constexpr literal definitions"
+
+  - name: test_variables_constexpr_expr_001
+    type: success
+    path: variables/constexpr_expr_001
+    comment: "Constexpr with arithmetic expressions"
+
+  - name: test_variables_constexpr_chain_001
+    type: success
+    path: variables/constexpr_chain_001
+    comment: "Constexpr referencing another constexpr (chain)"
+
+  - name: test_variables_constexpr_forward_ref_001
+    type: success
+    path: variables/constexpr_forward_ref_001
+    comment: "Constexpr forward reference (hoisting)"
+
   # ========================================
   # Functions
   # ========================================
@@ -740,6 +760,21 @@ tests:
     type: compile_error
     path: break_outside_func_001
     comment: "Error: break statement outside of function"
+
+  - name: test_compile_error_constexpr_circular_001
+    type: compile_error
+    path: constexpr_circular_001
+    comment: "Error: circular constexpr reference"
+
+  - name: test_compile_error_constexpr_non_const_var_001
+    type: compile_error
+    path: constexpr_non_const_var_001
+    comment: "Error: variable reference in constexpr expression"
+
+  - name: test_compile_error_constexpr_non_const_func_001
+    type: compile_error
+    path: constexpr_non_const_func_001
+    comment: "Error: function call in constexpr expression"
 
   # ========================================
   # Runtime Errors

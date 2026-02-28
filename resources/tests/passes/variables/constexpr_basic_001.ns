@@ -1,0 +1,10 @@
+# constexpr: 基本的なリテラル定数 #
+func: __main() {
+  __trace(0);
+  constexpr: PI(3);
+  constexpr: ZERO(0);
+  constexpr: NEG(-1);
+  __assert_not(PI - 3);    # PI == 3 #
+  __assert_not(ZERO);      # ZERO == 0 #
+  __assert_not(NEG + 1);   # NEG == -1 #
+}

@@ -1,0 +1,14 @@
+# constexpr: 式（算術・比較演算）による定数定義 #
+func: __main() {
+  __trace(0);
+  constexpr: SIZE(2 + 3);   # = 5 #
+  constexpr: HALF(10 / 2);  # = 5 #
+  constexpr: MOD(17 % 5);   # = 2 #
+  constexpr: EQ(3 == 3);    # = 1 (true) #
+  constexpr: LT(2 < 5);     # = 1 (true) #
+  __assert_not(SIZE - 5);
+  __assert_not(HALF - 5);
+  __assert_not(MOD - 2);
+  __assert_not(EQ - 1);
+  __assert_not(LT - 1);
+}

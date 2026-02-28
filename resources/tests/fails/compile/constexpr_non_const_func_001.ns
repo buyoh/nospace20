@@ -1,0 +1,6 @@
+# エラーケース: constexpr 式内で関数呼び出しを使用 #
+func: f(){ return: 42; }
+func: __main() {
+  constexpr: C(f());
+  __puti(C);
+}

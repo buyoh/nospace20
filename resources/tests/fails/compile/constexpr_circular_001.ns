@@ -1,0 +1,6 @@
+# エラーケース: constexpr の循環参照 #
+func: __main() {
+  constexpr: X(Y + 1);
+  constexpr: Y(X + 1);
+  __puti(X);
+}

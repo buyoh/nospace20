@@ -11,11 +11,12 @@ mod scope;
 mod types;
 
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use scope::{FunctionIndex, Identifier, ScopeBuilder, ScopeResolver, ScopeType, SymbolTable};
 
 use crate::{
-    base::{CodeParseError, SourceLocation},
+    base::{pure_eval, CodeParseError, SourceLocation},
     code_parse_error,
     tree_parser::{
         Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement,
@@ -28,6 +29,163 @@ pub(crate) use types::{
     LocatedExecExpression, LocatedExecStatement, Variable,
 };
 pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
+
+/// constexpr 式を再帰的に評価する
+///
+/// `raw` は未解決の constexpr 定義（名前 → 生式）。
+/// `resolved` は解決済みの constexpr 定数テーブル（名前 → 値）。
+/// `evaluating` は巡回参照検知用の「現在評価中」セット。
+fn evaluate_constexpr_expr(
+    expr: &LocatedExpression,
+    raw: &BTreeMap<String, Box<LocatedExpression>>,
+    resolved: &mut BTreeMap<String, i64>,
+    evaluating: &mut BTreeSet<String>,
+) -> Result<i64, Vec<CodeParseError>> {
+    let loc = expr.location.start;
+    match &expr.expression {
+        Expression::Factor(n) => Ok(*n),
+        Expression::Variable(name) => {
+            if let Some(&v) = resolved.get(name) {
+                return Ok(v);
+            }
+            if raw.contains_key(name) {
+                // 前方参照: 他の constexpr を評価する
+                return evaluate_constexpr_by_name(name, raw, resolved, evaluating);
+            }
+            Err(vec![code_parse_error!(
+                loc,
+                format!("'{}' is not a compile-time constant", name)
+            )])
+        }
+        Expression::Operation1(op, inner) => match op {
+            Operator1::Negative => {
+                let v = evaluate_constexpr_expr(inner, raw, resolved, evaluating)?;
+                Ok(v.wrapping_neg())
+            }
+            Operator1::LogicalNot => {
+                let v = evaluate_constexpr_expr(inner, raw, resolved, evaluating)?;
+                Ok(pure_eval::bool_to_int(v == 0))
+            }
+            _ => Err(vec![code_parse_error!(
+                loc,
+                "Ref/Deref is not allowed in constexpr expression"
+            )]),
+        },
+        Expression::Operation2(op, l, r) => match op {
+            Operator2::Assign
+            | Operator2::PlusAssign
+            | Operator2::MinusAssign
+            | Operator2::MultiplyAssign
+            | Operator2::DivideAssign
+            | Operator2::ModuloAssign => Err(vec![code_parse_error!(
+                loc,
+                "assignment is not allowed in constexpr expression"
+            )]),
+            Operator2::LogicalAnd => {
+                // 短絡評価: 左辺が0なら右辺を評価しない
+                let lv = evaluate_constexpr_expr(l, raw, resolved, evaluating)?;
+                if lv == 0 {
+                    return Ok(0);
+                }
+                let rv = evaluate_constexpr_expr(r, raw, resolved, evaluating)?;
+                Ok(pure_eval::bool_to_int(rv != 0))
+            }
+            Operator2::LogicalOr => {
+                // 短絡評価: 左辺が非0なら右辺を評価しない
+                let lv = evaluate_constexpr_expr(l, raw, resolved, evaluating)?;
+                if lv != 0 {
+                    return Ok(1);
+                }
+                let rv = evaluate_constexpr_expr(r, raw, resolved, evaluating)?;
+                Ok(pure_eval::bool_to_int(rv != 0))
+            }
+            _ => {
+                // Plus, Minus, Multiply, Divide, Modulo, 比較演算
+                let lv = evaluate_constexpr_expr(l, raw, resolved, evaluating)?;
+                let rv = evaluate_constexpr_expr(r, raw, resolved, evaluating)?;
+                pure_eval::eval_binary_pure(op, lv, rv).ok_or_else(|| {
+                    vec![code_parse_error!(
+                        loc,
+                        "division by zero in constexpr expression"
+                    )]
+                })
+            }
+        },
+        _ => Err(vec![code_parse_error!(
+            loc,
+            "expression is not compile-time evaluable in constexpr"
+        )]),
+    }
+}
+
+/// constexpr 名前による遅延解決〔巡回参照検知付き〕
+fn evaluate_constexpr_by_name(
+    name: &str,
+    raw: &BTreeMap<String, Box<LocatedExpression>>,
+    resolved: &mut BTreeMap<String, i64>,
+    evaluating: &mut BTreeSet<String>,
+) -> Result<i64, Vec<CodeParseError>> {
+    if let Some(&v) = resolved.get(name) {
+        return Ok(v);
+    }
+    if evaluating.contains(name) {
+        return Err(vec![code_parse_error!(format!(
+            "circular constexpr reference detected: '{}' is part of a cyclic definition",
+            name
+        ))]);
+    }
+    let expr = match raw.get(name) {
+        Some(e) => e.clone(),
+        None => {
+            return Err(vec![code_parse_error!(format!(
+                "undefined constexpr: '{}'",
+                name
+            ))])
+        }
+    };
+    evaluating.insert(name.to_string());
+    let v = evaluate_constexpr_expr(&expr, raw, resolved, evaluating)?;
+    evaluating.remove(name);
+    resolved.insert(name.to_string(), v);
+    Ok(v)
+}
+
+/// ステートメント列から constexpr 定義を収集して評価し、
+/// 定数テーブル `BTreeMap<String, i64>` を返す。
+///
+/// 同名の constexpr や変数との名前衝突は意味解析パス1b での重複チェックに委ねる。
+fn collect_constexpr_table(
+    statements: &[LocatedStatement],
+) -> Result<BTreeMap<String, i64>, Vec<CodeParseError>> {
+    // 生式マップ（名前 → 生式）を構築
+    let mut raw: BTreeMap<String, Box<LocatedExpression>> = BTreeMap::new();
+    for located_stat in statements {
+        if let Statement::ConstexprDeclaration(name, expr) = &located_stat.statement {
+            raw.insert(name.clone(), expr.clone());
+        }
+    }
+
+    if raw.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    // 各 constexpr を遅延評価
+    let mut resolved: BTreeMap<String, i64> = BTreeMap::new();
+    let mut errors: Vec<CodeParseError> = Vec::new();
+    for name in raw.keys() {
+        let mut evaluating: BTreeSet<String> = BTreeSet::new();
+        match evaluate_constexpr_by_name(name, &raw, &mut resolved, &mut evaluating) {
+            Ok(_) => {}
+            Err(mut errs) => errors.append(&mut errs),
+        }
+    }
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
+    Ok(resolved)
+}
 
 /// 関数本体に return: 文が存在するか再帰的にチェックする
 ///
@@ -450,6 +608,10 @@ fn convert_to_exec_expression_with_resolver(
         }
         Expression::Factor(v) => Ok(make_located_exec(ExecExpression::Factor(v.to_owned()), loc)),
         Expression::Variable(v) => {
+            // まず constexpr テーブルを確認（定数式への置換）
+            if let Some(const_val) = parent_resolver.resolve_constexpr(v) {
+                return Ok(make_located_exec(ExecExpression::Factor(const_val), loc));
+            }
             // 変数名を解決
             let var_ref = parent_resolver.resolve_variable(v).ok_or_else(|| {
                 vec![code_parse_error!(
@@ -546,7 +708,10 @@ fn analyze_internal_with_parent(
         )?;
     }
 
-    // 3パス解析
+    // 3パス解析 → 4パス解析（Pass 0 を追加）
+    // パス0: constexpr 定義の収集・評価
+    let constexpr_table_temp = collect_constexpr_table(statements)?;
+
     // パス1a: 関数宣言を先にスキャンして登録（ホイスティング対応）
     // Phase 5: ネスト関数のサポート
     // Phase 5 修正: scope.functions ではなく global_functions に登録
@@ -637,6 +802,9 @@ fn analyze_internal_with_parent(
             Statement::FunctionDeclaration(_name, _, _) => {
                 // パス1aで処理済み
             }
+            Statement::ConstexprDeclaration(_, _) => {
+                // コンパイル時定数は変数スロットを確保しない - パス0 で処理済み
+            }
             _ => {}
         }
     }
@@ -684,6 +852,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.variable_name_to_var_index,
             &temporary_scope.variables,
             &temporary_scope.identifier_map,
+            &constexpr_table_temp,
             is_function_scope,
             func_global_index,
         );
@@ -695,6 +864,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.variable_name_to_var_index,
             &temporary_scope.variables,
             &temporary_scope.identifier_map,
+            &constexpr_table_temp,
             is_function_scope,
             func_global_index,
         );
@@ -921,11 +1091,14 @@ fn analyze_internal_with_parent(
                 let mut for_resolver: ScopeResolver<'_> = ScopeResolver {
                     scope_stack: resolver.scope_stack.clone(),
                 };
+                // for-init スコープの constexpr は展開済みのため、空のテーブルを渡す
+                let for_init_empty_constexpr: BTreeMap<String, i64> = BTreeMap::new();
                 for_resolver.enter_scope(
                     &init_scope.variable_indices,
                     &init_scope.variable_name_to_var_index,
                     &init_scope.variables,
                     &init_scope.identifier_map,
+                    &for_init_empty_constexpr,
                     false,
                     None,
                 );
@@ -1007,6 +1180,9 @@ fn analyze_internal_with_parent(
                     ),
                     location: loc.clone(),
                 });
+            }
+            Statement::ConstexprDeclaration(_, _) => {
+                // コンパイル時定数はパス0で処理済み。ExecStatement は生成しない
             }
             Statement::Invalid(_) => (),
         }

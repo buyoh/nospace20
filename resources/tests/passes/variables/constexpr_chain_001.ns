@@ -1,0 +1,10 @@
+# constexpr: 別の constexpr を参照する定数定義（チェーン）#
+func: __main() {
+  __trace(0);
+  constexpr: A(10);
+  constexpr: B(A * 2);    # = 20 (A を参照) #
+  constexpr: C(A + B);    # = 30 (A と B を参照) #
+  __assert_not(A - 10);
+  __assert_not(B - 20);
+  __assert_not(C - 30);
+}
