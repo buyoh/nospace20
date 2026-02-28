@@ -67,11 +67,10 @@ func: find_of(arr), alias: constexpr: low, alias: constexpr: high {
   # low, high は定数値として式内で使用可能 #
 }
 
-# static alias パラメータ: inc は定数値 #
-func: counter(), alias: static: inc {
-  static: count(0);
-  count = count + inc;
-  return: count;
+# static alias パラメータ: shared_count は外部の static 変数を参照する #
+func: increment(amount), alias: static: shared_count {
+  shared_count = shared_count + amount;
+  return: shared_count;
 }
 
 # 複数種類の alias パラメータの混在 #
@@ -107,8 +106,11 @@ func: compare_string(a, b) {
 # テンプレートインスタンス化 #
 alias: sort_by_impl(sort_by, compare_string);
 alias: find_of_impl(find_of, 10, 99);
-alias: counter_inc1(counter, 1);
-alias: counter_inc10(counter, 10);
+
+static: count_a(0);
+static: count_b(100);
+alias: inc_a(increment, count_a);
+alias: inc_b(increment, count_b);
 ```
 
 ### 2.4 インスタンス化された関数の呼び出し
@@ -120,14 +122,13 @@ func: __main() {
   sort_by_impl(my_array);
   find_of_impl(my_array);
 
-  __puti(counter_inc1());   # 1 を出力 #
-  __puti(counter_inc1());   # 2 を出力 #
-  __puti(counter_inc10());  # 10 を出力 #
-  __puti(counter_inc10());  # 20 を出力 #
+  __puti(inc_a(1));    # 1   (count_a: 0 → 1) #
+  __puti(inc_a(2));    # 3   (count_a: 1 → 3) #
+  __puti(inc_b(10));   # 110 (count_b: 100 → 110) #
 }
 ```
 
-`counter_inc1` と `counter_inc10` は独立したスコープを持つため、`static: count` もそれぞれ独立して存在する。
+`inc_a` と `inc_b` は異なる static 変数（`count_a`, `count_b`）を参照するため、独立した状態を持つ。同じ static 変数を渡せば状態を共有することもできる。
 
 ---
 
@@ -147,7 +148,7 @@ func: __main() {
 |------|---------|----------------------|---------------------|
 | `func:` | `alias: func: name(args...)` | 関数名（識別子） | 関数呼び出し可能。引数の数は宣言時に指定したものと一致する必要がある |
 | `constexpr:` | `alias: constexpr: name` | 整数リテラルまたは constexpr 名 | 定数式として扱われる。`constexpr:` と同様に `Factor(value)` に置換される |
-| `static:` | `alias: static: name` | 整数リテラルまたは constexpr 名 | `constexpr:` と同様の扱い。名前の意図として「静的な値」を示す（セマンティクスは `constexpr:` と同等） |
+| `static:` | `alias: static: name` | static 変数名（識別子） | static 変数の参照（エイリアス）。テンプレート内で読み書き可能。スコープ外の static 変数にアクセスする手段を提供する |
 
 #### `func:` alias パラメータの検証
 
@@ -167,7 +168,7 @@ alias: apply_triple(apply, triple);   # OK: triple は引数1つの関数 #
 - インスタンス化時に、渡された関数の引数の数がテンプレートの宣言と一致するか検証する
 - 不一致の場合はコンパイルエラー
 
-#### `constexpr:` / `static:` alias パラメータの検証
+#### `constexpr:` alias パラメータの検証
 
 ```nospace
 func: offset_add(x), alias: constexpr: offset {
@@ -179,6 +180,24 @@ alias: add_ten(offset_add, TEN);      # OK: constexpr #
 alias: add_five(offset_add, 5);       # OK: 整数リテラル #
 # alias: bad(offset_add, some_var);    # コンパイルエラー: 変数は constexpr ではない #
 ```
+
+#### `static:` alias パラメータの検証
+
+```nospace
+func: accumulate(val), alias: static: acc {
+  acc = acc + val;
+  return: acc;
+}
+
+static: total(0);
+alias: add_to_total(accumulate, total);    # OK: total は static 変数 #
+# alias: bad(accumulate, local_var);        # コンパイルエラー: static 変数ではない #
+# alias: bad2(accumulate, 42);              # コンパイルエラー: リテラルは static 変数ではない #
+```
+
+- インスタンス化時に、渡された識別子が static 変数であることを検証する
+- let 変数やリテラルを渡した場合はコンパイルエラー
+- テンプレート内では `acc` を通常の変数のように読み書きできる（実体は渡された static 変数）
 
 ### 3.3 スコープの独立性
 
@@ -209,7 +228,7 @@ func: __main() {
 
 テンプレート関数内の名前解決は以下の順序で行われる:
 
-1. alias パラメータ（`func:`, `constexpr:`, `static:` で宣言されたもの）
+1. alias パラメータ（`func:` は関数名、`constexpr:` は定数値、`static:` は static 変数の参照として解決）
 2. テンプレート関数自身の引数・ローカル変数
 3. テンプレート関数が**定義されたスコープ**の変数・関数（通常の関数と同じ）
 
@@ -230,8 +249,7 @@ func: __main() {
      c. テンプレートの AST をクローン
      d. alias パラメータを具体的な値に置換:
         - func: → 関数名の alias マッピングを設定
-        - constexpr: → constexpr テーブルにエントリ追加
-     e. クローンした AST を新しい関数定義として登録
+        - constexpr: → constexpr テーブルにエントリ追加        - static: → static 変数への識別子エイリアスを設定（alias_map に登録）     e. クローンした AST を新しい関数定義として登録
 
 3. semantic_analyzer (Pass 1a, 1b, 2):
    - インスタンス化された関数は通常の関数として処理される
@@ -322,14 +340,17 @@ parse_alias_statement(name, args):
 | 展開タイミング | 呼び出し時にインライン展開 | インスタンス化時に関数生成 |
 | スコープ | 呼び出し元スコープ | 定義元スコープ（関数スコープ） |
 | パラメータ | なし | alias パラメータで関数・定数を注入 |
-| static 変数 | 呼び出し元依存 | インスタンスごとに独立 |
+| static 変数 | 呼び出し元依存 | インスタンスごとに独立（static: alias で外部から注入も可） |
 | 再帰 | 不可（巡回検知でエラー） | 通常の関数として再帰可能 |
 | 用途 | 短いコード片の繰り返し | 汎用アルゴリズムのパラメータ化 |
 
-### 4.3 constexpr との関係
+### 4.3 constexpr / static との関係
 
 - テンプレートの `alias: constexpr: name` パラメータは、インスタンス化時に `constexpr:` エントリとして登録される
 - 既存の constexpr 評価器をそのまま利用可能
+- テンプレートの `alias: static: name` パラメータは、インスタンス化時に識別子エイリアスとして登録される
+- 既存の識別子 alias 解決機構を利用可能
+- `constexpr:` と `static:` の違い: `constexpr:` はコンパイル時定数に置換される（変数実体なし）、`static:` は実在する変数への参照（読み書き可能）
 
 ---
 
@@ -376,7 +397,7 @@ pub enum AliasParamKind {
     Func(Vec<String>),
     /// alias: constexpr: name — コンパイル時定数パラメータ
     Constexpr,
-    /// alias: static: name — 静的変数パラメータ（セマンティクスは constexpr と同等）
+    /// alias: static: name — static 変数参照パラメータ（外部 static 変数への読み書きアクセス）
     Static,
 }
 
@@ -526,7 +547,8 @@ Pass 0 (拡張):
      - template_table からテンプレートを取得
      - alias 引数の数・種類を検証:
        - func: → 引数が関数名であること、引数の数が宣言と一致すること
-       - constexpr: / static: → 引数が定数式であること
+       - constexpr: → 引数が定数式であること
+       - static: → 引数が static 変数名であること
      - テンプレートの AST をクローン
      - alias パラメータのマッピングを生成:
        - func: param → alias: param(concrete_func) as alias map entry
@@ -569,9 +591,14 @@ pub struct TemplateEntry {
 
 ```
 生成される関数のスコープ:
-  - alias_map: { alias_func_param → concrete_func }
+  - alias_map: { alias_func_param → concrete_func, alias_static_param → concrete_static_var }
   - constexpr_table: { alias_constexpr_param → concrete_value }
   - 上記以外は通常の関数スコープと同じ
+
+注: static: alias パラメータは alias_map に識別子エイリアスとして登録される。
+テンプレート内で `name` を使用すると、渡された static 変数名に解決される。
+static 変数は関数スコープの境界を超えてアクセス可能であるため、
+通常の alias 解決ロジック（既存の識別子エイリアス）でそのまま動作する。
 ```
 
 ### 5.7 Step 5: テストケース追加
@@ -584,7 +611,9 @@ pub struct TemplateEntry {
 | `template_func_func_alias_001` | func alias パラメータの基本動作 |
 | `template_func_multi_alias_001` | 複数の alias パラメータ |
 | `template_func_mixed_alias_001` | func + constexpr 混在 |
-| `template_func_static_001` | インスタンスごとの static 変数独立性 |
+| `template_func_static_alias_001` | static alias パラメータで外部 static 変数を参照 |
+| `template_func_static_shared_001` | 複数インスタンスで同一 static 変数を共有 |
+| `template_func_static_independent_001` | 異なる static 変数を渡して独立動作 |
 | `template_func_hoisting_001` | テンプレート定義・インスタンス化のホイスティング |
 | `template_func_nested_001` | テンプレート内でのネスト関数定義 |
 | `template_func_recursive_001` | インスタンス化された関数の再帰呼び出し |
@@ -597,6 +626,8 @@ pub struct TemplateEntry {
 | `template_func_arg_mismatch_001` | alias 引数の数が不一致 |
 | `template_func_func_arity_001` | func alias の引数数不一致 |
 | `template_func_non_const_001` | constexpr alias に変数を渡すエラー |
+| `template_func_static_non_static_001` | static alias に let 変数を渡すエラー |
+| `template_func_static_literal_001` | static alias にリテラルを渡すエラー |
 | `template_func_not_template_001` | 通常関数に対するインスタンス化エラー |
 
 ### 5.8 Step 6: ドキュメント反映
@@ -609,15 +640,17 @@ pub struct TemplateEntry {
 
 ## 6. 設計上の未決定事項
 
-### 6.1 `static:` alias パラメータのセマンティクス
+### 6.1 `static:` alias パラメータの実装詳細
 
-現在の設計では `static:` と `constexpr:` は同じセマンティクス（コンパイル時定数）としている。`static:` の名前は「静的な値」という意図を示すためのもので、実際の動作に違いはない。
+**決定済み**: `static:` alias パラメータは外部の static 変数への参照として機能する。`constexpr:` とは明確に異なるセマンティクスを持つ。
+
+**ライフタイムの安全性**: static 変数に限定しているため、参照先がスコープ外で破棄されるライフタイム問題は発生しない。static 変数はプログラム全体の寿命を持つため、いつテンプレート関数が呼び出されても安全にアクセスできる。
+
+**実装方針**: 意味解析器の既存の識別子エイリアス解決機構を利用する。`static: param` → `alias: param(concrete_static_var)` としてエイリアスマップに登録すれば、既存の名前解決で正しく動作する。ただし、static 変数であることの検証（let 変数やリテラルの拒否）は追加で必要。
 
 **検討点**:
-- `static:` alias パラメータに static 変数そのものを渡せるようにするか？
-  - 例: `alias: counter_with_shared_state(counter, shared_count)` で `shared_count` が static 変数
-  - この場合、テンプレート内で `inc` は static 変数の参照として扱われる
-  - 実装が複雑になるため、初回は `constexpr:` と同等で進める
+- グローバル変数（グローバルスコープの let は static 同等）も `static:` alias で渡せるべきか？
+  - グローバル let も static と同じライフタイムを持つため、許可するのが自然
 
 ### 6.2 テンプレートからテンプレートの呼び出し
 
@@ -638,7 +671,8 @@ func: outer(x), alias: constexpr: m {
 現在 nospace は int / void の2型のみ。テンプレート関数の alias パラメータに対する型チェックは以下に限定:
 
 - `func:` パラメータ: 引数の数のみチェック（型チェックなし）
-- `constexpr:` / `static:` パラメータ: コンパイル時定数であることのチェック
+- `constexpr:` パラメータ: コンパイル時定数であることのチェック
+- `static:` パラメータ: static 変数であることのチェック（読み書き可能な変数参照）
 
 将来的に型システムが拡張された場合、テンプレートの型制約も拡張が必要。
 
@@ -687,4 +721,5 @@ func: __main() {
 
 ## 更新履歴
 
+- 2026-02-28: `static:` alias パラメータを「constexpr 同等」から「static 変数への参照」に変更
 - 2026-02-28: 初版作成。テンプレート関数の設計・構文・セマンティクス・実装計画を記載
