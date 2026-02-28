@@ -302,7 +302,7 @@ func: __main() {
 
 | Step | 内容 | 依存 | 状態 |
 |------|------|------|------|
-| 1 | 純粋演算評価の共有モジュール (`base/pure_eval`) | なし | ❌ 未実装 |
+| 1 | 純粋演算評価の共有モジュール (`base/pure_eval`) | なし | ✅ 実装済み |
 | 2 | constexpr（式形式） | Step 1 | ❌ 未実装 |
 | 3 | alias（識別子エイリアス） | なし | ❌ 未実装 |
 | 4 | alias（ブロックエイリアス） | Step 3 | ❌ 未実装 |
@@ -644,6 +644,7 @@ Pass 2:  文の変換・識別子解決（既存 + constexpr 解決）
 
 ## 更新履歴
 
+- 2026-02-28: Step 1 実装完了。`src/base/pure_eval.rs` を新規作成し、`interpreter/exec.rs` と `optimizer/constant_folding.rs` を更新
 - 2026-02-28: alias 設計・const 再設計を追加。const を変数からコンパイル時定数エイリアスに変更
 - 2026-02-28: const → constexpr にリネーム。純粋演算評価の共有モジュール設計を追加
 - 2026-02-28: 実装計画をステップごとに分割（Step 1〜7）

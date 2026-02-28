@@ -23,7 +23,7 @@
 //! 条件式が定数に畳み込まれた場合、ConditionMode に基づいて真偽を評価し、
 //! 対応するブロックに置換する。
 
-use crate::base::SourceLocation;
+use crate::base::{pure_eval, SourceLocation};
 use crate::semantic_analyzer::{
     Block, ConditionMode, ExecExpression, ExecStatement, LocatedExecExpression,
     LocatedExecStatement, Scope,
@@ -186,33 +186,7 @@ fn try_fold_op2(
         (&lhs.expression, &rhs.expression)
     {
         let (a, b) = (*a, *b);
-        let result = match op {
-            Operator2::Plus => Some(a.wrapping_add(b)),
-            Operator2::Minus => Some(a.wrapping_sub(b)),
-            Operator2::Multiply => Some(a.wrapping_mul(b)),
-            Operator2::Divide => {
-                if b != 0 {
-                    Some(a.wrapping_div(b))
-                } else {
-                    None
-                }
-            }
-            Operator2::Modulo => {
-                if b != 0 {
-                    Some(a.wrapping_rem(b))
-                } else {
-                    None
-                }
-            }
-            Operator2::Equal => Some(if a == b { 1 } else { 0 }),
-            Operator2::NotEqual => Some(if a != b { 1 } else { 0 }),
-            Operator2::Less => Some(if a < b { 1 } else { 0 }),
-            Operator2::LessEqual => Some(if a <= b { 1 } else { 0 }),
-            Operator2::Greater => Some(if a > b { 1 } else { 0 }),
-            Operator2::GreaterEqual => Some(if a >= b { 1 } else { 0 }),
-            // Assign 系 / LogicalAnd / LogicalOr は畳み込まない
-            _ => None,
-        };
+        let result = pure_eval::eval_binary_pure(&op, a, b);
         if let Some(v) = result {
             return ExecExpression::Factor(v);
         }
@@ -258,12 +232,7 @@ fn try_fold_op1(
     _loc: SourceLocation,
 ) -> ExecExpression {
     if let ExecExpression::Factor(a) = operand.expression {
-        let result = match op {
-            Operator1::Negative => Some(a.wrapping_neg()),
-            Operator1::LogicalNot => Some(if a == 0 { 1 } else { 0 }),
-            // Ref / Deref は畳み込まない
-            _ => None,
-        };
+        let result = pure_eval::eval_unary_pure(&op, a);
         if let Some(v) = result {
             return ExecExpression::Factor(v);
         }

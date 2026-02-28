@@ -23,11 +23,3 @@ macro_rules! try_expr {
 }
 
 pub(super) use try_expr;
-
-pub(super) fn bool_to_int(x: bool) -> i64 {
-    if x {
-        1
-    } else {
-        0
-    }
-}

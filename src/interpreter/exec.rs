@@ -7,7 +7,8 @@ use crate::{
 };
 
 use super::environment::Environment;
-use super::types::{bool_to_int, try_expr, ExpressionFlow, Flow};
+use crate::base::pure_eval;
+use super::types::{try_expr, ExpressionFlow, Flow};
 
 use std::cell::RefCell;
 
@@ -541,11 +542,8 @@ impl LocalEnvironment<'_, '_> {
             }
             _ => {
                 let v1 = try_expr!(self.interpret_expression(expr1));
-                let res = match op {
-                    Operator1::Negative => -v1,
-                    Operator1::LogicalNot => bool_to_int(v1 == 0),
-                    _ => unreachable!(),
-                };
+                let res = pure_eval::eval_unary_pure(op, v1)
+                    .expect("unreachable: unsupported unary operation");
                 ExpressionFlow::Value(res)
             }
         }
@@ -596,7 +594,7 @@ impl LocalEnvironment<'_, '_> {
                 return ExpressionFlow::Value(0);
             }
             let v2 = try_expr!(self.interpret_expression(expr2));
-            return ExpressionFlow::Value(bool_to_int(v2 != 0));
+            return ExpressionFlow::Value(pure_eval::bool_to_int(v2 != 0));
         }
         // 論理OR: 短絡評価 (左辺が非0なら右辺を評価せず1を返す)
         if let Operator2::LogicalOr = op {
@@ -605,31 +603,12 @@ impl LocalEnvironment<'_, '_> {
                 return ExpressionFlow::Value(1);
             }
             let v2 = try_expr!(self.interpret_expression(expr2));
-            return ExpressionFlow::Value(bool_to_int(v2 != 0));
+            return ExpressionFlow::Value(pure_eval::bool_to_int(v2 != 0));
         }
         let v1 = try_expr!(self.interpret_expression(expr1));
         let v2 = try_expr!(self.interpret_expression(expr2));
-        let res = match op {
-            Operator2::Plus => v1 + v2,
-            Operator2::Minus => v1 - v2,
-            Operator2::Multiply => v1 * v2,
-            Operator2::Divide => v1 / v2,
-            Operator2::Modulo => v1 % v2,
-            Operator2::Assign => unreachable!(),
-            Operator2::PlusAssign => unreachable!(),
-            Operator2::MinusAssign => unreachable!(),
-            Operator2::MultiplyAssign => unreachable!(),
-            Operator2::DivideAssign => unreachable!(),
-            Operator2::ModuloAssign => unreachable!(),
-            Operator2::Equal => bool_to_int(v1 == v2),
-            Operator2::NotEqual => bool_to_int(v1 != v2),
-            Operator2::Less => bool_to_int(v1 < v2),
-            Operator2::LessEqual => bool_to_int(v1 <= v2),
-            Operator2::Greater => bool_to_int(v1 > v2),
-            Operator2::GreaterEqual => bool_to_int(v1 >= v2),
-            Operator2::LogicalAnd => unreachable!(),
-            Operator2::LogicalOr => unreachable!(),
-        };
+        let res = pure_eval::eval_binary_pure(op, v1, v2)
+            .unwrap_or_else(|| panic!("runtime error: zero division or unsupported operation {:?}", op));
         ExpressionFlow::Value(res)
     }
 
