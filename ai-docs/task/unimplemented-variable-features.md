@@ -12,6 +12,8 @@
 4. [実装計画](#4-実装計画)
 5. [設計上の未決定事項](#5-設計上の未決定事項)
 
+> **注記**: Step 1（pure_eval）、Step 2（constexpr）、Step 3（識別子alias）、Step 4（ブロックalias）、Step 5（final変数）、Step 7（spec反映）は完了。残りは Step 6（constexprブロック形式）のみ。
+
 ---
 
 ## 1. alias（エイリアス）
@@ -277,7 +279,15 @@ constexpr: B(10);
 
 ## 3. final 変数
 
-**状態**: ❌ 未実装
+**状態**: ✅ 実装済み（Step 5 完了）
+
+**実装内容**:
+- `token_parser/mod.rs`: `Keyword::Final` を追加
+- `tree_parser/statement/mod.rs`: `Statement::VariableDeclaration` に `is_final: bool` フラグ追加、`final:` のパース処理追加
+- `semantic_analyzer/types.rs`: `Variable` 構造体に `is_final: bool` フィールド追加
+- `semantic_analyzer/scope.rs`: `is_final_variable()` メソッド追加
+- `semantic_analyzer/mod.rs`: `Operator2::Assign` 時に final 変数への代入チェック（複合代入 +=, -= 等も含む）追加
+- テストケース追加: `var_final_001`, `var_final_002`（成功）、`var_final_reassign_001`, `var_final_compound_assign_001`, `var_final_array_001`（コンパイルエラー）
 
 **説明**: 一度だけ代入可能で、その後は再代入不可の変数。
 constexpr とは異なり、ランタイム値を保持できる実体のある変数。
@@ -326,10 +336,10 @@ func: __main() {
 | 1 | 純粋演算評価の共有モジュール (`base/pure_eval`) | なし | ✅ 実装済み |
 | 2 | constexpr（式形式） | Step 1 | ✅ 実装済み |
 | 3 | alias（識別子エイリアス） | なし | ✅ 実装済み |
-| 4 | alias（ブロックエイリアス） | Step 3 | ❌ 未実装 |
-| 5 | final 変数 | なし | ❌ 未実装 |
+| 4 | alias（ブロックエイリアス） | Step 3 | ✅ 実装済み |
+| 5 | final 変数 | なし | ✅ 実装済み |
 | 6 | constexpr ブロック形式 | Step 2 | ❌ 未設計 |
-| 7 | spec.md / grammar.bnf への反映 | Step 2–5 | ❌ 未実装 |
+| 7 | spec.md / grammar.bnf への反映 | Step 2–5 | ✅ 実装済み |
 
 **依存関係**:
 ```
@@ -665,6 +675,9 @@ Pass 2:  文の変換・識別子解決（既存 + constexpr 解決）
 
 ## 更新履歴
 
+- 2026-02-28: Step 7 完了。`docs/spec.md` の constexpr・final・alias 各セクションを更新、`docs/grammar.bnf` に alias/constexpr/final 文法規則を追加
+- 2026-02-28: Step 5 完了。`final:` 変数の実装、コンパイル時再代入チェック追加
+- 2026-02-28: Step 4 完了。ブロックエイリアス `alias: name { stmts }` の実装
 - 2026-02-28: Step 1 実装完了。`src/base/pure_eval.rs` を新規作成し、`interpreter/exec.rs` と `optimizer/constant_folding.rs` を更新
 - 2026-02-28: alias 設計・const 再設計を追加。const を変数からコンパイル時定数エイリアスに変更
 - 2026-02-28: const → constexpr にリネーム。純粋演算評価の共有モジュール設計を追加
