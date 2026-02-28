@@ -2,6 +2,8 @@
 //!
 //! CLI 引数から構築され、各処理段階に渡される設定情報。
 
+use std::fmt;
+
 /// 言語サブセット
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LanguageStd {
@@ -47,6 +49,47 @@ pub enum TargetExtension {
     Alloc,
 }
 
+/// コンパイルプロパティのバリデーションエラー
+#[derive(Debug, Clone)]
+pub enum ValidationError {
+    /// 未対応の言語サブセット
+    UnsupportedStd(LanguageStd),
+    /// ターゲットと言語サブセットの不整合
+    IncompatibleOptions {
+        target: CompileTarget,
+        std: LanguageStd,
+    },
+    /// 未対応の機能
+    UnimplementedFeature(String),
+    /// 拡張が現在のモード/設定では使用不可
+    InvalidExtension(String),
+}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ValidationError::UnsupportedStd(std) => {
+                write!(f, "--std={:?} is not yet implemented", std)
+            }
+            ValidationError::IncompatibleOptions { target, std: _ } => {
+                write!(
+                    f,
+                    "--target={:?} requires --std=ws\n  tip: use `--std=ws --mode=compile --target={:?}`",
+                    target, target
+                )
+            }
+            ValidationError::UnimplementedFeature(feature) => {
+                write!(f, "{} is not yet implemented", feature)
+            }
+            ValidationError::InvalidExtension(msg) => {
+                write!(f, "{}", msg)
+            }
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
+
 /// コンパイルプロパティ
 ///
 /// CLI 引数から構築され、各処理段階に渡される設定情報。
@@ -70,10 +113,10 @@ pub struct CompileProperty {
 
 impl CompileProperty {
     /// バリデーション
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), ValidationError> {
         // std=min は未対応
         if self.std == LanguageStd::Min {
-            return Err("--std=min is not yet implemented".to_string());
+            return Err(ValidationError::UnsupportedStd(self.std));
         }
 
         // コンパイルモードの場合
@@ -81,17 +124,19 @@ impl CompileProperty {
             // target=ws/mnemonic の場合、std=ws が必須
             if matches!(self.target, CompileTarget::Ws | CompileTarget::Mnemonic) {
                 if self.std != LanguageStd::Ws {
-                    return Err(format!(
-                        "--target={:?} requires --std=ws\n  tip: use `--std=ws --mode=compile --target={:?}`",
-                        self.target, self.target
-                    ));
+                    return Err(ValidationError::IncompatibleOptions {
+                        target: self.target,
+                        std: self.std,
+                    });
                 }
             }
 
             // 未対応のターゲット
             match self.target {
                 CompileTarget::Json => {
-                    return Err("--target=json is not yet implemented".to_string());
+                    return Err(ValidationError::UnimplementedFeature(
+                        "--target=json".to_string(),
+                    ));
                 }
                 _ => {}
             }
@@ -100,7 +145,9 @@ impl CompileProperty {
         // --std-ext alloc は --mode=compile --std=ws 時のみ有効
         if self.target_extensions.contains(&TargetExtension::Alloc) {
             if self.mode != ExecutionMode::Compile || self.std != LanguageStd::Ws {
-                return Err("--std-ext alloc requires --mode=compile --std=ws".to_string());
+                return Err(ValidationError::InvalidExtension(
+                    "--std-ext alloc requires --mode=compile --std=ws".to_string(),
+                ));
             }
         }
 

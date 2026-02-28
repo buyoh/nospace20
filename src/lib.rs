@@ -29,7 +29,7 @@ pub mod cli_utils;
 mod wasm_api;
 
 pub use compile_property::{
-    CompileProperty, CompileTarget, ExecutionMode, LanguageStd, TargetExtension,
+    CompileProperty, CompileTarget, ExecutionMode, LanguageStd, TargetExtension, ValidationError,
 };
 pub use optimizer::OptimizationOptions;
 

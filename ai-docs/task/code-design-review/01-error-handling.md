@@ -1,5 +1,16 @@
 # エラー型の統一・エラーハンドリング改善
 
+## 進捗
+
+- [x] B: `CodeParseError` に `Display` / `Error` トレイトを実装
+- [x] D: `CompileProperty::validate()` のエラー型を `String` → `ValidationError` に改善
+- [x] ユニットテスト追加（Display 表示、std::error::Error 準拠）
+
+### 未着手（大規模変更のため後回し）
+
+- [ ] A: 統一エラー型 `NospaceError` の導入（全モジュールに影響する大規模リファクタリング）
+- [ ] C: エラー収集ポリシーの統一（multi-error-reporting タスクと統合）
+
 ## 現状の問題
 
 ### 問題 1: エラー型の乱立

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt;
 
 #[derive(Clone, Debug)]
 pub struct CodeParseError {
@@ -22,6 +23,18 @@ impl CodeParseError {
     }
 }
 
+impl fmt::Display for CodeParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(pos) = self.code_pointer {
+            write!(f, "at position {}: {}", pos, self.message)
+        } else {
+            write!(f, "{}", self.message)
+        }
+    }
+}
+
+impl std::error::Error for CodeParseError {}
+
 #[macro_export]
 macro_rules! code_parse_error {
     ($ptr: expr, $msg: expr) => {
@@ -37,3 +50,26 @@ pub use location::SourceLocation;
 
 pub mod pure_eval;
 pub mod constexpr_eval;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_code_parse_error_display_with_position() {
+        let err = CodeParseError::new(Some(42), "unexpected token");
+        assert_eq!(format!("{}", err), "at position 42: unexpected token");
+    }
+
+    #[test]
+    fn test_code_parse_error_display_without_position() {
+        let err = CodeParseError::new(None, "generic error");
+        assert_eq!(format!("{}", err), "generic error");
+    }
+
+    #[test]
+    fn test_code_parse_error_is_std_error() {
+        let err = CodeParseError::new(Some(0), "test");
+        let _: &dyn std::error::Error = &err;
+    }
+}
