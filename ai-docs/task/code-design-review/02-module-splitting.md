@@ -1,50 +1,17 @@
 # 巨大モジュールの分割・責務分離
 
-## 現状の問題
+## 進捗サマリ (2026-03-01)
 
-### semantic_analyzer/mod.rs — 1801 行
+| モジュール | 元の行数 | 現在の行数 | 状態 |
+|------------|---------|-----------|------|
+| `semantic_analyzer/mod.rs` | 1801 | 326 | **完了** — `alias.rs`, `constexpr.rs`, `scope.rs`, `template.rs`, `types.rs`, `return_analysis.rs`, `context.rs`, `expression.rs`, `statement.rs` 分割済み |
+| `wasm_api.rs` | 834 | 833 | 未着手 |
+| `compiler_ws/expression.rs` | 1020 | 941 | 部分完了 — Store 統合・比較演算子データ駆動化済み。`expression_builtin.rs` 分離は任意 |
+| `compiler_ws/alloc_runtime.rs` | 1713 | ディレクトリ化 | **完了** — `alloc_runtime/{mod.rs, bump.rs, fsba.rs}` に分割済み |
 
-最も深刻な巨大モジュール。以下の責務が単一ファイルに混在している:
+## 残タスク
 
-1. **constexpr 評価** — `evaluate_constexpr_expr`, `evaluate_constexpr_by_name`, `collect_constexpr_table`
-2. **テンプレート展開** — テンプレート関数のインスタンス化処理
-3. **alias 処理** — `collect_block_alias_refs_in_*` 系 4 関数
-4. **式変換** — `convert_to_exec_expression_with_resolver` 等
-5. **文変換** — `convert_to_exec_statement` 等
-6. **識別子解決** — スコープ管理、変数/関数の解決
-7. **メインエントリ** — `analyze`, `analyze_internal_with_parent`
-
-#### 改善案
-
-```
-src/semantic_analyzer/
-├── mod.rs              # analyze() エントリポイント + pub 型の再エクスポート
-├── scope.rs            # Scope 構造体、識別子解決ロジック
-├── expression.rs       # 式の変換（ExecExpression 生成）
-├── statement.rs        # 文の変換（ExecStatement 生成）
-├── constexpr.rs        # constexpr 関連（evaluate_constexpr_* + collect_constexpr_table）
-├── template.rs         # テンプレート展開ロジック
-├── alias.rs            # alias 参照収集（collect_block_alias_refs_in_*）
-└── context.rs          # 解析コンテキスト（analyze_internal_with_parent の引数8つを構造体化）
-```
-
-#### `analyze_internal_with_parent` の引数過多
-
-現在の引数（推定 8 個）を以下のコンテキスト構造体に集約:
-
-```rust
-struct AnalyzeContext<'a> {
-    parent_scope: Option<&'a Scope>,
-    constexpr_table: &'a ConstexprTable,
-    alias_map: &'a AliasMap,
-    block_alias_map: &'a BlockAliasMap,
-    template_instances: &'a mut Vec<TemplateInstance>,
-    errors: &'a mut Vec<CodeParseError>,
-    // ...
-}
-```
-
-### wasm_api.rs — 834 行
+### wasm_api.rs — 833 行（未着手）
 
 JavaScript API 定義、パーサヘルパー、TypeScript 型定義、WhitespaceVM ラッパーが混在。
 
@@ -61,42 +28,34 @@ src/wasm_api/
 └── types.rs            # TypeScript 型定義 (serde 構造体)
 ```
 
-### compiler_ws/expression.rs — 1020 行
+## 完了済み
 
-式のコード生成。Global/Local 分岐パターンの繰り返しにより肥大化。
+### semantic_analyzer/mod.rs — 完了 (2026-03-01)
 
-#### 改善案
+`mod.rs`（1127行）→ 以下のファイルに分割済み:
+- `mod.rs`（326行）: analyze() エントリポイント + pub 型の再エクスポート
+- `context.rs`（54行）: 解析コンテキスト（AnalyzeContext — analyze_internal_with_parent の引数を構造体化）
+- `expression.rs`（462行）: 式の変換（ExecExpression 生成、convert_to_exec_expression_with_resolver）
+- `statement.rs`（400行）: 文の変換（ExecStatement 生成、convert_to_exec_statements）
+- `scope.rs`, `constexpr.rs`, `template.rs`, `alias.rs`, `types.rs`, `return_analysis.rs`（分割済み）
 
-- Store/Retrieve の void context パラメータ化で約 200 行削減
-- Global/Local アドレス解決をヘルパー関数に抽出
-- 比較演算子 6 種のコード生成をデータ駆動に変換
+### compiler_ws/alloc_runtime — 完了
 
-### compiler_ws/alloc_runtime.rs — 1713 行
+`alloc_runtime.rs`（1713行）→ `alloc_runtime/` ディレクトリ分割済み:
+- `mod.rs`（230行）: AllocRuntime trait + ファクトリ
+- `bump.rs`（372行）: BumpAllocRuntime
+- `fsba.rs`（1102行）: FsbaAllocRuntime
 
-メモリアロケータのランタイムコード生成。Whitespace 命令列がインラインで記述。
+### compiler_ws/expression.rs — 部分完了
 
-#### 改善案
+1020行 → 941行（直前の refactor コミット `bf10475`）:
+- Store/void 統合 (`emit_retrieve: bool`)
+- 比較演算子データ駆動化 (`ComparisonSpec`)
+- アドレス計算の委譲
 
-```
-src/compiler_ws/
-├── alloc_runtime/
-│   ├── mod.rs          # AllocRuntime trait + ファクトリ
-│   ├── bump.rs         # BumpAllocRuntime
-│   └── fsba.rs         # FsbaAllocRuntime
-```
-
-## 優先度
+## 優先度（残タスク）
 
 | モジュール | 優先度 | 理由 |
 |------------|--------|------|
-| semantic_analyzer | High | 1801 行、最も変更頻度が高い |
-| wasm_api | Medium | 834 行、コンパイルパイプライン重複 |
-| expression.rs | Medium | 1020 行、パターン重複が多い |
-| alloc_runtime.rs | Low | 1713 行だが変更頻度は低い |
-
-## 作業見積もり
-
-- semantic_analyzer 分割: 大（テスト整備含む）
-- wasm_api 分割: 中
-- expression.rs リファクタリング: 中
-- alloc_runtime.rs 分割: 小（ファイル分割のみ）
+| wasm_api.rs | Medium | 833 行、コンパイルパイプライン重複 |
+| expression.rs リファクタリング | 中 | 任意 |
