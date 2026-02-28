@@ -3,13 +3,12 @@ use std::{io::Read, iter::repeat, process};
 use clap::{Parser, ValueEnum};
 use nospace20::cli_utils::CliCompileArgs;
 use nospace20::{
-    compile_to_whitespace_debug_with_opt,
-    compile_to_whitespace_with_opt,
+    compile_to_ws,
     interpret_with_env,
     optimize,
     parse_to_tokens,
     parse_to_tree,
-    syntactic_analyze, // 後方互換性のためのエイリアス (実体は semantic_analyzer::analyze)
+    semantic_analyze,
     CodeParseError,
     CompileProperty,
     CompileTarget,
@@ -17,6 +16,8 @@ use nospace20::{
     ExecutionMode,
     TargetExtension,
     TextCode,
+    WsCompileOptions,
+    WsOutputFormat,
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -177,7 +178,7 @@ fn main() {
     let text = TextCode::new(&code_raw);
     let t = handle_parse_error(parse_to_tokens(&code_raw), &text);
     let s = handle_parse_error(parse_to_tree(&t), &text);
-    let mut a = handle_parse_error(syntactic_analyze(&s), &text);
+    let mut a = handle_parse_error(semantic_analyze(&s), &text);
 
     // 最適化パスの適用
     if opt_options.any_enabled() {
@@ -205,10 +206,17 @@ fn main() {
             );
             let result = interpret_with_env(&mut env, &a);
 
-            if let Some(val) = result {
-                println!("main returns: {}", val);
-            } else {
-                println!("main exited");
+            match result {
+                Ok(Some(val)) => {
+                    println!("main returns: {}", val);
+                }
+                Ok(None) => {
+                    println!("main exited");
+                }
+                Err(err) => {
+                    eprintln!("error: {}", err);
+                    process::exit(1);
+                }
             }
 
             // デバッグフラグが有効なら、trace結果を表示
@@ -223,15 +231,18 @@ fn main() {
             // コンパイルモード
             let debug_ext = property.target_extensions.contains(&TargetExtension::Debug);
             let alloc_ext = property.target_extensions.contains(&TargetExtension::Alloc);
-            let compiled = match property.target {
-                CompileTarget::Ws => {
-                    compile_to_whitespace_with_opt(&a, debug_ext, alloc_ext, &opt_options)
-                }
-                CompileTarget::Mnemonic => {
-                    compile_to_whitespace_debug_with_opt(&a, debug_ext, alloc_ext, &opt_options)
-                }
+            let output_format = match property.target {
+                CompileTarget::Ws => WsOutputFormat::Whitespace,
+                CompileTarget::Mnemonic => WsOutputFormat::Mnemonic,
                 _ => unreachable!("Unsupported target should be caught by validation"),
             };
+            let ws_options = WsCompileOptions {
+                debug_ext,
+                alloc_ext,
+                output_format,
+                optimization: opt_options.clone(),
+            };
+            let compiled = compile_to_ws(&a, &ws_options);
 
             let output = handle_parse_error(compiled, &text);
 

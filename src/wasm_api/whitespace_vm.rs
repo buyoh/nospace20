@@ -9,7 +9,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 use crate::whitespace::{InputWaitType, StepResult, WhitespaceVM};
-use crate::{compile_to_whitespace_with_options};
+use crate::{compile_to_ws, WsCompileOptions};
 
 use super::pipeline;
 use super::types::{
@@ -112,7 +112,12 @@ impl WasmWhitespaceVM {
             .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
         // コンパイル
-        let ws_source = compile_to_whitespace_with_options(&scope, debug_ext, alloc_ext)
+        let ws_options = WsCompileOptions {
+            debug_ext,
+            alloc_ext,
+            ..Default::default()
+        };
+        let ws_source = compile_to_ws(&scope, &ws_options)
             .map_err(|e| {
                 serde_wasm_bindgen::to_value(&pipeline::convert_errors(&e, &text_code)).unwrap()
             })?;

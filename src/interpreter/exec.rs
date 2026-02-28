@@ -825,7 +825,7 @@ func: __main() {
         let result = crate::interpreter::interpret_all(&mut env, &scope);
         assert_eq!(
             result,
-            Some(42),
+            Ok(Some(42)),
             "should return the value of *p which is 42"
         );
     }
@@ -845,7 +845,7 @@ func: __main() {
         let mut env = create_test_env();
 
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(20), "x should be modified to 20 via *p = 20");
+        assert_eq!(result, Ok(Some(20)), "x should be modified to 20 via *p = 20");
     }
 
     // --- T1: 組み込み関数テスト ---
@@ -882,7 +882,7 @@ func: __main() {
 "#;
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
-        crate::interpreter::interpret_all(&mut env, &scope);
+        crate::interpreter::interpret_all(&mut env, &scope).unwrap();
         assert_eq!(
             env.traced.get(&1),
             Some(&2),
@@ -907,7 +907,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(0), "__assert with non-zero should not panic");
+        assert_eq!(result, Ok(Some(0)), "__assert with non-zero should not panic");
     }
 
     #[test]
@@ -921,7 +921,7 @@ func: __main() {
 "#;
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
-        crate::interpreter::interpret_all(&mut env, &scope);
+        crate::interpreter::interpret_all(&mut env, &scope).unwrap();
     }
 
     #[test]
@@ -934,7 +934,7 @@ func: __main() {
 "#;
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
-        crate::interpreter::interpret_all(&mut env, &scope);
+        crate::interpreter::interpret_all(&mut env, &scope).unwrap();
         let output = get_stdout(&mut env);
         assert_eq!(output, "42", "__puti(42) should write '42' to stdout");
     }
@@ -949,7 +949,7 @@ func: __main() {
 "#;
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
-        crate::interpreter::interpret_all(&mut env, &scope);
+        crate::interpreter::interpret_all(&mut env, &scope).unwrap();
         let output = get_stdout(&mut env);
         assert_eq!(output, "A", "__putc(65) should write 'A' to stdout");
     }
@@ -964,7 +964,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env_with_stdin("42\n");
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(42), "__geti() should read 42 from stdin");
+        assert_eq!(result, Ok(Some(42)), "__geti() should read 42 from stdin");
     }
 
     #[test]
@@ -977,7 +977,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env_with_stdin("A");
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(65), "__getc() should read 'A' (65) from stdin");
+        assert_eq!(result, Ok(Some(65)), "__getc() should read 'A' (65) from stdin");
     }
 
     // --- T2: 二項演算子テスト ---
@@ -988,7 +988,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(3));
+        assert_eq!(result, Ok(Some(3)));
     }
 
     #[test]
@@ -997,7 +997,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(2));
+        assert_eq!(result, Ok(Some(2)));
     }
 
     #[test]
@@ -1006,7 +1006,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(12));
+        assert_eq!(result, Ok(Some(12)));
     }
 
     #[test]
@@ -1015,7 +1015,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(3));
+        assert_eq!(result, Ok(Some(3)));
     }
 
     #[test]
@@ -1024,7 +1024,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(1));
+        assert_eq!(result, Ok(Some(1)));
     }
 
     #[test]
@@ -1033,7 +1033,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(1), "3==3 is 1, 3==4 is 0");
+        assert_eq!(result, Ok(Some(1)), "3==3 is 1, 3==4 is 0");
     }
 
     #[test]
@@ -1042,7 +1042,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(1), "3!=4 is 1, 3!=3 is 0");
+        assert_eq!(result, Ok(Some(1)), "3!=4 is 1, 3!=3 is 0");
     }
 
     #[test]
@@ -1051,7 +1051,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(1), "1<2 is 1, 2<2 is 0, 3<2 is 0");
+        assert_eq!(result, Ok(Some(1)), "1<2 is 1, 2<2 is 0, 3<2 is 0");
     }
 
     #[test]
@@ -1060,7 +1060,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(11), "1<=2 is 1, 2<=2 is 1, 3<=2 is 0");
+        assert_eq!(result, Ok(Some(11)), "1<=2 is 1, 2<=2 is 1, 3<=2 is 0");
     }
 
     #[test]
@@ -1069,7 +1069,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(1), "3>2 is 1, 2>2 is 0, 1>2 is 0");
+        assert_eq!(result, Ok(Some(1)), "3>2 is 1, 2>2 is 0, 1>2 is 0");
     }
 
     #[test]
@@ -1078,7 +1078,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(11), "3>=2 is 1, 2>=2 is 1, 1>=2 is 0");
+        assert_eq!(result, Ok(Some(11)), "3>=2 is 1, 2>=2 is 1, 1>=2 is 0");
     }
 
     #[test]
@@ -1091,7 +1091,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(1), "1&&1=1, 1&&0=0, 0&&1=0, 0&&0=0");
+        assert_eq!(result, Ok(Some(1)), "1&&1=1, 1&&0=0, 0&&1=0, 0&&0=0");
     }
 
     #[test]
@@ -1104,7 +1104,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(111), "1||1=1, 1||0=1, 0||1=1, 0||0=0");
+        assert_eq!(result, Ok(Some(111)), "1||1=1, 1||0=1, 0||1=1, 0||0=0");
     }
 
     // --- T3: 制御フローテスト ---
@@ -1123,7 +1123,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(2010), "if true -> 10, if false -> 20");
+        assert_eq!(result, Ok(Some(2010)), "if true -> 10, if false -> 20");
     }
 
     #[test]
@@ -1142,7 +1142,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(10), "sum of 0..4 = 10");
+        assert_eq!(result, Ok(Some(10)), "sum of 0..4 = 10");
     }
 
     #[test]
@@ -1156,7 +1156,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(42), "early return should return 42");
+        assert_eq!(result, Ok(Some(42)), "early return should return 42");
     }
 
     #[test]
@@ -1175,7 +1175,7 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(3), "break at i==3");
+        assert_eq!(result, Ok(Some(3)), "break at i==3");
     }
 
     #[test]
@@ -1195,6 +1195,6 @@ func: __main() {
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
         let result = crate::interpreter::interpret_all(&mut env, &scope);
-        assert_eq!(result, Some(9), "sum of odd numbers 1+3+5 = 9");
+        assert_eq!(result, Ok(Some(9)), "sum of odd numbers 1+3+5 = 9");
     }
 }

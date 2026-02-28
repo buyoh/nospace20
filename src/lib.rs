@@ -5,7 +5,7 @@ extern crate assert_matches;
 use std::collections::BTreeMap;
 
 pub use base::CodeParseError;
-pub use interpreter::{Environment, EnvironmentConfig};
+pub use interpreter::{Environment, EnvironmentConfig, InterpretError};
 pub use logger::TextCode;
 pub use semantic_analyzer::Scope;
 use token_parser::PrettyToken;
@@ -34,23 +34,24 @@ pub use compile_property::{
 pub use optimizer::OptimizationOptions;
 
 pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseError>> {
-    match token_parser::parse_to_tokens(text) {
-        Ok(x) => Ok(x),
-        Err(err) => Err(err),
-    }
+    token_parser::parse_to_tokens(text)
 }
 
 pub fn parse_to_tree(
     tokens: &Vec<PrettyToken>,
 ) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
-    match tree_parser::parse_to_tree(tokens) {
-        Ok(x) => Ok(x),
-        Err(err) => Err(err),
-    }
+    tree_parser::parse_to_tree(tokens)
 }
 
-pub fn syntactic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
+/// 意味解析を実行し、スコープツリーを構築する
+pub fn semantic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
     semantic_analyzer::analyze(root)
+}
+
+/// `semantic_analyze` の旧名称（後方互換性のため残存）
+#[deprecated(since = "0.2.0", note = "Renamed to semantic_analyze")]
+pub fn syntactic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
+    semantic_analyze(root)
 }
 
 /// Scope に対して最適化パスを適用する
@@ -59,18 +60,19 @@ pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
 }
 
 /// グローバル変数の初期化を含む interpret
-pub fn interpret(scope: &Scope) -> Option<i64> {
+pub fn interpret(scope: &Scope) -> Result<Option<i64>, InterpretError> {
     let mut env = Environment::new();
     interpreter::interpret_all(&mut env, scope)
 }
 
 /// グローバル変数の初期化を含む interpret（env 指定版）
-pub fn interpret_with_env(env: &mut Environment, scope: &Scope) -> Option<i64> {
+pub fn interpret_with_env(env: &mut Environment, scope: &Scope) -> Result<Option<i64>, InterpretError> {
     interpreter::interpret_all(env, scope)
 }
 
-pub fn interpret_func(scope: &Scope, func_name: &str) -> Option<i64> {
+pub fn interpret_func(scope: &Scope, func_name: &str) -> Result<Option<i64>, InterpretError> {
     let mut env = Environment::new();
+    interpreter::interpret_global(&mut env, scope)?;
     interpreter::interpret_func(&mut env, scope, func_name)
 }
 
@@ -78,7 +80,7 @@ pub fn interpret_func_with_env(
     env: &mut Environment,
     scope: &Scope,
     func_name: &str,
-) -> Option<i64> {
+) -> Result<Option<i64>, InterpretError> {
     interpreter::interpret_func(env, scope, func_name)
 }
 
@@ -91,8 +93,8 @@ pub fn interpret_func_testing(scope: &Scope, func_name: &str) -> BTreeMap<i64, i
     let mut env = Environment::new_with_config(stdin_cursor, stdout_buf, config);
 
     // グローバル変数を初期化してから関数を実行
-    interpreter::interpret_global(&mut env, scope);
-    interpreter::interpret_func(&mut env, scope, func_name);
+    interpreter::interpret_global(&mut env, scope).expect("global initialization failed");
+    let _ = interpreter::interpret_func(&mut env, scope, func_name);
     env.traced
 }
 
@@ -107,8 +109,8 @@ pub fn interpret_func_testing_randomize(scope: &Scope, func_name: &str) -> BTree
     config.randomize_uninit = true;
     let mut env = Environment::new_with_config(stdin_cursor, stdout_buf, config);
 
-    interpreter::interpret_global(&mut env, scope);
-    interpreter::interpret_func(&mut env, scope, func_name);
+    interpreter::interpret_global(&mut env, scope).expect("global initialization failed");
+    let _ = interpreter::interpret_func(&mut env, scope, func_name);
     env.traced
 }
 
@@ -144,8 +146,8 @@ pub fn interpret_func_with_io(
     let mut env = Environment::new_with_config(stdin_cursor, stdout_writer, config);
 
     // グローバル変数を初期化してから関数を実行
-    interpreter::interpret_global(&mut env, scope);
-    interpreter::interpret_func(&mut env, scope, func_name);
+    interpreter::interpret_global(&mut env, scope).expect("global initialization failed");
+    let _ = interpreter::interpret_func(&mut env, scope, func_name);
     env.flush();
 
     let stdout_vec = stdout_buf.borrow().clone();
@@ -154,7 +156,55 @@ pub fn interpret_func_with_io(
     (env.traced, stdout_string)
 }
 
+/// Whitespace コンパイル出力形式
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WsOutputFormat {
+    /// Whitespace コード（空白文字のみ）
+    #[default]
+    Whitespace,
+    /// デバッグ用ニーモニック
+    Mnemonic,
+}
+
+/// Whitespace コンパイルオプション
+///
+/// `compile_to_ws` 関数に渡す統合オプション構造体。
+/// 従来の複数の `compile_to_whitespace_*` 関数を一つに統合する。
+#[derive(Debug, Clone, Default)]
+pub struct WsCompileOptions {
+    /// デバッグ拡張 API を有効化
+    pub debug_ext: bool,
+    /// メモリアロケータ拡張を有効化
+    pub alloc_ext: bool,
+    /// 出力形式
+    pub output_format: WsOutputFormat,
+    /// 最適化オプション
+    pub optimization: OptimizationOptions,
+}
+
+/// Whitespace にコンパイル（統合 API）
+///
+/// `WsCompileOptions` によって出力形式・拡張・最適化を一括指定できる。
+pub fn compile_to_ws(
+    scope: &Scope,
+    options: &WsCompileOptions,
+) -> Result<String, Vec<CodeParseError>> {
+    let prog = compiler_ws::compile_with_full_options(
+        scope,
+        options.debug_ext,
+        options.alloc_ext,
+        options.optimization.peephole,
+    )
+    .map_err(|e| vec![compile_error_to_code_parse_error(e)])?;
+
+    match options.output_format {
+        WsOutputFormat::Whitespace => Ok(prog.to_whitespace()),
+        WsOutputFormat::Mnemonic => Ok(prog.to_debug_string()),
+    }
+}
+
 /// Whitespace にコンパイル（拡張オプション付き）
+#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
 pub fn compile_to_whitespace_with_options(
     scope: &Scope,
     debug_ext: bool,
@@ -169,6 +219,7 @@ pub fn compile_to_whitespace_with_options(
 ///
 /// `OptimizationOptions` の `peephole` フラグによって
 /// ピープホール最適化を追加適用できる。
+#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
 pub fn compile_to_whitespace_with_opt(
     scope: &Scope,
     debug_ext: bool,
@@ -181,6 +232,7 @@ pub fn compile_to_whitespace_with_opt(
 }
 
 /// Whitespace にコンパイル（デバッグ用ニーモニック、拡張オプション付き）
+#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
 pub fn compile_to_whitespace_debug_with_options(
     scope: &Scope,
     debug_ext: bool,
@@ -192,6 +244,7 @@ pub fn compile_to_whitespace_debug_with_options(
 }
 
 /// Whitespace にコンパイル（デバッグ用ニーモニック、最適化オプション付き）
+#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
 pub fn compile_to_whitespace_debug_with_opt(
     scope: &Scope,
     debug_ext: bool,
@@ -204,11 +257,15 @@ pub fn compile_to_whitespace_debug_with_opt(
 }
 
 /// Whitespace にコンパイル（従来互換）
+#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
+#[allow(deprecated)]
 pub fn compile_to_whitespace(scope: &Scope) -> Result<String, Vec<CodeParseError>> {
     compile_to_whitespace_with_options(scope, false, false)
 }
 
 /// Whitespace にコンパイル（デバッグ用ニーモニック、従来互換）
+#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
+#[allow(deprecated)]
 pub fn compile_to_whitespace_debug(scope: &Scope) -> Result<String, Vec<CodeParseError>> {
     compile_to_whitespace_debug_with_options(scope, false, false)
 }

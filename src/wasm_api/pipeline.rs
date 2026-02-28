@@ -1,12 +1,12 @@
 //! 共通パイプライン・パラメータパーサ・エラー変換
 //!
-//! `parse_to_tokens → parse_to_tree → syntactic_analyze` の4箇所で重複していた
+//! `parse_to_tokens → parse_to_tree → semantic_analyze` の4箇所で重複していた
 //! パイプラインを共通化し、パラメータパーサとエラー変換もここに集約する。
 
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    optimize, parse_to_tokens, parse_to_tree, syntactic_analyze, CodeParseError,
+    optimize, parse_to_tokens, parse_to_tree, semantic_analyze, CodeParseError,
     OptimizationOptions, Scope, TextCode,
 };
 
@@ -120,14 +120,14 @@ pub(super) fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> Resu
 /// nospace ソースをトークン解析・構文解析・意味解析する（共通パイプライン）
 ///
 /// `run`, `compile`, `parse`, `WasmWhitespaceVM::new` の4箇所で重複していた
-/// `parse_to_tokens → parse_to_tree → syntactic_analyze` を一箇所に集約。
+/// `parse_to_tokens → parse_to_tree → semantic_analyze` を一箇所に集約。
 pub(super) fn analyze_source(source: &str) -> Result<(Scope, TextCode<'_>), ResultErr> {
     let text_code = TextCode::new(source);
     let source_string = source.to_string();
 
     let tokens = parse_to_tokens(&source_string).map_err(|e| convert_errors(&e, &text_code))?;
     let tree = parse_to_tree(&tokens).map_err(|e| convert_errors(&e, &text_code))?;
-    let scope = syntactic_analyze(&tree).map_err(|e| convert_errors(&e, &text_code))?;
+    let scope = semantic_analyze(&tree).map_err(|e| convert_errors(&e, &text_code))?;
 
     Ok((scope, text_code))
 }

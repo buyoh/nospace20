@@ -1,4 +1,5 @@
 //! optimizer のユニットテスト
+#![allow(deprecated)]
 
 use crate::optimizer::noop_test_pass;
 use crate::optimizer::{self, OptimizationOptions};
@@ -109,7 +110,7 @@ fn test_noop_pass_magic_number_initialized() {
 
     // interpret して、グローバル変数にマジックナンバーが設定されていることを確認
     let mut env = crate::Environment::new();
-    crate::interpret_with_env(&mut env, &scope);
+    crate::interpret_with_env(&mut env, &scope).unwrap();
 
     let marker_slot = *scope
         .variable_indices
@@ -561,7 +562,7 @@ fn test_internal_builtin_getiv_interpreter() {
     let stdout = Box::new(Vec::<u8>::new());
     let mut env = crate::Environment::new_with_buffers(stdin, stdout);
     let result = crate::interpret_with_env(&mut env, &scope);
-    assert_eq!(result, Some(42), "__geti() should read 42 from stdin");
+    assert_eq!(result, Ok(Some(42)), "__geti() should read 42 from stdin");
 }
 // --- condition_opt パステスト ---
 
@@ -1032,7 +1033,7 @@ fn test_geti_opt_global_geti_semantics() {
     let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
     let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
 
-    assert_eq!(result_orig, Some(42), "original: should return 42");
+    assert_eq!(result_orig, Ok(Some(42)), "original: should return 42");
     assert_eq!(
         result_orig, result_opt,
         "semantics should not change after geti_opt"
@@ -1078,7 +1079,7 @@ fn test_geti_opt_local_geti_semantics() {
     let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
     let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
 
-    assert_eq!(result_orig, Some(99), "original: should return 99");
+    assert_eq!(result_orig, Ok(Some(99)), "original: should return 99");
     assert_eq!(result_orig, result_opt, "semantics should not change");
 }
 
@@ -1122,7 +1123,7 @@ fn test_geti_opt_getc_semantics() {
     let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
 
     assert_eq!(result_orig, result_opt, "getc semantics should not change");
-    assert_eq!(result_orig, Some(b'A' as i64), "should read 'A' = 65");
+    assert_eq!(result_orig, Ok(Some(b'A' as i64)), "should read 'A' = 65");
 }
 
 /// geti_opt: Whitespace コンパイルが成功すること
@@ -1197,7 +1198,7 @@ fn test_geti_opt_multiple_geti_semantics() {
     let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
     let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
 
-    assert_eq!(result_orig, Some(30), "sum should be 30");
+    assert_eq!(result_orig, Ok(Some(30)), "sum should be 30");
     assert_eq!(result_orig, result_opt, "semantics should not change");
 }
 
@@ -1244,7 +1245,7 @@ fn test_geti_opt_inside_block_semantics() {
     let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
     let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
 
-    assert_eq!(result_orig, Some(77), "should return 77");
+    assert_eq!(result_orig, Ok(Some(77)), "should return 77");
     assert_eq!(result_orig, result_opt, "semantics should not change");
 }
 
@@ -1289,7 +1290,7 @@ fn test_geti_opt_combined_with_condition_opt() {
     let mut env_b = crate::Environment::new_with_buffers(stdin_b, stdout_b);
     let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
 
-    assert_eq!(result_orig, Some(5), "should return 5");
+    assert_eq!(result_orig, Ok(Some(5)), "should return 5");
     assert_eq!(
         result_orig, result_opt,
         "combined opt semantics should not change"
@@ -1462,7 +1463,7 @@ fn test_dead_code_semantics_unchanged() {
     );
     let result_opt = crate::interpret(&scope_opt);
 
-    assert_eq!(result_orig, Some(42), "original should return 42");
+    assert_eq!(result_orig, Ok(Some(42)), "original should return 42");
     assert_eq!(
         result_orig, result_opt,
         "semantics should not change after dead_code"
@@ -1605,7 +1606,7 @@ fn test_constant_folding_add() {
     );
 
     let result = crate::interpret(&scope);
-    assert_eq!(result, Some(7), "3 + 4 should fold to 7");
+    assert_eq!(result, Ok(Some(7)), "3 + 4 should fold to 7");
 }
 
 /// constant_folding: 乗算・除算の連続畳み込み
@@ -1628,7 +1629,7 @@ fn test_constant_folding_multiply_divide() {
     );
 
     let result = crate::interpret(&scope);
-    assert_eq!(result, Some(6), "10 * 3 / 5 should fold to 6");
+    assert_eq!(result, Ok(Some(6)), "10 * 3 / 5 should fold to 6");
 }
 
 /// constant_folding: 比較演算が定数に畳み込まれること
@@ -1651,7 +1652,7 @@ fn test_constant_folding_comparison() {
     );
 
     let result = crate::interpret(&scope);
-    assert_eq!(result, Some(1), "5 == 5 should fold to 1");
+    assert_eq!(result, Ok(Some(1)), "5 == 5 should fold to 1");
 }
 
 /// constant_folding: 単項マイナスが畳み込まれること
@@ -1674,7 +1675,7 @@ fn test_constant_folding_unary_negative() {
     );
 
     let result = crate::interpret(&scope);
-    assert_eq!(result, Some(-7), "-7 should fold to -7");
+    assert_eq!(result, Ok(Some(-7)), "-7 should fold to -7");
 }
 
 /// constant_folding: 論理否定が畳み込まれること
@@ -1697,7 +1698,7 @@ fn test_constant_folding_logical_not() {
     );
 
     let result = crate::interpret(&scope);
-    assert_eq!(result, Some(1), "!0 should fold to 1");
+    assert_eq!(result, Ok(Some(1)), "!0 should fold to 1");
 }
 
 /// constant_folding: ゼロ除算は変換しない（ランタイムエラーとして残す）
@@ -1754,7 +1755,7 @@ fn test_constant_folding_const_if_true() {
     assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
     assert_eq!(
         crate::interpret(&scope_opt),
-        Some(10),
+        Ok(Some(10)),
         "const true if should select then block"
     );
 }
@@ -1785,7 +1786,7 @@ fn test_constant_folding_const_if_false() {
     assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
     assert_eq!(
         crate::interpret(&scope_opt),
-        Some(20),
+        Ok(Some(20)),
         "const false if should select else block"
     );
 }
@@ -1817,7 +1818,7 @@ fn test_constant_folding_const_while_zero() {
     assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
     assert_eq!(
         crate::interpret(&scope_opt),
-        Some(5),
+        Ok(Some(5)),
         "while(0) should be skipped"
     );
 }
@@ -1842,7 +1843,7 @@ fn test_constant_folding_recursive() {
     );
 
     let result = crate::interpret(&scope);
-    assert_eq!(result, Some(15), "(2+3)*(4-1) should fold to 15");
+    assert_eq!(result, Ok(Some(15)), "(2+3)*(4-1) should fold to 15");
 }
 
 /// constant_folding: セマンティクスが変わらないこと（変数を含む式）
@@ -1884,7 +1885,7 @@ fn test_constant_folding_semantics_unchanged_with_variable() {
     let result_opt = crate::interpret_with_env(&mut env_b, &scope_opt);
 
     assert_eq!(result_orig, result_opt, "semantics should not change");
-    assert_eq!(result_opt, Some(17), "10 + (3+4) should be 17");
+    assert_eq!(result_opt, Ok(Some(17)), "10 + (3+4) should be 17");
 }
 
 /// constant_folding: WS コンパイルが成功すること
@@ -1947,5 +1948,5 @@ fn test_constant_folding_combined_with_condition_opt() {
         "WS compile after const_fold + condition_opt should succeed"
     );
     assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
-    assert_eq!(crate::interpret(&scope_opt), Some(1));
+    assert_eq!(crate::interpret(&scope_opt), Ok(Some(1)));
 }

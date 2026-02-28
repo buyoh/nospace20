@@ -34,7 +34,7 @@ pub fn interpret_func_with_config(
     let stdout_writer: Box<dyn Write> = Box::new(SharedWriter(stdout_clone));
     let mut env = Environment::new_with_config(stdin_cursor, stdout_writer, config);
 
-    nospace20::interpret_func_with_env(&mut env, scope, func_name);
+    nospace20::interpret_func_with_env(&mut env, scope, func_name).unwrap();
 
     let stdout_vec = stdout_buf.borrow().clone();
     let stdout_string = String::from_utf8(stdout_vec).unwrap();
@@ -45,5 +45,6 @@ pub fn interpret_func_with_config(
 pub fn parse_and_analyze(source: &str) -> Scope {
     let tokens = parse_to_tokens(&source.to_string()).unwrap();
     let tree = parse_to_tree(&tokens).unwrap();
+    #[allow(deprecated)]
     syntactic_analyze(&tree).unwrap()
 }

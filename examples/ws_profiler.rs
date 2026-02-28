@@ -415,6 +415,7 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
             .collect::<Vec<_>>()
             .join("; ")
     })?;
+    #[allow(deprecated)]
     let mut scope = nospace20::syntactic_analyze(&tree).map_err(|errors| {
         errors
             .iter()
@@ -425,6 +426,7 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
     if opts.opt_options.any_enabled() {
         nospace20::optimize(&mut scope, &opts.opt_options);
     }
+    #[allow(deprecated)]
     nospace20::compile_to_whitespace_with_opt(
         &scope,
         opts.debug_ext,

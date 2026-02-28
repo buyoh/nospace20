@@ -83,7 +83,7 @@ fn test_ignore_debug_preserves_side_effects() {
     let stdout_writer: Box<dyn std::io::Write> = Box::new(SharedWriter(stdout_clone));
     let mut env = Environment::new_with_config(stdin_cursor, stdout_writer, config);
 
-    nospace20::interpret_with_env(&mut env, &scope);
+    nospace20::interpret_with_env(&mut env, &scope).unwrap();
 
     let stdout_vec = stdout_buf.borrow().clone();
     let output = String::from_utf8(stdout_vec).unwrap();

@@ -145,3 +145,31 @@ pub fn parse_to_tokens(text: &String) -> Result<Vec<PrettyToken>, Vec<CodeParseE
 - `src/wasm_api.rs`
 - `tests/` 配下の統合テスト
 - `Cargo.toml` (testing feature 追加)
+
+## Progress
+
+### 実施済み
+
+- **問題 1 (副作用の除去)**:
+  - `InterpretError` enum を `src/interpreter/mod.rs` に追加 (FunctionNotFound, UnexpectedFlow)
+  - `interpret_func`, `interpret_all`, `interpret_global`, `initialize_function_statics` を `Result` 型に変更
+  - `eprintln!` / `panic!` を `InterpretError` に置き換え
+  - `lib.rs` の公開 API (`interpret`, `interpret_with_env`, `interpret_func`, `interpret_func_with_env`) を `Result<Option<i64>, InterpretError>` に変更
+  - CLI / WASM API でエラーハンドリングを追加
+  - テスト用関数 (`interpret_func_testing` 等) は内部で `.expect()` / `.unwrap()` でエラーを処理
+  - `src/interpreter/exec.rs`, `src/optimizer/tests.rs` のテストアサーションを更新
+- **問題 2 (compile_to_whitespace API 統合)**:
+  - `WsCompileOptions` 構造体と `WsOutputFormat` enum を `lib.rs` に追加
+  - 統合 API `compile_to_ws` を追加
+  - 旧 API (`compile_to_whitespace`, `compile_to_whitespace_debug` 等) に `#[deprecated]` を付与
+  - CLI / WASM API を新 API に移行
+- **問題 4 (syntactic_analyze リネーム)**:
+  - `semantic_analyze` 関数を追加
+  - `syntactic_analyze` に `#[deprecated]` を付与
+  - CLI / WASM API を `semantic_analyze` に移行
+- **問題 5 (冗長ラッパー簡略化)**:
+  - `parse_to_tokens`, `parse_to_tree` を直接委譲に変更
+
+### 未実施
+
+- **問題 3 (テスト用関数の分離)**: `testing` feature flag による分離は、integration test への影響が大きいため今回は見送り。将来のモジュール再構成と合わせて実施推奨。

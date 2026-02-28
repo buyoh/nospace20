@@ -10,8 +10,8 @@ use std::io::Cursor;
 use std::rc::Rc;
 
 use crate::{
-    compile_to_whitespace_debug_with_options, compile_to_whitespace_with_options,
-    interpret_with_env, CompileTarget, Environment, EnvironmentConfig, LanguageStd,
+    compile_to_ws, interpret_with_env, CompileTarget, Environment, EnvironmentConfig, LanguageStd,
+    WsCompileOptions, WsOutputFormat,
 };
 
 use super::pipeline;
@@ -53,7 +53,13 @@ pub fn run(
     config.ignore_debug = ignore_debug.unwrap_or(false);
     let mut env =
         Environment::new_with_config(stdin_cursor, Box::new(SharedWriter(stdout_clone)), config);
-    interpret_with_env(&mut env, &scope);
+    if let Err(e) = interpret_with_env(&mut env, &scope) {
+        let err_result = ResultErr {
+            success: false,
+            errors: vec![format!("{}", e)],
+        };
+        return serde_wasm_bindgen::to_value(&err_result).unwrap().into();
+    }
     env.flush();
 
     let stdout_vec = stdout_buf.borrow().clone();
@@ -139,13 +145,18 @@ pub fn compile(
     };
 
     // コンパイル
-    let compiled = match compile_target {
-        CompileTarget::Ws => compile_to_whitespace_with_options(&scope, debug_ext, alloc_ext),
-        CompileTarget::Mnemonic => {
-            compile_to_whitespace_debug_with_options(&scope, debug_ext, alloc_ext)
-        }
+    let output_format = match compile_target {
+        CompileTarget::Ws => WsOutputFormat::Whitespace,
+        CompileTarget::Mnemonic => WsOutputFormat::Mnemonic,
         _ => unreachable!(),
     };
+    let ws_options = WsCompileOptions {
+        debug_ext,
+        alloc_ext,
+        output_format,
+        ..Default::default()
+    };
+    let compiled = compile_to_ws(&scope, &ws_options);
 
     match compiled {
         Ok(output) => {
