@@ -1,0 +1,8 @@
+# エラーケース: alias の循環参照 #
+alias: a(b);
+alias: b(a);
+
+func: __main() {
+  let: v(a());
+  __puti(v);
+}

@@ -1,0 +1,9 @@
+# alias: 関数エイリアスの基本テスト #
+func: greet() { return: 42; }
+alias: hello(greet);
+
+func: __main() {
+  __trace(0);
+  let: v(hello());      # greet() と同じ #
+  __assert_not(v - 42);
+}

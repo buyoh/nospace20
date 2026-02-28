@@ -172,6 +172,8 @@ pub(super) struct ScopeInfo<'a> {
     pub func_map: &'a BTreeMap<String, Identifier>,
     /// constexpr 定数テーブル（名前 → 定数値）
     pub constexpr_table: &'a BTreeMap<String, i64>,
+    /// alias テーブル（名前 → ターゲット識別子名）
+    pub alias_map: &'a BTreeMap<String, String>,
     /// このスコープが関数スコープかどうか
     pub is_function_scope: bool,
     /// この関数スコープのグローバル関数インデックス
@@ -205,6 +207,7 @@ impl<'a> ScopeResolver<'a> {
         variables: &'a Vec<Variable>,
         func_map: &'a BTreeMap<String, Identifier>,
         constexpr_table: &'a BTreeMap<String, i64>,
+        alias_map: &'a BTreeMap<String, String>,
         is_function_scope: bool,
         func_global_index: Option<usize>,
     ) {
@@ -214,6 +217,7 @@ impl<'a> ScopeResolver<'a> {
             variables,
             func_map,
             constexpr_table,
+            alias_map,
             is_function_scope,
             func_global_index,
         });
@@ -349,6 +353,38 @@ impl<'a> ScopeResolver<'a> {
             }
         }
         None
+    }
+
+    /// エイリアス名をチェーン解決して最終的な識別子名を返す
+    ///
+    /// スコープスタックを内側から外側へ探索し、エイリアスチェーンを解決する。
+    /// 巡回参照が検出された場合はエラーを返す。
+    /// エイリアスが定義されていない場合は、元の名前をそのまま返す。
+    pub fn resolve_alias_chain(&self, name: &str) -> Result<String, String> {
+        use std::collections::BTreeSet;
+        let mut visited: BTreeSet<String> = BTreeSet::new();
+        let mut current = name.to_string();
+        loop {
+            if visited.contains(&current) {
+                return Err(format!(
+                    "circular alias reference detected: '{}' is part of a cyclic definition",
+                    name
+                ));
+            }
+            visited.insert(current.clone());
+            // スコープスタックを内側から探索
+            let mut found = None;
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(target) = scope_info.alias_map.get(&current) {
+                    found = Some(target.clone());
+                    break;
+                }
+            }
+            match found {
+                Some(next) => current = next,
+                None => return Ok(current),
+            }
+        }
     }
 }
 

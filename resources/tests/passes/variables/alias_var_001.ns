@@ -1,0 +1,9 @@
+# alias: 変数エイリアスの基本テスト #
+func: __main() {
+  __trace(0);
+  let: x(10);
+  alias: y(x);
+  y = 20;               # x = 20 と同じ #
+  __assert_not(x - 20);
+  __assert_not(y - 20); # y も x と同じ値 #
+}

@@ -1,0 +1,7 @@
+# alias: 前方参照（alias の定義より前で使用） #
+func: __main() {
+  __trace(0);
+  alias: y(x);    # x より前に alias を定義 #
+  let: x(30);
+  __assert_not(y - 30);
+}

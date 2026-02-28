@@ -1,0 +1,10 @@
+# alias: エイリアスのチェーン解決テスト #
+func: original() { return: 99; }
+alias: a(b);
+alias: b(original);    # a -> b -> original #
+
+func: __main() {
+  __trace(0);
+  let: v(a());          # original() と同じ #
+  __assert_not(v - 99);
+}

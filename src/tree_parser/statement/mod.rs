@@ -16,6 +16,9 @@ pub enum Statement {
     /// コンパイル時定数定義: `constexpr: name(expr);`
     /// スタックスロットを確保せず、コンパイル時に定数値に解決される
     ConstexprDeclaration(String, Box<LocatedExpression>), // (name, expr)
+    /// 識別子エイリアス定義: `alias: name(target);`
+    /// コンパイル時に名前を target に解決する
+    AliasIdentifier(String, String), // (name, target)
     FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),
     Continue,
     Break,
@@ -169,6 +172,88 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
             results.push(LocatedStatement {
                 statement: Statement::ConstexprDeclaration(id.to_string(), expr),
+                location: loc,
+            });
+
+            // ',' または ';' を確認
+            match self.iter.peek() {
+                Some((Token::Comma, _)) => {
+                    self.iter.next(); // ',' を消費して次の定義へ
+                }
+                _ => break, // ';' または予期しないトークン → ループを抜ける
+            }
+        }
+
+        // ';' を消費
+        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+
+        results
+    }
+
+    /// `alias:` キーワードを消費して識別子エイリアス定義をパースする。
+    /// `alias: name(target), name2(target2);` のように複数定義にも対応。
+    fn parse_alias_declarations(&mut self, start_pos: usize) -> Vec<LocatedStatement> {
+        self.iter.next(); // Alias キーワードを消費
+
+        let mut results = Vec::<LocatedStatement>::new();
+
+        loop {
+            // エイリアス名を取得
+            let name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                Ok(x) => x,
+                Err(e) => {
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(e),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    self.skip_to_semicolon();
+                    return results;
+                }
+            };
+
+            // '(' を期待
+            match self.iter.next() {
+                Some((Token::ParenthesisL, _)) => {}
+                Some((_, token_info)) => {
+                    let err_idx = self.add_parse_error(&token_info, "expected '(' after alias identifier");
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(err_idx),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    self.skip_to_semicolon();
+                    return results;
+                }
+                None => {
+                    let err_idx = self.add_end_error("unexpected end of input in alias declaration");
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(err_idx),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    return results;
+                }
+            }
+
+            // ターゲット識別子を取得
+            let target = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                Ok(x) => x,
+                Err(e) => {
+                    results.push(LocatedStatement {
+                        statement: Statement::Invalid(e),
+                        location: SourceLocation::from_single(start_pos),
+                    });
+                    self.skip_to_semicolon();
+                    return results;
+                }
+            };
+
+            // ')' を消費
+            match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
+
+            let end_pos = self.current_pos_or(start_pos);
+            let loc = SourceLocation::new(start_pos, end_pos);
+
+            results.push(LocatedStatement {
+                statement: Statement::AliasIdentifier(name.to_string(), target.to_string()),
                 location: loc,
             });
 
@@ -906,6 +991,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 Token::Keyword(Keyword::Constexpr) => {
                     statements.extend(self.parse_constexpr_declarations(start_pos));
+                    continue;
+                }
+                Token::Keyword(Keyword::Alias) => {
+                    statements.extend(self.parse_alias_declarations(start_pos));
                     continue;
                 }
                 Token::Keyword(Keyword::Func) => {

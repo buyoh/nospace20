@@ -319,6 +319,26 @@ tests:
     path: variables/constexpr_forward_ref_001
     comment: "Constexpr forward reference (hoisting)"
 
+  - name: test_variables_alias_var_001
+    type: success
+    path: variables/alias_var_001
+    comment: "Basic variable alias"
+
+  - name: test_variables_alias_func_001
+    type: success
+    path: variables/alias_func_001
+    comment: "Function alias"
+
+  - name: test_variables_alias_chain_001
+    type: success
+    path: variables/alias_chain_001
+    comment: "Chained alias resolution (a -> b -> original)"
+
+  - name: test_variables_alias_forward_ref_001
+    type: success
+    path: variables/alias_forward_ref_001
+    comment: "Alias forward reference (alias defined before variable)"
+
   # ========================================
   # Functions
   # ========================================
@@ -775,6 +795,11 @@ tests:
     type: compile_error
     path: constexpr_non_const_func_001
     comment: "Error: function call in constexpr expression"
+
+  - name: test_compile_error_alias_circular_001
+    type: compile_error
+    path: alias_circular_001
+    comment: "Error: circular alias reference"
 
   # ========================================
   # Runtime Errors

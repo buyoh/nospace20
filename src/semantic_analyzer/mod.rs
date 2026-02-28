@@ -187,6 +187,33 @@ fn collect_constexpr_table(
     Ok(resolved)
 }
 
+/// ステートメント列から alias（識別子エイリアス）定義を収集し、
+/// エイリアステーブル `BTreeMap<String, String>` を返す。
+///
+/// 重複定義はエラーとして報告する。
+fn collect_alias_map(
+    statements: &[LocatedStatement],
+) -> Result<BTreeMap<String, String>, Vec<CodeParseError>> {
+    let mut alias_map: BTreeMap<String, String> = BTreeMap::new();
+    let mut errors: Vec<CodeParseError> = Vec::new();
+    for located_stat in statements {
+        if let Statement::AliasIdentifier(name, target) = &located_stat.statement {
+            if alias_map.contains_key(name) {
+                errors.push(code_parse_error!(
+                    located_stat.location.start,
+                    format!("duplicate alias definition: '{}'", name)
+                ));
+            } else {
+                alias_map.insert(name.clone(), target.clone());
+            }
+        }
+    }
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    Ok(alias_map)
+}
+
 /// 関数本体に return: 文が存在するか再帰的にチェックする
 ///
 /// ネストした if/while/block の中もすべてチェックするが、ネストされた関数宣言の中は除外する
@@ -576,8 +603,11 @@ fn convert_to_exec_expression_with_resolver(
                     loc,
                 ))
             } else {
-                // ユーザー定義関数：resolve する
-                let func_ref = parent_resolver.resolve_function(f).ok_or_else(|| {
+                // ユーザー定義関数：まず alias を解決してから resolve する
+                let resolved_f = parent_resolver.resolve_alias_chain(f).map_err(|e| {
+                    vec![code_parse_error!(loc.start, e)]
+                })?;
+                let func_ref = parent_resolver.resolve_function(&resolved_f).ok_or_else(|| {
                     vec![code_parse_error!(
                         loc.start,
                         format!("undefined function: {}", f)
@@ -586,7 +616,7 @@ fn convert_to_exec_expression_with_resolver(
 
                 // 引数数チェック
                 let expected_count = parent_resolver
-                    .get_function_arg_count(f)
+                    .get_function_arg_count(&resolved_f)
                     .expect("function should be resolvable");
                 if args.len() != expected_count {
                     return Err(vec![code_parse_error!(
@@ -608,12 +638,17 @@ fn convert_to_exec_expression_with_resolver(
         }
         Expression::Factor(v) => Ok(make_located_exec(ExecExpression::Factor(v.to_owned()), loc)),
         Expression::Variable(v) => {
+            // まず alias を解決（チェーン解決）
+            let resolved_name = parent_resolver.resolve_alias_chain(v).map_err(|e| {
+                vec![code_parse_error!(loc.start, e)]
+            })?;
+
             // まず constexpr テーブルを確認（定数式への置換）
-            if let Some(const_val) = parent_resolver.resolve_constexpr(v) {
+            if let Some(const_val) = parent_resolver.resolve_constexpr(&resolved_name) {
                 return Ok(make_located_exec(ExecExpression::Factor(const_val), loc));
             }
             // 変数名を解決
-            let var_ref = parent_resolver.resolve_variable(v).ok_or_else(|| {
+            let var_ref = parent_resolver.resolve_variable(&resolved_name).ok_or_else(|| {
                 vec![code_parse_error!(
                     loc.start,
                     format!("undefined variable: {}", v)
@@ -711,6 +746,8 @@ fn analyze_internal_with_parent(
     // 3パス解析 → 4パス解析（Pass 0 を追加）
     // パス0: constexpr 定義の収集・評価
     let constexpr_table_temp = collect_constexpr_table(statements)?;
+    // パス0: alias（識別子エイリアス）定義の収集
+    let alias_map_temp = collect_alias_map(statements)?;
 
     // パス1a: 関数宣言を先にスキャンして登録（ホイスティング対応）
     // Phase 5: ネスト関数のサポート
@@ -805,6 +842,9 @@ fn analyze_internal_with_parent(
             Statement::ConstexprDeclaration(_, _) => {
                 // コンパイル時定数は変数スロットを確保しない - パス0 で処理済み
             }
+            Statement::AliasIdentifier(_, _) => {
+                // エイリアスはシンボルテーブルに登録しない - パス0 で処理済み
+            }
             _ => {}
         }
     }
@@ -853,6 +893,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.variables,
             &temporary_scope.identifier_map,
             &constexpr_table_temp,
+            &alias_map_temp,
             is_function_scope,
             func_global_index,
         );
@@ -865,6 +906,7 @@ fn analyze_internal_with_parent(
             &temporary_scope.variables,
             &temporary_scope.identifier_map,
             &constexpr_table_temp,
+            &alias_map_temp,
             is_function_scope,
             func_global_index,
         );
@@ -1093,12 +1135,15 @@ fn analyze_internal_with_parent(
                 };
                 // for-init スコープの constexpr は展開済みのため、空のテーブルを渡す
                 let for_init_empty_constexpr: BTreeMap<String, i64> = BTreeMap::new();
+                // for-init スコープの alias は展開済みのため、空のテーブルを渡す
+                let for_init_empty_alias: BTreeMap<String, String> = BTreeMap::new();
                 for_resolver.enter_scope(
                     &init_scope.variable_indices,
                     &init_scope.variable_name_to_var_index,
                     &init_scope.variables,
                     &init_scope.identifier_map,
                     &for_init_empty_constexpr,
+                    &for_init_empty_alias,
                     false,
                     None,
                 );
@@ -1183,6 +1228,9 @@ fn analyze_internal_with_parent(
             }
             Statement::ConstexprDeclaration(_, _) => {
                 // コンパイル時定数はパス0で処理済み。ExecStatement は生成しない
+            }
+            Statement::AliasIdentifier(_, _) => {
+                // エイリアスはパス0で処理済み。ExecStatement は生成しない
             }
             Statement::Invalid(_) => (),
         }

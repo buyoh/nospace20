@@ -16,7 +16,18 @@
 
 ## 1. alias（エイリアス）
 
-**状態**: ❌ 未実装
+**状態**: ✅ 実装済み（識別子エイリアスのみ。ブロックエイリアスは Step 4）
+
+**実装内容**:
+- `token_parser/mod.rs`: `Keyword::Alias` を追加
+- `tree_parser/statement/mod.rs`: `Statement::AliasIdentifier(String, String)` を追加、パーサー実装
+- `semantic_analyzer/scope.rs`: `ScopeInfo::alias_map` フィールド追加、`ScopeResolver::resolve_alias_chain` メソッド追加（巡回参照検知付き）
+- `semantic_analyzer/mod.rs`: Pass 0 に alias 収集追加（`collect_alias_map`）、変数/関数参照時に alias チェーン解決
+- テストケース追加: `alias_var_001`, `alias_func_001`, `alias_chain_001`, `alias_forward_ref_001`（成功）、`alias_circular_001`（コンパイルエラー）
+
+**制限事項**:
+- `for:` の初期化ブロック内の alias は同 for の条件・更新・本体ブロックからは不可視（空の alias テーブルを渡している）
+- `&alias_var` のアドレス参照は未対応（`Expression::Operation1(Ref, Variable)` でのエイリアス解決が必要）
 
 **説明**: コンパイル時の名前置換機構。識別子名のエイリアス、またはブロックスコープの置換を定義する。
 alias はランタイム実体を持たず、コンパイル時に完全に解決される。
@@ -313,8 +324,8 @@ func: __main() {
 | Step | 内容 | 依存 | 状態 |
 |------|------|------|------|
 | 1 | 純粋演算評価の共有モジュール (`base/pure_eval`) | なし | ✅ 実装済み |
-| 2 | constexpr（式形式） | Step 1 | ❌ 未実装 |
-| 3 | alias（識別子エイリアス） | なし | ❌ 未実装 |
+| 2 | constexpr（式形式） | Step 1 | ✅ 実装済み |
+| 3 | alias（識別子エイリアス） | なし | ✅ 実装済み |
 | 4 | alias（ブロックエイリアス） | Step 3 | ❌ 未実装 |
 | 5 | final 変数 | なし | ❌ 未実装 |
 | 6 | constexpr ブロック形式 | Step 2 | ❌ 未設計 |
