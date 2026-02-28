@@ -1,0 +1,6 @@
+# テンプレート関数を直接呼び出すとエラーになるテスト #
+func: tmpl(x), alias: constexpr: n { return: x + n; }
+alias: add_ten(tmpl, 10);
+func: __main() {
+  __puti(tmpl(5));
+}

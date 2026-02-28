@@ -1,0 +1,16 @@
+# 複数インスタンスで同一 static 変数を共有するテスト #
+func: add_to(val), alias: static: counter {
+  counter = counter + val;
+  return: counter;
+}
+
+static: total(0);
+# 両方同じ total を参照する #
+alias: add_small(add_to, total);
+alias: add_large(add_to, total);
+
+func: __main() {
+  __puti(add_small(5));
+  __puti(add_small(3));
+  __puti(add_large(10));
+}

@@ -1,0 +1,6 @@
+# テンプレート引数の数が多すぎるとエラーになるテスト #
+func: tmpl(x), alias: constexpr: n { return: x + n; }
+alias: bad(tmpl, 10, 20);
+func: __main() {
+  __puti(bad(5));
+}

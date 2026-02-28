@@ -12,7 +12,7 @@ pub(crate) use self::expression::LocatedExpression;
 pub(crate) use self::expression::Operator1;
 pub(crate) use self::expression::Operator2;
 use self::statement::parse_to_statements;
-pub(crate) use self::statement::{LocatedStatement, Statement};
+pub(crate) use self::statement::{AliasArg, AliasParam, AliasParamKind, LocatedStatement, Statement};
 
 #[macro_use]
 mod macros;

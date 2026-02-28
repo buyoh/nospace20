@@ -10,6 +10,33 @@ use super::expression::*;
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
+/// テンプレート関数の alias パラメータの種類
+#[derive(Clone, Debug, PartialEq)]
+pub enum AliasParamKind {
+    /// `alias: func: name(arg1, arg2, ...)` — 関数パラメータ（引数名リスト付き）
+    Func(Vec<String>),
+    /// `alias: constexpr: name` — コンパイル時定数パラメータ
+    Constexpr,
+    /// `alias: static: name` — static 変数参照パラメータ（外部 static 変数への読み書きアクセス）
+    Static,
+}
+
+/// テンプレート関数の alias パラメータ定義
+#[derive(Clone, Debug, PartialEq)]
+pub struct AliasParam {
+    pub name: String,
+    pub kind: AliasParamKind,
+}
+
+/// テンプレートインスタンス化時の alias 引数
+#[derive(Clone, Debug, PartialEq)]
+pub enum AliasArg {
+    /// 関数名や変数名（識別子）
+    Identifier(String),
+    /// 整数リテラル
+    Value(i64),
+}
+
 #[derive(Clone, Debug)]
 pub enum Statement {
     VariableDeclaration(String, Box<LocatedExpression>, bool, bool, Option<i64>), // (name, init_expr, is_static, is_final, array_size)
@@ -23,6 +50,22 @@ pub enum Statement {
     /// コンパイル時にブロック AST を名前に紐付け、呼び出し時にインライン展開する
     AliasBlock(String, Vec<LocatedStatement>), // (name, body)
     FunctionDeclaration(String, Vec<String>, Vec<LocatedStatement>),
+    /// テンプレート関数定義: `func: name(args), alias: kind: param ... { body }`
+    /// インスタンス化（AliasInstantiation）時に初めて具体的な関数が生成される。
+    /// テンプレート自体はコード生成の対象にならない。
+    TemplateFunctionDefinition {
+        name: String,
+        args: Vec<String>,
+        alias_params: Vec<AliasParam>,
+        body: Vec<LocatedStatement>,
+    },
+    /// テンプレートインスタンス化: `alias: new_name(template_name, arg1, ...);`
+    /// semantic_analyzer の pre-pass で FunctionDeclaration に展開される。
+    AliasInstantiation {
+        name: String,
+        template_name: String,
+        alias_args: Vec<AliasArg>,
+    },
     Continue,
     Break,
     Return(Option<Box<LocatedExpression>>),
@@ -230,6 +273,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     ///
     /// - `alias: name(target), name2(target2);` → 識別子エイリアス（複数定義可）
     /// - `alias: name { 文... };` → ブロックエイリアス（単一定義のみ）
+    /// - `alias: name(template, arg1, arg2, ...);` → テンプレートインスタンス化（引数 2 つ以上）
     fn parse_alias_declarations(&mut self, start_pos: usize) -> Vec<LocatedStatement> {
         self.iter.next(); // Alias キーワードを消費
 
@@ -264,11 +308,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     break;
                 }
                 Some((Token::ParenthesisL, _)) => {
-                    // 識別子エイリアス: alias: name(target)
-                    self.iter.next(); // '(' を消費
+                    // `(` を消費
+                    self.iter.next();
 
-                    // ターゲット識別子を取得
-                    let target = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                    // 最初の引数（識別子）を取得
+                    let first_target = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
                         Ok(x) => x,
                         Err(e) => {
                             results.push(LocatedStatement {
@@ -280,23 +324,95 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                         }
                     };
 
-                    // ')' を消費
-                    match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
-
-                    let end_pos = self.current_pos_or(start_pos);
-                    let loc = SourceLocation::new(start_pos, end_pos);
-
-                    results.push(LocatedStatement {
-                        statement: Statement::AliasIdentifier(name.to_string(), target.to_string()),
-                        location: loc,
-                    });
-
-                    // ',' または ';' を確認
+                    // 次のトークンで単一引数か複数引数かを判定
                     match self.iter.peek() {
                         Some((Token::Comma, _)) => {
-                            self.iter.next(); // ',' を消費して次の定義へ
+                            // 複数引数 → テンプレートインスタンス化
+                            // alias: name(template_name, arg1, arg2, ...)
+                            let mut alias_args: Vec<AliasArg> = Vec::new();
+                            while let Some((Token::Comma, _)) = self.iter.peek() {
+                                self.iter.next(); // ',' を消費
+                                // alias 引数: 識別子 または 整数
+                                match self.iter.next() {
+                                    Some((Token::Identifier(arg_id), _)) => {
+                                        alias_args.push(AliasArg::Identifier(arg_id.clone()));
+                                    }
+                                    Some((Token::Number(n), _)) => {
+                                        alias_args.push(AliasArg::Value(*n));
+                                    }
+                                    Some((_, token_info)) => {
+                                        let err_idx = self.add_parse_error(token_info, "expected identifier or integer as alias argument");
+                                        results.push(LocatedStatement {
+                                            statement: Statement::Invalid(err_idx),
+                                            location: SourceLocation::from_single(start_pos),
+                                        });
+                                        self.skip_to_semicolon();
+                                        return results;
+                                    }
+                                    None => {
+                                        let err_idx = self.add_end_error("unexpected end of input in alias instantiation");
+                                        results.push(LocatedStatement {
+                                            statement: Statement::Invalid(err_idx),
+                                            location: SourceLocation::from_single(start_pos),
+                                        });
+                                        return results;
+                                    }
+                                }
+                            }
+                            // ')' を消費
+                            match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
+
+                            let end_pos = self.current_pos_or(start_pos);
+                            let loc = SourceLocation::new(start_pos, end_pos);
+                            results.push(LocatedStatement {
+                                statement: Statement::AliasInstantiation {
+                                    name: name.to_string(),
+                                    template_name: first_target.to_string(),
+                                    alias_args,
+                                },
+                                location: loc,
+                            });
+
+                            // テンプレートインスタンス化は単一定義 → ループを抜ける
+                            break;
                         }
-                        _ => break, // ';' または予期しないトークン → ループを抜ける
+                        Some((Token::ParenthesisR, _)) => {
+                            // 単一引数 → 識別子エイリアス (既存の動作)
+                            self.iter.next(); // ')' を消費
+
+                            let end_pos = self.current_pos_or(start_pos);
+                            let loc = SourceLocation::new(start_pos, end_pos);
+
+                            results.push(LocatedStatement {
+                                statement: Statement::AliasIdentifier(name.to_string(), first_target.to_string()),
+                                location: loc,
+                            });
+
+                            // ',' または ';' を確認
+                            match self.iter.peek() {
+                                Some((Token::Comma, _)) => {
+                                    self.iter.next(); // ',' を消費して次の定義へ
+                                }
+                                _ => break, // ';' または予期しないトークン → ループを抜ける
+                            }
+                        }
+                        Some((_, token_info)) => {
+                            let err_idx = self.add_parse_error(token_info, "expected ',' or ')' after alias target");
+                            results.push(LocatedStatement {
+                                statement: Statement::Invalid(err_idx),
+                                location: SourceLocation::from_single(start_pos),
+                            });
+                            self.skip_to_semicolon();
+                            return results;
+                        }
+                        None => {
+                            let err_idx = self.add_end_error("unexpected end of input in alias declaration");
+                            results.push(LocatedStatement {
+                                statement: Statement::Invalid(err_idx),
+                                location: SourceLocation::from_single(start_pos),
+                            });
+                            return results;
+                        }
                     }
                 }
                 Some((_, token_info)) => {
@@ -829,6 +945,98 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         results
     }
 
+    /// `func:` キーワードに続くエイリアスパラメータリストをパースする。
+    ///
+    /// 呼び出し元で `func: name(args)` まで消費済み。`)` の直後から読み込む。
+    /// `,` が続く限り `alias: kind: name(params)` 形式を繰り返しパースする。
+    fn parse_alias_params(&mut self, start_pos: usize) -> Vec<AliasParam> {
+        let mut params = Vec::new();
+        // ',' alias: kind: name ... という連続パターン
+        while matches!(self.iter.peek(), Some((Token::Comma, _))) {
+            self.iter.next(); // ',' を消費
+
+            // 次が alias: キーワードでなければ終了（通常関数の場合の安全策）
+            if !matches!(self.iter.peek(), Some((Token::Keyword(Keyword::Alias), _))) {
+                // comma を戻すことができないので、エラーとして終了
+                break;
+            }
+            self.iter.next(); // 'alias:' キーワードを消費
+
+            // 'func:', 'constexpr:', 'static:' のいずれかを期待
+            match self.iter.next() {
+                Some((Token::Keyword(Keyword::Func), _)) => {
+                    // alias: func: name(arg1, arg2, ...)
+                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                        Ok(x) => x,
+                        Err(_) => break,
+                    };
+                    // 引数リストをパース
+                    match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisL);
+                    let mut func_args = Vec::new();
+                    loop {
+                        match self.iter.peek() {
+                            Some((Token::ParenthesisR, _)) => {
+                                self.iter.next();
+                                break;
+                            }
+                            Some((Token::Identifier(_), _)) => {
+                                if let Some((Token::Identifier(arg_name), _)) = self.iter.next() {
+                                    func_args.push(arg_name.clone());
+                                }
+                                if let Some((Token::Comma, _)) = self.iter.peek() {
+                                    self.iter.next();
+                                }
+                            }
+                            _ => {
+                                self.iter.next();
+                                break;
+                            }
+                        }
+                    }
+                    params.push(AliasParam {
+                        name: param_name.to_string(),
+                        kind: AliasParamKind::Func(func_args),
+                    });
+                }
+                Some((Token::Keyword(Keyword::Constexpr), _)) => {
+                    // alias: constexpr: name
+                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                        Ok(x) => x,
+                        Err(_) => break,
+                    };
+                    params.push(AliasParam {
+                        name: param_name.to_string(),
+                        kind: AliasParamKind::Constexpr,
+                    });
+                }
+                Some((Token::Keyword(Keyword::Static), _)) => {
+                    // alias: static: name
+                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                        Ok(x) => x,
+                        Err(_) => break,
+                    };
+                    params.push(AliasParam {
+                        name: param_name.to_string(),
+                        kind: AliasParamKind::Static,
+                    });
+                }
+                Some((_, token_info)) => {
+                    self.add_parse_error(
+                        token_info,
+                        "expected 'func:', 'constexpr:', or 'static:' after 'alias:' in template parameter",
+                    );
+                    break;
+                }
+                None => {
+                    self.add_end_error("unexpected end of input in template alias parameter");
+                    break;
+                }
+            }
+        }
+        let _ = start_pos;
+        params
+    }
+
     fn parse_to_statements_func(&mut self, start_pos: usize) -> LocatedStatement {
         // 呼び出し元が既に Token::Keyword(Keyword::Func) を確認済み
         // Keyword トークンがコロンを内包済みのため、コロン消費は不要
@@ -888,6 +1096,35 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
             }
         }
+
+        // ')' の後に ',' alias: ... が続く場合はテンプレート関数
+        if matches!(self.iter.peek(), Some((Token::Comma, _))) {
+            // 次が alias: キーワードかどうか先読みして確認できないため、
+            // parse_alias_params に委譲する。alias: が続かない場合は空リストを返す。
+            let alias_params = self.parse_alias_params(start_pos);
+            if !alias_params.is_empty() {
+                // テンプレート関数: `{` を期待
+                if let Err(e) = match_expect_token!(self, self.iter.peek(), Token::BraceL) {
+                    self.iter.next();
+                    return LocatedStatement {
+                        statement: Statement::Invalid(e),
+                        location: SourceLocation::from_single(start_pos),
+                    };
+                }
+                let body = self.parse_to_statements_block();
+                let end_pos = self.current_pos_or(start_pos);
+                return LocatedStatement {
+                    statement: Statement::TemplateFunctionDefinition {
+                        name: id.clone(),
+                        args,
+                        alias_params,
+                        body,
+                    },
+                    location: SourceLocation::new(start_pos, end_pos),
+                };
+            }
+        }
+
         if let Err(e) = match_expect_token!(self, self.iter.peek(), Token::BraceL) {
             self.iter.next(); // NOTE: nextが安全だが不親切とは思う
             return LocatedStatement {

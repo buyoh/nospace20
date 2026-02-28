@@ -1,0 +1,12 @@
+# constexpr alias パラメータの基本動作 #
+func: offset_add(x), alias: constexpr: offset {
+  return: x + offset;
+}
+
+alias: add_ten(offset_add, 10);
+alias: add_five(offset_add, 5);
+
+func: __main() {
+  __puti(add_ten(3));
+  __puti(add_five(3));
+}

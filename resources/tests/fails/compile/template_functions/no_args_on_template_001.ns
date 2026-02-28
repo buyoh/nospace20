@@ -1,0 +1,6 @@
+# テンプレート関数に対して引数なし alias を使うとエラーになるテスト #
+func: tmpl(x), alias: constexpr: n { return: x + n; }
+alias: bad(tmpl);
+func: __main() {
+  __puti(bad(5));
+}

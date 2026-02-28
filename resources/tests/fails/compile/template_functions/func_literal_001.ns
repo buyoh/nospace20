@@ -1,0 +1,7 @@
+# func: alias パラメータに整数リテラルを渡すとエラーになるテスト #
+func: double(x) { return: x * 2; }
+func: tmpl(x), alias: func: f(a) { return: f(x); }
+alias: bad(tmpl, 42);
+func: __main() {
+  __puti(bad(5));
+}

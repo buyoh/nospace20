@@ -1352,3 +1352,80 @@ tests:
     type: compile_error
     path: for_cond_void_001
     comment: "for 文の条件ブロックが void→コンパイルエラー"
+
+  # テンプレート関数 (Template Functions)
+
+  - name: test_template_func_basic_001
+    type: success_io
+    path: template_functions/basic_001
+    comment: "テンプレート関数: constexpr alias パラメータの基本動作"
+
+  - name: test_template_func_func_alias_001
+    type: success_io
+    path: template_functions/func_alias_001
+    comment: "テンプレート関数: func alias パラメータの基本動作"
+
+  - name: test_template_func_multi_alias_001
+    type: success_io
+    path: template_functions/multi_alias_001
+    comment: "テンプレート関数: 複数の alias パラメータ（func + constexpr）"
+
+  - name: test_template_func_static_alias_001
+    type: success_io
+    path: template_functions/static_alias_001
+    comment: "テンプレート関数: static alias パラメータ（外部変数を渡す）"
+
+  - name: test_template_func_static_shared_001
+    type: success_io
+    path: template_functions/static_shared_001
+    comment: "テンプレート関数: 共有 static 変数を複数インスタンスから参照"
+
+  - name: test_template_func_static_independent_001
+    type: success_io
+    path: template_functions/static_independent_001
+    comment: "テンプレート関数: 異なる static 変数を各インスタンスに割り当て"
+
+  - name: test_template_func_hoisting_001
+    type: success_io
+    path: template_functions/hoisting_001
+    comment: "テンプレート関数: alias 宣言より後に template 定義があってもよい（ホイスティング）"
+
+  - name: test_template_func_scope_independent_001
+    type: success_io
+    path: template_functions/scope_independent_001
+    comment: "テンプレート関数: インスタンス間で内部 static 変数が独立している"
+
+  - name: test_template_func_while_loop_001
+    type: success_io
+    path: template_functions/recursive_001
+    comment: "テンプレート関数: while ループを使った加算処理"
+
+  - name: test_template_func_direct_call_001
+    type: compile_error
+    path: template_functions/direct_call_001
+    comment: "テンプレート関数を直接呼び出すとコンパイルエラー"
+
+  - name: test_template_func_arg_mismatch_001
+    type: compile_error
+    path: template_functions/arg_mismatch_001
+    comment: "alias 引数の数が多すぎる→コンパイルエラー"
+
+  - name: test_template_func_no_args_on_template_001
+    type: compile_error
+    path: template_functions/no_args_on_template_001
+    comment: "テンプレートに alias 引数なしの alias → コンパイルエラー"
+
+  - name: test_template_func_func_literal_001
+    type: compile_error
+    path: template_functions/func_literal_001
+    comment: "func: alias パラメータに整数リテラルを渡す→コンパイルエラー"
+
+  - name: test_template_func_static_literal_001
+    type: compile_error
+    path: template_functions/static_literal_001
+    comment: "static: alias パラメータに整数リテラルを渡す→コンパイルエラー"
+
+  - name: test_template_func_not_template_001
+    type: compile_error
+    path: template_functions/not_template_001
+    comment: "テンプレートでない関数に alias インスタンス化を使う→コンパイルエラー"

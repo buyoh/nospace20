@@ -1,0 +1,7 @@
+# static: alias パラメータに整数リテラルを渡すとエラーになるテスト #
+static: gvar(100);
+func: tmpl(x), alias: static: s { s = s + x; return: s; }
+alias: bad(tmpl, 42);
+func: __main() {
+  __puti(bad(5));
+}

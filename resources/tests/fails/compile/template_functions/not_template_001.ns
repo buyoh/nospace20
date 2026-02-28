@@ -1,0 +1,6 @@
+# テンプレートでない関数に alias インスタンス化を使うとエラーになるテスト #
+func: regular_func(x) { return: x * 2; }
+alias: bad(regular_func, 10);
+func: __main() {
+  __puti(bad(5));
+}

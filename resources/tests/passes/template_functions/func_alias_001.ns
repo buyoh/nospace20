@@ -1,0 +1,15 @@
+# func alias パラメータの基本動作 #
+func: double(n) { return: n * 2; }
+func: triple(n) { return: n * 3; }
+
+func: apply(x), alias: func: f(a) {
+  return: f(x);
+}
+
+alias: apply_double(apply, double);
+alias: apply_triple(apply, triple);
+
+func: __main() {
+  __puti(apply_double(5));
+  __puti(apply_triple(5));
+}

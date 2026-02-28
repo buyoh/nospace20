@@ -1,0 +1,4 @@
+{
+  "type": "compile_error",
+  "contains": ["static alias parameter", "requires a static variable name", "integer literal"]
+}

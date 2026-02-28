@@ -1,0 +1,19 @@
+# テンプレート関数内でwhile文を使うテスト #
+# BASE から n まで加算する関数 #
+func: sum_up_to(n), alias: constexpr: BASE {
+  let: acc(0);
+  let: i(BASE);
+  while: i <= n {
+    acc = acc + i;
+    i = i + 1;
+  };
+  return: acc;
+}
+
+alias: sum_from_1(sum_up_to, 1);
+alias: sum_from_3(sum_up_to, 3);
+
+func: __main() {
+  __puti(sum_from_1(5));   # 1+2+3+4+5=15 #
+  __puti(sum_from_3(6));   # 3+4+5+6=18 #
+}

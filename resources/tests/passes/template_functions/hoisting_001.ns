@@ -1,0 +1,11 @@
+# テンプレート定義・インスタンス化のホイスティングテスト #
+# 使用より後に定義・インスタンス化されていても動作する #
+func: __main() {
+  __puti(my_add(3, 4));
+}
+
+alias: my_add(tmpl_add, 10);
+
+func: tmpl_add(a, b), alias: constexpr: bias {
+  return: a + b + bias;
+}

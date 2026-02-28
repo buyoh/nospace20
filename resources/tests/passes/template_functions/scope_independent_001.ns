@@ -1,0 +1,17 @@
+# スコープ独立性: 各インスタンスがそれぞれ独立した static 変数を保持するテスト #
+func: counter(), alias: constexpr: step {
+  static: count(0);
+  count = count + step;
+  return: count;
+}
+
+alias: inc1(counter, 1);
+alias: inc5(counter, 5);
+
+func: __main() {
+  __puti(inc1());
+  __puti(inc1());
+  __puti(inc5());
+  __puti(inc5());
+  __puti(inc1());
+}

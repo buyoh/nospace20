@@ -1,0 +1,17 @@
+# static alias パラメータで外部 static 変数を参照するテスト #
+func: accumulate(val), alias: static: acc {
+  acc = acc + val;
+  return: acc;
+}
+
+static: count_a(0);
+static: count_b(100);
+alias: add_to_a(accumulate, count_a);
+alias: add_to_b(accumulate, count_b);
+
+func: __main() {
+  __puti(add_to_a(1));
+  __puti(add_to_a(2));
+  __puti(add_to_b(10));
+  __puti(add_to_b(5));
+}

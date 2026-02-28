@@ -69,6 +69,12 @@ global_stmt ::=
 
 func ::=
     | "func" ":" ident "(" (ident ("," ident)*)? ")" block
+    | "func" ":" ident "(" (ident ("," ident)*)? ")" ("," "alias" ":" alias_param ("," alias_param)*)? block
+
+alias_param ::=
+    | "constexpr" ":" ident
+    | "func" ":" ident ("(" (ident ("," ident)*)? ")")?
+    | "static" ":" ident
 
 let ::=
     | "let" ":" let_decl ("," let_decl)* ";"
@@ -87,7 +93,12 @@ constexpr ::=
 
 alias ::=
     | "alias" ":" ident "(" ident ")" ("," ident "(" ident ")")* ";"   # 識別子エイリアス
+    | "alias" ":" ident "(" ident "," alias_arg ("," alias_arg)* ")" ("," ident "(" ident "," alias_arg ("," alias_arg)* ")")* ";"  # テンプレートインスタンス化
     | "alias" ":" ident block ";"                                       # ブロックエイリアス
+
+alias_arg ::=
+    | ident    # 関数名・static 変数名・constexpr 識別子
+    | integer  # constexpr パラメータへの整数リテラル
 
 let_decl ::= ident ("[" integer? "]")? ("(" array_init | string_init | expr ")")?
 array_init ::= "[" expr ("," expr)* "]"

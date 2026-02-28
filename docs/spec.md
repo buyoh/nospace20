@@ -408,6 +408,75 @@ func: __main() {
 - 戻り値はブロックの最後の式の値（ブロック式と同じ）。
 - ホイスティングされる。巡回参照（再帰展開）はコンパイルエラー。
 
+## テンプレート関数
+
+関数定義に **alias パラメータ** を追加することで、コンパイル時にパラメータが決定されるテンプレート関数を定義できる。
+
+```
+func: add_n(x), alias: constexpr: n { return: x + n; }
+alias: add_ten(add_n, 10);
+alias: add_five(add_n, 5);
+func: __main() {
+  __puti(add_ten(3));  # 13 #
+  __puti(add_five(3)); # 8  #
+}
+```
+
+### テンプレート関数の定義
+
+```
+func: name(arg1, ...), alias: <alias_params> { ... }
+```
+
+alias パラメータは `, alias:` に続けて以下のいずれかを記述する（複数可）:
+
+| 種類 | 構文 | 説明 |
+|------|------|------|
+| `constexpr:` | `alias: constexpr: n` | コンパイル時定数（整数リテラルまたは識別子）を受け取る |
+| `func:` | `alias: func: f(a, b)` | 関数名を受け取る。`f(a, b)` は関数のシグネチャのヒントであり省略可 |
+| `static:` | `alias: static: s` | static 変数名を受け取る |
+
+複数の alias パラメータを指定する場合はカンマ区切りで並べる:
+
+```
+func: apply(x), alias: func: callback(a), constexpr: scale {
+  return: callback(x) * scale;
+}
+```
+
+### テンプレート関数のインスタンス化
+
+`alias` 宣言に **2つ以上の引数**を渡すと、テンプレートのインスタンス化になる:
+
+```
+alias: instance_name(template_func, arg1, arg2, ...);
+```
+
+- 第1引数: テンプレート関数名
+- 第2引数以降: alias パラメータに対応する引数（定義順に対応）
+
+```
+static: counter_a(0);
+static: counter_b(0);
+func: tmpl(x), alias: static: bucket, constexpr: step {
+  bucket = bucket + x * step;
+  return: bucket;
+}
+alias: accum_a(tmpl, counter_a, 2);  # counter_a を使い、2倍して加算 #
+alias: accum_b(tmpl, counter_b, 3);  # counter_b を使い、3倍して加算 #
+```
+
+### テンプレートのルール
+
+- テンプレート関数は通常の関数として直接呼び出せない（コンパイルエラー）。
+- `alias: f(tmpl)` (1引数) でテンプレートを参照するとエラー。必ずインスタンス化すること。
+- alias 引数の数が alias パラメータ数と一致しない場合はコンパイルエラー。
+- `constexpr:` パラメータには整数リテラルまたは識別子（他の constexpr）を渡せる。
+- `func:` パラメータには関数名（識別子）を渡す。整数リテラルはコンパイルエラー。
+- `static:` パラメータには static 変数名（識別子）を渡す。整数リテラルはコンパイルエラー。
+- インスタンス化された関数は、それぞれ独立したコピーを持つ（`static` 変数も独立）。
+- ホイスティングされる（alias 宣言より後にテンプレート定義があっても良い）。
+
 ## 制御構文: 文
 
 ### return 文

@@ -1,0 +1,17 @@
+# 異なる static 変数を渡して独立動作するテスト #
+func: accumulate(val), alias: static: acc {
+  acc = acc + val;
+  return: acc;
+}
+
+static: count_x(0);
+static: count_y(0);
+alias: acc_x(accumulate, count_x);
+alias: acc_y(accumulate, count_y);
+
+func: __main() {
+  __puti(acc_x(10));
+  __puti(acc_y(20));
+  __puti(acc_x(5));
+  __puti(acc_y(3));
+}

@@ -1,0 +1,16 @@
+# func + constexpr の複数 alias パラメータ混在テスト #
+func: double(n) { return: n * 2; }
+func: triple(n) { return: n * 3; }
+
+# mapper: 変換関数, offset: 定数オフセット #
+func: transform_with_offset(x), alias: func: mapper(v), alias: constexpr: offset {
+  return: mapper(x) + offset;
+}
+
+alias: double_plus_100(transform_with_offset, double, 100);
+alias: triple_plus_1(transform_with_offset, triple, 1);
+
+func: __main() {
+  __puti(double_plus_100(3));
+  __puti(triple_plus_1(4));
+}
