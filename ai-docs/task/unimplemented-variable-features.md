@@ -7,9 +7,10 @@
 ## 目次
 
 1. [alias（エイリアス）](#1-aliasエイリアス)
-2. [const（コンパイル時定数エイリアス）](#2-constコンパイル時定数エイリアス)
+2. [constexpr（コンパイル時定数エイリアス）](#2-constexprコンパイル時定数エイリアス)
 3. [final 変数](#3-final-変数)
 4. [実装計画](#4-実装計画)
+5. [設計上の未決定事項](#5-設計上の未決定事項)
 
 ---
 
@@ -158,28 +159,28 @@ alias: b { a(); };  # 識別子 a → 変数/関数 b? → ブロック b? #
 
 ---
 
-## 2. const（コンパイル時定数エイリアス）
+## 2. constexpr（コンパイル時定数エイリアス）
 
 **状態**: ❌ 未実装（旧設計から変更）
 
 **旧設計との違い**:
 - 旧設計: `const` は再代入不可の変数（スタックスロットを確保）
-- 新設計: `const` はコンパイル時に解決される定数エイリアス（変数ではない）
-- `const` は `alias` の制約付きバージョンとして位置づけられる
+- 新設計: `constexpr` はコンパイル時に解決される定数エイリアス（変数ではない）
+- `constexpr` は `alias` の制約付きバージョンとして位置づけられる
 
 ### 2.1 構文
 
 ```nospace
-const: PI(3);                  # リテラル定数 #
-const: SIZE(2 + 3);            # コンパイル時式（= 5 に解決）#
-const: DOUBLE_PI(PI * 2);      # 他の const を参照可能 #
-# const: X(variable);          # コンパイルエラー: 非定数式 #
-# const: Y(func1());           # コンパイルエラー: 関数呼び出しは非定数 #
+constexpr: PI(3);                  # リテラル定数 #
+constexpr: SIZE(2 + 3);            # コンパイル時式（= 5 に解決）#
+constexpr: DOUBLE_PI(PI * 2);      # 他の constexpr を参照可能 #
+# constexpr: X(variable);          # コンパイルエラー: 非定数式 #
+# constexpr: Y(func1());           # コンパイルエラー: 関数呼び出しは非定数 #
 ```
 
 ### 2.2 セマンティクス
 
-- `const: name(expr)` で `name` をコンパイル時定数として定義
+- `constexpr: name(expr)` で `name` をコンパイル時定数として定義
 - `expr` はコンパイル時に評価可能でなければならない（定数式）
 - 評価結果は単一の整数値（`Factor(value)` に置換）
 - スタックスロットを確保しない（変数ではない）
@@ -194,7 +195,7 @@ const: DOUBLE_PI(PI * 2);      # 他の const を参照可能 #
 |----------|---------|------|
 | 数値リテラル | ✅ | `42`, `0xFF` |
 | 文字リテラル | ✅ | `'A'`, `'\n'` |
-| 他の const 参照 | ✅ | 解決済みの値を使用 |
+| 他の constexpr 参照 | ✅ | 解決済みの値を使用 |
 | 算術演算 (+, -, *, /, %) | ✅ | オペランドが定数式の場合 |
 | 比較演算 (==, !=, <, <=, >, >=) | ✅ | オペランドが定数式の場合 |
 | 論理演算 (&&, \|\|, !) | ✅ | オペランドが定数式の場合 |
@@ -205,12 +206,12 @@ const: DOUBLE_PI(PI * 2);      # 他の const を参照可能 #
 **評価器の実装**:
 
 ```
-evaluate_constexpr(expr, const_table) -> Result<i64, Error>:
+evaluate_constexpr(expr, constexpr_table) -> Result<i64, Error>:
   match expr:
     Factor(n) → Ok(n)
     Variable(name):
-      if name ∈ const_table:
-        Ok(const_table[name])
+      if name ∈ constexpr_table:
+        Ok(constexpr_table[name])
       else:
         Err("not a compile-time constant")
     Operation1(Neg, e) → Ok(-evaluate_constexpr(e, const_table)?)
@@ -223,11 +224,11 @@ evaluate_constexpr(expr, const_table) -> Result<i64, Error>:
 - 既存の最適化パスの定数畳み込み（constant_folding）と類似のロジック
 - 0 除算はコンパイルエラーとして報告
 
-### 2.4 const ブロック形式（将来拡張）
+### 2.4 constexpr ブロック形式（将来拡張）
 
 ```nospace
 # 将来的に検討 #
-const: VALUE {
+constexpr: VALUE {
   let: tmp(3);
   tmp * tmp;   # = 9 #
 };
@@ -236,19 +237,19 @@ const: VALUE {
 ブロック内の全ての処理がコンパイル時に評価可能な場合のみ許可。
 初回実装では式形式のみをサポートし、ブロック形式は将来拡張とする。
 
-### 2.5 const のホイスティングと定義順序
+### 2.5 constexpr のホイスティングと定義順序
 
-- const はスコープ内でホイスティングされる
-- ただし、const の初期化式内で別の const を参照する場合、
-  参照先の const が先に定義されている（or 同一スコープ内で定義されている）必要がある
+- constexpr はスコープ内でホイスティングされる
+- ただし、constexpr の初期化式内で別の constexpr を参照する場合、
+  参照先の constexpr が先に定義されている（or 同一スコープ内で定義されている）必要がある
 - 巡回参照はコンパイルエラー
 
 ```nospace
-const: A(B + 1);  # OK: B は同一スコープ内で定義 #
-const: B(10);
+constexpr: A(B + 1);  # OK: B は同一スコープ内で定義 #
+constexpr: B(10);
 
-# const: X(Y + 1);  巡回参照エラー #
-# const: Y(X + 1);  #
+# constexpr: X(Y + 1);  巡回参照エラー #
+# constexpr: Y(X + 1);  #
 ```
 
 ---
@@ -258,7 +259,7 @@ const: B(10);
 **状態**: ❌ 未実装
 
 **説明**: 一度だけ代入可能で、その後は再代入不可の変数。
-const とは異なり、ランタイム値を保持できる実体のある変数。
+constexpr とは異なり、ランタイム値を保持できる実体のある変数。
 
 ### 3.1 構文
 
@@ -303,8 +304,8 @@ func: __main() {
 
 | 変更 | 内容 |
 |------|------|
-| `Keyword` enum に追加 | `Alias`, `Const` (final は別タスク) |
-| `as_keyword_token` に追加 | `"alias"` → `Keyword::Alias`, `"const"` → `Keyword::Const` |
+| `Keyword` enum に追加 | `Alias`, `Constexpr` (final は別タスク) |
+| `as_keyword_token` に追加 | `"alias"` → `Keyword::Alias`, `"constexpr"` → `Keyword::Constexpr` |
 
 #### tree_parser/statement
 
@@ -312,9 +313,9 @@ func: __main() {
 |------|------|
 | `Statement` enum に追加 | `AliasIdentifier(String, String)` — 識別子エイリアス (name, target) |
 | `Statement` enum に追加 | `AliasBlock(String, Vec<LocatedStatement>)` — ブロックエイリアス (name, block) |
-| `Statement` enum に追加 | `ConstDeclaration(String, Box<LocatedExpression>)` — 定数定義 (name, expr) |
+| `Statement` enum に追加 | `ConstexprDeclaration(String, Box<LocatedExpression>)` — 定数定義 (name, expr) |
 | パース処理追加 | `alias:` キーワード後の構文解析 |
-| パース処理追加 | `const:` キーワード後の構文解析 |
+| パース処理追加 | `constexpr:` キーワード後の構文解析 |
 
 **alias 構文パース**:
 ```
@@ -322,59 +323,169 @@ func: __main() {
 "alias" ":" ident block ";"                       → AliasBlock
 ```
 
-**const 構文パース**:
+**constexpr 構文パース**:
 ```
-"const" ":" ident "(" expr ")" ("," ident "(" expr ")")* ";"   → ConstDeclaration (複数定義可)
+"constexpr" ":" ident "(" expr ")" ("," ident "(" expr ")")* ";"   → ConstexprDeclaration (複数定義可)
 ```
 
 #### semantic_analyzer
 
 | 変更 | 内容 |
 |------|------|
-| 新しいパス追加 | Pass 0: alias / const 定義の収集 |
+| 新しいパス追加 | Pass 0: alias / constexpr 定義の収集 |
 | `ScopeBuilder` に追加 | `alias_map: BTreeMap<String, AliasEntry>` |
-| `ScopeBuilder` に追加 | `const_table: BTreeMap<String, i64>` |
+| `ScopeBuilder` に追加 | `constexpr_table: BTreeMap<String, i64>` |
 | `ScopeResolver` に追加 | alias チェーン解決ロジック |
-| `ScopeResolver` に追加 | const テーブル参照 |
+| `ScopeResolver` に追加 | constexpr テーブル参照 |
 | 新規関数追加 | `evaluate_constexpr()` — 定数式評価器 |
 | 新規関数追加 | `resolve_alias_chain()` — エイリアスチェーン解決 |
 | 巡回検知追加 | 展開スタック / 訪問済みセットの管理 |
 
 **3パス → 4パス解析**:
 ```
-Pass 0:  alias / const 定義の収集・評価
+Pass 0:  alias / constexpr 定義の収集・評価
 Pass 1a: 関数宣言のホイスティング（既存）
 Pass 1b: 変数宣言のホイスティング（既存）
-Pass 2:  文の変換・識別子解決（既存 + alias/const 解決）
+Pass 2:  文の変換・識別子解決（既存 + alias/constexpr 解決）
 ```
 
 #### interpreter / compiler_ws
 
-- **変更不要**: alias と const はコンパイル時に完全に解決されるため、
+- **変更不要**: alias と constexpr はコンパイル時に完全に解決されるため、
   実行時の中間表現（ExecExpression / ExecStatement）には影響しない
 - alias → 名前解決の結果として IdentifierRef / ブロック式に変換済み
-- const → `Factor(value)` に置換済み
+- constexpr → `Factor(value)` に置換済み
 
 ### 4.2 実装優先順位
 
-1. **const** — 定数式評価器は比較的単純で、既存の定数畳み込みを流用可能
+1. **constexpr** — 定数式評価器は比較的単純で、既存の定数畳み込みを流用可能
 2. **alias（識別子）** — 名前解決テーブルへの追加で実現可能
 3. **alias（ブロック）** — AST クローン・展開のロジックが必要でやや複雑
 4. **final** — 代入チェックの実装が必要（別タスクとして実装してもよい）
 
-### 4.3 spec.md への反映
+### 4.3 純粋演算評価の共有モジュール
+
+constexpr の定数式評価器を実装する際、算術・比較・論理演算の評価ロジックが
+既存コード（interpreter、optimizer/constant_folding）と重複する。
+この重複を避けるため、純粋な演算評価を行う共有モジュールを導入する。
+
+#### 現状の重複
+
+以下の3箇所で同一の演算評価ロジックが必要になる:
+
+| モジュール | 用途 | 現状 |
+|-----------|------|------|
+| `src/interpreter/exec.rs` | ランタイム式評価 | `interpret_operation1` / `interpret_operation2` 内の match ブロック |
+| `src/optimizer/constant_folding.rs` | コンパイル時最適化 | `try_fold_op1` / `try_fold_op2` 内の match ブロック |
+| `src/semantic_analyzer/` (新規) | constexpr 定数式評価 | `evaluate_constexpr()` （未実装） |
+
+**重複する演算**:
+- 二項演算: `Plus`, `Minus`, `Multiply`, `Divide`, `Modulo`, `Equal`, `NotEqual`, `Less`, `LessEqual`, `Greater`, `GreaterEqual`
+- 単項演算: `Negative`, `LogicalNot`
+
+**現在の不整合**:
+- constant_folding は `wrapping_*` 系（オーバーフロー安全）を使用
+- interpreter は通常演算子（オーバーフロー時にパニック）を使用
+- 共有モジュール導入時にどちらに統一するか決定が必要
+
+#### 設計: `src/base/pure_eval.rs`
+
+`src/base/` に純粋演算評価モジュールを新設する。
+`base` モジュールは全コンパイラパスから参照可能であり、
+interpreter / optimizer / semantic_analyzer のいずれからも依存できる。
+
+```rust
+// src/base/pure_eval.rs
+
+use crate::tree_parser::{Operator1, Operator2};
+
+/// bool を nospace の整数表現（0/1）に変換する
+pub fn bool_to_int(b: bool) -> i64 {
+    if b { 1 } else { 0 }
+}
+
+/// 純粋な二項演算を評価する
+///
+/// 副作用を持つ演算（Assign 系）や短絡評価が必要な演算（LogicalAnd/Or）は
+/// None を返す。0除算も None を返す。
+pub fn eval_binary_pure(op: &Operator2, lhs: i64, rhs: i64) -> Option<i64> {
+    match op {
+        Operator2::Plus => Some(lhs.wrapping_add(rhs)),
+        Operator2::Minus => Some(lhs.wrapping_sub(rhs)),
+        Operator2::Multiply => Some(lhs.wrapping_mul(rhs)),
+        Operator2::Divide => {
+            if rhs != 0 { Some(lhs.wrapping_div(rhs)) } else { None }
+        }
+        Operator2::Modulo => {
+            if rhs != 0 { Some(lhs.wrapping_rem(rhs)) } else { None }
+        }
+        Operator2::Equal => Some(bool_to_int(lhs == rhs)),
+        Operator2::NotEqual => Some(bool_to_int(lhs != rhs)),
+        Operator2::Less => Some(bool_to_int(lhs < rhs)),
+        Operator2::LessEqual => Some(bool_to_int(lhs <= rhs)),
+        Operator2::Greater => Some(bool_to_int(lhs > rhs)),
+        Operator2::GreaterEqual => Some(bool_to_int(lhs >= rhs)),
+        // Assign 系、LogicalAnd/Or は呼び出し元が個別に処理
+        _ => None,
+    }
+}
+
+/// 純粋な単項演算を評価する
+///
+/// Ref / Deref はランタイム操作のため None を返す。
+pub fn eval_unary_pure(op: &Operator1, val: i64) -> Option<i64> {
+    match op {
+        Operator1::Negative => Some(val.wrapping_neg()),
+        Operator1::LogicalNot => Some(bool_to_int(val == 0)),
+        _ => None,
+    }
+}
+```
+
+#### 各モジュールの変更
+
+**interpreter/exec.rs**:
+- `interpret_operation2` の純粋演算部分を `eval_binary_pure()` 呼び出しに置換
+- `interpret_operation1` の `Negative` / `LogicalNot` を `eval_unary_pure()` 呼び出しに置換
+- `bool_to_int` を `base::pure_eval::bool_to_int` からインポート（`types.rs` から削除）
+- Assign, LogicalAnd/Or, Ref, Deref の処理はそのまま維持
+
+**optimizer/constant_folding.rs**:
+- `try_fold_op2` の演算 match を `eval_binary_pure()` 呼び出しに置換
+- `try_fold_op1` の演算 match を `eval_unary_pure()` 呼び出しに置換
+
+**semantic_analyzer（新規 constexpr 評価器）**:
+- `evaluate_constexpr()` 内で `eval_binary_pure()` / `eval_unary_pure()` を使用
+- 0 除算時は `None` をコンパイルエラーとして報告
+
+#### 依存関係
+
+```
+base/pure_eval ← tree_parser（Operator1, Operator2 の定義を参照）
+
+interpreter     → base/pure_eval（ランタイム演算評価）
+optimizer       → base/pure_eval（定数畳み込み）
+semantic_analyzer → base/pure_eval（constexpr 評価）
+```
+
+`base` → `tree_parser` への依存が新たに発生する点に注意。
+現在 `base` は `SourceLocation` のみを提供しており、他モジュールへの依存はない。
+`Operator1` / `Operator2` は単純な enum であり、この依存は許容範囲と考える。
+ただし、依存方向を逆転させたくない場合は、演算子 enum を `base` に移動する選択肢もある。
+
+### 4.4 spec.md への反映
 
 実装後、以下のセクションを更新する必要がある:
-- 「代入・変数定義」セクション: const / alias の構文・セマンティクスを追加
+- 「代入・変数定義」セクション: constexpr / alias の構文・セマンティクスを追加
 - 「スコープ」セクション: alias のスコープルールを追加
-- grammar.bnf: alias / const の文法規則を追加
+- grammar.bnf: alias / constexpr の文法規則を追加
 
 ---
 
 ## 5. 設計上の未決定事項
 
 1. **ブロックエイリアスの展開制限**: 無制限に展開を許可するとコンパイル時間が爆発する可能性がある。展開深度の上限を設けるか？
-2. **const の型**: 現在は int のみだが、将来の型システム拡張時にどう扱うか
+2. **constexpr の型**: 現在は int のみだが、将来の型システム拡張時にどう扱うか
 3. **alias のシャドウイング**: 子スコープで同名の alias を再定義できるか？（let/func と同じルールに合わせるのが自然）
 4. **ブロックエイリアスとスコープキャプチャ**: 現在の設計はマクロ的展開（呼び出し元スコープ）だが、クロージャ的（定義元スコープ）の方が安全性が高い。どちらを採用するか要検討
 
@@ -394,5 +505,6 @@ Pass 2:  文の変換・識別子解決（既存 + alias/const 解決）
 ## 更新履歴
 
 - 2026-02-28: alias 設計・const 再設計を追加。const を変数からコンパイル時定数エイリアスに変更
+- 2026-02-28: const → constexpr にリネーム。純粋演算評価の共有モジュール設計を追加
 - 2026-02-10: 変数初期化機能が実装済みのため、該当セクションを削除
 - 2026-02-07: unimplemented-features.md から分離して作成
