@@ -1,5 +1,6 @@
 pub mod error;
 pub mod shared_writer;
+pub mod ws_types;
 
 // 後方互換のため CodeParseError を base モジュール直下で公開
 pub use error::CodeParseError;

@@ -30,6 +30,8 @@ pub mod types;
 
 pub use program::WsProgram;
 
+// base::ws_types の型を compiler_ws 直下で re-export（後方互換）
+pub use crate::base::ws_types::{HeapAddress, Instruction, LabelId, WsChar, WsNumber};
 use crate::semantic_analyzer::Scope;
 use context::CodeGenContext;
 

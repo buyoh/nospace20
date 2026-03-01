@@ -3,8 +3,7 @@
 //! Whitespace 命令列を実行するスタックマシン。
 //! 全ての実行状態を明示的に保持し、中断・再開可能。
 
-use crate::compiler_ws::instruction::Instruction;
-use crate::compiler_ws::types::LabelId;
+use crate::base::ws_types::{Instruction, LabelId};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::io::{BufRead, Write};
@@ -966,7 +965,7 @@ fn random_heap_fill(addr: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compiler_ws::types::WsNumber;
+    use crate::base::ws_types::WsNumber;
 
     #[test]
     fn test_push_and_add() {

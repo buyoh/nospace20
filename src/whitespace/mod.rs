@@ -6,9 +6,8 @@
 mod interpreter;
 mod parser;
 
-// compiler_ws から命令型を re-export
-pub use crate::compiler_ws::instruction::Instruction;
-pub use crate::compiler_ws::types::{LabelId, WsChar, WsNumber};
+// base::ws_types から命令型を re-export（whitespace は compiler_ws に非依存）
+pub use crate::base::ws_types::{Instruction, LabelId, WsChar, WsNumber};
 
 // パーサ
 pub use parser::{parse, ParseError};

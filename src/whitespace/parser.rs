@@ -2,8 +2,7 @@
 //!
 //! Whitespace テキスト（Space / Tab / LF のシーケンス）を `Vec<Instruction>` にパースする
 
-use crate::compiler_ws::instruction::Instruction;
-use crate::compiler_ws::types::{LabelId, WsChar, WsNumber};
+use crate::base::ws_types::{Instruction, LabelId, WsChar, WsNumber};
 
 /// パースエラー
 ///
