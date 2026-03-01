@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::io::{BufRead, Read, Write};
 
+use super::allocator::InterpreterAllocator;
+
 /// インタプリタの実行制限設定
 pub struct EnvironmentConfig {
     /// Expression評価の最大実行回数 (Noneの場合は無制限)
@@ -64,12 +66,13 @@ pub struct Environment {
     pub(crate) stdout: Box<dyn Write>,
     pub config: EnvironmentConfig,
     metrics: EnvironmentMetrics,
-    /// グローバル変数の値
-    /// ルートスコープの変数をインデックスベースで保持
-    pub(crate) global_variables: Vec<i64>,
-    /// 関数内 static 変数の永続化ストレージ
-    /// 関数インデックス → 関数スコープの変数配列（static 変数の値が保持される）
-    pub(crate) function_static_storage: BTreeMap<usize, Vec<i64>>,
+    /// メモリアロケータ（全メモリを管理）
+    pub(crate) allocator: InterpreterAllocator,
+    /// グローバル変数のベースアドレス（アロケータ上）
+    pub(crate) global_base_addr: i64,
+    /// 関数内 static 変数のベースアドレス
+    /// 関数インデックス → アロケータ上のベースアドレス
+    pub(crate) function_static_addrs: BTreeMap<usize, i64>,
 }
 
 impl Environment {
@@ -80,8 +83,9 @@ impl Environment {
             stdout: Box::new(std::io::stdout()),
             config: EnvironmentConfig::new(),
             metrics: EnvironmentMetrics::new(),
-            global_variables: Vec::new(),
-            function_static_storage: BTreeMap::new(),
+            allocator: InterpreterAllocator::new(),
+            global_base_addr: 0,
+            function_static_addrs: BTreeMap::new(),
         }
     }
 
@@ -92,8 +96,9 @@ impl Environment {
             stdout,
             config: EnvironmentConfig::new(),
             metrics: EnvironmentMetrics::new(),
-            global_variables: Vec::new(),
-            function_static_storage: BTreeMap::new(),
+            allocator: InterpreterAllocator::new(),
+            global_base_addr: 0,
+            function_static_addrs: BTreeMap::new(),
         }
     }
 
@@ -108,8 +113,9 @@ impl Environment {
             stdout,
             config,
             metrics: EnvironmentMetrics::new(),
-            global_variables: Vec::new(),
-            function_static_storage: BTreeMap::new(),
+            allocator: InterpreterAllocator::new(),
+            global_base_addr: 0,
+            function_static_addrs: BTreeMap::new(),
         }
     }
 

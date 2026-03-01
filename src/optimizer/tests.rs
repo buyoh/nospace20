@@ -117,7 +117,7 @@ fn test_noop_pass_magic_number_initialized() {
         .get(noop_test_pass::MARKER_VAR_NAME)
         .unwrap();
     assert_eq!(
-        env.global_variables[marker_slot],
+        env.allocator.get(env.global_base_addr + marker_slot as i64),
         noop_test_pass::MAGIC_NUMBER,
         "marker variable should be initialized to magic number"
     );

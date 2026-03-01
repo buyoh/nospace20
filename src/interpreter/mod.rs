@@ -44,8 +44,11 @@ pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> 
 /// 2. 関数内 static 変数の初期化式を実行
 /// 3. 非 static グローバル変数の初期化式を実行
 pub fn interpret_global(env: &mut Environment, scope: &Scope) -> Result<(), InterpretError> {
-    // グローバル変数の領域を確保（randomize_uninit モードではランダム値で初期化）
-    env.global_variables = exec::create_uninit_vec(scope.variable_count, env.config.randomize_uninit);
+    // グローバル変数の領域をアロケータで確保（randomize_uninit モードではランダム値で初期化）
+    env.global_base_addr = env.allocator.alloc_internal_uninit(
+        scope.variable_count,
+        env.config.randomize_uninit,
+    );
 
     // ルートレベル static 変数の初期化式を先に実行
     if !scope.static_init_statements.is_empty() {
@@ -98,23 +101,25 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) -> Result<(), Inte
 /// 全関数をスキャンし、static 変数を持つ関数について永続ストレージを作成する。
 /// static 変数の初期化式がある場合は、一時的なスコープで実行して初期値を設定する。
 fn initialize_function_statics(env: &mut Environment, scope: &Scope) -> Result<(), InterpretError> {
-    // Phase 6: インデックスベースで関数にアクセス
     for (func_idx, func) in scope.functions.iter().enumerate() {
         let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
         if !has_static {
             continue;
         }
 
-        let storage = if !func.block.scope.static_init_statements.is_empty() {
-            // static 変数の初期化式を一時的なスコープで実行
-            let init_storage = exec::create_uninit_vec(
-                func.block.scope.variable_count,
-                env.config.randomize_uninit,
-            );
+        // static 変数用の永続ストレージをアロケータで確保
+        let static_addr = env.allocator.alloc_internal_uninit(
+            func.block.scope.variable_count,
+            env.config.randomize_uninit,
+        );
+
+        if !func.block.scope.static_init_statements.is_empty() {
+            // static_addr ブロック上で直接初期化式を実行
+            // （初期化後そのまま永続ストレージとして使うため、別途コピー不要）
             let mut local_env = LocalEnvironment {
                 env: &mut *env,
                 root_scope: scope,
-                scope_stack: vec![init_storage],
+                scope_stack: vec![static_addr],
             };
             for stmt in &func.block.scope.static_init_statements {
                 match local_env.interpret_statement(&stmt.statement) {
@@ -127,17 +132,9 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) -> Result<(
                     }
                 }
             }
-            local_env.scope_stack.pop().unwrap()
-        } else {
-            // 初期化式なし: randomize_uninit モードではランダム値、それ以外は 0
-            exec::create_uninit_vec(
-                func.block.scope.variable_count,
-                env.config.randomize_uninit,
-            )
-        };
+        }
 
-        // Phase 6: 関数インデックスをキーとして使用
-        env.function_static_storage.insert(func_idx, storage);
+        env.function_static_addrs.insert(func_idx, static_addr);
     }
 
     Ok(())

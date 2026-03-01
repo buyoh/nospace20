@@ -45,13 +45,13 @@ pub(super) fn create_uninit_vec(size: usize, randomize: bool) -> Vec<i64> {
 
 /// 1つのfunction scopeの`実行時インスタンス`を管理する
 ///
-/// scope_stack を BTreeMap<String, i64> から Vec<i64> に変更。
+/// scope_stack を Vec<i64>(アロケータアドレス) に変更。
 /// 変数アクセスを O(1) にするため、IdentifierRef を使用してインデックスベースでアクセスする。
 pub(super) struct LocalEnvironment<'a, 'aenv> {
     pub(super) env: &'aenv mut Environment,
     pub(super) root_scope: &'a Scope,
-    /// スコープスタック: 末尾が現在のスコープ
-    pub(super) scope_stack: Vec<Vec<i64>>,
+    /// スコープスタック: 末尾が現在のスコープアドレス（アロケータ上のベースアドレス）
+    pub(super) scope_stack: Vec<i64>,
 }
 
 impl LocalEnvironment<'_, '_> {
@@ -61,113 +61,85 @@ impl LocalEnvironment<'_, '_> {
         func: &'a Function,
         args: &Vec<i64>,
     ) -> LocalEnvironment<'a, 'aenv> {
-        // Vec<i64> ベースの変数管理
-        // 変数の数だけ領域を確保し、引数で初期化
-        let mut variables = create_uninit_vec(func.block.scope.variable_count, env.config.randomize_uninit);
+        // アロケータ上に関数スコープ分の領域を確保
+        let base_addr = env.allocator.alloc_internal_uninit(
+            func.block.scope.variable_count,
+            env.config.randomize_uninit,
+        );
 
         // 引数を対応する変数にセット（最適化: 事前計算されたインデックスを使用）
         for (i, arg_val) in args.iter().enumerate() {
             if i < func.arg_indices.len() {
-                // 事前計算されたインデックスを使用して O(1) でアクセス
-                variables[func.arg_indices[i]] = *arg_val;
+                env.allocator.set(base_addr + func.arg_indices[i] as i64, *arg_val);
             }
         }
 
         LocalEnvironment {
             env,
             root_scope,
-            scope_stack: vec![variables],
+            scope_stack: vec![base_addr],
         }
     }
 
     /// ブロックに入る
     fn enter_block(&mut self, scope: &Scope) {
-        // 変数の数だけ Vec を初期化（randomize_uninit モードではランダム値で埋める）
-        let vars = create_uninit_vec(scope.variable_count, self.env.config.randomize_uninit);
-        self.scope_stack.push(vars);
+        // アロケータ上にスコープ分の領域を確保（randomize_uninit モードではランダム値で初期化）
+        let base_addr = self.env.allocator.alloc_internal_uninit(
+            scope.variable_count,
+            self.env.config.randomize_uninit,
+        );
+        self.scope_stack.push(base_addr);
     }
 
     /// ブロックから出る
     fn leave_block(&mut self) {
-        self.scope_stack.pop();
+        let base_addr = self.scope_stack.pop().unwrap();
+        self.env.allocator.free_internal(base_addr);
     }
 
     /// 識別子参照から値を取得
     /// グローバル変数対応（is_global フラグチェック）
     fn get_variable(&self, id: &IdentifierRef) -> i64 {
-        if id.is_global {
-            // グローバル変数は Environment に保持
-            self.env.global_variables[id.local_index]
+        let addr = if id.is_global {
+            self.env.global_base_addr + id.local_index as i64
         } else {
-            // ローカル変数は scope_stack に保持
             let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
-            self.scope_stack[scope_idx][id.local_index]
-        }
+            self.scope_stack[scope_idx] + id.local_index as i64
+        };
+        self.env.allocator.get(addr)
     }
 
     /// 識別子参照に値を設定
     /// グローバル変数対応（is_global フラグチェック）
     fn set_variable(&mut self, id: &IdentifierRef, value: i64) {
-        if id.is_global {
-            // グローバル変数は Environment に保持
-            self.env.global_variables[id.local_index] = value;
+        let addr = if id.is_global {
+            self.env.global_base_addr + id.local_index as i64
         } else {
-            // ローカル変数は scope_stack に保持
             let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
-            self.scope_stack[scope_idx][id.local_index] = value;
-        }
+            self.scope_stack[scope_idx] + id.local_index as i64
+        };
+        self.env.allocator.set(addr, value);
     }
 
     /// IdentifierRef から絶対アドレスを計算
+    /// Phase 2+3: アロケータアドレスをそのまま返す (O(1))
     fn resolve_address(&self, id: &IdentifierRef) -> i64 {
         if id.is_global {
-            id.local_index as i64
+            self.env.global_base_addr + id.local_index as i64
         } else {
-            let global_count = self.env.global_variables.len() as i64;
             let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
-            let mut addr = global_count;
-            for i in 0..scope_idx {
-                addr += self.scope_stack[i].len() as i64;
-            }
-            addr + id.local_index as i64
+            self.scope_stack[scope_idx] + id.local_index as i64
         }
     }
 
     /// 絶対アドレスから値を取得
     fn get_by_address(&self, addr: i64) -> i64 {
-        let addr = addr as usize;
-        let global_count = self.env.global_variables.len();
-        if addr < global_count {
-            self.env.global_variables[addr]
-        } else {
-            let mut remaining = addr - global_count;
-            for scope in &self.scope_stack {
-                if remaining < scope.len() {
-                    return scope[remaining];
-                }
-                remaining -= scope.len();
-            }
-            panic!("runtime error: invalid address {}", addr);
-        }
+        self.env.allocator.get(addr)
     }
 
     /// 絶対アドレスに値を設定
     fn set_by_address(&mut self, addr: i64, value: i64) {
-        let addr = addr as usize;
-        let global_count = self.env.global_variables.len();
-        if addr < global_count {
-            self.env.global_variables[addr] = value;
-        } else {
-            let mut remaining = addr - global_count;
-            for scope in &mut self.scope_stack {
-                if remaining < scope.len() {
-                    scope[remaining] = value;
-                    return;
-                }
-                remaining -= scope.len();
-            }
-            panic!("runtime error: invalid address {}", addr);
-        }
+        self.env.allocator.set(addr, value);
     }
 
     fn interpret_call_function(
@@ -258,20 +230,24 @@ impl LocalEnvironment<'_, '_> {
         // Phase 4: static 変数の永続化対応
         let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
 
-        // 新しい scope を既存の scope_stack に push（randomize_uninit モードではランダム値で初期化）
-        let mut variables = create_uninit_vec(func.block.scope.variable_count, self.env.config.randomize_uninit);
+        // アロケータ上に新しいスコープ分の領域を確保（randomize_uninit モードではランダム値で初期化）
+        let base_addr = self.env.allocator.alloc_internal_uninit(
+            func.block.scope.variable_count,
+            self.env.config.randomize_uninit,
+        );
 
         // static 変数があり、永続ストレージが存在する場合は値を復元
         // 関数インデックスをキーとして使用
         let func_key = func_ref.local_index;
         if has_static {
-            if let Some(storage) = self.env.function_static_storage.get(&func_key) {
+            if let Some(&static_addr) = self.env.function_static_addrs.get(&func_key) {
                 for var in &func.block.scope.variables {
                     if var.is_static {
                         let slot_idx = var.slot_index;
                         let slot_count = var.array_size.unwrap_or(1);
                         for i in 0..slot_count {
-                            variables[slot_idx + i] = storage[slot_idx + i];
+                            let val = self.env.allocator.get(static_addr + (slot_idx + i) as i64);
+                            self.env.allocator.set(base_addr + (slot_idx + i) as i64, val);
                         }
                     }
                 }
@@ -280,10 +256,10 @@ impl LocalEnvironment<'_, '_> {
 
         for (i, arg_val) in arg_values.iter().enumerate() {
             if i < func.arg_indices.len() {
-                variables[func.arg_indices[i]] = *arg_val;
+                self.env.allocator.set(base_addr + func.arg_indices[i] as i64, *arg_val);
             }
         }
-        self.scope_stack.push(variables);
+        self.scope_stack.push(base_addr);
 
         // 既存の LocalEnvironment 上で関数本体を実行
         let result = match self.interpret_statements(&func.block.statements) {
@@ -295,14 +271,24 @@ impl LocalEnvironment<'_, '_> {
 
         // Phase 4: static 変数の値を永続ストレージに保存
         if has_static {
-            let scope_data = self.scope_stack.last().unwrap().clone();
-            self.env
-                .function_static_storage
-                .insert(func_key, scope_data);
+            if let Some(&static_addr) = self.env.function_static_addrs.get(&func_key) {
+                let base_addr = *self.scope_stack.last().unwrap();
+                for var in &func.block.scope.variables {
+                    if var.is_static {
+                        let slot_idx = var.slot_index;
+                        let slot_count = var.array_size.unwrap_or(1);
+                        for i in 0..slot_count {
+                            let val = self.env.allocator.get(base_addr + (slot_idx + i) as i64);
+                            self.env.allocator.set(static_addr + (slot_idx + i) as i64, val);
+                        }
+                    }
+                }
+            }
         }
 
-        // 関数スコープを pop
-        self.scope_stack.pop();
+        // 関数スコープを pop して解放
+        let base_addr = self.scope_stack.pop().unwrap();
+        self.env.allocator.free_internal(base_addr);
         result
     }
 
@@ -754,7 +740,8 @@ func: __main() {
 "#;
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
-        env.global_variables = vec![0; scope.variable_count];
+        // Phase 2+3: global_base_addr はアロケータ経由で設定（interpret_global で初期化）
+        // ここでは直接 new_func を呼び出すためアロケータは空の状態
 
         let func = scope.get_function("__main").unwrap();
         let local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
@@ -789,7 +776,8 @@ func: __main() {
 "#;
         let scope = parse_and_analyze(code);
         let mut env = create_test_env();
-        env.global_variables = vec![0; scope.variable_count];
+        // Phase 2+3: global_base_addr はアロケータ経由で設定（interpret_global で初期化）
+        // ここでは直接 new_func を呼び出すためアロケータは空の状態
 
         let func = scope.get_function("__main").unwrap();
         let mut local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
