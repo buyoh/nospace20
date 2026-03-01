@@ -117,14 +117,14 @@ pub struct Scope {
     /// インタプリタが Vec<i64> を初期化する際に使用
     pub(crate) variable_count: usize,
 
-    /// Phase 5: 関数リストを pub(crate) に変更（interpreter からアクセスするため）
+    /// 関数リスト（interpreter からアクセスするため pub(crate)）
     pub(crate) functions: Vec<Function>,
 
     /// デバッグ用シンボルテーブル
     pub symbol_table: SymbolTable,
 
     /// main 関数のインデックス（存在する場合）
-    /// Phase 6: 関数名による検索を排除し、インデックスベースでアクセス
+    /// 関数名による検索を排除し、インデックスベースでアクセス
     pub main_function_index: Option<usize>,
 
     /// static 変数の初期化文
@@ -159,7 +159,7 @@ pub(super) enum ScopeType {
 /// スコープ情報（ScopeResolver 用）
 ///
 /// 関数境界チェックのため、各スコープの追加情報を保持する。
-/// Phase 5: 関数の可視性チェックのため、関数マップも保持。
+/// 関数の可視性チェックのため、関数マップも保持。
 #[derive(Clone)]
 pub(super) struct ScopeInfo<'a> {
     /// 変数名からスロットインデックスへのマップ
@@ -169,7 +169,6 @@ pub(super) struct ScopeInfo<'a> {
     /// 変数情報（static フラグ、配列サイズ確認用）
     pub variables: &'a Vec<Variable>,
     /// 関数名からマップへの参照（関数可視性チェック用）
-    /// Phase 5 で追加
     pub func_map: &'a BTreeMap<String, Identifier>,
     /// constexpr 定数テーブル（名前 → 定数値）
     pub constexpr_table: &'a BTreeMap<String, i64>,
@@ -324,8 +323,8 @@ impl<'a> ScopeResolver<'a> {
 
     /// 関数名を解決し、IdentifierRef を返す
     ///
-    /// Phase 5 で追加：ネスト関数の可視性チェック
-    /// Phase 5 修正：全関数はグローバルに格納されるため、常に is_global=true を返す
+    /// ネスト関数の可視性チェック
+    /// 全関数はグローバルに格納されるため、常に is_global=true を返す
     ///
     /// スコープスタックを逆順に探索し、最も近いスコープの関数を見つける。
     /// 子スコープの関数は見えないため、探索は現在のスコープから親に向かってのみ行う。
@@ -335,7 +334,7 @@ impl<'a> ScopeResolver<'a> {
     pub fn resolve_function(&self, name: &str) -> Option<IdentifierRef> {
         for (_depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
             if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
-                // Phase 5: 全関数はルートスコープにフラット化されているため、
+                // 全関数はルートスコープにフラット化されているため、
                 // 常に is_global=true、scope_depth=0 を返す
                 // local_index はグローバルインデックス
                 return Some(IdentifierRef {
@@ -421,7 +420,7 @@ impl<'a> ScopeResolver<'a> {
 /// スコープビルダー
 ///
 /// スコープ構築時に使用する内部構造
-/// Phase 5: functions と function_names を削除（グローバル管理に移行）
+/// functions と function_names は引数で渡す（グローバル管理）
 pub(super) struct ScopeBuilder {
     pub identifier_map: BTreeMap<String, Identifier>,
     pub variables: Vec<Variable>,
@@ -442,7 +441,7 @@ impl ScopeBuilder {
     }
 
     /// スコープをビルドする
-    /// Phase 5: functions と function_names を引数として受け取る
+    /// functions と function_names を引数として受け取る
     /// ルートスコープの場合のみ有効な値を渡し、それ以外は空の Vec を渡す
     pub fn build(
         mut self,
@@ -465,10 +464,10 @@ impl ScopeBuilder {
         }
         let variable_count = slot_index;
 
-        // Phase 6: __main 関数のインデックスを解決
+        // __main 関数のインデックスを解決
         let main_function_index = function_names.iter().position(|name| name == "__main");
 
-        // Phase 6: SymbolTable を構築
+        // SymbolTable を構築
         let mut function_name_to_index = BTreeMap::new();
         for (idx, name) in function_names.iter().enumerate() {
             function_name_to_index.insert(name.clone(), idx);

@@ -12,7 +12,7 @@ use crate::tree_parser::{Operator1, Operator2};
 /// コンパイルエラーを現在のコンテキスト位置情報付きで生成するヘルパー
 ///
 /// `ctx.current_location()` が Some の場合は位置情報付きのエラーを返す。
-/// Phase 1: 式レベルのエラーは直近の文の開始位置で代替表示。
+/// 式レベルのエラーは直近の文の開始位置で代替表示。
 fn make_error(ctx: &CodeGenContext, msg: String) -> CompileError {
     match ctx.current_location() {
         Some(loc) => CompileError::with_location(CompileErrorKind::InvalidOperation(msg), loc),
@@ -51,10 +51,10 @@ pub fn generate_expression(
         ExecExpression::Operation2(op, left, right) => generate_binary_op(ctx, op, left, right),
 
         // 組み込み関数呼び出し
-        // Phase 6: BuiltinFunctionKind enum を使用
+        // BuiltinFunctionKind enum を使用
         ExecExpression::BuiltinFunction(kind, args) => generate_function_call(ctx, kind, args),
 
-        // Phase 5: ユーザー定義関数呼び出し
+        // ユーザー定義関数呼び出し
         ExecExpression::UserFunction(func_ref, args) => {
             let mut prog = WsProgram::new();
 

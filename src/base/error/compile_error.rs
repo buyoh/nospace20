@@ -32,7 +32,7 @@ pub struct CompileError {
     /// エラーの種類
     pub kind: CompileErrorKind,
     /// エラーが発生したソースコードの位置（文レベル）
-    /// Phase 1: 文の開始位置。式レベルのエラーは文の位置で代替。
+    /// 文の開始位置。式レベルのエラーは文の位置で代替。
     /// MainNotFound など位置特定不能なエラーは None。
     pub location: Option<SourceLocation>,
 }

@@ -280,7 +280,7 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             ))
         }
         Expression::Function(f, a) => {
-            // Phase 5: 組み込み関数とユーザー定義関数を区別
+            // 組み込み関数とユーザー定義関数を区別
             let mut args = Vec::new();
             for e in a {
                 let exec_arg = convert_to_exec_expression_with_resolver(
@@ -294,7 +294,7 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             }
 
             // 組み込み関数のリスト（__ で始まる）
-            // Phase 6: 文字列を BuiltinFunctionKind に変換
+            // 文字列を BuiltinFunctionKind に変換
             let builtin_kind = match f.as_str() {
                 "__puti" => Some(BuiltinFunctionKind::Puti),
                 "__putc" => Some(BuiltinFunctionKind::Putc),

@@ -88,11 +88,6 @@ fn test_success_expression_at_root_level() {
     assert!(result.is_ok());
 }
 
-// Phase 5: ネスト関数がサポートされたため、以下のテストは削除
-// test_error_nested_function_declaration はネスト関数がエラーになることを期待していたが、
-// Phase 5 でネスト関数が正式にサポートされたため、このテストは不要になった
-// 統合テスト resources/tests/passes/scope/scope_nested_func_001.ns でカバーされている
-
 #[test]
 fn test_success_block_scoped_variable() {
     let var_decl = LocatedStatement {

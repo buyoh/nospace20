@@ -98,7 +98,7 @@ pub(super) fn convert_to_exec_statements(
                 }
             }
             Statement::FunctionDeclaration(name, args, block) => {
-                // Phase 5: パス1aで登録済みの関数のグローバルインデックスを取得
+                // パス1aで登録済みの関数のグローバルインデックスを取得
                 let global_idx =
                     if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
                         info.0
@@ -107,7 +107,7 @@ pub(super) fn convert_to_exec_statements(
                     };
 
                 // 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
-                // Phase 5: global_functions と global_function_names を渡す
+                // global_functions と global_function_names を渡す
                 // func_global_index を渡すことで、ネストされた関数から
                 // この関数の static 変数にアクセスする際に正しいオフセットを参照可能にする
                 let mut func_ctx = AnalyzeContext::new_function(
@@ -122,7 +122,7 @@ pub(super) fn convert_to_exec_statements(
                     Some(resolver),
                     &mut func_ctx,
                 )?;
-                // Phase 5: 非ルートスコープの build() には空の functions/function_names を渡す
+                // 非ルートスコープの build() には空の functions/function_names を渡す
                 let built_scope = s.build(Vec::new(), Vec::new(), Vec::new()); // root_statementsは空
 
                 // 引数のインデックスを事前計算（最適化）

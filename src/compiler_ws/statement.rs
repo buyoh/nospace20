@@ -48,7 +48,7 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
         prog.append(generate_statement(ctx, &located_stmt.statement)?);
     }
 
-    // ④ Phase 7: 全ての関数定義を生成
+    // ⑤ 全ての関数定義を生成
     // 関数は symbol_table.function_names と functions が対応している
     for (i, func_name) in scope.symbol_table.function_names.iter().enumerate() {
         let func = &scope.functions[i];

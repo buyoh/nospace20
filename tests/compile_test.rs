@@ -35,7 +35,6 @@ fn test_compile_debug_string() {
 /// コンパイルエラーが Vec<CodeParseError> として返ることを確認するテスト
 ///
 /// コンパイルエラーが構造化された形式で返されることを確認する。
-/// (Phase 1: コンパイルエラーの位置情報サポート)
 #[test]
 fn test_compile_error_returns_code_parse_error() {
     // main 関数なしのコード → CompileError::MainNotFound
@@ -67,7 +66,6 @@ fn test_compile_error_returns_code_parse_error() {
 /// continue outside loop のコンパイルエラーに位置情報が含まれることを確認するテスト
 ///
 /// セマンティクス解析を通過するが、コンパイル時にエラーとなるケース。
-/// Phase 1 実装後、エラーに文レベルの位置情報が含まれることを確認する。
 #[test]
 fn test_compile_error_invalid_operation_has_location() {
     // continue をループ外で使用するコード
@@ -88,7 +86,6 @@ fn test_compile_error_invalid_operation_has_location() {
         "Error message should mention 'continue': {}",
         errors[0].message
     );
-    // Phase 1: 文レベルの位置情報が含まれること
     assert!(
         errors[0].code_pointer.is_some(),
         "compile error should have source location (code_pointer should be Some)"

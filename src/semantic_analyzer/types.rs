@@ -133,7 +133,7 @@ pub(crate) struct LocatedExecExpression {
 /// - `Invalid` バリアントを持たない (パース成功後のみ生成される)
 /// - スコープ解決済みの識別子情報を保持する
 ///   変数は IdentifierRef を使用することで、実行時の文字列検索を排除し、O(1) アクセスを実現。
-///   関数も IdentifierRef を使用し、スコープ解決を行う（Phase 5 で実装）。
+///   関数も IdentifierRef を使用し、スコープ解決を行う。
 pub(crate) enum ExecExpression {
     Operation1(Operator1, Box<LocatedExecExpression>),
     Operation2(
@@ -146,10 +146,10 @@ pub(crate) enum ExecExpression {
     If(ConditionMode, Box<LocatedExecExpression>, Block, Block),
     Block(Block), // ブロックスコープ式
     /// 組み込み関数呼び出し
-    /// Phase 6: 組み込み関数は BuiltinFunctionKind enum で識別
+    /// 組み込み関数は BuiltinFunctionKind enum で識別
     BuiltinFunction(BuiltinFunctionKind, Vec<Box<LocatedExecExpression>>),
     /// ユーザー定義関数呼び出し
-    /// Phase 5 で追加：スコープ解決済みの関数参照を保持
+    /// スコープ解決済みの関数参照を保持
     UserFunction(IdentifierRef, Vec<Box<LocatedExecExpression>>),
     Factor(i64),
     /// 変数参照

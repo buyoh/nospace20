@@ -246,9 +246,9 @@ fn analyze_internal_with_parent(
     // Variable を Clone するための一時保存（resolver が参照するため）
     // scope.variables をそのまま使用するのではなく、Scope にまとめて後で参照
     // 一旦 temporary_scope を作って参照を保持
-    // Phase 5: identifier_map も保持して関数解決に使用
+    // identifier_map も保持して関数解決に使用
     let temporary_scope = Scope {
-        identifier_map: scope.identifier_map.clone(), // Phase 5: 関数解決に必要
+        identifier_map: scope.identifier_map.clone(), // 関数解決に必要
         variable_indices: variable_indices_temp.clone(),
         variable_name_to_var_index: variable_name_to_var_index_temp.clone(),
         variables: scope.variables.clone(), // Clone が必要
@@ -258,7 +258,7 @@ fn analyze_internal_with_parent(
             function_names: Vec::new(),
             function_name_to_index: BTreeMap::new(),
         },
-        main_function_index: None, // Phase 6: 一時スコープなので None
+        main_function_index: None, // 一時スコープなので None
         static_init_statements: Vec::new(), // 未使用
         root_statements: Vec::new(), // 未使用
     };
