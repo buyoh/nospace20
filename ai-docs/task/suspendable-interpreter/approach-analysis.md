@@ -5,131 +5,145 @@
 現在のインタプリタは**再帰呼び出し**で実行状態を管理している:
 
 ```
-interpret()
-  └→ interpret_func("main")
+interpret_all()
+  ├→ interpret_global()
+  └→ interpret_func("__main")
+       └→ LocalEnvironment::new_func()
        └→ interpret_statements([s1, s2, ...])
             └→ interpret_statement(s1)
                  └→ interpret_expression(expr)
-                      └→ interpret_call_user_function("foo")
+                      └→ interpret_call_user_function_by_ref(func_ref, args)
                            └→ interpret_statements(...)    ← ネスト
-                                └→ interpret_while(...)
+                                └→ interpret_while_statement(...)
                                      └→ interpret_expression(...)
 ```
 
-**実行状態** = Rust のコールスタック + `LocalEnvironment`（変数値）+ `Environment`（グローバル状態）
+**実行状態** = Rust のコールスタック + `scope_stack`（スコープアドレス列）+ `Environment`（グローバル状態・アロケータ）
 
 中断・再開するためには、この再帰的に積み上がった実行位置を保存・復元する必要がある。
 
-## アプローチ一覧
+## 参考: 既存の明示的スタックマシン (`WhitespaceVM`)
 
-### A: 明示的スタックマシン化
-
-再帰インタプリタをループ + 明示的スタックに書き換える。
+`src/whitespace/interpreter.rs` では Whitespace インタプリタが明示的スタックマシンとして実装済み:
 
 ```rust
-enum Frame {
-    EvalStatements { stmts: &[ExecStatement], index: usize, block_entered: bool },
-    EvalExpression { expr: &ExecExpression, continuation: Continuation },
-    EvalWhile { cond: &ExecExpression, block: &Block, phase: WhilePhase },
-    EvalCall { func: &Function, args_evaluated: Vec<i64>, remaining: usize },
+pub struct WhitespaceVM {
+    instructions: Vec<Instruction>,
+    pc: usize,
+    data_stack: Vec<i64>,
+    call_stack: Vec<usize>,
+    heap: HashMap<i64, i64>,
+    stdin: StdinSource,
+    stdout: Box<dyn Write>,
+    completed: bool,
+    total_steps: usize,
     // ...
 }
 
-struct InterpreterState {
-    stack: Vec<Frame>,
-    env: Environment,
-    local_envs: Vec<LocalEnvironment>, // 関数呼び出しごと
+impl WhitespaceVM {
+    pub fn step(&mut self, budget: usize) -> StepResult { ... }
+    pub fn run(&mut self, max_steps: usize) -> StepResult { ... }
+    pub fn is_complete(&self) -> bool { ... }
+    pub fn total_steps(&self) -> usize { ... }
+    pub fn get_stdout_string(&self) -> String { ... }
+}
+```
+
+Whitespace は命令列がフラットなため、プログラムカウンタ (`pc`) だけで状態を表現できる。
+nospace は AST ツリーを解釈するため、フレームスタックで実行位置を管理する必要がある。
+
+## アプローチ一覧
+
+### A: 明示的スタックマシン化（新規モジュール）
+
+再帰インタプリタを**変更せず残し**、新規モジュールとしてループ + 明示的スタックのインタプリタを追加する。
+
+```rust
+pub struct NospaceVM {
+    scope: Scope,              // AST を所有
+    frames: Vec<Frame>,        // 実行フレームスタック
+    env: Environment,          // I/O・メモリ・メトリクス
+    value_stack: Vec<i64>,     // 式評価のデータスタック
+    completed: bool,
+    total_steps: usize,
+}
+
+impl NospaceVM {
+    pub fn step(&mut self, budget: usize) -> StepResult { ... }
+    pub fn run(&mut self, max_steps: usize) -> StepResult { ... }
+    pub fn is_complete(&self) -> bool { ... }
+    pub fn total_steps(&self) -> usize { ... }
+    pub fn get_stdout_string(&self) -> String { ... }
 }
 ```
 
 | 項目 | 評価 |
 |------|------|
 | 中断・再開 | ◎ 任意のタイミングで中断可能 |
-| 実装コスト | ✕ インタプリタ全体の書き直し |
-| 既存テスト | △ 同じ結果だが内部構造が全く異なる |
+| 実装コスト | △ 新規モジュールとして実装（既存コード変更なし） |
+| 既存テスト | ◎ 既存コード無変更のため影響ゼロ |
 | 保守性 | △ フレーム定義が複雑になりがち |
+| WhitespaceVM との一貫性 | ◎ 同じ `step(budget) -> StepResult` パターン |
+| WASM 統合 | ◎ Scope を所有するためライフタイム問題なし |
 
 ### B: Yield 伝播 + 継続保存 (ハイブリッド)
 
 再帰構造を維持しつつ、`Flow::Yield` を追加して呼び出し元まで巻き戻す。
-再開時は**継続情報**を使って中断地点まで早送りする。
-
-```rust
-enum Flow {
-    Proceed,
-    Return(i64),
-    Continue,
-    Break,
-    Yield(Continuation), // ★追加
-}
-```
-
-中断時:
-1. `check_step_budget()` が `Yield` を返す
-2. `Yield` が `try_expr!` 経由で全ての呼び出し元に伝播
-3. 各レイヤーが自分の継続情報を `Continuation` に積む
-4. 最上位に到達し、`Suspended(continuation)` を返す
-
-再開時:
-1. `Continuation` から実行位置を復元
-2. 中断地点まで早送り（条件の再評価なし）
-3. 通常の実行を再開
 
 | 項目 | 評価 |
 |------|------|
 | 中断・再開 | ○ Yield 到達点で中断可能 |
-| 実装コスト | △ 継続の保存が各メソッドに必要 |
-| 既存テスト | ○ 再帰構造を維持するため既存ロジックへの影響が小さい |
+| 実装コスト | △ 継続の保存が各メソッドに必要、既存コード全体に変更が波及 |
+| 既存テスト | △ 再帰構造は維持するが、全メソッドに Yield 伝播が入り影響あり |
 | 保守性 | △ 継続型が式・文の構造と密結合 |
+| WhitespaceVM との一貫性 | ✕ インターフェースが異なる |
+| WASM 統合 | △ ライフタイム問題（Scope 参照）を別途解決する必要がある |
 
 ### C: スレッド / Web Worker 委譲
 
 インタプリタは変更せず、実行スレッドを分離する。
-
-```
-[メインスレッド] ←メッセージ→ [Worker スレッド: interpret() 実行]
-```
 
 | 項目 | 評価 |
 |------|------|
 | 中断・再開 | △ Worker 終了 = 中断（途中再開は不可） |
 | 実装コスト | ○ インタプリタ変更なし |
 | 既存テスト | ◎ 完全に無影響 |
-| 保守性 | ○ 関心の分離が明確 |
 | 制約 | WASM 環境で SharedArrayBuffer + Atomics が必要（Cross-Origin Isolation 要求） |
 
 ### D: Async / Generator
 
 Rust の async 関数として実行し、カスタム executor で N ステップごとに yield する。
 
-```rust
-async fn interpret_expression_async(...) -> ExpressionFlow {
-    budget.check().await; // yield point
-    // ...
-}
-```
-
 | 項目 | 評価 |
 |------|------|
 | 中断・再開 | ◎ `Future::poll` で自然に中断・再開 |
 | 実装コスト | △ 全関数を async 化する必要がある |
 | 既存テスト | △ async テストランナー必要 |
-| 保守性 | ○ async/await は Rust の標準パターン |
 | 制約 | `&mut Environment` を跨ぐ借用が困難（Pin + 自己参照問題） |
 
-## 選定: アプローチ B (Yield 伝播 + 継続保存)
+## 選定: アプローチ A (明示的スタックマシン化)
 
 ### 選定理由
 
-1. **再帰構造を維持** — 現在のインタプリタロジックをほぼそのまま残せる
-2. **段階的導入** — Phase 2 で Yield 伝播のみ（panic 代替）、Phase 3 で継続保存と段階的に実装可能
-3. **WASM 制約との相性** — SharedArrayBuffer 不要、async の自己参照問題なし
-4. **テスト互換性** — 既存関数を内部で `budget=∞` で呼び出せば同じ動作
+1. **WhitespaceVM との一貫性** — `step(budget) -> StepResult` の同一インターフェースを提供でき、WASM ラッパー (`WasmNospaceVM`) も `WasmWhitespaceVM` と同パターンで実装可能
+2. **既存コードへの影響ゼロ** — 再帰インタプリタを変更しないため、既存テストに一切影響しない。新規モジュールとして追加するだけ
+3. **選択可能性** — 再帰版（高速・シンプル）とスタックマシン版（中断・再開可能）を用途に応じて使い分けられる
+4. **WASM 統合の容易さ** — `Scope` を所有するためライフタイム問題がなく、WASM 境界をまたぐのが自然
+5. **実績のあるパターン** — `WhitespaceVM` で同方式が実装済みであり、設計パターンが検証されている
+
+### アプローチ B を不採用とした理由
+
+- 既存の再帰インタプリタ全体に `Yield` 伝播を追加する必要があり、変更範囲が広い
+- 継続情報の保存・復元が複雑で、各メソッドに密結合する
+- `WhitespaceVM` と異なるインターフェースになり、WASM API の統一が困難
+- 既存テストへの影響を完全に排除できない
 
 ### リスクと対策
 
 | リスク | 対策 |
 |--------|------|
-| 継続型が複雑化 | while/if/関数呼び出し の3パターンに限定。式の途中中断は行わない |
-| try_expr! マクロの修正が広範囲 | Yield バリアントは既存の Jump と同じ経路で伝播するため、修正箇所は限定的 |
-| 再開時の変数値の整合性 | LocalEnvironment の scope_stack を丸ごと保存（clone は重いが、ステップ頻度で制御） |
+| フレーム定義が複雑化 | AST ノード種類ごとに対応するフレーム型を定義。`ExecStatement` / `ExecExpression` のバリアントと1:1に近い対応を取る |
+| 再帰版との動作差異 | 全既存テストを `NospaceVM` でも実行し、結果一致を検証する |
+| パフォーマンス低下 | CLI ではデフォルトで再帰版を使用。スタックマシン版は WASM / ステップ実行が必要な場合のみ |
+| `Scope` の所有コスト | `Scope` を move で渡す。共有が必要な場合は `Arc<Scope>` を検討 |
+| AST への参照管理 | `Scope` を所有しているため、内部の AST ノードへの参照はインデックスベースで管理可能 |

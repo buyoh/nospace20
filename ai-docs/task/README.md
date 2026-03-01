@@ -23,7 +23,7 @@
 - [fix-short-circuit-evaluation.md](fix-short-circuit-evaluation.md) - WSコンパイラ短絡評価バグ修正（`&&`/`||` が両辺を常に評価しており仕様違反）
 - [tail-call-optimization.md](tail-call-optimization.md) - 末尾呼出し最適化（自己末尾再帰のループ変換、スタックオーバーフロー防止）
 - [self-compiler/](self-compiler/) - セルフコンパイラ用縮小仕様（nospace-core）の設計
-- [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（N ステップ実行→一時停止→再開、Phase 5: nospace ステップ実行 WASM API）
+- [suspendable-interpreter/](suspendable-interpreter/) - インタプリタ中断・再開機能（明示的スタックマシン `NospaceVM` として新規実装、WhitespaceVM 準拠インターフェース、既存再帰インタプリタは維持）
 - [wasm-js-compiler/](wasm-js-compiler/) - nospace → WASM / JavaScript コンパイラ設計・実装
 - [repeat-form1-upper-bound.md](repeat-form1-upper-bound.md) - repeat Form 1 の意味論変更（ループ回数→上限値、隠し変数廃止）
 - [keyword-colon-token-design.md](keyword-colon-token-design.md) - Keyword トークンにコロンを内包する設計の検討（break/continue/return の不整合分析）

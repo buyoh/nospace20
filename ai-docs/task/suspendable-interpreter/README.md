@@ -2,8 +2,9 @@
 
 ## 概要
 
-インタプリタの実行を特定のステップ数で中断し、後から再開できる機能を追加する。
-ブラウザ環境で長時間実行プログラムによるUIフリーズを防ぐためのコア機能。
+nospace インタプリタの実行を特定のステップ数で中断し、後から再開できる機能を追加する。
+`WhitespaceVM` と同様の**明示的スタックマシン**として新規実装し、`NospaceVM` として提供する。
+既存の再帰インタプリタ (`interpret()` 系) はそのまま残し、用途に応じて選択可能にする。
 
 ## 背景
 
@@ -20,6 +21,13 @@
 3. 完了 / 中断中 / エラー の状態を区別できる
 4. native CLI モードでの既存動作に影響を与えない
 
+### 設計方針
+
+- **明示的スタックマシン**方式を採用（アプローチ A）
+- `WhitespaceVM` (`src/whitespace/`) と同等のインターフェースを持つ `NospaceVM` を新設
+- 既存の再帰インタプリタ (`src/interpreter/exec.rs`) は変更せず残す
+- `src/interpreter/` モジュール内に `vm.rs` (または `vm/` サブモジュール) として追加
+
 ## ドキュメント
 
 | ファイル | 内容 |
@@ -29,56 +37,59 @@
 
 ## フェーズ計画
 
-### Phase 1: 型と API の整備
+### Phase 1: 型と API の骨格
 
-- [ ] `InterpreterSession` 構造体の定義
+- [ ] `NospaceVM` 構造体の定義（`WhitespaceVM` 相当）
 - [ ] `StepResult` enum の定義 (`Complete` / `Suspended` / `Error`)
-- [ ] `lib.rs` に `interpret_start` / `interpret_resume` 公開 API 追加
-- [ ] 既存の `interpret` / `interpret_func` が内部でセッションを使うようリファクタ
+- [ ] Builder パターンの実装 (`with_stdin`, `with_io`, `with_interactive_stdin` 等)
+- [ ] `step(budget) -> StepResult` メソッドの骨格
+- [ ] `Scope` を所有する設計（ライフタイムフリー、WASM 向け）
+- [ ] `lib.rs` に `NospaceVM` / `StepResult` の re-export 追加
 
-### Phase 2: 再帰インタプリタへの Yield 導入
+### Phase 2: 明示的スタックマシンの実装
 
-- [ ] `Flow` / `ExpressionFlow` に `Yield` バリアント追加
-- [ ] `increment_expression_count` を `check_step_budget` に変更（panic → Yield 返却）
-- [ ] `Yield` の伝播処理を全 `interpret_*` メソッドに追加
-- [ ] `LocalEnvironment` の状態を `InterpreterSession` に保存できるようにする
+- [ ] `Frame` enum の定義（文リスト / 式評価 / 関数呼び出し / while / for / if / block）
+- [ ] `execute_step()` — 1ステップ実行（フレームスタックの先頭を処理）
+- [ ] 式評価のフレーム化（再帰→ループ+スタック変換）
+- [ ] 文実行のフレーム化
+- [ ] 関数呼び出し・復帰のフレーム化
+- [ ] ループ (while, for) のフレーム化
+- [ ] if/block 式のフレーム化
+- [ ] グローバル初期化のフレーム化
 
-### Phase 3: 状態の保存と復元
+### Phase 3: テスト・統合
 
-- [ ] コールスタックの明示的な保存構造 (`ContinuationFrame`) の設計・実装
-- [ ] `interpret_expression` / `interpret_statement` の継続ポイント定義
-- [ ] while ループの反復状態の保存・復元
-- [ ] 関数呼び出しの引数評価途中の保存・復元
+- [ ] 既存テストケースが `NospaceVM` でも全て通ることの確認
+- [ ] `step(1)` での1式ずつ実行→再開のユニットテスト
+- [ ] `max_expression_count` 相当の動作確認（Suspended で止まり、再度 step で継続可能）
+- [ ] 再帰版インタプリタとの結果一致テスト
 
-### Phase 4: テスト・統合
+### Phase 4: WASM API 実装
 
-- [ ] 1ステップ実行→再開のユニットテスト
-- [ ] 既存テストケースが全て通ることの確認
-- [ ] WASM API (`wasm-build` タスク) との統合
-
-### Phase 5: WASM API 実装 (Phase 1〜4 完了後)
-
-nospace を直接ステップ実行する中断可能インタプリタの WASM API を実装する。
-
-**前提条件:** Phase 1〜4 の完了（`InterpreterSession` / 再開機能が実装済み）
-
-- [ ] `OwnedInterpreterSession` の実装（Scope 所有版セッション）
-  - `InterpreterSession` が参照を持つため、WASM 境界をまたげない
-  - Scope を所有し、ライフタイムフリーな構造を作成
-- [ ] `WasmInterpreterSession` WASM API 実装
-  - `new(source: &str, stdin: &str)` — セッション作成
-  - `step(n: u32)` — n ステップ実行（`VmStepResult` を返却）
+- [ ] `WasmNospaceVM` WASM ラッパーの実装（`WasmWhitespaceVM` と同パターン）
+  - `new(source, stdin, interactive?, std_extensions?)` — VM 構築
+  - `step(budget)` — N ステップ実行
   - `get_stdout()` — 標準出力取得
-  - `get_return_value()` — 終了時の戻り値取得
-- [ ] デバッグ情報 API
-  - `get_variables()` — 現在のスコープの変数一覧・値
+  - `is_complete()` — 完了判定
+  - `total_steps()` — 総実行ステップ数
+  - `provide_stdin(data)` / `close_stdin()` — interactive stdin
+- [ ] デバッグ情報 API（将来拡張）
   - `get_call_stack()` — 関数コールスタック
-  - `get_position()` — 現在の実行位置（行・列）
+  - `get_position()` — 現在の実行位置
 - [ ] テスト・検証
   - Node.js スモークテスト（`tools/wasm-test/` にテストケース追加）
-  - ブラウザでのマニュアル動作確認
+
+## 既存インタプリタとの共存
+
+| 機能 | 再帰インタプリタ (`interpret()`) | スタックマシン (`NospaceVM`) |
+|------|------|------|
+| 用途 | CLI ワンショット実行、テスト | WASM ステップ実行、中断・再開 |
+| 中断・再開 | 不可 | 可能 |
+| 実装の複雑さ | シンプル | 複雑（フレーム定義） |
+| パフォーマンス | 高速（Rust ネイティブスタック） | やや遅い（ヒープ上のスタック） |
+| 変更方針 | 変更せず維持 | 新規実装 |
 
 ## 関連タスク
 
 - [wasm-build/](../wasm-build/) — WASM ビルド・基本 API (run / compile / Phase A は完了済み)
-- Phase 5 は wasm-build タスクの Phase B に相当する機能を実装する
+- Phase 4 は wasm-build タスクの Phase B に相当する機能を実装する

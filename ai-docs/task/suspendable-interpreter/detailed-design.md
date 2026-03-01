@@ -1,357 +1,578 @@
 # 詳細設計
 
-## 公開 API
+## 公開インターフェース（WhitespaceVM 準拠）
 
-### 型定義
+`NospaceVM` は `WhitespaceVM` と可能な限り同じパターンのインターフェースを持つ。
+
+### StepResult
+
+nospace 用の `StepResult` を独自定義する。Whitespace の `RuntimeError` とは異なるエラー型 (`InterpretError`) を使用するため。
 
 ```rust
-// src/interpreter/session.rs (新規)
+// src/interpreter/vm.rs (新規)
 
-/// インタプリタの実行結果
+/// nospace インタプリタの実行結果
+#[derive(Debug)]
 pub enum StepResult {
-    /// 実行完了
+    /// 実行継続中（バジェット消費で中断）
+    Suspended,
+    /// 正常終了
     Complete {
         return_value: Option<i64>,
     },
-    /// 中断（ステップ数上限に到達）
-    Suspended,
-    /// エラー
-    Error(String),
+    /// 実行時エラー
+    Error(InterpretError),
 }
+```
 
-/// インタプリタの実行セッション
+### NospaceVM 構造体
+
+```rust
+// src/interpreter/vm.rs (新規)
+
+/// nospace ステップ実行 VM
 ///
-/// Scope への参照と実行状態を保持し、中断・再開を可能にする。
-pub struct InterpreterSession<'a> {
-    /// 解析済みスコープへの参照
-    scope: &'a Scope,
-    /// 実行環境（グローバル変数、I/O、メトリクス）
+/// 明示的スタックマシンとして全実行状態を保持する。
+/// `step()` / `run()` で指定ステップずつ実行し、任意のタイミングで中断・再開可能。
+///
+/// ## WhitespaceVM との対応
+///
+/// | WhitespaceVM | NospaceVM |
+/// |---|---|
+/// | `from_source(ws)` | `from_source(nospace)` |
+/// | `step(budget)` | `step(budget)` |
+/// | `run(max_steps)` | `run(max_steps)` |
+/// | `is_complete()` | `is_complete()` |
+/// | `total_steps()` | `total_steps()` |
+/// | `get_stdout_string()` | `get_stdout_string()` |
+/// | `with_stdin(buf)` | `with_stdin(buf)` |
+/// | `with_io(stdin, stdout)` | `with_io(stdin, stdout)` |
+/// | `with_interactive_stdin()` | (将来拡張) |
+pub struct NospaceVM {
+    // === プログラム ===
+    /// 解析済みスコープ（AST を所有）
+    scope: Scope,
+
+    // === 実行状態 ===
+    /// フレームスタック（明示的な実行位置管理）
+    frames: Vec<Frame>,
+    /// 値スタック（式評価の中間値・戻り値を格納）
+    value_stack: Vec<i64>,
+    /// フロー制御 (Return/Break/Continue の伝播用)
+    flow: Option<FlowControl>,
+    /// スコープスタック: 各スコープのアロケータベースアドレス
+    scope_stack: Vec<i64>,
+
+    // === I/O・メモリ ===
+    /// 実行環境（stdin, stdout, アロケータ, メトリクス等）
     env: Environment,
-    /// 実行中の状態（None = 未開始 or 完了）
-    continuation: Option<Continuation>,
-    /// 1回の step() で実行する最大式評価回数
-    step_budget: usize,
+    /// テスト用: stdout の内容を型安全に取得するための共有バッファ
+    stdout_capture: Option<Rc<RefCell<Vec<u8>>>>,
+
+    // === メトリクス ===
+    /// 総式評価回数
+    total_steps: usize,
+
+    // === 拡張 ===
+    /// トレース出力（__trace 組み込み関数の結果）
+    pub traced: BTreeMap<i64, i64>,
+
+    // === 状態フラグ ===
+    /// 実行完了済みかどうか
+    completed: bool,
+    /// 戻り値（main 関数の return 値）
+    return_value: Option<i64>,
 }
 ```
 
-### メソッド
+### コンストラクタ（Builder パターン）
+
+`WhitespaceVM` と同様の Builder パターンを採用:
 
 ```rust
-impl<'a> InterpreterSession<'a> {
-    /// 新しいセッションを作成する
-    pub fn new(scope: &'a Scope, env: Environment, step_budget: usize) -> Self;
-
-    /// ステップを実行する
+impl NospaceVM {
+    /// nospace ソースコードから VM を構築
     ///
-    /// step_budget 回の式評価を行い、以下のいずれかを返す:
-    /// - Complete: 実行が完了した
-    /// - Suspended: step_budget に到達し中断した
-    /// - Error: 実行時エラーが発生した
-    pub fn step(&mut self) -> StepResult;
+    /// パース → 意味解析 → VM 構築を一括実行する。
+    pub fn from_source(source: &str) -> Result<Self, NospaceError> {
+        let tokens = parse_to_tokens(&source.to_string())?;
+        let tree = parse_to_tree(&tokens)?;
+        let scope = semantic_analyze(&tree)?;
+        Self::from_scope(scope)
+    }
 
-    /// 実行が完了済みかどうか
-    pub fn is_complete(&self) -> bool;
+    /// 解析済み Scope から VM を構築
+    pub fn from_scope(scope: Scope) -> Result<Self, InterpretError> {
+        // Scope を所有し、初期フレームを積む
+        Ok(Self { ... })
+    }
 
-    /// 環境への参照を取得（stdout 等の読み取り用）
-    pub fn env(&self) -> &Environment;
+    /// stdin を設定する（stdout はデフォルトの capture を維持）
+    pub fn with_stdin(mut self, stdin: Box<dyn BufRead>) -> Self { ... }
 
-    /// 環境への可変参照を取得
-    pub fn env_mut(&mut self) -> &mut Environment;
+    /// I/O バッファを指定して構築
+    pub fn with_io(mut self, stdin: Box<dyn BufRead>, stdout: Box<dyn Write>) -> Self { ... }
+
+    /// EnvironmentConfig を設定
+    pub fn with_config(mut self, config: EnvironmentConfig) -> Self { ... }
 }
 ```
 
-### lib.rs 公開 API
+### 実行メソッド
 
 ```rust
-// src/lib.rs に追加
+impl NospaceVM {
+    /// 指定ステップ数だけ実行し、結果を返す
+    ///
+    /// budget 回の式評価を実行。途中で完了/エラーに到達した場合は即座に返す。
+    /// budget を消費しきった場合は Suspended を返す。
+    pub fn step(&mut self, budget: usize) -> StepResult { ... }
 
-pub use interpreter::{InterpreterSession, StepResult};
-
-/// セッションベースのインタプリタを開始する
-pub fn interpret_session<'a>(
-    scope: &'a Scope,
-    env: Environment,
-    step_budget: usize,
-) -> InterpreterSession<'a> {
-    InterpreterSession::new(scope, env, step_budget)
-}
-```
-
-### 使用例 (native)
-
-```rust
-let scope = syntactic_analyze(&stmts)?;
-let env = Environment::new();
-let mut session = interpret_session(&scope, env, 10000);
-
-loop {
-    match session.step() {
-        StepResult::Complete { return_value } => {
-            println!("Done: {:?}", return_value);
-            break;
-        }
-        StepResult::Suspended => {
-            // 何かの処理（進捗表示等）
-            continue;
-        }
-        StepResult::Error(msg) => {
-            eprintln!("Error: {}", msg);
-            break;
-        }
+    /// 完了まで一括実行（最大ステップ制限付き）
+    pub fn run(&mut self, max_steps: usize) -> StepResult {
+        self.step(max_steps)
     }
 }
 ```
 
-### 使用例 (WASM)
+### 状態参照メソッド
 
-```javascript
-const session = nospace.createSession(source, stdin, 10000);
+```rust
+impl NospaceVM {
+    /// 実行完了済みか
+    pub fn is_complete(&self) -> bool { self.completed }
 
-function runChunk() {
-  const result = session.step();
-  if (result.status === 'suspended') {
-    // UIフリーズ防止: 次のアニメーションフレームで続行
-    requestAnimationFrame(runChunk);
-  } else {
-    // 完了 or エラー
-    handleResult(result);
-  }
+    /// 総式評価回数
+    pub fn total_steps(&self) -> usize { self.total_steps }
+
+    /// stdout の内容を文字列として取得（テスト用）
+    pub fn get_stdout_string(&self) -> String { ... }
+
+    /// 戻り値（完了時のみ有効）
+    pub fn return_value(&self) -> Option<i64> { self.return_value }
+
+    /// トレース結果
+    pub fn traced(&self) -> &BTreeMap<i64, i64> { &self.traced }
+
+    /// stdout をフラッシュ
+    pub fn flush(&mut self) { ... }
 }
-runChunk();
 ```
 
 ## 内部設計
 
-### Yield の伝播
+### フレーム定義
 
-`Flow` と `ExpressionFlow` に `Yield` バリアントを追加する:
-
-```rust
-#[derive(Debug)]
-enum Flow {
-    Proceed,
-    Return(i64),
-    Continue,
-    Break,
-    Yield,  // ★追加
-}
-
-enum ExpressionFlow {
-    Value(i64),
-    Jump(Flow),
-    // Yield は Jump(Flow::Yield) として伝播
-}
-```
-
-### ステップバジェットの管理
-
-現在の `increment_expression_count` を改修する:
+AST の各構造に対応するフレームを定義する。
+再帰インタプリタの各 `interpret_*` メソッドが1つのフレーム種別に対応する。
 
 ```rust
-// 変更前
-fn increment_expression_count(&mut self) {
-    self.metrics.expression_count += 1;
-    if let Some(max) = self.config.max_expression_count {
-        if self.metrics.expression_count > max {
-            panic!("Expression evaluation limit exceeded");
-        }
-    }
-}
-
-// 変更後
-fn check_step_budget(&mut self) -> bool {
-    self.metrics.expression_count += 1;
-    self.remaining_budget = self.remaining_budget.saturating_sub(1);
-    if self.remaining_budget == 0 {
-        return false; // budget exhausted → should yield
-    }
-    // max_expression_count による絶対制限（安全弁）
-    if let Some(max) = self.config.max_expression_count {
-        if self.metrics.expression_count > max {
-            return false;
-        }
-    }
-    true // continue execution
-}
-```
-
-### interpret_expression での Yield チェック
-
-```rust
-fn interpret_expression(&mut self, expr: &ExecExpression) -> ExpressionFlow {
-    if !self.env.check_step_budget() {
-        return ExpressionFlow::Jump(Flow::Yield);
-    }
-    // ... 既存のロジック
-}
-```
-
-`try_expr!` マクロは `Jump` を伝播するため、`Yield` は自動的に呼び出し元まで伝播する:
-
-```rust
-macro_rules! try_expr {
-    ($e: expr) => {
-        match $e {
-            ExpressionFlow::Value(x) => x,
-            ExpressionFlow::Jump(f) => return ExpressionFlow::Jump(f),
-            // ↑ Flow::Yield もここで伝播される
-        }
-    };
-}
-```
-
-### Continuation (継続情報)
-
-中断後の再開に必要な情報を保持する:
-
-```rust
-/// 実行の継続情報
+/// 実行フレーム
 ///
-/// 中断された地点を復元するために必要な全ての状態を保持する。
-struct Continuation {
-    /// コールスタック（再帰呼び出しの代わり）
-    frames: Vec<ContinuationFrame>,
-}
-
-/// 1つの継続フレーム
-enum ContinuationFrame {
-    /// main 関数の実行 (or interpret() のルート)
-    Root,
-
-    /// 文リストの途中
-    Statements {
-        /// 実行中の文リストへの参照のための情報
-        /// （再開時にどの文リストか特定するために使用）
-        next_index: usize,
-        /// ブロックスコープの変数値
-        scope_values: Vec<i64>,
+/// 再帰インタプリタの「今どの関数のどの行を実行中か」に対応する情報を保持する。
+/// フレームスタックの末尾が現在実行中のフレーム。
+enum Frame {
+    /// グローバル初期化フレーム
+    /// interpret_global() に対応
+    GlobalInit {
+        phase: GlobalInitPhase,
     },
 
-    /// 関数呼び出しの途中
+    /// 関数呼び出しフレーム
+    /// interpret_call_user_function_by_ref() に対応
     FunctionCall {
-        func_name: String,
-        /// 評価済みの引数
+        /// 関数インデックス（root_scope.functions[idx]）
+        func_idx: usize,
+        /// 引数評価フェーズ: 評価済み引数値
         evaluated_args: Vec<i64>,
-        /// 次に評価する引数のインデックス
-        next_arg_index: usize,
+        /// 引数評価フェーズ: 次に評価する引数のインデックス
+        next_arg_idx: usize,
+        /// 本体実行中の文インデックス
+        body_stmt_idx: usize,
+        /// static 変数の有無
+        has_static: bool,
+        /// このフレームのスコープアドレス
+        scope_addr: i64,
     },
 
-    /// while ループの途中
-    WhileLoop {
-        /// 現在の反復で条件は評価済みか
-        condition_evaluated: bool,
-        /// ブロック実行中の文インデックス
-        body_next_index: usize,
-        /// 最後のループ値
+    /// 文リスト実行フレーム
+    /// interpret_statements() に対応
+    Statements {
+        /// 文リストへの参照（インデックスベースで AST にアクセス）
+        context: StatementsContext,
+        /// 次に実行する文のインデックス
+        next_idx: usize,
+        /// 最後の式の値（if/while 式の戻り値用）
         last_value: i64,
     },
 
-    /// if 式の途中
-    IfBranch {
-        /// 条件評価済みか
-        condition_evaluated: bool,
-        /// 条件の結果（true: then, false: else）
-        condition_result: bool,
-        /// ブロック実行中の文インデックス
-        body_next_index: usize,
+    /// 式評価フレーム
+    /// interpret_expression() に対応
+    Expression {
+        /// 評価する式への参照情報
+        context: ExpressionContext,
+        /// 式評価の進捗状態
+        phase: ExpressionPhase,
+    },
+
+    /// while ループフレーム
+    /// interpret_while_statement() に対応
+    WhileLoop {
+        context: WhileContext,
+        phase: WhilePhase,
+    },
+
+    /// for ループフレーム
+    /// interpret_for_statement() に対応
+    ForLoop {
+        context: ForContext,
+        phase: ForPhase,
+    },
+
+    /// if 式フレーム
+    /// interpret_if() に対応
+    IfExpr {
+        context: IfContext,
+        phase: IfPhase,
+    },
+
+    /// ブロックスコープフレーム
+    /// interpret_block() に対応
+    BlockScope {
+        context: BlockContext,
+        /// ブロック内の文実行中のインデックス
+        stmt_idx: usize,
+        /// スコープアドレス
+        scope_addr: i64,
+    },
+
+    /// 組み込み関数呼び出しフレーム
+    BuiltinCall {
+        kind: BuiltinFunctionKind,
+        /// 評価済み引数
+        evaluated_args: Vec<i64>,
+        /// 次に評価する引数のインデックス
+        next_arg_idx: usize,
     },
 }
 ```
 
-### 中断時のデータフロー
+### フェーズ enum
 
-```
-interpret_expression が Yield を検知
-  ↓
-ExpressionFlow::Jump(Flow::Yield) を返す
-  ↓
-try_expr! が Jump を伝播
-  ↓
-interpret_statement が Flow::Yield を受け取る
-  ↓ (各レイヤーが自分の状態を Continuation に push)
-interpret_statements が Flow::Yield を受け取る
-  ↓
-interpret_func が Flow::Yield を受け取る
-  ↓
-InterpreterSession::step() が Suspended を返す
-  ↓
-呼び出し元 (JS / CLI) に制御が戻る
+各フレームの実行進捗を管理する:
+
+```rust
+/// グローバル初期化のフェーズ
+enum GlobalInitPhase {
+    /// static 変数初期化（root_statements 実行前）
+    StaticInit { stmt_idx: usize },
+    /// 関数内 static 初期化
+    FunctionStaticInit { func_idx: usize, stmt_idx: usize },
+    /// 非 static グローバル変数初期化
+    RootStatements { stmt_idx: usize },
+    /// main 関数呼び出し（GlobalInit の最後に FunctionCall フレームを積む）
+    CallMain,
+}
+
+/// while ループのフェーズ
+enum WhilePhase {
+    /// 条件式を評価
+    EvalCondition,
+    /// ブロック進入済み、文を実行中
+    ExecuteBody { stmt_idx: usize, scope_addr: i64 },
+}
+
+/// for ループのフェーズ
+enum ForPhase {
+    /// 初期化ブロック
+    Init { stmt_idx: usize, scope_addr: i64 },
+    /// 条件評価
+    EvalCondition { init_scope_addr: i64 },
+    /// 本体実行
+    ExecuteBody { stmt_idx: usize, scope_addr: i64, init_scope_addr: i64 },
+    /// ステップ実行
+    ExecuteStep { stmt_idx: usize, scope_addr: i64, init_scope_addr: i64 },
+}
+
+/// if 式のフェーズ
+enum IfPhase {
+    /// 条件式を評価
+    EvalCondition,
+    /// then/else ブロック実行中
+    ExecuteBlock { is_then: bool, stmt_idx: usize, scope_addr: i64 },
+}
+
+/// 式評価のフェーズ
+enum ExpressionPhase {
+    /// 単項演算: オペランド評価中
+    Unary { op: Operator1 },
+    /// 二項演算: 左辺評価中
+    BinaryLeft { op: Operator2 },
+    /// 二項演算: 右辺評価中（左辺の値を保持）
+    BinaryRight { op: Operator2, left_value: i64 },
+    /// 代入: 右辺評価中
+    AssignRight { target: AssignTarget },
+    /// 関数呼び出し: 引数評価中
+    UserFuncArgs { func_ref: IdentifierRef, evaluated: Vec<i64>, next_idx: usize },
+    /// 完了（値が value_stack に積まれた状態）
+    Done,
+}
 ```
 
-### 再開時のデータフロー
+### AST への参照管理
 
+`Scope` を `NospaceVM` が所有するため、フレームから AST ノードへはインデックスベースでアクセスする。
+`&` 参照は使わない（自己参照構造を回避）。
+
+```rust
+/// 文リストの位置を表すコンテキスト
+///
+/// Scope が所有する AST ツリー内の文リストを逆引きするためのインデックスチェーン。
+/// 例: scope.functions[func_idx].block.statements[stmt_idx]
+enum StatementsContext {
+    /// 関数本体の文リスト: scope.functions[func_idx].block.statements
+    FunctionBody { func_idx: usize },
+    /// if の then ブロック
+    /// 親の式コンテキストから辿る
+    IfThenBlock { parent_expr: Box<ExpressionContext> },
+    /// if の else ブロック
+    IfElseBlock { parent_expr: Box<ExpressionContext> },
+    /// while の本体
+    WhileBody { parent_context: Box<StatementsContext>, parent_stmt_idx: usize },
+    /// for の各パート
+    ForInit { parent_context: Box<StatementsContext>, parent_stmt_idx: usize },
+    ForCond { parent_context: Box<StatementsContext>, parent_stmt_idx: usize },
+    ForStep { parent_context: Box<StatementsContext>, parent_stmt_idx: usize },
+    ForBody { parent_context: Box<StatementsContext>, parent_stmt_idx: usize },
+    /// ブロックスコープ式
+    BlockScope { parent_expr: Box<ExpressionContext> },
+    /// グローバル初期化の文リスト
+    GlobalStaticInit,
+    GlobalRootStatements,
+    FunctionStaticInit { func_idx: usize },
+}
 ```
-InterpreterSession::step() が呼ばれる
-  ↓
-Continuation から最外フレームを取り出す
-  ↓
-interpret_func を再呼び出し（復元情報付き）
-  ↓
-interpret_statements を途中のインデックスから再開
-  ↓
-式評価を通常通り実行
-  ↓
-budget 到達 or 完了
+
+> **設計ノート**: コンテキストチェーンの代わりに、各フレームが文リスト・式への生ポインタを持つ方法も検討可能。
+> `Scope` は `NospaceVM` が所有し move しないため、`*const` ポインタは有効なまま保持される。
+> ただし `unsafe` が必要になるため、まずはインデックスベースで実装し、パフォーマンスが問題になった場合に切り替える。
+
+### 実行ループ
+
+```rust
+impl NospaceVM {
+    pub fn step(&mut self, budget: usize) -> StepResult {
+        if self.completed {
+            return StepResult::Complete { return_value: self.return_value };
+        }
+
+        for _ in 0..budget {
+            match self.execute_one_step() {
+                ExecuteResult::Continue => {
+                    self.total_steps += 1;
+                }
+                ExecuteResult::Complete(value) => {
+                    self.completed = true;
+                    self.return_value = value;
+                    return StepResult::Complete { return_value: value };
+                }
+                ExecuteResult::Error(e) => {
+                    return StepResult::Error(e);
+                }
+            }
+        }
+
+        StepResult::Suspended
+    }
+
+    /// 1ステップ（1式評価）の実行
+    ///
+    /// フレームスタックの末尾を見て、対応する処理を実行する。
+    /// フレームが完了したら pop し、結果を value_stack に積む。
+    fn execute_one_step(&mut self) -> ExecuteResult {
+        let frame = match self.frames.last_mut() {
+            Some(f) => f,
+            None => return ExecuteResult::Complete(None),
+        };
+
+        match frame {
+            Frame::GlobalInit { .. } => self.step_global_init(),
+            Frame::FunctionCall { .. } => self.step_function_call(),
+            Frame::Statements { .. } => self.step_statements(),
+            Frame::Expression { .. } => self.step_expression(),
+            Frame::WhileLoop { .. } => self.step_while(),
+            Frame::ForLoop { .. } => self.step_for(),
+            Frame::IfExpr { .. } => self.step_if(),
+            Frame::BlockScope { .. } => self.step_block(),
+            Frame::BuiltinCall { .. } => self.step_builtin_call(),
+        }
+    }
+}
+```
+
+### ステップ実行の例: while ループ
+
+```rust
+fn step_while(&mut self) -> ExecuteResult {
+    let frame = self.frames.last_mut().unwrap();
+    let Frame::WhileLoop { context, phase } = frame else { unreachable!() };
+
+    match phase {
+        WhilePhase::EvalCondition => {
+            // 条件式の評価フレームを積む
+            // 条件式の評価結果が value_stack に積まれたら、
+            // 次の step_while() 呼び出しで値を取り出して判定する
+            // → 実際にはフレームの push/pop で制御
+            todo!("条件式の Expression フレームを push")
+        }
+        WhilePhase::ExecuteBody { stmt_idx, scope_addr } => {
+            // ブロック内の文を順次実行
+            // 最後の文まで完了 → EvalCondition に戻る
+            // Break → while フレームを pop
+            // Return → Return flow を設定して while フレームを pop
+            todo!("文実行のロジック")
+        }
+    }
+}
+```
+
+### FlowControl（制御フロー伝播）
+
+再帰版の `Flow` enum に対応する。スタックマシンでは `return` / `break` / `continue` を
+フレーム pop 時に伝播する:
+
+```rust
+/// 制御フローの種別
+enum FlowControl {
+    /// return 文: 値を持って関数フレームまで巻き戻す
+    Return(i64),
+    /// break 文: ループフレームまで巻き戻す
+    Break,
+    /// continue 文: ループフレームまで巻き戻す（ループ先頭に戻る）
+    Continue,
+}
+```
+
+`execute_one_step()` の先頭で `flow` をチェックし、適切なフレームまで pop する:
+
+```rust
+fn execute_one_step(&mut self) -> ExecuteResult {
+    // 制御フロー伝播: flow が設定されている場合、対象フレームまで pop
+    if let Some(flow) = &self.flow {
+        match flow {
+            FlowControl::Return(val) => {
+                // FunctionCall フレームまで pop（スコープ解放を含む）
+                // FunctionCall に到達 → val を value_stack に積んで flow をクリア
+            }
+            FlowControl::Break => {
+                // WhileLoop / ForLoop フレームまで pop
+            }
+            FlowControl::Continue => {
+                // WhileLoop / ForLoop フレームまで pop（条件再評価へ）
+            }
+        }
+    }
+    // ... 通常のフレーム処理
+}
 ```
 
 ## 変更対象ファイル
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/interpreter/mod.rs` | `Flow::Yield` 追加、`check_step_budget` 導入、各メソッドの Yield 伝播対応 |
-| `src/interpreter/session.rs` | **新規**: `InterpreterSession`, `StepResult`, `Continuation` の定義と実装 |
-| `src/lib.rs` | `interpret_session` 公開 API 追加、`InterpreterSession` / `StepResult` の re-export |
+| `src/interpreter/vm.rs` | **新規**: `NospaceVM`, `StepResult`, `Frame` 等の定義と実装 |
+| `src/interpreter/mod.rs` | `mod vm;` の追加と `NospaceVM` / `StepResult` の re-export |
+| `src/lib.rs` | `NospaceVM` の re-export |
 
 ## 既存 API との互換性
 
-既存の `interpret()` / `interpret_func()` はそのまま残す。内部的にセッションを使うがバジェット無制限で動作:
+既存の再帰インタプリタ API は**一切変更しない**:
 
 ```rust
-pub fn interpret(env: &mut Environment, scope: &Scope) -> Option<i64> {
-    // 既存と同じ動作（バジェット無制限 = 中断なしで完了まで実行）
-    // 内部実装は変更するが、外部動作は同一
+// 以下の関数はすべてそのまま残る
+pub fn interpret(scope: &Scope) -> Result<Option<i64>, InterpretError>;
+pub fn interpret_with_env(env: &mut Environment, scope: &Scope) -> Result<Option<i64>, InterpretError>;
+pub fn interpret_func(scope: &Scope, func_name: &str) -> Result<Option<i64>, InterpretError>;
+pub fn interpret_func_with_env(...) -> Result<Option<i64>, InterpretError>;
+```
+
+新しい `NospaceVM` は完全に独立したモジュールとして追加される。
+CLI ではデフォルトで既存の再帰版インタプリタを使用し、WASM やステップ実行が必要な場合のみ `NospaceVM` を使用する。
+
+## WhitespaceVM との対比表
+
+| 観点 | WhitespaceVM | NospaceVM |
+|------|------|------|
+| 実行対象 | フラット命令列 | AST ツリー |
+| 実行位置管理 | pc (プログラムカウンタ) | frames (フレームスタック) |
+| データ管理 | data_stack + heap | value_stack + アロケータ (Environment) |
+| コールスタック | call_stack (戻りアドレス) | FunctionCall フレーム |
+| 1ステップの粒度 | 1命令 | 1式評価 |
+| エラー型 | RuntimeError (WsRuntimeError) | InterpretError |
+| I/O | StdinSource + stdout | Environment (stdin + stdout) |
+| プログラム所有 | instructions: Vec<Instruction> | scope: Scope |
+
+## 使用例
+
+### native (CLI / テスト)
+
+```rust
+let scope = semantic_analyze(&stmts)?;
+let mut vm = NospaceVM::from_scope(scope)?;
+
+loop {
+    match vm.step(10000) {
+        StepResult::Complete { return_value } => {
+            println!("Done: {:?}", return_value);
+            break;
+        }
+        StepResult::Suspended => {
+            continue;
+        }
+        StepResult::Error(e) => {
+            eprintln!("Error: {}", e);
+            break;
+        }
+    }
 }
 ```
 
-**Result 型への移行**: 現在 `panic!` している `max_expression_count` 超過を `Flow::Yield` に変更することで、
-パニックではなく正常な制御フローとして処理できるようになる。
-ただし、`interpret()` / `interpret_func()` の戻り値型は互換性のため変えない。
-超過時は `None` を返す（ステップ上限に達した場合は「main が値を返さなかった」扱い）。
+### WASM
 
-## 段階的実装戦略
+```javascript
+const vm = new WasmNospaceVM(source, stdin);
 
-### Phase 1 でまず実現すること
-
-- `InterpreterSession` の型定義と `step()` メソッドの骨格
-- **中断はするが再開はしない** 状態（`step()` が `Suspended` を返したら、再度 `step()` すると最初から実行）
-- これだけで「N ステップで止める」要件は満たせる
-
-### Phase 2 で追加
-
-- `Flow::Yield` の伝播
-- panic の除去
-
-### Phase 3 で追加
-
-- `Continuation` による真の中断・再開
-- これが最も難易度が高いが、Phase 1-2 が動いていれば段階的にテストしながら進められる
+function runChunk() {
+  const result = vm.step(10000);
+  if (result.status === 'suspended') {
+    requestAnimationFrame(runChunk);
+  } else {
+    handleResult(result);
+  }
+}
+runChunk();
+```
 
 ## 設計上のトレードオフ
 
-### 式の途中での中断粒度
+### ステップ粒度
 
-式 `a + foo(b * c)` の評価途中（`b * c` 評価後、`foo` 呼び出し前）で中断するかどうか。
+| 粒度 | 利点 | 欠点 |
+|------|------|------|
+| 1式評価 | 既存の `increment_expression_count` と同等 | 1ステップの所要時間にばらつき（関数呼び出しは長い） |
+| 1文実行 | ばらつき小 | if/while 式が文として扱えない |
+| 1 AST ノード | 最も均一 | フレーム数が膨大 |
 
-**方針: 式の途中では中断しない**
+**方針: 1式評価**を採用。`WhitespaceVM` の「1命令」に対応する自然な粒度であり、
+既存の `expression_count` メトリクスとも整合する。
 
-- `interpret_expression` の**入口**でのみバジェットチェック
-- 1つの式評価は原子的に完了する
-- 中断粒度は「文の境界」「ループの反復境界」に限定
+### AST 参照方式
 
-理由:
-- 式の途中で中断すると、部分評価済みの中間値を全て保存する必要がある
-- 実装の複雑さが大幅に増加
-- 式1つの評価時間は十分短い（関数呼び出しを除く）
+| 方式 | 利点 | 欠点 |
+|------|------|------|
+| インデックスチェーン | safe Rust のみ | コンテキストのネスト時に辿るコストがある |
+| 生ポインタ (`*const`) | O(1) アクセス | `unsafe` が必要 |
+| `Rc<ExecExpression>` | 安全 + O(1) | AST 全体を `Rc` に変換する必要あり、既存コード変更大 |
 
-**ただし `interpret_call_user_function` は例外**: ユーザー定義関数呼び出しは内部で `interpret_statements` を実行するため、
-関数本体の中での中断は自然に発生する（これは新しい `ContinuationFrame::FunctionCall` として保存される）。
+**方針: インデックスチェーン**を初期実装として採用。
+パフォーマンスが問題になった場合にポインタ方式に移行する。
