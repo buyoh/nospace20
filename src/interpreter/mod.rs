@@ -5,6 +5,7 @@
 //! 他のモジュールを設計しなければなりません。
 //!
 
+mod allocator;
 mod environment;
 mod exec;
 mod types;

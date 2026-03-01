@@ -76,7 +76,7 @@ WS コンパイラと同一のアロケータアルゴリズムを使用する�
 | Phase | 内容 | 依存 | 規模 | 状態 |
 |---|---|---|---|---|
 | Phase 0 | `src/algorithm/` モジュール作成 + `compiler_ws` の定数移行 | なし | 小 | **完了** |
-| Phase 1 | `InterpreterAllocator` 実装 + ユニットテスト | Phase 0 | 中 | 未着手 |
+| Phase 1 | `InterpreterAllocator` 実装 + ユニットテスト | Phase 0 | 中 | **完了** |
 | Phase 2 | `Environment` への統合（グローバル変数・static 変数） | Phase 1 | 中 | 未着手 |
 | Phase 3 | `LocalEnvironment` のスコープ管理を移行 | Phase 2 | 中 | 未着手 |
 | Phase 4 | `__alloc`/`__free` 組み込み関数の実装 | Phase 3 | 小 | 未着手 |
