@@ -30,6 +30,7 @@
 - [code-design-review/](code-design-review/) - コード設計レビュー残タスク（02-module-splitting のみ未着手。01,03,04,05,06 は [done-task](../done-task/code-design-review/) に移動済み）
 - [temporary-array-literals.md](temporary-array-literals.md) - 一時配列リテラル（文字列・配列を式として直接記述、候補1: 文スコープ一時 vs 候補2: 無名static変数、設計比較・推奨）
 - [api-cleanup/](api-cleanup/) - API クリーンアップ（deprecated関数移行・WS共有型配置改善・エラー型統一の3タスク）
+- [interpreter-allocator/](interpreter-allocator/) - インタプリタ メモリアロケータ（`__alloc`/`__free` 対応、グローバル・ローカル・static 変数の統一メモリモデル、解放済みアドレス検出）
 
 ## 現在のタスク
 
