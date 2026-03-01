@@ -50,12 +50,6 @@ pub fn semantic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeP
     semantic_analyzer::analyze(root)
 }
 
-/// `semantic_analyze` の旧名称（後方互換性のため残存）
-#[deprecated(since = "0.2.0", note = "Renamed to semantic_analyze")]
-pub fn syntactic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
-    semantic_analyze(root)
-}
-
 /// Scope に対して最適化パスを適用する
 pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
     optimizer::optimize(scope, options);
@@ -193,80 +187,4 @@ pub fn compile_to_ws(
         WsOutputFormat::Whitespace => Ok(prog.to_whitespace()),
         WsOutputFormat::Mnemonic => Ok(prog.to_debug_string()),
     }
-}
-
-/// Whitespace にコンパイル（拡張オプション付き）
-#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
-pub fn compile_to_whitespace_with_options(
-    scope: &Scope,
-    debug_ext: bool,
-    alloc_ext: bool,
-) -> Result<String, Vec<CodeParseError>> {
-    compiler_ws::compile_with_options(scope, debug_ext, alloc_ext)
-        .map(|prog| prog.to_whitespace())
-        .map_err(|e| vec![compile_error_to_code_parse_error(e)])
-}
-
-/// Whitespace にコンパイル（最適化オプション付き）
-///
-/// `OptimizationOptions` の `peephole` フラグによって
-/// ピープホール最適化を追加適用できる。
-#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
-pub fn compile_to_whitespace_with_opt(
-    scope: &Scope,
-    debug_ext: bool,
-    alloc_ext: bool,
-    opt: &OptimizationOptions,
-) -> Result<String, Vec<CodeParseError>> {
-    compiler_ws::compile_with_full_options(scope, debug_ext, alloc_ext, opt.peephole)
-        .map(|prog| prog.to_whitespace())
-        .map_err(|e| vec![compile_error_to_code_parse_error(e)])
-}
-
-/// Whitespace にコンパイル（デバッグ用ニーモニック、拡張オプション付き）
-#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
-pub fn compile_to_whitespace_debug_with_options(
-    scope: &Scope,
-    debug_ext: bool,
-    alloc_ext: bool,
-) -> Result<String, Vec<CodeParseError>> {
-    compiler_ws::compile_with_options(scope, debug_ext, alloc_ext)
-        .map(|prog| prog.to_debug_string())
-        .map_err(|e| vec![compile_error_to_code_parse_error(e)])
-}
-
-/// Whitespace にコンパイル（デバッグ用ニーモニック、最適化オプション付き）
-#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
-pub fn compile_to_whitespace_debug_with_opt(
-    scope: &Scope,
-    debug_ext: bool,
-    alloc_ext: bool,
-    opt: &OptimizationOptions,
-) -> Result<String, Vec<CodeParseError>> {
-    compiler_ws::compile_with_full_options(scope, debug_ext, alloc_ext, opt.peephole)
-        .map(|prog| prog.to_debug_string())
-        .map_err(|e| vec![compile_error_to_code_parse_error(e)])
-}
-
-/// Whitespace にコンパイル（従来互換）
-#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
-#[allow(deprecated)]
-pub fn compile_to_whitespace(scope: &Scope) -> Result<String, Vec<CodeParseError>> {
-    compile_to_whitespace_with_options(scope, false, false)
-}
-
-/// Whitespace にコンパイル（デバッグ用ニーモニック、従来互換）
-#[deprecated(since = "0.2.0", note = "Use compile_to_ws with WsCompileOptions instead")]
-#[allow(deprecated)]
-pub fn compile_to_whitespace_debug(scope: &Scope) -> Result<String, Vec<CodeParseError>> {
-    compile_to_whitespace_debug_with_options(scope, false, false)
-}
-
-/// `CompileError` を `CodeParseError` に変換する
-///
-/// WASM API や CLI で既存のエラーハンドリングを再利用するため、
-/// `CompileError` を `CodeParseError` 形式に変換する。
-fn compile_error_to_code_parse_error(e: compiler_ws::CompileError) -> CodeParseError {
-    let code_pointer = e.location.map(|loc| loc.start);
-    CodeParseError::new(code_pointer, e.kind.to_string())
 }

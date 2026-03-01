@@ -1,13 +1,13 @@
 //! Whitespace コンパイラの統合テスト
 //!
-//! このファイルには compile_to_whitespace_debug のテストのみを含みます。
+//! このファイルには compile_to_ws のテストのみを含みます。
 //! 他のコンパイルテストは test-manifest.yaml で定義され、自動生成されています。
 
 mod common;
 
 use nospace20::{
-    compile_to_whitespace, compile_to_whitespace_debug, parse_to_tokens, parse_to_tree,
-    syntactic_analyze,
+    compile_to_ws, WsCompileOptions, WsOutputFormat, parse_to_tokens, parse_to_tree,
+    semantic_analyze,
 };
 
 #[test]
@@ -21,9 +21,12 @@ fn test_compile_debug_string() {
 
     let tokens = parse_to_tokens(&source).unwrap();
     let ast = parse_to_tree(&tokens).unwrap();
-    let scope = syntactic_analyze(&ast).unwrap();
+    let scope = semantic_analyze(&ast).unwrap();
 
-    let result = compile_to_whitespace_debug(&scope);
+    let result = compile_to_ws(&scope, &WsCompileOptions {
+        output_format: WsOutputFormat::Mnemonic,
+        ..Default::default()
+    });
     assert!(result.is_ok(), "Compilation failed: {:?}", result.err());
 
     let debug_str = result.unwrap();
@@ -47,20 +50,19 @@ fn test_compile_error_returns_code_parse_error() {
 
     let tokens = parse_to_tokens(&source).unwrap();
     let ast = parse_to_tree(&tokens).unwrap();
-    let scope = syntactic_analyze(&ast).unwrap();
+    let scope = semantic_analyze(&ast).unwrap();
 
-    let result = compile_to_whitespace(&scope);
+    let result = compile_to_ws(&scope, &WsCompileOptions::default());
     assert!(result.is_err(), "Should fail when main function is missing");
 
-    let errors = result.unwrap_err();
-    assert!(!errors.is_empty(), "Should have at least one error");
+    let error = result.unwrap_err();
     assert!(
-        errors[0].message.contains("__main"),
+        error.kind.to_string().contains("__main"),
         "Error message should mention 'main': {}",
-        errors[0].message
+        error.kind
     );
-    // MainNotFound は特定の位置に紐づかないため code_pointer は None
-    assert_eq!(errors[0].code_pointer, None);
+    // MainNotFound は特定の位置に紐づかないため location は None
+    assert_eq!(error.location, None);
 }
 
 /// continue outside loop のコンパイルエラーに位置情報が含まれることを確認するテスト
@@ -74,20 +76,19 @@ fn test_compile_error_invalid_operation_has_location() {
 
     let tokens = parse_to_tokens(&source.to_string()).unwrap();
     let ast = parse_to_tree(&tokens).unwrap();
-    let scope = syntactic_analyze(&ast).unwrap();
+    let scope = semantic_analyze(&ast).unwrap();
 
-    let result = compile_to_whitespace(&scope);
+    let result = compile_to_ws(&scope, &WsCompileOptions::default());
     assert!(result.is_err(), "Should fail: continue outside loop");
 
-    let errors = result.unwrap_err();
-    assert!(!errors.is_empty(), "Should have at least one error");
+    let error = result.unwrap_err();
     assert!(
-        errors[0].message.contains("continue"),
+        error.kind.to_string().contains("continue"),
         "Error message should mention 'continue': {}",
-        errors[0].message
+        error.kind
     );
     assert!(
-        errors[0].code_pointer.is_some(),
-        "compile error should have source location (code_pointer should be Some)"
+        error.location.is_some(),
+        "compile error should have source location (location should be Some)"
     );
 }

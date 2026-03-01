@@ -5,7 +5,7 @@ use std::io::Cursor;
 use std::rc::Rc;
 
 use nospace20::{
-    parse_to_tokens, parse_to_tree, syntactic_analyze, Environment, EnvironmentConfig, Scope,
+    parse_to_tokens, parse_to_tree, semantic_analyze, Environment, EnvironmentConfig, Scope,
 };
 
 /// EnvironmentConfig を使って interpret_func を実行するヘルパー
@@ -45,6 +45,5 @@ pub fn interpret_func_with_config(
 pub fn parse_and_analyze(source: &str) -> Scope {
     let tokens = parse_to_tokens(&source.to_string()).unwrap();
     let tree = parse_to_tree(&tokens).unwrap();
-    #[allow(deprecated)]
-    syntactic_analyze(&tree).unwrap()
+    semantic_analyze(&tree).unwrap()
 }

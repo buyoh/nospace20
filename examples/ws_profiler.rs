@@ -415,8 +415,7 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
             .collect::<Vec<_>>()
             .join("; ")
     })?;
-    #[allow(deprecated)]
-    let mut scope = nospace20::syntactic_analyze(&tree).map_err(|errors| {
+    let mut scope = nospace20::semantic_analyze(&tree).map_err(|errors| {
         errors
             .iter()
             .map(|e| format!("{:?}", e))
@@ -426,20 +425,16 @@ fn compile_nospace(source: &str, opts: &CompileOptions) -> Result<String, String
     if opts.opt_options.any_enabled() {
         nospace20::optimize(&mut scope, &opts.opt_options);
     }
-    #[allow(deprecated)]
-    nospace20::compile_to_whitespace_with_opt(
+    nospace20::compile_to_ws(
         &scope,
-        opts.debug_ext,
-        opts.alloc_ext,
-        &opts.opt_options,
+        &nospace20::WsCompileOptions {
+            debug_ext: opts.debug_ext,
+            alloc_ext: opts.alloc_ext,
+            optimization: opts.opt_options.clone(),
+            ..Default::default()
+        },
     )
-    .map_err(|errors| {
-        errors
-            .iter()
-            .map(|e| format!("{:?}", e))
-            .collect::<Vec<_>>()
-            .join("; ")
-    })
+    .map_err(|e| format!("{:?}", e))
 }
 
 /// Whitespace テキストの静的命令数を計算する（パースして命令列長を得る）

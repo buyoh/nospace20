@@ -1,8 +1,8 @@
 use std::{fmt::Result, fs, io};
 
 use nospace20::{
-    compile_to_whitespace, interpret_func_with_io, parse_to_tokens, parse_to_tree,
-    syntactic_analyze,
+    compile_to_ws, WsCompileOptions, interpret_func_with_io, parse_to_tokens, parse_to_tree,
+    semantic_analyze,
 };
 
 use super::test_config::TestConfig;
@@ -66,7 +66,7 @@ pub fn test_compile_error_base(test_name: &str) -> Result {
             let s = parse_to_tree(&t).ok().unwrap();
 
             // セマンティック分析（エラーが発生する可能性がある）
-            let a = match syntactic_analyze(&s) {
+            let a = match semantic_analyze(&s) {
                 Ok(a) => a,
                 Err(errors) => {
                     // セマンティック分析でエラーが発生した場合もチェック
@@ -90,20 +90,16 @@ pub fn test_compile_error_base(test_name: &str) -> Result {
             };
 
             // コンパイル（エラーが発生するはず）
-            let result = compile_to_whitespace(&a);
+            let result = compile_to_ws(&a, &WsCompileOptions::default());
             assert!(result.is_err(), "Expected compile error but succeeded");
 
             // contains が指定されている場合、エラーメッセージに含まれているか確認
             if let Some(keywords) = contains {
-                let errors = result.unwrap_err();
-                let combined_msg = errors
-                    .iter()
-                    .map(|e| e.message.as_ref())
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                let error = result.unwrap_err();
+                let combined_msg = error.kind.to_string();
                 for keyword in keywords {
                     assert!(
-                        combined_msg.contains(&keyword as &str),
+                        combined_msg.contains(keyword.as_str()),
                         "Error message does not contain '{}': {}",
                         keyword,
                         combined_msg
@@ -136,7 +132,7 @@ pub fn test_runtime_error_base(test_name: &str) -> Result {
             // パース
             let t = parse_to_tokens(&ns_cnt).ok().unwrap();
             let s = parse_to_tree(&t).ok().unwrap();
-            let a = syntactic_analyze(&s).ok().unwrap();
+            let a = semantic_analyze(&s).ok().unwrap();
 
             // 実行してパニックをキャッチ
             let result = std::panic::catch_unwind(|| {

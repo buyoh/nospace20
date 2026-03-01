@@ -2,7 +2,7 @@ use std::{fmt::Result, fs, io};
 
 use nospace20::{
     interpret_func_testing, interpret_func_testing_randomize, interpret_func_with_io,
-    parse_to_tokens, parse_to_tree, syntactic_analyze,
+    parse_to_tokens, parse_to_tree, semantic_analyze,
 };
 
 use super::test_config::{load_check_json, TestConfig};
@@ -15,7 +15,7 @@ pub fn test_ok_coding_base_opt_all(test_name: &str) -> Result {
 
     let t = parse_to_tokens(&ns_cnt).ok().unwrap();
     let s = parse_to_tree(&t).ok().unwrap();
-    let mut a = syntactic_analyze(&s).ok().unwrap();
+    let mut a = semantic_analyze(&s).ok().unwrap();
     nospace20::optimize(&mut a, &nospace20::OptimizationOptions::all());
     let trace = interpret_func_testing(&a, "__main");
 
@@ -60,7 +60,7 @@ pub fn test_ok_coding_io_base_opt_all(test_name: &str) -> Result {
     // パース・最適化（全ケース共通）
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
-    let mut a = syntactic_analyze(&s).unwrap();
+    let mut a = semantic_analyze(&s).unwrap();
     nospace20::optimize(&mut a, &nospace20::OptimizationOptions::all());
 
     // 各ケースを実行
@@ -111,7 +111,7 @@ pub fn test_ok_coding_base(test_name: &str) -> Result {
 
     let t = parse_to_tokens(&ns_cnt).ok().unwrap();
     let s = parse_to_tree(&t).ok().unwrap();
-    let a = syntactic_analyze(&s).ok().unwrap();
+    let a = semantic_analyze(&s).ok().unwrap();
     let trace = interpret_func_testing(&a, "__main");
 
     let check_json = load_check_json(&path_base);
@@ -146,7 +146,7 @@ pub fn test_ok_coding_base_randomize(test_name: &str) -> Result {
 
     let t = parse_to_tokens(&ns_cnt).ok().unwrap();
     let s = parse_to_tree(&t).ok().unwrap();
-    let a = syntactic_analyze(&s).ok().unwrap();
+    let a = semantic_analyze(&s).ok().unwrap();
     // randomize モードで実行
     let trace = interpret_func_testing_randomize(&a, "__main");
 
@@ -190,7 +190,7 @@ pub fn test_ok_coding_io_base(test_name: &str) -> Result {
     // パース（全ケース共通）
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
-    let a = syntactic_analyze(&s).unwrap();
+    let a = semantic_analyze(&s).unwrap();
 
     // 各ケースを実行
     for (idx, case) in test_cases.iter().enumerate() {

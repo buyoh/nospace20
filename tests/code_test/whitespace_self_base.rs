@@ -2,7 +2,7 @@ use std::{fs, io};
 
 use nospace20::whitespace::{StepResult, WhitespaceVM};
 use nospace20::{
-    compile_to_whitespace_with_options, parse_to_tokens, parse_to_tree, syntactic_analyze,
+    compile_to_ws, WsCompileOptions, parse_to_tokens, parse_to_tree, semantic_analyze,
 };
 
 /// `--opt all` 相当の最適化を適用した上で Whitespace にコンパイルして実行する
@@ -13,9 +13,9 @@ pub fn test_whitespace_self_base_opt_all(test_name: &str) {
 
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
-    let mut a = syntactic_analyze(&s).unwrap();
+    let mut a = semantic_analyze(&s).unwrap();
     nospace20::optimize(&mut a, &nospace20::OptimizationOptions::all());
-    let ws_code = compile_to_whitespace_with_options(&a, false, false)
+    let ws_code = compile_to_ws(&a, &WsCompileOptions::default())
         .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -64,9 +64,9 @@ pub fn test_whitespace_self_io_base_opt_all(test_name: &str) {
     // コンパイル・最適化（全ケース共通）
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
-    let mut a = syntactic_analyze(&s).unwrap();
+    let mut a = semantic_analyze(&s).unwrap();
     nospace20::optimize(&mut a, &nospace20::OptimizationOptions::all());
-    let ws_code = compile_to_whitespace_with_options(&a, false, false)
+    let ws_code = compile_to_ws(&a, &WsCompileOptions::default())
         .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -166,8 +166,12 @@ pub fn test_whitespace_self_base_alloc(test_name: &str, debug_ext: bool, alloc_e
     // コンパイル（alloc_ext を渡す）
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
-    let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace_with_options(&a, debug_ext, alloc_ext)
+    let a = semantic_analyze(&s).unwrap();
+    let ws_code = compile_to_ws(&a, &WsCompileOptions {
+        debug_ext,
+        alloc_ext,
+        ..Default::default()
+    })
         .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
@@ -211,8 +215,11 @@ fn test_whitespace_self_base_impl(
     // コンパイル
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
-    let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace_with_options(&a, debug_ext, false)
+    let a = semantic_analyze(&s).unwrap();
+    let ws_code = compile_to_ws(&a, &WsCompileOptions {
+        debug_ext,
+        ..Default::default()
+    })
         .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
@@ -281,8 +288,12 @@ pub fn test_whitespace_self_io_base_alloc(test_name: &str, debug_ext: bool, allo
     // コンパイル（alloc_ext を渡す）
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
-    let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace_with_options(&a, debug_ext, alloc_ext)
+    let a = semantic_analyze(&s).unwrap();
+    let ws_code = compile_to_ws(&a, &WsCompileOptions {
+        debug_ext,
+        alloc_ext,
+        ..Default::default()
+    })
         .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
@@ -382,8 +393,11 @@ fn test_whitespace_self_io_base_impl(
     // コンパイル（全ケース共通）
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
-    let a = syntactic_analyze(&s).unwrap();
-    let ws_code = compile_to_whitespace_with_options(&a, debug_ext, false)
+    let a = semantic_analyze(&s).unwrap();
+    let ws_code = compile_to_ws(&a, &WsCompileOptions {
+        debug_ext,
+        ..Default::default()
+    })
         .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
