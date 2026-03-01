@@ -167,9 +167,11 @@ pub fn compile(
             let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
             js.into()
         }
-        Err(errors) => serde_wasm_bindgen::to_value(&pipeline::convert_errors(&errors, &text_code))
-            .unwrap()
-            .into(),
+        Err(e) => {
+            // CompileError は Display 実装済みのため文字列として伝達
+            let err_result = ResultErr::single_error(format!("{}", e));
+            serde_wasm_bindgen::to_value(&err_result).unwrap().into()
+        }
     }
 }
 

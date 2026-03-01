@@ -2,6 +2,43 @@
 
 日付: 2026-03-01
 
+## 完了ステータス
+
+**実装完了** (2026-03-01)
+
+### 実施内容サマリー
+
+- Step 1〜6: `src/base/error/` ディレクトリを新規作成し、5 つのエラー型ファイルを配置
+  - `parse_error.rs`: `CodeParseError` + `code_parse_error!` マクロを移動
+  - `compile_error.rs`: `CompileError`, `CompileErrorKind` を新規定義（`compiler_ws/mod.rs` から移動）  
+  - `interpret_error.rs`: `InterpretError` を新規定義（`interpreter/mod.rs` から移動）
+  - `ws_error.rs`: `WsRuntimeError`（旧 `RuntimeError`）, `WsParseError`（旧 `ParseError`）を新規定義・`Display`/`Error` 実装追加
+  - `validation_error.rs`: `compile_property` との循環依存を避けるため re-export のみ
+  - `mod.rs`: `NospaceError` 統一型, `CompileStage`, `From` 実装を追加
+- Step 7: `compile_to_ws` の戻り値を `Result<String, CompileError>` に変更、`compile_error_to_code_parse_error` は deprecated 関数用に残存
+- CLI (`bin/nospace20.rs`) のコンパイルエラーハンドリングを更新
+- WASM API の `compile()` 関数でのエラー変換を `CompileError::Display` を使用する形に更新
+
+### 既存コードへの後方互換
+
+| 変更前 | 変更後 |
+|--------|--------|
+| `whitespace::interpreter::RuntimeError` | `type RuntimeError = WsRuntimeError` (type alias) |
+| `whitespace::parser::ParseError` | `type ParseError = WsParseError` (type alias) |
+| `crate::base::CodeParseError` | 変更なし（`base::error` から re-export） |
+| `compiler_ws::CompileError` | 変更なし（`base::error::compile_error` から re-export） |
+
+### テスト結果
+
+`cargo test`: 全テスト通過 (1645 passed, 0 failed)
+
+### 注意点
+
+- `ValidationError` は `LanguageStd`/`CompileTarget` との循環依存のため `compile_property.rs` に定義を残し、`validation_error.rs` で re-export のみ
+- `code_parse_error!` マクロを `base/mod.rs` から `base/error/parse_error.rs` へ移動した際、`base/constexpr_eval.rs` の暗黙的スコープが失われるため、明示的に `use crate::code_parse_error;` を追加
+
+---
+
 ## 概要
 
 プロジェクト内に散在する 5 つのエラー型を `src/base/error` モジュールに集約し、ライブラリやCLI に伝達されるエラーの一貫性を確保する。

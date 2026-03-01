@@ -123,25 +123,11 @@ pub enum StepResult {
 }
 
 /// 実行時エラー
-#[derive(Debug, PartialEq, Eq)]
-pub enum RuntimeError {
-    /// スタックアンダーフロー
-    StackUnderflow,
-    /// ゼロ除算
-    DivisionByZero,
-    /// 未定義ラベルへのジャンプ
-    UndefinedLabel(i64),
-    /// ヒープの未初期化アドレスへのアクセス
-    UninitializedHeap(i64),
-    /// コールスタックアンダーフロー（ret 命令でコールスタックが空）
-    CallStackUnderflow,
-    /// PC が命令列の範囲外
-    ProgramCounterOutOfBounds,
-    /// I/O エラー
-    IoError(String),
-    /// アサーション失敗（拡張 API）
-    AssertionFailed(i64),
-}
+///
+/// NOTE: 型定義は `base::error::ws_error::WsRuntimeError` に移動。
+/// 後方互換のため type alias として公開。
+pub use crate::base::error::ws_error::WsRuntimeError;
+pub type RuntimeError = WsRuntimeError;
 
 /// read_char / read_number の失敗種別（内部使用）
 #[derive(Debug)]

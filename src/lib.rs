@@ -5,6 +5,8 @@ extern crate assert_matches;
 use std::collections::BTreeMap;
 
 pub use base::CodeParseError;
+pub use base::error::{NospaceError, CompileStage};
+pub use compiler_ws::CompileError;
 pub use interpreter::{Environment, EnvironmentConfig, InterpretError};
 pub use logger::TextCode;
 pub use semantic_analyzer::Scope;
@@ -179,14 +181,13 @@ pub struct WsCompileOptions {
 pub fn compile_to_ws(
     scope: &Scope,
     options: &WsCompileOptions,
-) -> Result<String, Vec<CodeParseError>> {
+) -> Result<String, CompileError> {
     let prog = compiler_ws::compile_with_full_options(
         scope,
         options.debug_ext,
         options.alloc_ext,
         options.optimization.peephole,
-    )
-    .map_err(|e| vec![compile_error_to_code_parse_error(e)])?;
+    )?;
 
     match options.output_format {
         WsOutputFormat::Whitespace => Ok(prog.to_whitespace()),

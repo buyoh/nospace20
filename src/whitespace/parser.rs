@@ -6,25 +6,11 @@ use crate::compiler_ws::instruction::Instruction;
 use crate::compiler_ws::types::{LabelId, WsChar, WsNumber};
 
 /// パースエラー
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParseError {
-    /// 不正な IMP（命令修飾パラメータ）
-    InvalidImp { position: usize },
-    /// 不正な命令コマンド部分
-    InvalidCommand { position: usize, imp: String },
-    /// 予期しないファイル終端
-    UnexpectedEof { context: String },
-    /// 数値リテラルのパースエラー
-    InvalidNumber { position: usize },
-    /// ラベルリテラルのパースエラー
-    InvalidLabel { position: usize },
-    /// 重複したラベル定義
-    DuplicateLabel {
-        label_id: i64,
-        first_position: usize,
-        second_position: usize,
-    },
-}
+///
+/// NOTE: 型定義は `base::error::ws_error::WsParseError` に移動。
+/// 後方互換のため type alias として公開。
+pub use crate::base::error::ws_error::WsParseError;
+pub type ParseError = WsParseError;
 
 /// Whitespace テキストを命令列にパースする
 pub fn parse(source: &str) -> Result<Vec<Instruction>, ParseError> {

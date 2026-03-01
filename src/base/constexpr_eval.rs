@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     base::{pure_eval, CodeParseError},
+    code_parse_error,
     tree_parser::{Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement},
 };
 

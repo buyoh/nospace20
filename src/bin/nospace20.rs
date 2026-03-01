@@ -242,9 +242,13 @@ fn main() {
                 output_format,
                 optimization: opt_options.clone(),
             };
-            let compiled = compile_to_ws(&a, &ws_options);
-
-            let output = handle_parse_error(compiled, &text);
+            let output = match compile_to_ws(&a, &ws_options) {
+                Ok(s) => s,
+                Err(err) => {
+                    eprintln!("error: {}", err);
+                    process::exit(1);
+                }
+            };
 
             // 出力
             if let Some(output_file) = &property.output {

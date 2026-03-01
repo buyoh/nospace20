@@ -16,31 +16,9 @@ pub use environment::{Environment, EnvironmentConfig};
 use crate::semantic_analyzer::Scope;
 use exec::LocalEnvironment;
 use types::Flow;
-use std::fmt;
 
-/// インタプリタ実行時のエラー
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InterpretError {
-    /// 指定された関数が見つからない
-    FunctionNotFound(String),
-    /// 初期化中に予期しない制御フローが発生
-    UnexpectedFlow(String),
-}
-
-impl fmt::Display for InterpretError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            InterpretError::FunctionNotFound(name) => {
-                write!(f, "function '{}' not found", name)
-            }
-            InterpretError::UnexpectedFlow(detail) => {
-                write!(f, "unexpected flow: {}", detail)
-            }
-        }
-    }
-}
-
-impl std::error::Error for InterpretError {}
+// InterpretError を base::error から re-export（後方互換）
+pub use crate::base::error::interpret_error::InterpretError;
 
 pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> Result<Option<i64>, InterpretError> {
     let func = match scope.get_function(func_name) {
