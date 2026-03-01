@@ -88,7 +88,7 @@ pub mod heap_layout {
     pub const FSBA_TABLE_PTR: i64 = 7;
 
     // FSBA サイズクラス数
-    pub const FSBA_CLASS_COUNT: i64 = 5;
+    pub const FSBA_CLASS_COUNT: i64 = crate::algorithm::alloc_spec::FSBA_CLASS_COUNT as i64;
 }
 
 #[cfg(test)]

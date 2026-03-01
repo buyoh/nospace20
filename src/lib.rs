@@ -13,6 +13,7 @@ pub use semantic_analyzer::Scope;
 use token_parser::PrettyToken;
 use tree_parser::LocatedStatement;
 
+pub mod algorithm;
 mod base;
 mod compile_property;
 pub mod compiler_ws;

@@ -1,5 +1,6 @@
 //! FSBA + First-Fit アロケータ（FsbaFirstFitAllocRuntime）の実装
 
+use crate::algorithm::alloc_spec;
 use crate::compiler_ws::{
     instruction::Instruction, label::reserved_labels, memory::heap_layout, program::WsProgram,
     types::WsNumber,
@@ -79,13 +80,17 @@ pub struct FsbaFirstFitAllocRuntime;
 ///
 /// cascade_threshold は `total - threshold < 0` で該当クラスを判定するための値。
 /// threshold = block_size + 1 とすることで `total <= block_size` を `total - (block_size+1) < 0` で判定する。
-const FSBA_SIZE_CLASSES: [(i64, i64, i64); 5] = [
-    (0, 2, 3),   // class 0: block_size=2,  threshold=3  → total <= 2
-    (1, 4, 5),   // class 1: block_size=4,  threshold=5  → total <= 4
-    (2, 8, 9),   // class 2: block_size=8,  threshold=9  → total <= 8
-    (3, 16, 17), // class 3: block_size=16, threshold=17 → total <= 16
-    (4, 32, 33), // class 4: block_size=32, threshold=33 → total <= 32
-];
+/// `block_size` は `alloc_spec::FSBA_BLOCK_SIZES` から導出する。
+const FSBA_SIZE_CLASSES: [(i64, i64, i64); alloc_spec::FSBA_CLASS_COUNT] = {
+    let bs = alloc_spec::FSBA_BLOCK_SIZES;
+    [
+        (0, bs[0], bs[0] + 1), // class 0: block_size=2,  threshold=3  → total <= 2
+        (1, bs[1], bs[1] + 1), // class 1: block_size=4,  threshold=5  → total <= 4
+        (2, bs[2], bs[2] + 1), // class 2: block_size=8,  threshold=9  → total <= 8
+        (3, bs[3], bs[3] + 1), // class 3: block_size=16, threshold=17 → total <= 16
+        (4, bs[4], bs[4] + 1), // class 4: block_size=32, threshold=33 → total <= 32
+    ]
+};
 
 /// alloc カスケードのクラスラベル配列
 const ALLOC_CLASS_LABELS: [crate::compiler_ws::types::LabelId; 5] = [
@@ -118,12 +123,12 @@ impl FsbaFirstFitAllocRuntime {
         // Step 1: total = max(size + 1, 2)
         prog.extend([
             // スタック: [size]
-            Instruction::Push(WsNumber(1)),
+            Instruction::Push(WsNumber(alloc_spec::HEADER_SIZE)),
             Instruction::Add,
             // スタック: [size+1]
             Instruction::Duplicate,
             // スタック: [size+1, size+1]
-            Instruction::Push(WsNumber(2)),
+            Instruction::Push(WsNumber(alloc_spec::MIN_BLOCK_SIZE)),
             Instruction::Sub,
             // スタック: [size+1, size+1-2]
             Instruction::JumpIfNegative(fsba_labels::ALLOC_SET_MIN),
@@ -131,12 +136,12 @@ impl FsbaFirstFitAllocRuntime {
             Instruction::Jump(fsba_labels::ALLOC_CASCADE),
         ]);
 
-        // ALLOC_SET_MIN: total < 2 → total = 2
+        // ALLOC_SET_MIN: total < MIN_BLOCK_SIZE → total = MIN_BLOCK_SIZE
         prog.extend([
             Instruction::Label(fsba_labels::ALLOC_SET_MIN),
             // jn popped size+1-2. Stack: [size+1]
             Instruction::Discard,
-            Instruction::Push(WsNumber(2)),
+            Instruction::Push(WsNumber(alloc_spec::MIN_BLOCK_SIZE)),
             // fall through to ALLOC_CASCADE
         ]);
 
@@ -361,13 +366,13 @@ impl FsbaFirstFitAllocRuntime {
         prog.push(Instruction::Label(fsba_labels::GENERAL_ALLOC_FOUND));
         // スタック: [pna, curr, diff]
         // diff = curr_size - total
-        // Check if diff >= 2 for splitting
+        // Check if diff >= SPLIT_MIN_REMAINDER for splitting
         prog.extend([
             Instruction::Duplicate,
             // スタック: [pna, curr, diff, diff]
-            Instruction::Push(WsNumber(2)),
+            Instruction::Push(WsNumber(alloc_spec::SPLIT_MIN_REMAINDER)),
             Instruction::Sub,
-            // スタック: [pna, curr, diff, diff-2]
+            // スタック: [pna, curr, diff, diff-SPLIT_MIN_REMAINDER]
             Instruction::JumpIfNegative(fsba_labels::GENERAL_ALLOC_NO_SPLIT),
             // NOT taken: diff >= 2 → split
         ]);
@@ -545,7 +550,7 @@ impl FsbaFirstFitAllocRuntime {
 
         // サイズクラスカスケード (exact match)
         // 各クラスについて: dup; push class_size; sub; jz FREE_CLASS_N
-        let class_sizes: [i64; 5] = [2, 4, 8, 16, 32];
+        let class_sizes = alloc_spec::FSBA_BLOCK_SIZES;
         for (i, &size) in class_sizes.iter().enumerate() {
             prog.extend([
                 Instruction::Duplicate,
