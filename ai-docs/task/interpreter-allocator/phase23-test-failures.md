@@ -69,8 +69,7 @@ assert_eq!(local_env.get_by_address(addr_p), 99);
 
 ## 対処状況
 
-現時点では失敗したまま放置。
-Phase 5 のテスト更新フェーズで修正予定。 
+Phase 5 で修正済み。両テストとも `resolve_address` が返す実際のアロケータアドレスを使う形に書き直した。
 
 ## 関連コミット
 

@@ -201,11 +201,15 @@ impl LocalEnvironment<'_, '_> {
                 let val = self.env.read_char();
                 ExpressionFlow::Value(val)
             }
-            BuiltinFunctionKind::Alloc | BuiltinFunctionKind::Free => {
-                panic!(
-                    "runtime error: __alloc/__free are not supported in interpreter mode. \
-                     Use --mode=compile --std=ws --std-ext alloc instead."
-                );
+            BuiltinFunctionKind::Alloc => {
+                let size = try_expr!(self.interpret_expression(args.first().unwrap()));
+                let ptr = self.env.allocator.alloc(size);
+                ExpressionFlow::Value(ptr)
+            }
+            BuiltinFunctionKind::Free => {
+                let ptr = try_expr!(self.interpret_expression(args.first().unwrap()));
+                self.env.allocator.free(ptr);
+                ExpressionFlow::Value(0)
             }
         }
     }
@@ -754,7 +758,6 @@ func: __main() {
             owning_func_index: None,
         };
         let addr_x = local_env.resolve_address(&id_x);
-        assert_eq!(addr_x, 0, "x should be at address 0");
 
         let id_p = IdentifierRef {
             is_global: false,
@@ -763,7 +766,9 @@ func: __main() {
             owning_func_index: None,
         };
         let addr_p = local_env.resolve_address(&id_p);
-        assert_eq!(addr_p, 1, "p should be at address 1");
+        // Phase 2+3: アロケータはアドレス 1 から割り当てるため絶対値は不定
+        // x と p は連続するローカルスロットなので差が 1 であることだけ確認する
+        assert_eq!(addr_p - addr_x, 1, "p should be 1 slot after x");
     }
 
     #[test]
@@ -782,17 +787,33 @@ func: __main() {
         let func = scope.get_function("__main").unwrap();
         let mut local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
 
-        // アドレス 0 に値を設定
-        local_env.set_by_address(0, 42);
-        let val = local_env.get_by_address(0);
+        // Phase 2+3: アロケータ経由のため固定アドレスではなく resolve_address を使用
+        let id_x = IdentifierRef {
+            is_global: false,
+            scope_depth: 0,
+            local_index: 0,
+            owning_func_index: None,
+        };
+        let id_p = IdentifierRef {
+            is_global: false,
+            scope_depth: 0,
+            local_index: 1,
+            owning_func_index: None,
+        };
+        let addr_x = local_env.resolve_address(&id_x);
+        let addr_p = local_env.resolve_address(&id_p);
+
+        // addr_x に値を設定
+        local_env.set_by_address(addr_x, 42);
+        let val = local_env.get_by_address(addr_x);
         assert_eq!(
             val, 42,
             "get_by_address should return the value set by set_by_address"
         );
 
-        // アドレス 1 に値を設定
-        local_env.set_by_address(1, 99);
-        let val = local_env.get_by_address(1);
+        // addr_p に値を設定
+        local_env.set_by_address(addr_p, 99);
+        let val = local_env.get_by_address(addr_p);
         assert_eq!(val, 99, "get_by_address should return 99");
     }
 

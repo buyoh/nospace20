@@ -1209,28 +1209,28 @@ tests:
     path: builtins/alloc_basic_001
     comment: "__alloc(3) で確保し、ポインタ経由で書き込み・読み取り"
     std_ext: ["alloc"]
-    exclude_targets: [interpreter, whitespace]
+    exclude_targets: [whitespace]
 
   - name: test_builtin_alloc_array_001
     type: success_io
     path: builtins/alloc_array_001
     comment: "__alloc(n) で動的配列をシミュレート"
     std_ext: ["alloc"]
-    exclude_targets: [interpreter, whitespace]
+    exclude_targets: [whitespace]
 
   - name: test_builtin_alloc_free_reuse_001
     type: success_io
     path: builtins/alloc_free_reuse_001
     comment: "__alloc → 使用 → __free → 再確保"
     std_ext: ["alloc"]
-    exclude_targets: [interpreter, whitespace]
+    exclude_targets: [whitespace]
 
   - name: test_builtin_alloc_linked_list_001
     type: success_io
     path: builtins/alloc_linked_list_001
     comment: "連結リストを __alloc で構築"
     std_ext: ["alloc"]
-    exclude_targets: [interpreter, whitespace]
+    exclude_targets: [whitespace]
 
   - name: test_builtin_alloc_not_enabled_001
     type: compile_error
@@ -1241,6 +1241,21 @@ tests:
     type: compile_error
     path: free_not_enabled_001
     comment: "--std-ext alloc 未指定時の __free 使用→コンパイルエラー"
+
+  - name: test_builtin_alloc_freed_access_001
+    type: runtime_error
+    path: alloc_freed_access_001
+    comment: "__free で解放済みアドレスへの書き込みはランタイムエラー"
+
+  - name: test_builtin_alloc_out_of_range_001
+    type: runtime_error
+    path: alloc_out_of_range_001
+    comment: "__alloc で確保したサイズを超えるアドレスへのアクセスはランタイムエラー"
+
+  - name: test_builtin_alloc_free_invalid_ptr_001
+    type: runtime_error
+    path: alloc_free_invalid_ptr_001
+    comment: "__free に未割当アドレスを渡すとランタイムエラー"
 
   # ========================================
   # Type system: void型エラー

@@ -142,9 +142,9 @@ impl CompileProperty {
             }
         }
 
-        // --std-ext alloc は --mode=compile --std=ws 時のみ有効
+        // --std-ext alloc は --mode=compile --std=ws またはインタープリタ実行時に有効
         if self.target_extensions.contains(&TargetExtension::Alloc) {
-            if self.mode != ExecutionMode::Compile || self.std != LanguageStd::Ws {
+            if self.mode == ExecutionMode::Compile && self.std != LanguageStd::Ws {
                 return Err(ValidationError::InvalidExtension(
                     "--std-ext alloc requires --mode=compile --std=ws".to_string(),
                 ));
