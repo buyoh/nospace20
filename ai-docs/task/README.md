@@ -14,6 +14,7 @@
 
 ### アクティブなタスク
 
+- [cleanup-phase-comments.md](cleanup-phase-comments.md) - Phase コメント整理（完了済みタスクの `Phase N:` 開発メモを削除・整理、カテゴリ A: 6件完全削除 / カテゴリ B: 32件プレフィックス削除）
 - [template-functions.md](template-functions.md) - テンプレート関数（関数ポインタ代替、alias パラメータによるコンパイル時関数生成）
 - [multi-error-reporting.md](multi-error-reporting.md) - 意味解析における複数エラー報告（semantic_analyzer で複数箇所のコンパイルエラーを収集・表示）
 - [optional-trailing-semicolon.md](optional-trailing-semicolon.md) - ブロック末尾のセミコロン省略（最後のステートメントで `;` を省略可能にする設計）
