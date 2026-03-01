@@ -8,6 +8,9 @@
 現在のインタプリタでは `__alloc`/`__free` は `panic!` でエラーとなる（Whitespace コンパイラ専用）。
 本タスクではインタプリタ独自のメモリアロケータを実装し、統一的なメモリモデルを提供する。
 
+WS コンパイラと同一のアロケータアルゴリズムを使用するため、アルゴリズムの定数・仕様を
+`src/algorithm/` モジュールに分離し、両実装から参照する（詳細は [algorithm-separation.md](algorithm-separation.md)）。
+
 ## 背景
 
 ### 現状の課題
@@ -15,6 +18,7 @@
 1. **`__alloc`/`__free` がインタプリタで使えない**: Whitespace コンパイラでのみ対応
 2. **メモリアクセスの安全性が低い**: `get_by_address`/`set_by_address` は境界外アクセスで単に panic するが、解放済み領域の検出はできない
 3. **アドレス空間の一貫性がない**: グローバル変数・ローカルスコープが別々の `Vec<i64>` で管理され、アドレス解決が線形走査
+4. **アロケータアルゴリズムの検証が分散する**: WS コンパイラ側のアルゴリズム定義 (`compiler_ws/alloc_runtime/fsba.rs`) とインタプリタ側の実装が独立して存在すると、定数のずれやアルゴリズムの乖離が発生し得る
 
 ### 目標
 
@@ -23,6 +27,7 @@
 | `__alloc`/`__free` 対応 | インタプリタモードで動的メモリ確保・解放が可能 |
 | 統一メモリモデル | グローバル変数・ローカルスタック・static 変数を同一アロケータで管理 |
 | メモリ安全性向上 | 解放済み・未割当アドレスへのアクセスを実行時エラーとして検出 |
+| アルゴリズム仕様の一元化 | `src/algorithm/` に定数・仕様を集約し、コンパイラ／インタプリタ間の乖離を防止 |
 
 ## 設計方針
 
@@ -38,6 +43,18 @@
 - 各ブロックは `data: Vec<i64>`, `is_freed: bool` を持つ
 - アドレス検索は `BTreeMap::range(..=addr)` で O(log n)
 
+### WS コンパイラと同一のアロケータアルゴリズム
+
+インタプリタの `__alloc`/`__free` は WS コンパイラの FSBA + First-Fit アルゴリズムと
+同一のロジックで動作する。ただし実装形態は異なる:
+
+- **コンパイラ**: アルゴリズムを Whitespace 命令列として**出力**する
+- **インタプリタ**: アルゴリズムを Rust コードで**直接実行**する
+
+コード共有は不可能だが、アルゴリズムの定数・ブロック構造仕様・サイズクラス定義を
+`src/algorithm/alloc_spec.rs` に集約し、両実装が同一の仕様を参照することで
+アルゴリズム検証の散乱と重複を防ぐ（詳細は [algorithm-separation.md](algorithm-separation.md)）。
+
 ### エラーハンドリング
 
 - 未割当アドレスへのアクセス → `panic!("runtime error: ...")`
@@ -49,6 +66,7 @@
 
 | ドキュメント | 内容 |
 |---|---|
+| [algorithm-separation.md](algorithm-separation.md) | `src/algorithm/` モジュール分離の設計 |
 | [allocator-design.md](allocator-design.md) | InterpreterAllocator のデータ構造とアルゴリズム |
 | [migration-design.md](migration-design.md) | 既存メモリ管理からアロケータへの移行設計 |
 | [testing-plan.md](testing-plan.md) | テスト計画 |
@@ -57,7 +75,8 @@
 
 | Phase | 内容 | 依存 | 規模 |
 |---|---|---|---|
-| Phase 1 | `InterpreterAllocator` 実装 + ユニットテスト | なし | 小 |
+| Phase 0 | `src/algorithm/` モジュール作成 + `compiler_ws` の定数移行 | なし | 小 |
+| Phase 1 | `InterpreterAllocator` 実装 + ユニットテスト | Phase 0 | 中 |
 | Phase 2 | `Environment` への統合（グローバル変数・static 変数） | Phase 1 | 中 |
 | Phase 3 | `LocalEnvironment` のスコープ管理を移行 | Phase 2 | 中 |
 | Phase 4 | `__alloc`/`__free` 組み込み関数の実装 | Phase 3 | 小 |
@@ -65,15 +84,32 @@
 
 ### Phase 詳細
 
+#### Phase 0: `src/algorithm/` モジュール作成
+
+`src/algorithm/alloc_spec.rs` を新規作成し、アロケータアルゴリズムの定数・仕様を集約する。
+
+- FSBA サイズクラス定義 (`BLOCK_SIZES`, `CLASS_COUNT`)
+- ブロック構造定数 (`HEADER_SIZE`, `MIN_BLOCK_SIZE`)
+- サイズ → サイズクラスのマッピング関数 (`size_class_for`)
+- リクエストサイズ → ブロックサイズの変換関数 (`block_size_for_request`)
+- `compiler_ws/alloc_runtime/fsba.rs` の `FSBA_SIZE_CLASSES` を `algorithm::alloc_spec` への参照に変更
+- `compiler_ws/memory.rs` の `FSBA_CLASS_COUNT` を `algorithm::alloc_spec` への参照に変更
+- 既存テスト全パス確認（リファクタリングのみ、動作変更なし）
+
+詳細は [algorithm-separation.md](algorithm-separation.md) を参照。
+
 #### Phase 1: InterpreterAllocator 実装
 
 新規モジュール `src/interpreter/allocator.rs` を作成。
+`algorithm::alloc_spec` の定数・関数を使用してアルゴリズムを実装する。
 
 - `InterpreterAllocator` struct
   - `blocks: BTreeMap<i64, MemoryBlock>` — アドレス→ブロックのマッピング
   - `next_addr: i64` — 次の割当アドレス（バンプポインタ）
-- `alloc(size: usize) -> i64` — 新しいブロックを確保し、開始アドレスを返す
-- `free(addr: i64)` — ブロックを解放済みにマーク（存在しないアドレスの場合は panic）
+  - `fsba_free_lists: [i64; CLASS_COUNT]` — サイズクラスごとのフリーリスト先頭
+  - `general_free_head: i64` — 汎用フリーリスト先頭
+- `alloc(size: usize) -> i64` — FSBA + First-Fit + バンプ で確保
+- `free(addr: i64)` — サイズクラスに応じたフリーリストに返却
 - `get(addr: i64) -> i64` — アドレスから値を読み取り
 - `set(addr: i64, value: i64)` — アドレスに値を書き込み
 - ユニットテスト（alloc/free/get/set、エラーケース）
@@ -126,3 +162,4 @@
 2. **panic ベースのエラー**: 既存の runtime_error テスト基盤と統一
 3. **段階的な移行**: Phase ごとにテストが通る状態を維持
 4. **パフォーマンスは二の次**: インタプリタの主目的はテスト・検証であり、WS コンパイラほどの性能は不要
+5. **アルゴリズム仕様の一元化**: 定数とアルゴリズム仕様は `src/algorithm/` から参照し、コンパイラ/インタプリタ間の乖離を防止
