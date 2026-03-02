@@ -66,13 +66,19 @@ nospace インタプリタの実行を特定のステップ数で中断し、後
 
 ### Phase 4: WASM API 実装
 
-- [ ] `WasmNospaceVM` WASM ラッパーの実装（`WasmWhitespaceVM` と同パターン）
-  - `new(source, stdin, interactive?, std_extensions?)` — VM 構築
+- [ ] 再帰インタプリタの WASM API 削除
+  - `api.rs` の `run()` 関数を削除（`interpret_with_env` を使用しているため）
+  - 関連する `RunResultOk` / `JsRunResult` 型の整理
+- [ ] `WasmNospaceVM` WASM ラッパーの実装（`src/wasm_api/nospace_vm.rs` 新規作成）
+  - `new(source, stdin, interactive?, opt_passes?, ignore_debug?)` — VM 構築
   - `step(budget)` — N ステップ実行
-  - `get_stdout()` — 標準出力取得
+  - `flush_stdout()` — 標準出力取得
   - `is_complete()` — 完了判定
   - `total_steps()` — 総実行ステップ数
+  - `get_return_value()` — main の戻り値
+  - `get_traced()` — トレース情報
   - `provide_stdin(data)` / `close_stdin()` — interactive stdin
+- [ ] `src/wasm_api/mod.rs` に `mod nospace_vm;` 追加
 - [ ] デバッグ情報 API（将来拡張）
   - `get_call_stack()` — 関数コールスタック
   - `get_position()` — 現在の実行位置
@@ -84,6 +90,7 @@ nospace インタプリタの実行を特定のステップ数で中断し、後
 | 機能 | 再帰インタプリタ (`interpret()`) | スタックマシン (`NospaceVM`) |
 |------|------|------|
 | 用途 | CLI ワンショット実行、テスト | WASM ステップ実行、中断・再開 |
+| WASM 利用 | **不可**（`run()` API 削除） | 可能（`WasmNospaceVM`） |
 | 中断・再開 | 不可 | 可能 |
 | 実装の複雑さ | シンプル | 複雑（フレーム定義） |
 | パフォーマンス | 高速（Rust ネイティブスタック） | やや遅い（ヒープ上のスタック） |
@@ -93,3 +100,5 @@ nospace インタプリタの実行を特定のステップ数で中断し、後
 
 - [wasm-build/](../wasm-build/) — WASM ビルド・基本 API (run / compile / Phase A は完了済み)
 - Phase 4 は wasm-build タスクの Phase B に相当する機能を実装する
+- Phase 4 で既存の `run()` API を削除し、`WasmNospaceVM` で置き換える
+- WASM API の詳細設計は [detailed-design.md](detailed-design.md) の「WASM API 設計」セクション参照

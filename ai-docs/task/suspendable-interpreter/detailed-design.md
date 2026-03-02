@@ -512,6 +512,243 @@ CLI ではデフォルトで既存の再帰版インタプリタを使用し、W
 | I/O | StdinSource + stdout | Environment (stdin + stdout) |
 | プログラム所有 | instructions: Vec<Instruction> | scope: Scope |
 
+## WASM API 設計
+
+### 方針
+
+- `NospaceVM` を WASM から利用可能にする（`WasmNospaceVM` ラッパー）
+- 既存の `run()` 関数（再帰インタプリタ `interpret_with_env` を使用）は WASM API から**削除**する
+- `compile()`, `parse()`, `getOptions()` 等のコンパイル系 API はそのまま維持
+- `WasmWhitespaceVM` もそのまま維持
+
+### 現状の WASM API 構成と変更点
+
+| API | 種別 | 変更 |
+|-----|------|------|
+| `run()` | トップレベル関数 | **削除** — 再帰インタプリタ使用のため |
+| `compile()` | トップレベル関数 | 変更なし |
+| `parse()` | トップレベル関数 | 変更なし |
+| `compile_to_whitespace_string()` | ヘルパー関数 | 変更なし |
+| `compile_to_mnemonic_string()` | ヘルパー関数 | 変更なし |
+| `getOptions()` | メタデータ | 変更なし |
+| `WasmWhitespaceVM` | VM クラス | 変更なし |
+| `WasmNospaceVM` | VM クラス | **新規追加** |
+
+### `run()` の削除
+
+`api.rs` の `run()` 関数は `interpret_with_env()` （再帰インタプリタ）を使用しており、以下の理由で WASM API から削除する:
+
+1. **メインスレッドブロック**: 完了まで制御が戻らず、UI をフリーズさせる
+2. **`WasmNospaceVM`で代替可能**: `step()` ループで同等の動作を実現可能
+3. **`max_expression_count` 超過で panic**: WASM 環境で回復不能なエラーになる
+
+削除方法: `#[wasm_bindgen]` アトリビュートと関数自体を `api.rs` から削除する。
+
+> **注**: `run()` の代替として利用者は `WasmNospaceVM` を使用する。
+> ワンショット実行が必要な場合は以下のパターンで実現可能:
+> ```javascript
+> const vm = new WasmNospaceVM(source, stdin);
+> while (true) {
+>   const result = vm.step(100000);
+>   if (result.status !== 'suspended') break;
+> }
+> const stdout = vm.flushStdout();
+> ```
+
+### WasmNospaceVM 設計
+
+`WasmWhitespaceVM` と同パターンの WASM ラッパー。`src/wasm_api/nospace_vm.rs` に新規作成する。
+
+#### 構造体
+
+```rust
+// src/wasm_api/nospace_vm.rs (新規)
+
+use crate::interpreter::NospaceVM;
+
+#[wasm_bindgen]
+pub struct WasmNospaceVM {
+    vm: NospaceVM,
+    stdout_buffer: Rc<RefCell<Vec<u8>>>,
+}
+```
+
+#### コンストラクタ
+
+```rust
+#[wasm_bindgen]
+impl WasmNospaceVM {
+    /// nospace ソースコードから VM を構築する
+    ///
+    /// - `opt_passes`: 最適化パスの配列（省略可）
+    /// - `ignore_debug`: デバッグ用組み込み関数を無視するか（省略可、デフォルト false）
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        source: &str,
+        stdin: &str,
+        interactive: Option<bool>,
+        opt_passes: Option<JsOptPassArray>,
+        ignore_debug: Option<bool>,
+    ) -> Result<WasmNospaceVM, JsValue> {
+        // 1. pipeline::analyze_and_optimize() でソースを解析・最適化
+        // 2. NospaceVM::from_scope(scope) で VM 構築
+        // 3. stdin / stdout を設定
+        // 4. interactive の場合は with_interactive_stdin() を適用
+    }
+}
+```
+
+> **WasmWhitespaceVM との差異**: `std_extensions` パラメータは不要（Whitespace コンパイル時のオプションであるため）。
+> 代わりに `opt_passes` と `ignore_debug` を受け取る。
+
+#### 実行メソッド
+
+```rust
+#[wasm_bindgen]
+impl WasmNospaceVM {
+    /// 指定ステップ数だけ実行する
+    ///
+    /// 戻り値: VmStepResult ({ status, error? })
+    pub fn step(&mut self, budget: u32) -> JsVmStepResult {
+        let result = self.vm.step(budget as usize);
+        // StepResult → VmStepResult に変換
+        // Suspended → { status: "suspended" }
+        // Complete  → { status: "complete" }
+        // Error     → { status: "error", error: "..." }
+    }
+}
+```
+
+> **注**: NospaceVM の StepResult には `WaitingForInput` がない（入力待ちは Whitespace VM 固有の概念）。
+> 将来 interactive stdin を NospaceVM に追加する場合は `WaitingForInput` を追加する。
+
+#### stdin メソッド（interactive モード用）
+
+```rust
+#[wasm_bindgen]
+impl WasmNospaceVM {
+    /// stdin にデータを追加する（interactive モード用）
+    #[wasm_bindgen(js_name = "provideStdin")]
+    pub fn provide_stdin(&mut self, data: &str) {
+        self.vm.provide_stdin(data);
+    }
+
+    /// stdin のストリーム終端を通知する（interactive モード用）
+    #[wasm_bindgen(js_name = "closeStdin")]
+    pub fn close_stdin(&mut self) {
+        self.vm.close_stdin();
+    }
+}
+```
+
+#### 状態参照メソッド
+
+```rust
+#[wasm_bindgen]
+impl WasmNospaceVM {
+    /// 実行完了済みか
+    pub fn is_complete(&self) -> bool {
+        self.vm.is_complete()
+    }
+
+    /// 総式評価回数
+    pub fn total_steps(&self) -> usize {
+        self.vm.total_steps()
+    }
+
+    /// 標準出力バッファの内容を取得しクリアする
+    #[wasm_bindgen(js_name = "flushStdout")]
+    pub fn flush_stdout(&mut self) -> String {
+        let mut buf = self.stdout_buffer.borrow_mut();
+        let text = String::from_utf8_lossy(&buf).to_string();
+        buf.clear();
+        text
+    }
+
+    /// 戻り値を取得（完了時のみ有効）
+    #[wasm_bindgen(js_name = "getReturnValue")]
+    pub fn get_return_value(&self) -> Option<i64> {
+        self.vm.return_value()
+    }
+
+    /// トレース情報を取得
+    #[wasm_bindgen(js_name = "getTraced")]
+    pub fn get_traced(&self) -> JsNumberRecord {
+        let traced: BTreeMap<String, f64> = self.vm.traced()
+            .iter()
+            .map(|(k, v)| (k.to_string(), *v as f64))
+            .collect();
+        serde_wasm_bindgen::to_value(&traced).unwrap().into()
+    }
+}
+```
+
+#### WasmWhitespaceVM との比較
+
+| メソッド | WasmWhitespaceVM | WasmNospaceVM | 備考 |
+|---------|------|------|------|
+| `new(source, ...)` | ✓ (nospace→WS コンパイル) | ✓ (nospace→NospaceVM) | |
+| `fromWhitespace()` | ✓ | — | WS ソース直接入力は NospaceVM に不要 |
+| `fromWhitespaceInteractive()` | ✓ | — | 同上 |
+| `step(budget)` | ✓ | ✓ | |
+| `provideStdin(data)` | ✓ | ✓ | |
+| `closeStdin()` | ✓ | ✓ | |
+| `is_complete()` | ✓ | ✓ | |
+| `total_steps()` | ✓ | ✓ | |
+| `flushStdout()` | ✓ (`flush_stdout`) | ✓ | |
+| `getReturnValue()` | — | ✓ | nospace 固有（main の戻り値） |
+| `getTraced()` | ✓ (`get_traced`) | ✓ | |
+| `pc()` | ✓ | — | nospace はフレームスタックベース |
+| `getStack()` | ✓ | — | Whitespace 固有（データスタック） |
+| `getHeap()` | ✓ | — | Whitespace 固有 |
+| `callStackDepth()` | ✓ | — | 将来拡張で追加可能 |
+| `currentInstruction()` | ✓ | — | Whitespace 固有 |
+| `disassemble()` | ✓ | — | Whitespace 固有 |
+
+#### TypeScript 型定義の追加
+
+`types.rs` の `TS_TYPES` に追加する型定義:
+
+```typescript
+// types.rs の TS_TYPES に追記
+interface NospaceVmStepResult {
+    status: "suspended" | "complete" | "error";
+    error?: string;
+}
+```
+
+> **注**: `WasmWhitespaceVM` と同じ `VmStepResult` を使うことも可能だが、
+> `waiting_for_input` と `inputType` が NospaceVM には不要なため、
+> 別の型 `NospaceVmStepResult` を定義する方が型安全である。
+> ただし、統一性を優先して `VmStepResult` を共用する選択もあり得る。
+> 初期実装では `VmStepResult` を共用し、必要に応じて分離する。
+
+### 変更対象ファイル
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/wasm_api/nospace_vm.rs` | **新規**: `WasmNospaceVM` ラッパー |
+| `src/wasm_api/mod.rs` | `mod nospace_vm;` の追加 |
+| `src/wasm_api/api.rs` | `run()` 関数の削除、`interpret_with_env` の import 削除 |
+| `src/wasm_api/types.rs` | `RunResultOk` / `JsRunResult` 関連の削除（`run()` 廃止に伴う） |
+| `src/lib.rs` | `NospaceVM` / `StepResult` の re-export 追加（Phase 1 で対応済みの想定） |
+
+> **`types.rs` の変更について**: `RunResultOk` は `run()` のみで使用されるため、`run()` 削除時に未使用になる。
+> ただし、TypeScript 型定義 `RunResult` は外部利用者が参照している可能性があるため、
+> 非推奨（deprecated）として残すか完全削除するかは実装時に判断する。
+
+### モジュール構成（変更後）
+
+```
+src/wasm_api/
+  mod.rs              # モジュール宣言
+  types.rs            # TypeScript 型定義・Serde 構造体
+  pipeline.rs         # 共通コンパイルパイプライン
+  api.rs              # トップレベル API (compile, parse, getOptions)  ← run() 削除
+  whitespace_vm.rs    # WasmWhitespaceVM (変更なし)
+  nospace_vm.rs        # WasmNospaceVM (新規)
+```
+
 ## 使用例
 
 ### native (CLI / テスト)
@@ -547,7 +784,8 @@ function runChunk() {
   if (result.status === 'suspended') {
     requestAnimationFrame(runChunk);
   } else {
-    handleResult(result);
+    const stdout = vm.flushStdout();
+    handleResult(result, stdout);
   }
 }
 runChunk();
