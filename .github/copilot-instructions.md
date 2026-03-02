@@ -23,6 +23,44 @@ Agent 向けのドキュメントは `ai-docs/` ディレクトリに配置。�
 
 README.md には実行方法・ビルド方法が記載されている。これらを変更したとき、README.md も更新
 
+## ディレクトリ構造
+
+```
+examples/          # Rust のサンプルコード (ws_profiler など)
+resources/
+  tests/           # nospace のlargeテストケース (test-manifest.yaml で定義)
+    passes/        # 成功するテストケース (.ns + .check.json)
+    fails/         # 失敗するテストケース (syntax/, semantic/, runtime/)
+  tests_alloc/     # アロケータ関連のlargeテストケース
+  tests_ws/        # Whitespace インタプリタ直接テスト (.wsa + .check.json)
+src/
+  bin/             # CLI バイナリ (nospace20, whitespace20)
+  token_parser/    # トークナイザ (ソースコード → トークン列)
+  tree_parser/     # 構文解析 (トークン列 → AST)
+  semantic_analyzer/ # 意味解析 (型チェック、スコープ解決など)
+  compiler_ws/     # Whitespace コードへのコンパイラ
+  optimizer/       # Whitespace コードの最適化パス
+  interpreter/     # Whitespace インタプリタ (実行エンジン)
+  whitespace/      # Whitespace パーサ・インタプリタ (低レベル)
+  base/            # 共通型・エラー定義・ユーティリティ
+  algorithm/       # アルゴケータ仕様の実装
+  logger/          # ログ出力
+  wasm_api/        # WebAssembly API
+  lib.rs           # ライブラリルート
+  cli_utils.rs     # CLI ユーティリティ
+  compile_property.rs # コンパイルオプション定義
+src_build/         # build.rs から利用されるテスト生成コード
+syntaxes/          # VS Code 用シンタックスハイライト定義 (tmLanguage)
+tests/             # Rust の結合テスト (build.rs で自動生成されるテストを含む)
+tools/
+  ci/              # CI/CD スクリプト
+  vscode-ext/      # VS Code 拡張のビルド・検証ツール
+  wasm-test/       # WASM ビルドのテスト
+  wsc-install/     # whitespacers (wsc) のインストール先
+  profile-report.py  # プロファイルレポート生成
+  setup-wsc.sh     # wsc セットアップスクリプト
+```
+
 ## テストについて
 
 - テストは「Unitテスト」「largeテスト」の2種類
