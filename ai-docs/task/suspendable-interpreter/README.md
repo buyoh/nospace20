@@ -102,3 +102,22 @@ nospace インタプリタの実行を特定のステップ数で中断し、後
 - Phase 4 は wasm-build タスクの Phase B に相当する機能を実装する
 - Phase 4 で既存の `run()` API を削除し、`WasmNospaceVM` で置き換える
 - WASM API の詳細設計は [detailed-design.md](detailed-design.md) の「WASM API 設計」セクション参照
+
+## constexpr ブロック評価への将来的な流用
+
+現在の constexpr ブロック (`constexpr: NAME { ... };`) ではループが使えない。
+これはコンパイル時評価がブロッキング前提で、実行時間が予測できないため。
+
+NospaceVM が実装されれば、`step(budget)` パターンによりステップ数上限付きでループを含む
+constexpr ブロックを安全に評価でき、この制限を将来的に緩和できる。
+
+**主な課題**: constexpr 評価は semantic analysis 中に `tree_parser` 型の AST で実行されるが、
+NospaceVM は semantic analysis 後の `ExecStatement`/`ExecExpression`（`Scope`）で動作する。
+流用にはミニ Scope 構築等のアダプタが必要。
+
+NospaceVM 設計時の配慮事項:
+- I/O なしモードでのサポート
+- 最小限の Scope（空の関数テーブル等）での動作
+- budget 超過時のエラー報告オプション
+
+詳細は [detailed-design.md](detailed-design.md) の「constexpr ブロック評価への流用可能性」セクション参照。

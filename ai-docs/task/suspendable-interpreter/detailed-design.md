@@ -814,3 +814,96 @@ runChunk();
 
 **方針: インデックスチェーン**を初期実装として採用。
 パフォーマンスが問題になった場合にポインタ方式に移行する。
+
+## constexpr ブロック評価への流用可能性
+
+### 背景
+
+現在の constexpr ブロック形式 (`constexpr: NAME { ... };`) にはループが使えないという制限がある。
+これはコンパイル時評価がブロッキングで実行されるため、無限ループによるコンパイルのハングを防ぐ必要があるためである。
+
+NospaceVM の `step(budget) -> StepResult` パターンが使えれば、ステップ数の上限付きでループを含む
+constexpr ブロックを安全に評価でき、この制限を将来的に緩和できる。
+
+### 現状の constexpr 評価アーキテクチャ
+
+```
+semantic_analyzer/constexpr.rs
+  └→ collect_constexpr_table()     # ステートメント列から constexpr 定義を収集
+       └→ evaluate_constexpr_by_name()
+            ├→ evaluate_constexpr_expr()     # 式形式: 再帰評価
+            └→ base/constexpr_eval.rs        # ブロック形式
+                 └→ eval_constexpr_block()
+                      └→ ConstexprEnv (ローカル変数 + constexpr テーブル)
+```
+
+**重要な構造的差異**:
+
+| 観点 | constexpr 評価器 | NospaceVM (本設計) |
+|------|------|------|
+| 動作対象 AST | `tree_parser` 型 (`Expression`, `Statement`) | `semantic_analyzer` 型 (`ExecExpression`, `ExecStatement`) |
+| 実行タイミング | semantic analysis 中 | semantic analysis 後 |
+| 変数管理 | `ConstexprEnv` (BTreeMap ベース) | `Environment` (アロケータベース) |
+| スコープ | 自前のスコープスタック | `Scope` + `scope_stack` |
+| I/O | なし | stdin/stdout |
+| 関数呼び出し | 不可 | 可能 |
+
+constexpr 評価は semantic analysis の途中（`Scope` 構築前）に実行されるため、
+NospaceVM をそのまま使うことはできない。流用するためには以下のいずれかのアプローチが必要。
+
+### 流用アプローチ
+
+#### アプローチ 1: ミニ Scope の構築（推奨）
+
+constexpr ブロックの raw AST を簡易的に `Scope` 相当の構造に変換し、NospaceVM に渡す。
+
+```
+constexpr block (LocatedStatement[])
+  → mini semantic analysis (変数解決・型チェックの簡易版)
+  → mini Scope (ExecStatement[])
+  → NospaceVM::from_scope(mini_scope)
+  → vm.step(budget)
+  → 結果を constexpr テーブルに登録
+```
+
+- **利点**: NospaceVM の実装をそのまま再利用。ループ・条件分岐・ローカル変数がすべて使える
+- **課題**: constexpr ブロック用のミニ semantic analysis の実装が必要
+- **NospaceVM 側の要件**: `from_scope()` が空の関数テーブル・最小限の Scope でも動作すること
+
+#### アプローチ 2: スタックマシンコアの共通化
+
+NospaceVM の「フレームスタック + 実行ループ」のコアロジックを AST 型に依存しないように設計し、
+constexpr 評価器とランタイムインタプリタの両方で共有する。
+
+```
+trait AstNode { ... }
+impl AstNode for ExecExpression { ... }  // ランタイム用
+impl AstNode for Expression { ... }      // constexpr 用
+
+struct StackMachineCore<A: AstNode> { frames, value_stack, ... }
+```
+
+- **利点**: コードの重複が最小限
+- **課題**: trait 設計が複雑。2つの AST 型の意味的な差異（変数解決方法等）を吸収する必要がある
+- **リスク**: 過度な抽象化になる可能性
+
+#### アプローチ 3: constexpr 評価を semantic analysis 後に遅延
+
+constexpr の評価タイミングを semantic analysis 後に移動し、NospaceVM をそのまま使う。
+
+- **利点**: NospaceVM の変更不要
+- **課題**: 言語仕様・コンパイルパイプラインへの影響が大きい（constexpr 値が他の semantic analysis に必要なケースがある）
+
+### NospaceVM 設計への影響
+
+constexpr 流用を将来可能にするため、NospaceVM の設計に以下の配慮を入れる:
+
+1. **I/O なしモードのサポート**: constexpr ブロックには stdin/stdout がないため、I/O なしで動作するモードが必要。`Environment` の stdin/stdout をオプショナルにするか、ダミー I/O を設定可能にする
+2. **最小限の Scope での動作**: 関数テーブルが空、グローバル変数がない場合でも正常に動作すること
+3. **budget 超過 = エラー**: constexpr 用途では `Suspended` ではなく `Error` として扱いたい場合がある。`run(max_steps)` が budget 超過時にエラーを返すオプションの検討
+4. **戻り値の取得**: constexpr ブロックの評価結果（最後の式の値）を取得できること → `return_value()` で対応済み
+5. **副作用の禁止**: constexpr では I/O やグローバル変数への書き込みが禁止される。これは NospaceVM 側ではなく、ミニ semantic analysis 側で検証すべき制約
+
+> **現時点での方針**: NospaceVM の設計自体は constexpr を意識しすぎず、まずはランタイムインタプリタとして実装する。
+> 上記の配慮事項は「あると良い」レベルであり、必須の制約とはしない。
+> 将来 constexpr でループをサポートする際に、具体的な流用方法を詳細設計する。
