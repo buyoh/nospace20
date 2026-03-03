@@ -87,7 +87,7 @@ impl InterpreterAllocator {
             // data[0] はヘッダー（total_size）なので変更しない
             let len = block.data.len();
             for i in 1..len {
-                block.data[i] = uninit_value(block_addr, i);
+                block.data[i] = crate::algorithm::hash::lcg_hash_with_offset(block_addr, i);
             }
         }
         ptr
@@ -187,7 +187,7 @@ impl InterpreterAllocator {
             let block = self.blocks.get_mut(&addr).unwrap();
             let len = block.data.len();
             for i in 0..len {
-                block.data[i] = uninit_value(addr, i);
+                block.data[i] = crate::algorithm::hash::lcg_hash_with_offset(addr, i);
             }
         }
         addr
@@ -362,16 +362,6 @@ impl InterpreterAllocator {
         let block = self.blocks.get_mut(&block_start).unwrap();
         Some((block_start, block))
     }
-}
-
-/// 未初期化値として使う決定論的な擬似ランダム値
-///
-/// デバッグ再現性のため、アドレスとオフセットから決定論的に生成する。
-fn uninit_value(addr: i64, offset: usize) -> i64 {
-    // 単純な線形合同法ベースのハッシュ（デバッグ再現性のため固定シード）
-    let seed = addr.wrapping_mul(6364136223846793005)
-        ^ (offset as i64).wrapping_mul(2891336453);
-    seed.wrapping_add(1442695040888963407)
 }
 
 // ===== ユニットテスト =====

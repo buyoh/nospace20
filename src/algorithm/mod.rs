@@ -3,3 +3,4 @@
 //! WS コンパイラとインタプリタが共有するアルゴリズムの定数・仕様を集約する。
 
 pub mod alloc_spec;
+pub mod hash;

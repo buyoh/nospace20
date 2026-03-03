@@ -901,7 +901,7 @@ impl WhitespaceVM {
                     Err(RuntimeError::UninitializedHeap(addr))
                 } else if self.randomize_heap {
                     // randomize-heap モード: アドレスベースの決定論的な非自明値を返す
-                    Ok(random_heap_fill(addr))
+                    Ok(crate::algorithm::hash::lcg_hash(addr as u64) as i64)
                 } else {
                     // 通常モード: 未初期化アドレスは 0 を返す（Whitespace の一般的な挙動）
                     Ok(0)
@@ -950,16 +950,6 @@ impl WhitespaceVM {
             },
         }
     }
-}
-
-/// 未初期化ヒープのフィル値（アドレスベースの決定論的な値）
-///
-/// 同じアドレスには常に同じ値を返す。
-/// 初期値 0 への暗黙依存バグを検出しやすくするため、0 ではない非自明値を生成する。
-fn random_heap_fill(addr: i64) -> i64 {
-    (addr as u64)
-        .wrapping_mul(6364136223846793005)
-        .wrapping_add(1442695040888963407) as i64
 }
 
 #[cfg(test)]

@@ -25,10 +25,7 @@ pub(super) fn random_uninit_value() -> i64 {
         let mut count = c.borrow_mut();
         *count = count.wrapping_add(1);
         // 簡易ハッシュ: 0 を避けつつ決定論的な非自明値を生成
-        let v = (*count)
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        v as i64
+        crate::algorithm::hash::lcg_hash(*count) as i64
     })
 }
 
