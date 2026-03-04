@@ -123,9 +123,9 @@ if !conflicts_with_param {
 
 | Step | 内容 | 状態 |
 |------|------|------|
-| 1 | `template.rs` の `expand_template_instantiations()` に自己参照 alias 挿入を追加 | 未着手 |
-| 2 | テストケース追加 | 未着手 |
-| 3 | `docs/spec.md` の仕様反映 | 未着手 |
+| 1 | `template.rs` の `expand_template_instantiations()` に自己参照 alias 挿入を追加 | 完了 |
+| 2 | テストケース追加 (`self_recursion_001`) | 完了 |
+| 3 | `docs/spec.md` の仕様反映 | 完了 |
 
 ## 関連ドキュメント
 

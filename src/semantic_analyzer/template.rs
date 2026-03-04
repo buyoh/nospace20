@@ -186,6 +186,20 @@ pub(super) fn expand_template_instantiations(
                     continue;
                 }
 
+                // 自己再帰サポート: テンプレート名→インスタンス名の alias を挿入
+                // テンプレート名が alias パラメータ名と衝突しない場合のみ挿入する
+                // （alias パラメータ名が優先されるべきで、衝突時は不要かつ意図しない影響を与えるため）
+                let conflicts_with_param = template.alias_params.iter().any(|p| p.name == *template_name);
+                if !conflicts_with_param {
+                    synthetic_body.push(LocatedStatement {
+                        statement: Statement::AliasIdentifier(
+                            template_name.clone(),
+                            name.clone(),
+                        ),
+                        location: loc.clone(),
+                    });
+                }
+
                 // テンプレートボディを追記
                 synthetic_body.extend(template.body.clone());
 

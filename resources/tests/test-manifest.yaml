@@ -1444,3 +1444,8 @@ tests:
     type: compile_error
     path: template_functions/not_template_001
     comment: "テンプレートでない関数に alias インスタンス化を使う→コンパイルエラー"
+
+  - name: test_template_func_self_recursion_001
+    type: success_io
+    path: template_functions/self_recursion_001
+    comment: "テンプレート関数: ボディ内でテンプレート名を使った自己再帰呼び出し"
