@@ -6,7 +6,7 @@
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    optimize, parse_to_tokens, parse_to_tree, semantic_analyze, CodeParseError,
+    optimize, parse_to_tokens, parse_to_tree, semantic_analyze, CodeParseError, CompileError,
     OptimizationOptions, Scope, TextCode,
 };
 
@@ -86,6 +86,27 @@ pub(super) fn parse_opt_passes(
 // ========================================
 // エラー変換
 // ========================================
+
+/// `CompileError` を `ResultErr` に変換する
+///
+/// `CompileError` は位置情報（`SourceLocation`）を持つため、
+/// `TextCode` を使って行・列番号に変換する。
+pub(super) fn convert_compile_error(error: &CompileError, text: &TextCode) -> ResultErr {
+    let (line, column) = if let Some(loc) = &error.location {
+        let (l, c) = text.char_index_to_line(loc.start);
+        (Some(l + 1), Some(c + 1))
+    } else {
+        (None, None)
+    };
+    ResultErr {
+        success: false,
+        errors: vec![WasmError {
+            message: format!("{}", error),
+            line,
+            column,
+        }],
+    }
+}
 
 /// `CodeParseError[]` を `ResultErr` に変換する
 pub(super) fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> ResultErr {

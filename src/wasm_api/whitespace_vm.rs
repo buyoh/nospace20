@@ -106,7 +106,7 @@ impl WasmWhitespaceVM {
         };
         let ws_source = compile_to_ws(&scope, &ws_options)
             .map_err(|e| {
-                serde_wasm_bindgen::to_value(&pipeline::convert_errors(&e, &text_code)).unwrap()
+                serde_wasm_bindgen::to_value(&pipeline::convert_compile_error(&e, &text_code)).unwrap()
             })?;
 
         create_from_ws_source(&ws_source, stdin, interactive.unwrap_or(false))

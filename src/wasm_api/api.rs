@@ -54,10 +54,7 @@ pub fn run(
     let mut env =
         Environment::new_with_config(stdin_cursor, Box::new(SharedWriter(stdout_clone)), config);
     if let Err(e) = interpret_with_env(&mut env, &scope) {
-        let err_result = ResultErr {
-            success: false,
-            errors: vec![format!("{}", e)],
-        };
+        let err_result = ResultErr::single_error(format!("{}", e));
         return serde_wasm_bindgen::to_value(&err_result).unwrap().into();
     }
     env.flush();
@@ -168,8 +165,8 @@ pub fn compile(
             js.into()
         }
         Err(e) => {
-            // CompileError は Display 実装済みのため文字列として伝達
-            let err_result = ResultErr::single_error(format!("{}", e));
+            // CompileError を位置情報付きで変換
+            let err_result = pipeline::convert_compile_error(&e, &text_code);
             serde_wasm_bindgen::to_value(&err_result).unwrap().into()
         }
     }
