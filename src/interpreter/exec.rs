@@ -20,6 +20,7 @@ thread_local! {
 ///
 /// 0 でない値を返すことで、初期値 0 への暗黙依存バグを検出しやすくする。
 /// スレッドローカルなカウンタを使い、外部 crate なしで生成する。
+#[allow(dead_code)]
 pub(super) fn random_uninit_value() -> i64 {
     UNINIT_COUNTER.with(|c| {
         let mut count = c.borrow_mut();
@@ -32,6 +33,7 @@ pub(super) fn random_uninit_value() -> i64 {
 /// 指定サイズの未初期化変数ベクタを生成する
 ///
 /// `randomize` が true のときランダム値、false のとき 0 で初期化する。
+#[allow(dead_code)]
 pub(super) fn create_uninit_vec(size: usize, randomize: bool) -> Vec<i64> {
     if randomize {
         (0..size).map(|_| random_uninit_value()).collect()

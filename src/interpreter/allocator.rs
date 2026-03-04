@@ -79,6 +79,7 @@ impl InterpreterAllocator {
     ///
     /// `randomize=false`: 0 初期化（通常モード）
     /// `randomize=true`: 擬似ランダム値で初期化（未初期化変数バグ検出用）
+    #[cfg(test)]
     pub(crate) fn alloc_uninit(&mut self, user_size: i64, randomize: bool) -> i64 {
         let ptr = self.alloc(user_size);
         if randomize {
