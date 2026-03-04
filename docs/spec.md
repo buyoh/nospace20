@@ -382,9 +382,21 @@ func: __main() {
 }
 ```
 
+```
+# 組み込み関数にも alias を適用可能 #
+alias: puti(__puti);
+alias: putc(__putc);
+
+func: __main() {
+  puti(42);          # __puti(42) と同じ #
+  putc(10);          # __putc(10) と同じ #
+}
+```
+
 - `alias: name(target);` で `name` を `target` の別名として登録する。
 - `name` が使用された箇所で `target` に名前解決される。
 - target が関数なら関数として、変数なら変数として扱われる。
+- target は組み込み関数（`__puti`, `__putc` など）でもよい。
 - エイリアスのエイリアスも可能（チェーン解決）。巡回参照はコンパイルエラー。
 - ホイスティングされる（定義より前に使用可能）。
 

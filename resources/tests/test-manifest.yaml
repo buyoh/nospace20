@@ -379,6 +379,16 @@ tests:
     path: variables/block_alias_nested_001
     comment: "Block alias can call another block alias (nested expansion)"
 
+  - name: test_variables_alias_builtin_001
+    type: success_io
+    path: variables/alias_builtin_001
+    comment: "Alias to builtin functions (__puti, __putc)"
+
+  - name: test_variables_alias_builtin_chain_001
+    type: success_io
+    path: variables/alias_builtin_chain_001
+    comment: "Chained alias to builtin function (print -> puti -> __puti)"
+
   # Phase 8: final variable
   - name: test_variables_var_final_001
     type: success

@@ -1,0 +1,10 @@
+# alias: 組み込み関数のエイリアス #
+alias: puti(__puti);
+alias: putc(__putc);
+
+func: __main() {
+  puti(42);
+  putc(10);
+  puti(100);
+  putc(10);
+}

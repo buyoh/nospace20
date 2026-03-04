@@ -293,9 +293,14 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                 args.push(exec_arg);
             }
 
+            // まず alias を解決（組み込み関数へのエイリアスもサポートするため）
+            let resolved_f = parent_resolver.resolve_alias_chain(f).map_err(|e| {
+                vec![code_parse_error!(loc.start, e)]
+            })?;
+
             // 組み込み関数のリスト（__ で始まる）
-            // 文字列を BuiltinFunctionKind に変換
-            let builtin_kind = match f.as_str() {
+            // alias 解決後の名前で BuiltinFunctionKind に変換
+            let builtin_kind = match resolved_f.as_str() {
                 "__puti" => Some(BuiltinFunctionKind::Puti),
                 "__putc" => Some(BuiltinFunctionKind::Putc),
                 "__geti" => Some(BuiltinFunctionKind::Geti),
@@ -340,10 +345,6 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     loc,
                 ))
             } else {
-                // ユーザー定義関数：まず alias を解決してから resolve する
-                let resolved_f = parent_resolver.resolve_alias_chain(f).map_err(|e| {
-                    vec![code_parse_error!(loc.start, e)]
-                })?;
 
                 // ブロックエイリアスのチェック: alias チェーン解決後の名前で検索
                 if let Some(block_body) = parent_resolver.resolve_block_alias(&resolved_f) {

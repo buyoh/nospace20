@@ -1,0 +1,7 @@
+# alias: 組み込み関数への連鎖エイリアス #
+alias: puti(__puti);
+alias: print(puti);
+
+func: __main() {
+  print(99);
+}
