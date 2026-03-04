@@ -300,34 +300,11 @@ pub(super) fn convert_to_exec_expression_with_resolver(
 
             // 組み込み関数のリスト（__ で始まる）
             // alias 解決後の名前で BuiltinFunctionKind に変換
-            let builtin_kind = match resolved_f.as_str() {
-                "__puti" => Some(BuiltinFunctionKind::Puti),
-                "__putc" => Some(BuiltinFunctionKind::Putc),
-                "__geti" => Some(BuiltinFunctionKind::Geti),
-                "__getc" => Some(BuiltinFunctionKind::Getc),
-                "__clog" => Some(BuiltinFunctionKind::Clog),
-                "__assert" => Some(BuiltinFunctionKind::Assert),
-                "__assert_not" => Some(BuiltinFunctionKind::AssertNot),
-                "__trace" => Some(BuiltinFunctionKind::Trace),
-                "__alloc" => Some(BuiltinFunctionKind::Alloc),
-                "__free" => Some(BuiltinFunctionKind::Free),
-                _ => None,
-            };
+            let builtin_kind = BuiltinFunctionKind::convert_name_to_builtin(&resolved_f);
 
             if let Some(kind) = builtin_kind {
                 // 組み込み関数の引数数チェック
-                let expected = match kind {
-                    BuiltinFunctionKind::Puti => 1,
-                    BuiltinFunctionKind::Putc => 1,
-                    BuiltinFunctionKind::Geti => 0,
-                    BuiltinFunctionKind::Getc => 0,
-                    BuiltinFunctionKind::Clog => 1,
-                    BuiltinFunctionKind::Assert => 1,
-                    BuiltinFunctionKind::AssertNot => 1,
-                    BuiltinFunctionKind::Trace => 1,
-                    BuiltinFunctionKind::Alloc => 1,
-                    BuiltinFunctionKind::Free => 1,
-                };
+                let expected = kind.args_count();
                 if args.len() != expected {
                     return Err(vec![code_parse_error!(
                         loc.start,

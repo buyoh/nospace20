@@ -77,6 +77,34 @@ pub enum BuiltinFunctionKind {
     Free,
 }
 
+impl BuiltinFunctionKind {
+    /// 組み込み関数名から BuiltinFunctionKind への変換
+    pub fn convert_name_to_builtin(name: &str) -> Option<Self> {
+        match name {
+            "__puti" => Some(Self::Puti),
+            "__putc" => Some(Self::Putc),
+            "__geti" => Some(Self::Geti),
+            "__getc" => Some(Self::Getc),
+            "__clog" => Some(Self::Clog),
+            "__assert" => Some(Self::Assert),
+            "__assert_not" => Some(Self::AssertNot),
+            "__trace" => Some(Self::Trace),
+            "__alloc" => Some(Self::Alloc),
+            "__free" => Some(Self::Free),
+            _ => None,
+        }
+    }
+
+    /// 組み込み関数の引数の数
+    pub fn args_count(&self) -> usize {
+        match self {
+            Self::Puti | Self::Putc | Self::Clog | Self::Assert | Self::AssertNot | Self::Trace => 1,
+            Self::Geti | Self::Getc => 0,
+            Self::Alloc | Self::Free => 1,
+        }
+    }
+}
+
 /// 解決済み識別子への参照
 ///
 /// 変数・関数の識別子を文字列ではなく、
