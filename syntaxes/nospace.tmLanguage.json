@@ -8,6 +8,7 @@
     { "include": "#keywords" },
     { "include": "#builtins" },
     { "include": "#strings" },
+    { "include": "#double-strings" },
     { "include": "#numbers" },
     { "include": "#operators" },
     { "include": "#punctuation" },
@@ -35,7 +36,7 @@
         },
         {
           "name": "keyword.declaration.nospace",
-          "match": "\\b(func|let)\\b"
+          "match": "\\b(func|let|static|final|constexpr|alias)\\b"
         }
       ]
     },
@@ -64,13 +65,25 @@
       "patterns": [
         {
           "name": "constant.character.escape.nospace",
+          "match": "\\\\x[0-9A-Fa-f]+"
+        },
+        {
+          "name": "constant.character.escape.nospace",
           "match": "\\\\[\\\\tns'r]"
         }
       ]
     },
     "numbers": {
-      "name": "constant.numeric.integer.nospace",
-      "match": "\\b[0-9]+\\b"
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.nospace",
+          "match": "\\b0x[0-9A-Fa-f]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.nospace",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
     },
     "operators": {
       "patterns": [
@@ -87,8 +100,16 @@
           "match": "[+\\-*/%]"
         },
         {
+          "name": "keyword.operator.assignment.compound.nospace",
+          "match": "(\\+=|\\-=|\\*=|\\/=|%=)"
+        },
+        {
           "name": "keyword.operator.assignment.nospace",
           "match": "="
+        },
+        {
+          "name": "keyword.operator.reference.nospace",
+          "match": "&"
         }
       ]
     },
@@ -121,6 +142,23 @@
         {
           "name": "punctuation.section.parens.end.nospace",
           "match": "\\)"
+        }
+      ]
+    },
+    "double-strings": {
+      "name": "string.quoted.double.nospace",
+      "begin": "\"",
+      "end": "\"",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.nospace" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.nospace" }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.nospace",
+          "match": "\\\\."
         }
       ]
     },
