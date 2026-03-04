@@ -1242,6 +1242,13 @@ tests:
     std_ext: ["alloc"]
     exclude_targets: [whitespace]
 
+  - name: test_builtin_alloc_nonzero_001
+    type: success_io
+    path: builtins/alloc_nonzero_001
+    comment: "__alloc が返すアドレスは 0 以外であることを確認（アドレス 0 は無効アドレスとして予約）"
+    std_ext: ["alloc"]
+    exclude_targets: [whitespace]
+
   - name: test_builtin_alloc_not_enabled_001
     type: compile_error
     path: alloc_not_enabled_001

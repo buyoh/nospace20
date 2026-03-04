@@ -50,8 +50,10 @@ pub(crate) struct InterpreterAllocator {
 impl InterpreterAllocator {
     /// 新しいアロケータを作成する。
     ///
-    /// アドレス 0 はフリーリストの「空」を表すセンチネル値として使用するため、
+    /// アドレス 0 は無効アドレスとして言語仕様上予約されている。
+    /// フリーリストの「空」を表すセンチネル値としても使用されるため、
     /// 実際の割り当ては 1 から始まる。
+    /// `alloc()` および `alloc_internal()` が返すアドレスは常に 0 以外であることが保証される。
     pub(crate) fn new() -> Self {
         InterpreterAllocator {
             blocks: BTreeMap::new(),
@@ -67,12 +69,15 @@ impl InterpreterAllocator {
     ///
     /// FSBA → 汎用 First-Fit → バンプ の順でフォールバック。
     /// 返したアドレスは `free(ptr)` で解放できる。
+    /// 返すアドレスは常に 0 以外であることが保証される（アドレス 0 は予約済み）。
     pub(crate) fn alloc(&mut self, user_size: i64) -> i64 {
         let total = alloc_spec::total_from_user_size(user_size);
-        match alloc_spec::fsba_class_for(total) {
+        let ptr = match alloc_spec::fsba_class_for(total) {
             Some(class) => self.fsba_alloc(class),
             None => self.general_alloc(total),
-        }
+        };
+        debug_assert!(ptr != 0, "alloc() returned address 0, which is reserved");
+        ptr
     }
 
     /// 0 または ランダム値で初期化してメモリを確保する。
@@ -163,9 +168,10 @@ impl InterpreterAllocator {
 
     /// ヘッダーなしでサイズ分のメモリを確保し、ブロック開始アドレスをそのまま返す。
     ///
-    /// FSBA/汎用アロケータとは별도に管理される。
+    /// FSBA/汎用アロケータとは別途に管理される。
     /// 返したアドレスは `free_internal(addr)` で解放できる。
     /// LIFO パターンで解放されることを前提とする（フリーリストなし）。
+    /// 返すアドレスは常に 0 以外であることが保証される（アドレス 0 は予約済み）。
     pub(crate) fn alloc_internal(&mut self, size: usize) -> i64 {
         let size = if size == 0 { 1 } else { size };
 
@@ -178,6 +184,7 @@ impl InterpreterAllocator {
         };
         self.blocks.insert(addr, block);
 
+        debug_assert!(addr != 0, "alloc_internal() returned address 0, which is reserved");
         addr
     }
 

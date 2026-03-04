@@ -103,9 +103,18 @@
 
 ## 作業ステップ
 
-1. `docs/spec.md` に仕様追記
-2. `src/compiler_ws/memory.rs` のコメント更新
-3. `src/interpreter/allocator.rs` のコメント更新
-4. `ai-docs/spec/compiler-rust-impl/memory-label.md` のメモリマップ更新
-5. （任意）`debug_assert!` の追加
-6. （任意）テストケース追加（`__alloc` の戻り値が 0 でないことを確認）
+1. `docs/spec.md` に仕様追記 ✅
+   - `__alloc(n)` の説明に「返すアドレスは常に 0 以外である」を追記
+   - アドレス 0 の予約注記を追加（アドレス 0 への書き込みは未定義動作の旨も明記）
+2. `src/compiler_ws/memory.rs` のコメント更新 ✅
+   - 予約アドレスセクションにアドレス 0 が無効アドレスとして予約されている旨を追記
+3. `src/interpreter/allocator.rs` のコメント更新 ✅
+   - `new()` のコメントを更新し、alloc/alloc_internal が 0 を返さない保証を明記
+4. `ai-docs/spec/compiler-rust-impl/memory-label.md` のメモリマップ更新 ✅
+   - アドレス 0 の予約・未定義動作を明記
+5. `debug_assert!` の追加 ✅
+   - `InterpreterAllocator::alloc()` と `alloc_internal()` の戻り値が 0 でないことを `debug_assert!`
+6. テストケース追加 ✅
+   - `resources/tests/passes/builtins/alloc_nonzero_001.ns` を追加
+   - `test-manifest.yaml` に `test_builtin_alloc_nonzero_001` を登録
+   - テスト結果: 4/4 通過
