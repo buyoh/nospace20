@@ -33,6 +33,7 @@
 - [api-cleanup/](api-cleanup/) - API クリーンアップ（deprecated関数移行・WS共有型配置改善・エラー型統一の3タスク）
 - [interpreter-allocator/](interpreter-allocator/) - インタプリタ メモリアロケータ（`__alloc`/`__free` 対応、グローバル・ローカル・static 変数の統一メモリモデル、解放済みアドレス検出）
 - [template-self-recursion.md](template-self-recursion.md) - テンプレート関数の自己再帰サポート（ボディ内でテンプレート名の再帰呼び出しを許可、自己参照alias自動挿入）
+- [address-zero-reserved.md](address-zero-reserved.md) - アドレス 0 の予約仕様追加（`__alloc` や変数アドレスが 0 を返さないことを明文化、ヌルポインタ相当として利用可能に）
 
 ## 現在のタスク
 
