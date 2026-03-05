@@ -33,8 +33,10 @@
 - [api-cleanup/](api-cleanup/) - API クリーンアップ（deprecated関数移行・WS共有型配置改善・エラー型統一の3タスク）
 - [interpreter-allocator/](interpreter-allocator/) - インタプリタ メモリアロケータ（`__alloc`/`__free` 対応、グローバル・ローカル・static 変数の統一メモリモデル、解放済みアドレス検出）
 - [template-self-recursion.md](template-self-recursion.md) - テンプレート関数の自己再帰サポート（ボディ内でテンプレート名の再帰呼び出しを許可、自己参照alias自動挿入）
+- [wasm-error-details.md](wasm-error-details.md) - WASM API エラー詳細情報の追加（WasmError に details フィールドを追加し、CLI と同等のソースコード行・キャレット表示を返す）
 - [address-zero-reserved.md](address-zero-reserved.md) - アドレス 0 の予約仕様追加（`__alloc` や変数アドレスが 0 を返さないことを明文化、ヌルポインタ相当として利用可能に）
 - [improve-unexpected-token-error.md](improve-unexpected-token-error.md) - unexpected token エラーメッセージ改善（実際に得られたトークンの情報を表示、Token::describe() 追加）
+- [postfix-subscript-operator.md](postfix-subscript-operator.md) - 汎用後置添字演算子（`(*next)[1]`等の任意式への`[expr]`適用、パース時脱糖方式、Step 1-4）
 
 ## 現在のタスク
 
