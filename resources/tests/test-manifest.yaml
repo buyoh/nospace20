@@ -1212,6 +1212,24 @@ tests:
     comment: "Index operator with & for address calculation"
 
   # ========================================
+  # Postfix subscript operator: (expr)[i]
+  # ========================================
+  - name: test_postfix_subscript_read
+    type: success_io
+    path: postfix_subscript_read
+    comment: "Postfix subscript operator on arbitrary expression (read): (*p)[i]"
+
+  - name: test_postfix_subscript_write
+    type: success_io
+    path: postfix_subscript_write
+    comment: "Postfix subscript operator on arbitrary expression (write): (*p)[i] = val"
+
+  - name: test_postfix_subscript_compound
+    type: success_io
+    path: postfix_subscript_compound
+    comment: "Postfix subscript operator on arbitrary expression (compound assign): (*p)[i] += val"
+
+  # ========================================
   # __alloc / __free built-in functions (--std-ext alloc)
   # ========================================
   - name: test_builtin_alloc_basic_001

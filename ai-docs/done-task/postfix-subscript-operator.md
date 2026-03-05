@@ -1,5 +1,7 @@
 # 汎用後置添字演算子（Postfix Subscript Operator）
 
+## ステータス: 完了
+
 ## 概要
 
 `(*next)[1] = val;` のような、任意の式に対する `[expr]` 後置添字演算子がパースエラーになる問題を修正する。
@@ -178,3 +180,42 @@ fn parse_to_expression_tree_factor(&mut self) -> Box<LocatedExpression> {
 - [src/tree_parser/expression/mod.rs](../../src/tree_parser/expression/mod.rs) - 式パーサー（主な修正対象）
 - [src/tree_parser/expression/test.rs](../../src/tree_parser/expression/test.rs) - 式パーサーテスト
 - [docs/spec.md](../../docs/spec.md) - 言語仕様（§ 配列）
+
+## 実施内容
+
+### 実施日: 2026-03-05
+
+#### Step 1: パーサー修正（完了）
+
+`src/tree_parser/expression/mod.rs` の `parse_to_expression_tree_factor` を修正:
+
+- `match` ブロックの結果を `result` 変数に格納するよう変更
+- `Identifier` ケースの関数呼び出し・配列アクセスの早期 `return` を除去し、`if/else if/else` チェーンに変更
+- `match` ブロックの後に後置 `[expr]` ループを追加
+  - `(expr)[i]` → `*(expr + i)` に脱糖（`Deref(Plus(expr, i))`）
+- `arr[i]` は引き続き `ArrayAccess` として保持
+
+#### Step 2: ユニットテスト追加（完了）
+
+`src/tree_parser/expression/test.rs` に4件のテストを追加:
+
+- `test_parse_postfix_subscript_deref_paren`: `(*p)[0]` のパース確認
+- `test_parse_postfix_subscript_deref_paren_index_1`: `(*p)[1]` のパース確認
+- `test_parse_postfix_subscript_expr_paren`: `(x + y)[2]` のパース確認
+- `test_parse_array_access_still_produces_array_access`: `arr[0]` が `ArrayAccess` を返すことを確認
+
+#### Step 3: 統合テスト追加（完了）
+
+`resources/tests/passes/` に3件の統合テストを追加:
+
+- `postfix_subscript_read.ns`: `(*p)[0]`, `(*p)[1]` による読み取り
+- `postfix_subscript_write.ns`: `(*p)[0] = val`, `(*p)[1] = val` による書き込み
+- `postfix_subscript_compound.ns`: `(*p)[0] += val`, `(*p)[1] += val` による複合代入
+
+`resources/tests/test-manifest.yaml` に3件を登録。
+
+#### テスト結果（完了）
+
+- 全テスト通過（失敗 0 件）
+- ユニットテスト: 374 passed
+- 統合テスト: 1286 passed, 0 failed（wsc依存の 178 件は ignored）

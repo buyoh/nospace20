@@ -179,7 +179,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
 
     fn parse_to_expression_tree_factor(&mut self) -> Box<LocatedExpression> {
         let start = self.current_pos();
-        match self.iter.peek() {
+        let mut result = match self.iter.peek() {
             Some((Token::Number(val), _)) => {
                 let val = *val;
                 self.iter.next();
@@ -191,18 +191,18 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 let id = id.clone();
                 self.iter.next();
                 if let Some((Token::ParenthesisL, _)) = self.iter.peek() {
-                    return self.parse_to_expression_tree_function_located(&id, start);
-                }
-                // 配列アクセス: arr[expr]
-                if let Some((Token::BracketL, _)) = self.iter.peek() {
+                    self.parse_to_expression_tree_function_located(&id, start)
+                } else if let Some((Token::BracketL, _)) = self.iter.peek() {
+                    // 配列アクセス: arr[expr] → ArrayAccess として保持（意味解析での配列サイズ検証のため）
                     self.iter.next(); // '[' を消費
                     let index_expr = self.parse_to_expression_tree_root();
                     match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
                     let end = self.current_pos();
-                    return self.located(Expression::ArrayAccess(id, index_expr), start, end);
+                    self.located(Expression::ArrayAccess(id, index_expr), start, end)
+                } else {
+                    let end = self.current_pos();
+                    self.located(Expression::Variable(id), start, end)
                 }
-                let end = self.current_pos();
-                self.located(Expression::Variable(id), start, end)
             }
             Some((Token::ParenthesisL, _)) => {
                 self.iter.next();
@@ -227,7 +227,34 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 let end = self.current_pos();
                 self.located(Expression::Invalid(e), start, end)
             }
+        };
+
+        // 後置添字演算子: (expr)[i] → *(expr + i) に脱糖する。
+        // Identifier ケースの ArrayAccess (arr[i]) は match 内で既に処理されており、
+        // ここでは括弧式・関数呼び出し・ArrayAccess 後の連鎖アクセスが対象となる。
+        loop {
+            if let Some((Token::BracketL, _)) = self.iter.peek() {
+                self.iter.next(); // '[' を消費
+                let index_expr = self.parse_to_expression_tree_root();
+                match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
+                let end = self.current_pos();
+                // (expr)[i] → *(expr + i) に脱糖
+                let plus_expr = self.located(
+                    Expression::Operation2(Operator2::Plus, result, index_expr),
+                    start,
+                    end,
+                );
+                result = self.located(
+                    Expression::Operation1(Operator1::Deref, plus_expr),
+                    start,
+                    end,
+                );
+            } else {
+                break;
+            }
         }
+
+        result
     }
 
     fn parse_to_expression_tree_unary(&mut self) -> Box<LocatedExpression> {
