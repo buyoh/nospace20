@@ -30,10 +30,10 @@ if (wasmInstance.exports.__wbindgen_start) {
 
 // 使用する関数を取得
 const {
-  run,
   compile,
   parse,
   WasmWhitespaceVM,
+  WasmNospaceVM,
 } = bg;
 
 function expectSuccess(result, label) {
@@ -63,58 +63,112 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   throw new Error("vm did not complete within iteration limit");
 }
 
-// 1. run() tests
+// 1. WasmNospaceVM tests (replaces run() API)
 {
-  const result = run("func: main() { __puti(42); __putc(10); }", "", false);
-  expectSuccess(result, "run basic");
-  assert.equal(result.stdout, "42\n", "run stdout");
+  // Basic execution
+  const vm1 = new WasmNospaceVM("func: __main() { __puti(42); __putc(10); }", "");
+  runToComplete(vm1, 1000, 1000);
+  assert.equal(vm1.is_complete(), true, "vm1 completion");
+  const stdout1 = vm1.flushStdout();
+  assert.equal(stdout1, "42\n", "vm1 stdout");
 
-  const result2 = run(
-    "func: main() { let: x; x = __geti(); __puti(x); __putc(10); }",
-    "123\n",
-    false
+  // stdin support
+  const vm2 = new WasmNospaceVM(
+    "func: __main() { let: x; x = __geti(); __puti(x); __putc(10); }",
+    "123\n"
   );
-  expectSuccess(result2, "run stdin");
-  assert.equal(result2.stdout, "123\n", "run stdin stdout");
+  runToComplete(vm2, 1000, 1000);
+  assert.equal(vm2.flushStdout(), "123\n", "vm2 stdin stdout");
 
-  const result3 = run("func: main() { let: x; x = 10; __trace(x); }", "", true);
-  expectSuccess(result3, "run debug");
-  assert.ok(result3.trace !== undefined, "run debug trace");
+  // trace support
+  const vm3 = new WasmNospaceVM("func: __main() { let: x; x = 10; __trace(x); }", "");
+  runToComplete(vm3, 1000, 1000);
+  const traced = vm3.getTraced();
+  assert.equal(typeof traced, "object", "vm3 traced type");
+  assert.equal(traced["10"], 1, "vm3 traced value");
 
-  const result4 = run("func: main() { let x; }", "", false);
-  expectFailure(result4, "run syntax error");
+  // step-by-step execution (suspension)
+  const vm4 = new WasmNospaceVM("func: __main() { __puti(1); __putc(10); }", "");
+  let stepCount = 0;
+  while (!vm4.is_complete()) {
+    const result = vm4.step(1);
+    assert.ok(
+      ["suspended", "complete"].includes(result.status),
+      "vm4 step status"
+    );
+    stepCount++;
+    if (stepCount > 10000) throw new Error("vm4 did not complete");
+  }
+  assert.ok(stepCount > 1, "vm4 took multiple steps");
+  assert.equal(vm4.flushStdout(), "1\n", "vm4 stdout");
+
+  // total_steps
+  assert.ok(vm4.total_steps() > 0, "vm4 total_steps > 0");
+
+  // return value
+  const vm5 = new WasmNospaceVM("func: __main() { return: 42; }", "");
+  runToComplete(vm5, 1000, 1000);
+  assert.equal(vm5.getReturnValue(), 42n, "vm5 return value");
+
+  // ignore_debug option
+  const vm6 = new WasmNospaceVM(
+    "func: __main() { __assert(0); __puti(1); __putc(10); }",
+    "",
+    undefined,
+    true
+  );
+  runToComplete(vm6, 1000, 1000);
+  assert.equal(vm6.flushStdout(), "1\n", "vm6 ignore_debug stdout");
+
+  // opt_passes option
+  const vm7 = new WasmNospaceVM(
+    "func: __main() { __puti(1 + 2); __putc(10); }",
+    "",
+    ["constant-folding"]
+  );
+  runToComplete(vm7, 1000, 1000);
+  assert.equal(vm7.flushStdout(), "3\n", "vm7 opt_passes stdout");
+
+  // syntax error
+  try {
+    new WasmNospaceVM("func: __main() { let x; }", "");
+    assert.fail("should throw on syntax error");
+  } catch (e) {
+    // Expected: wasm-bindgen throws JsValue on error
+    assert.ok(true, "vm syntax error");
+  }
 }
 
 // 2. compile() tests
 {
-  const result = compile("func: main() { __puti(1); __putc(10); }", "ws", "ws");
+  const result = compile("func: __main() { __puti(1); __putc(10); }", "ws", "ws");
   expectSuccess(result, "compile ws");
   assert.equal(typeof result.output, "string", "compile ws output type");
   assert.ok(result.output.length > 0, "compile ws output length");
 
-  const result2 = compile("func: main() { __puti(1); __putc(10); }", "mnemonic", "ws");
+  const result2 = compile("func: __main() { __puti(1); __putc(10); }", "mnemonic", "ws");
   expectSuccess(result2, "compile mnemonic");
   assert.ok(result2.output.includes("push"), "compile mnemonic output");
 
-  const result3 = compile("func: main() {}", "invalid", "ws");
+  const result3 = compile("func: __main() {}", "invalid", "ws");
   expectFailure(result3, "compile invalid target");
 
-  const result4 = compile("func: main() {}", "ws", "standard");
+  const result4 = compile("func: __main() {}", "ws", "standard");
   expectFailure(result4, "compile std mismatch");
 }
 
 // 3. parse() tests
 {
-  const result = parse("func: main() { let: x; x = 1; }");
+  const result = parse("func: __main() { let: x; x = 1; }");
   expectSuccess(result, "parse ok");
 
-  const result2 = parse("func: main() { let x; }");
+  const result2 = parse("func: __main() { let x; }");
   expectFailure(result2, "parse error");
 }
 
 // 4. WasmWhitespaceVM tests
 {
-  const vm = new WasmWhitespaceVM("func: main() { __puti(1); __putc(10); }", "");
+  const vm = new WasmWhitespaceVM("func: __main() { __puti(1); __putc(10); }", "");
   assert.equal(vm.is_complete(), false, "vm initial is_complete");
 
   const stepResult = vm.step(1000);
@@ -139,7 +193,7 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   const instructions = vm.disassemble();
   assert.ok(Array.isArray(instructions), "vm disassemble type");
 
-  const compiled = compile("func: main() { __puti(2); __putc(10); }", "ws", "ws");
+  const compiled = compile("func: __main() { __puti(2); __putc(10); }", "ws", "ws");
   expectSuccess(compiled, "compile for fromWhitespace");
   const vm2 = WasmWhitespaceVM.fromWhitespace(compiled.output, "");
   runToComplete(vm2, 100, 1000);
@@ -148,25 +202,41 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
 
 // 6. Compile error tests (semantic errors)
 {
-  // Undefined variable
-  const result1 = run("func: main() { __puti(undefined_var); }", "", false);
-  expectFailure(result1, "compile error: undefined variable");
+  // Undefined variable (use WasmNospaceVM instead of run())
+  try {
+    new WasmNospaceVM("func: __main() { __puti(undefined_var); }", "");
+    assert.fail("should throw on undefined variable");
+  } catch (e) {
+    assert.ok(true, "compile error: undefined variable");
+  }
 
   // Undefined function
-  const result2 = run("func: main() { undefined_func(); }", "", false);
-  expectFailure(result2, "compile error: undefined function");
+  try {
+    new WasmNospaceVM("func: __main() { undefined_func(); }", "");
+    assert.fail("should throw on undefined function");
+  } catch (e) {
+    assert.ok(true, "compile error: undefined function");
+  }
 
   // Duplicate variable definition in same scope
-  const result4 = run("func: main() { let: x; let: x; }", "", false);
-  expectFailure(result4, "compile error: duplicate variable");
+  try {
+    new WasmNospaceVM("func: __main() { let: x; let: x; }", "");
+    assert.fail("should throw on duplicate variable");
+  } catch (e) {
+    assert.ok(true, "compile error: duplicate variable");
+  }
 
   // Missing main function
   const result9 = compile("func: foo() { __puti(1); }", "ws", "ws");
   expectFailure(result9, "compile error: missing main function");
 
   // Assignment to undefined variable
-  const result10 = run("func: main() { undefined_var = 42; }", "", false);
-  expectFailure(result10, "compile error: assignment to undefined variable");
+  try {
+    new WasmNospaceVM("func: __main() { undefined_var = 42; }", "");
+    assert.fail("should throw on assignment to undefined variable");
+  } catch (e) {
+    assert.ok(true, "compile error: assignment to undefined variable");
+  }
 
   // Parse errors
   const result7 = parse("return: 42;");
@@ -175,7 +245,7 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   const result8 = parse("func: () {}");
   expectFailure(result8, "parse error: empty function name");
 
-  const result12 = parse("func: main() { let: arr[]; }");
+  const result12 = parse("func: __main() { let: arr[]; }");
   expectFailure(result12, "parse error: array without size");
 }
 

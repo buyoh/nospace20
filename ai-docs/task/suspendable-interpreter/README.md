@@ -86,24 +86,33 @@ nospace インタプリタの実行を特定のステップ数で中断し、後
 
 ### Phase 4: WASM API 実装
 
-- [ ] 再帰インタプリタの WASM API 削除
+- [x] 再帰インタプリタの WASM API 削除
   - `api.rs` の `run()` 関数を削除（`interpret_with_env` を使用しているため）
   - 関連する `RunResultOk` / `JsRunResult` 型の整理
-- [ ] `WasmNospaceVM` WASM ラッパーの実装（`src/wasm_api/nospace_vm.rs` 新規作成）
-  - `new(source, stdin, interactive?, opt_passes?, ignore_debug?)` — VM 構築
+- [x] `WasmNospaceVM` WASM ラッパーの実装（`src/wasm_api/nospace_vm.rs` 新規作成）
+  - `new(source, stdin, opt_passes?, ignore_debug?)` — VM 構築
   - `step(budget)` — N ステップ実行
   - `flush_stdout()` — 標準出力取得
   - `is_complete()` — 完了判定
   - `total_steps()` — 総実行ステップ数
   - `get_return_value()` — main の戻り値
-  - `get_traced()` — トレース情報
-  - `provide_stdin(data)` / `close_stdin()` — interactive stdin
-- [ ] `src/wasm_api/mod.rs` に `mod nospace_vm;` 追加
+  - `get_traced()` — トレース情報（`js-sys` による手動シリアライズ）
+- [x] `src/wasm_api/mod.rs` に `mod nospace_vm;` 追加
 - [ ] デバッグ情報 API（将来拡張）
   - `get_call_stack()` — 関数コールスタック
   - `get_position()` — 現在の実行位置
-- [ ] テスト・検証
-  - Node.js スモークテスト（`tools/wasm-test/` にテストケース追加）
+- [ ] interactive stdin API（将来拡張）
+  - `provide_stdin(data)` / `close_stdin()` — interactive stdin
+- [x] テスト・検証
+  - Node.js スモークテスト（`tools/wasm-test/test.mjs` にテストケース追加）
+
+**追加の修正**:
+- `serde_wasm_bindgen::to_value` が `BTreeMap<String, f64>` に対し空オブジェクトを返す問題を発見
+  - `js-sys` クレートを依存に追加し、`js_sys::Object::new()` + `js_sys::Reflect::set()` で手動構築
+  - `WasmWhitespaceVM.get_traced()` にも同じ修正を適用
+- `NospaceVM.with_io()` 後も `__trace` が正常動作するユニットテスト追加
+
+**Phase 4 完了日**: 2025-07-10
 
 ## 既存インタプリタとの共存
 

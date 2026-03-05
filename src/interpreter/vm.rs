@@ -1830,4 +1830,24 @@ func: mul(a, b) { return: a * b; }
 func: __main() { return: add(mul(3, 4), 5); }
 "#);
     }
+
+    #[test]
+    fn test_trace_with_io() {
+        // WASM ラッパーと同じ流れ: from_scope → with_io → run
+        let src = "func: __main() { let: x; x = 10; __trace(x); }";
+        let tokens = crate::token_parser::parse_to_tokens(&src.to_string()).unwrap();
+        let tree = crate::tree_parser::parse_to_tree(&tokens).unwrap();
+        let scope = crate::semantic_analyzer::analyze(&tree).unwrap();
+
+        let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
+        let stdout_writer: Box<dyn Write> = Box::new(SharedWriter(Rc::clone(&stdout_buf)));
+        let stdin: Box<dyn BufRead> = Box::new(BufReader::new(Cursor::new(Vec::<u8>::new())));
+
+        let mut vm = NospaceVM::from_scope(scope).unwrap();
+        vm = vm.with_io(stdin, stdout_writer);
+
+        let result = vm.run(100000);
+        assert!(matches!(result, StepResult::Complete { .. }));
+        assert_eq!(vm.traced().get(&10), Some(&1), "trace should record x=10");
+    }
 }

@@ -266,6 +266,7 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "clap",
+ "js-sys",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",

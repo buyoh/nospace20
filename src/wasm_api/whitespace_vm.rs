@@ -237,15 +237,17 @@ impl WasmWhitespaceVM {
     /// トレース情報を取得
     ///
     /// 戻り値: { [key: string]: number }
-    pub fn get_traced(&self) -> JsNumberRecord {
-        let traced: std::collections::BTreeMap<String, f64> = self
-            .vm
-            .traced
-            .iter()
-            .map(|(k, v)| (k.to_string(), *v as f64))
-            .collect();
-        let js: JsValue = serde_wasm_bindgen::to_value(&traced).unwrap();
-        js.into()
+    pub fn get_traced(&self) -> JsValue {
+        let obj = js_sys::Object::new();
+        for (k, v) in self.vm.traced.iter() {
+            js_sys::Reflect::set(
+                &obj,
+                &JsValue::from_str(&k.to_string()),
+                &JsValue::from_f64(*v as f64),
+            )
+            .unwrap();
+        }
+        obj.into()
     }
 
     /// 現在の命令のニーモニック表現を取得（デバッグ用）

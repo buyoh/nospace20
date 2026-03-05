@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["cli"]
 cli = ["dep:clap", "dep:unicode-width"]
-wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:unicode-width"]
+wasm = ["dep:wasm-bindgen", "dep:js-sys", "dep:serde-wasm-bindgen", "dep:unicode-width"]
 
 [[bin]]
 name = "nospace20"
@@ -37,6 +37,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.64"
 unicode-width = { version = "0.1.8", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 
 [dev-dependencies]

@@ -23,15 +23,6 @@ interface ResultErr {
     errors: WasmError[];
 }
 
-interface RunResultOk {
-    success: true;
-    returnValue: number | null;
-    stdout: string;
-    trace?: Record<string, string>;
-}
-
-type RunResult = RunResultOk | ResultErr;
-
 interface CompileResultOk {
     success: true;
     output: string;
@@ -78,9 +69,6 @@ interface OptionsDefinition {
 
 #[wasm_bindgen]
 extern "C" {
-    #[wasm_bindgen(typescript_type = "RunResult")]
-    pub type JsRunResult;
-
     #[wasm_bindgen(typescript_type = "CompileResult")]
     pub type JsCompileResult;
 
@@ -112,17 +100,6 @@ extern "C" {
 // ========================================
 // Serde 結果構造体
 // ========================================
-
-/// 実行成功時のレスポンス
-#[derive(Serialize)]
-pub struct RunResultOk {
-    pub success: bool, // always true
-    #[serde(rename = "returnValue")]
-    pub return_value: Option<i64>,
-    pub stdout: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub trace: Option<std::collections::BTreeMap<String, String>>,
-}
 
 /// エラーレスポンス（構文エラー等）
 #[derive(Serialize)]

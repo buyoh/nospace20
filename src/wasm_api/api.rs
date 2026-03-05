@@ -1,88 +1,27 @@
-//! トップレベル WASM API: `run`, `compile`, `parse` およびヘルパー関数
+//! トップレベル WASM API: `compile`, `parse` およびヘルパー関数
 //!
 //! 各 API は内部パイプライン（`pipeline` モジュール）で共通化された処理を呼び出す。
+//!
+//! `run()` 関数は NospaceVM (`WasmNospaceVM`) に置き換えられたため削除済み。
+//! ワンショット実行が必要な場合は `WasmNospaceVM` の `step()` ループを使用する。
 
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-use std::cell::RefCell;
-use std::io::Cursor;
-use std::rc::Rc;
-
 use crate::{
-    compile_to_ws, interpret_with_env, CompileTarget, Environment, EnvironmentConfig, LanguageStd,
+    compile_to_ws, CompileTarget, LanguageStd,
     WsCompileOptions, WsOutputFormat,
 };
 
 use super::pipeline;
 use super::types::{
     CompileResultOk, JsCompileResult, JsOptPassArray, JsOptionsDefinition, JsParseResult,
-    JsRunResult, JsStdExtensionArray, ResultErr, RunResultOk,
+    JsStdExtensionArray, ResultErr,
 };
-use super::whitespace_vm::SharedWriter;
 
 // ========================================
 // トップレベル API
 // ========================================
-
-/// nospace ソースコードを解析・実行する。
-/// CLI の `--mode=run` に相当。
-///
-/// - `ignore_debug`: デバッグ用組み込み関数（__assert, __trace 等）を無視する（CLI の `--ignore-debug` 相当）
-/// - `opt_passes`: 有効にする最適化パスの配列（例: `["all"]` または `["constant-folding", "dead-code"]`）
-#[wasm_bindgen]
-pub fn run(
-    source: &str,
-    stdin: &str,
-    debug: bool,
-    ignore_debug: Option<bool>,
-    opt_passes: Option<JsOptPassArray>,
-) -> JsRunResult {
-    let (scope, _text_code, _) = match pipeline::analyze_and_optimize(source, opt_passes) {
-        Ok(v) => v,
-        Err(e) => return serde_wasm_bindgen::to_value(&e).unwrap().into(),
-    };
-
-    // 実行
-    let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(
-        stdin.as_bytes().to_vec(),
-    )));
-    let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
-    let stdout_clone = Rc::clone(&stdout_buf);
-    let mut config = EnvironmentConfig::with_max_expression_count(100000);
-    config.ignore_debug = ignore_debug.unwrap_or(false);
-    let mut env =
-        Environment::new_with_config(stdin_cursor, Box::new(SharedWriter(stdout_clone)), config);
-    if let Err(e) = interpret_with_env(&mut env, &scope) {
-        let err_result = ResultErr::single_error(format!("{}", e));
-        return serde_wasm_bindgen::to_value(&err_result).unwrap().into();
-    }
-    env.flush();
-
-    let stdout_vec = stdout_buf.borrow().clone();
-    let stdout_str = String::from_utf8(stdout_vec).unwrap_or_default();
-
-    // trace を String キーに変換 (JSON 互換)
-    let trace = if debug {
-        Some(
-            env.traced
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect(),
-        )
-    } else {
-        None
-    };
-
-    let result = RunResultOk {
-        success: true,
-        return_value: None,
-        stdout: stdout_str,
-        trace,
-    };
-    let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
-    js.into()
-}
 
 /// nospace ソースコードをコンパイルする。
 /// CLI の `--mode=compile` に相当。
