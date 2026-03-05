@@ -77,6 +77,71 @@ impl TokenInfo {
     }
 }
 
+impl Keyword {
+    /// エラーメッセージ用にキーワードの文字列表現を返す
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Keyword::Let => "let",
+            Keyword::Func => "func",
+            Keyword::If => "if",
+            Keyword::Else => "else",
+            Keyword::While => "while",
+            Keyword::For => "for",
+            Keyword::Repeat => "repeat",
+            Keyword::Return => "return",
+            Keyword::Break => "break",
+            Keyword::Continue => "continue",
+            Keyword::Static => "static",
+            Keyword::Constexpr => "constexpr",
+            Keyword::Alias => "alias",
+            Keyword::Final => "final",
+        }
+    }
+}
+
+impl Token {
+    /// エラーメッセージ用の人間可読な説明を返す
+    pub fn describe(&self) -> String {
+        match self {
+            Token::Number(n) => format!("number '{}'", n),
+            Token::Identifier(s) => format!("identifier '{}'", s),
+            Token::Keyword(k) => format!("keyword '{}'", k.as_str()),
+            Token::StringLiteral(_) => "string literal".to_string(),
+            Token::Plus => "'+'".to_string(),
+            Token::Minus => "'-'".to_string(),
+            Token::Asterisk => "'*'".to_string(),
+            Token::Slash => "'/'".to_string(),
+            Token::Percent => "'%'".to_string(),
+            Token::Exclamation => "'!'".to_string(),
+            Token::SingleEqual => "'='".to_string(),
+            Token::DoubleEqual => "'=='".to_string(),
+            Token::NotEqual => "'!='".to_string(),
+            Token::Less => "'<'".to_string(),
+            Token::Greater => "'>'".to_string(),
+            Token::LessEqual => "'<='".to_string(),
+            Token::GreaterEqual => "'>='".to_string(),
+            Token::PlusEqual => "'+='".to_string(),
+            Token::MinusEqual => "'-='".to_string(),
+            Token::AsteriskEqual => "'*='".to_string(),
+            Token::SlashEqual => "'/='".to_string(),
+            Token::PercentEqual => "'%='".to_string(),
+            Token::DoubleAmpersand => "'&&'".to_string(),
+            Token::DoublePipe => "'||'".to_string(),
+            Token::Ampersand => "'&'".to_string(),
+            Token::ParenthesisL => "'('".to_string(),
+            Token::ParenthesisR => "')'".to_string(),
+            Token::BracketL => "'['".to_string(),
+            Token::BracketR => "']'".to_string(),
+            Token::BraceL => "'{'".to_string(),
+            Token::BraceR => "'}'".to_string(),
+            Token::Semicolon => "';'".to_string(),
+            Token::Colon => "':'".to_string(),
+            Token::Comma => "','".to_string(),
+            Token::Invalid => "invalid token".to_string(),
+        }
+    }
+}
+
 fn parse_number<I: Iterator<Item = (usize, char)>>(
     iter: &mut iter::Peekable<I>,
 ) -> Result<Token, CodeParseError> {

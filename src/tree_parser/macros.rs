@@ -15,9 +15,13 @@ macro_rules! match_expect_token {
     ($self: expr, $v: expr, $pat: pat) => {
         match $v {
             Some(($pat, _)) => Ok(()),
-            Some((_, token_info)) => Err($self.add_parse_error(
+            Some((token, token_info)) => Err($self.add_parse_error(
                 token_info,
-                format!("unexpected token: expected {}", stringify!($pat)),
+                format!(
+                    "unexpected token {}: expected {}",
+                    token.describe(),
+                    super::describe_expected_token(stringify!($pat))
+                ),
             )),
             None => Err($self.add_end_error("unexpected end of input")),
         }
@@ -25,9 +29,13 @@ macro_rules! match_expect_token {
     ($self: expr, $v: expr, $pat: pat if $cond:expr) => {
         match $v {
             Some(($pat, _)) if $cond => Ok(()),
-            Some((_, token_info)) => Err($self.add_parse_error(
+            Some((token, token_info)) => Err($self.add_parse_error(
                 token_info,
-                format!("unexpected token: expected {}", stringify!($pat)),
+                format!(
+                    "unexpected token {}: expected {}",
+                    token.describe(),
+                    super::describe_expected_token(stringify!($pat))
+                ),
             )),
             None => Err($self.add_end_error("unexpected end of input")),
         }
@@ -35,9 +43,13 @@ macro_rules! match_expect_token {
     ($self: expr, $v: expr, $pat: pat => $res: expr) => {
         match $v {
             Some(($pat, _)) => Ok($res),
-            Some((_, token_info)) => Err($self.add_parse_error(
+            Some((token, token_info)) => Err($self.add_parse_error(
                 token_info,
-                format!("unexpected token: expected {}", stringify!($pat)),
+                format!(
+                    "unexpected token {}: expected {}",
+                    token.describe(),
+                    super::describe_expected_token(stringify!($pat))
+                ),
             )),
             None => Err($self.add_end_error("unexpected end of input")),
         }

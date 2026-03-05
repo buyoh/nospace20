@@ -1086,8 +1086,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                         break;
                     }
                 }
-                Some((_, token_info)) => {
-                    self.add_parse_error(token_info, "unexpected token");
+                Some((token, token_info)) => {
+                    self.add_parse_error(
+                        token_info,
+                        format!("unexpected token {}", token.describe()),
+                    );
                     break;
                 }
                 None => {

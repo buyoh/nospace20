@@ -692,6 +692,11 @@ tests:
     path: extra_closing_braces_001
     comment: "Extra closing braces detection"
 
+  - name: test_syntax_error_extra_code_plus_001
+    type: syntax_error
+    path: extra_code_plus_001
+    comment: "Error: extra token after top-level code, shows actual token in message"
+
   - name: test_syntax_error_char_invalid_escape_001
     type: syntax_error
     path: char_invalid_escape_001
@@ -743,6 +748,16 @@ tests:
     type: syntax_error
     path: unexpected_factor_001
     comment: "Error: unexpected token in expression"
+
+  - name: test_syntax_error_unexpected_factor_semicolon_001
+    type: syntax_error
+    path: unexpected_factor_semicolon_001
+    comment: "Error: semicolon in expression, shows actual token in message"
+
+  - name: test_syntax_error_missing_semi_got_paren_001
+    type: syntax_error
+    path: missing_semi_got_paren_001
+    comment: "Error: expected semicolon but got closing paren, shows both tokens"
 
   - name: test_syntax_error_while_as_expression_001
     type: syntax_error

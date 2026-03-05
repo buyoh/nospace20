@@ -217,8 +217,11 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             // if/block を factor レベルで解析（while は文として parse_to_statements で処理）
             Some((Token::Keyword(Keyword::If), _)) => self.parse_to_expression_tree_if_impl(),
             Some((Token::BraceL, _)) => self.parse_to_expression_tree_block_impl(),
-            Some((_, token_info)) => {
-                let e = self.add_parse_error(token_info, "unexpected token");
+            Some((token, token_info)) => {
+                let e = self.add_parse_error(
+                    token_info,
+                    format!("unexpected token {}", token.describe()),
+                );
                 let end = self.current_pos();
                 self.located(Expression::Invalid(e), start, end)
             }

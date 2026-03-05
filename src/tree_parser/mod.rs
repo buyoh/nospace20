@@ -19,6 +19,25 @@ mod macros;
 mod expression;
 mod statement;
 
+/// `stringify!()` で生成される期待トークンパターン文字列を人間可読な形式に変換する
+pub(super) fn describe_expected_token(pat: &str) -> &str {
+    match pat {
+        "Token::Semicolon" => "';'",
+        "Token::Colon" => "':'",
+        "Token::Comma" => "','",
+        "Token::ParenthesisL" => "'('",
+        "Token::ParenthesisR" => "')'",
+        "Token::BracketL" => "'['",
+        "Token::BracketR" => "']'",
+        "Token::BraceL" => "'{'",
+        "Token::BraceR" => "'}'",
+        "Token::SingleEqual" => "'='",
+        "Token::Identifier(id)" | "Token::Identifier(_)" => "identifier",
+        "Token::Number(_)" => "number",
+        _ => pat, // フォールバック: そのまま表示
+    }
+}
+
 // convert token sequence to tree structure.
 
 pub fn parse_to_tree(
@@ -28,10 +47,13 @@ pub fn parse_to_tree(
     let (st, mut err) = parse_to_statements(&mut iter);
 
     // 余剰トークンのチェック
-    if let Some((_, token_info)) = iter.next() {
+    if let Some((token, token_info)) = iter.next() {
         err.push(code_parse_error!(
             token_info.code_pointer,
-            "unexpected token (unmatched closing brace or extra code)"
+            format!(
+                "unexpected token {} (unmatched closing brace or extra code)",
+                token.describe()
+            )
         ));
     }
 

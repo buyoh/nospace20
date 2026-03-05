@@ -206,8 +206,6 @@ format!("unexpected token {} (unmatched closing brace or extra code)", token.des
 
 ## テストへの影響
 
-既存の `.check.json` テストは `"contains": ["unexpected"]` 等の部分一致で検証しているため、メッセージ変更後も全て合格する見込み。
-
 影響するテストファイル:
 - `resources/tests/fails/syntax/unexpected_factor_001.check.json` — `"contains": ["unexpected"]` ✓
 - `resources/tests/fails/syntax/while_as_expression_001.check.json` — `"contains": ["unexpected"]` ✓
@@ -229,3 +227,21 @@ format!("unexpected token {} (unmatched closing brace or extra code)", token.des
 ## 作業規模
 
 小規模。変更ファイル 5 つ、全て `tree_parser` / `token_parser` モジュール内に収まる。
+
+## 実装結果 (2026-03-05)
+
+### 実装完了
+
+設計通りにすべての変更を適用した。全テスト合格（失敗なし）。
+
+#### 追加したテストケース
+
+- `resources/tests/fails/syntax/missing_semi_got_paren_001` — `')'` と `';'` 両方を含むことを確認
+- `resources/tests/fails/syntax/unexpected_factor_semicolon_001` — `';'` を含むことを確認
+- `resources/tests/fails/syntax/extra_code_plus_001` — `'+'` と `unmatched` を含むことを確認
+
+#### 実装メモ
+
+- `describe_expected_token()` は `pub(super)` として `tree_parser/mod.rs` に定義し、マクロから `super::describe_expected_token()` で呼び出す
+- `code_parse_error!` マクロがフォーマット引数をサポートしないため、`format!()` で文字列を組み立ててから渡した
+
