@@ -33,8 +33,6 @@ const {
   run,
   compile,
   parse,
-  compile_to_whitespace_string,
-  compile_to_mnemonic_string,
   WasmWhitespaceVM,
 } = bg;
 
@@ -114,18 +112,7 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   expectFailure(result2, "parse error");
 }
 
-// 4. helper compile tests
-{
-  const ws = compile_to_whitespace_string("func: main() { __puti(3); __putc(10); }");
-  expectSuccess(ws, "compile_to_whitespace_string");
-  assert.ok(ws.output.length > 0, "compile_to_whitespace_string output");
-
-  const mnemonic = compile_to_mnemonic_string("func: main() { __puti(3); __putc(10); }");
-  expectSuccess(mnemonic, "compile_to_mnemonic_string");
-  assert.ok(mnemonic.output.includes("push"), "compile_to_mnemonic_string output");
-}
-
-// 5. WasmWhitespaceVM tests
+// 4. WasmWhitespaceVM tests
 {
   const vm = new WasmWhitespaceVM("func: main() { __puti(1); __putc(10); }", "");
   assert.equal(vm.is_complete(), false, "vm initial is_complete");

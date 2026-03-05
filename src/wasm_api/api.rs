@@ -193,18 +193,6 @@ pub fn parse(source: &str) -> JsParseResult {
 // ヘルパー関数・メタデータ
 // ========================================
 
-/// nospace ソースコードを Whitespace にコンパイル（ヘルパー関数）
-#[wasm_bindgen]
-pub fn compile_to_whitespace_string(source: &str) -> JsCompileResult {
-    compile(source, "ws", "ws", None, None)
-}
-
-/// nospace ソースコードをニーモニックにコンパイル（ヘルパー関数）
-#[wasm_bindgen]
-pub fn compile_to_mnemonic_string(source: &str) -> JsCompileResult {
-    compile(source, "mnemonic", "ws", None, None)
-}
-
 /// 利用可能なオプションの一覧を返す
 ///
 /// compile() や WasmWhitespaceVM で指定可能なオプション値を取得できる。
