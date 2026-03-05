@@ -171,8 +171,8 @@ use super::*;  // mod.rs の型定義・use を全て引き継ぐ
 
 ## ステータス
 
-- [ ] ドキュメントコメント追加
-- [ ] `#[allow(dead_code)]` 削除
-- [ ] `pub traced` → private
-- [ ] ファイル分割 (vm.rs → vm/)
-- [ ] ビルド・テスト確認
+- [x] ドキュメントコメント追加
+- [x] `#[allow(dead_code)]` 削除
+- [x] `pub traced` → private
+- [x] ファイル分割 (vm.rs → vm/)
+- [x] ビルド・テスト確認
