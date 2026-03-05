@@ -7,6 +7,7 @@
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
 | [postfix-subscript-operator.md](postfix-subscript-operator.md) | 汎用後置添字演算子 `(expr)[i]` のパース対応（`parse_to_expression_tree_factor` に後置ループ追加、`*(expr + i)` に脱糖、ユニット4件・統合3件テスト追加、全テストPASS） | 2026-03-05 |
+| [review-nospace-vm.md](review-nospace-vm.md) / [review-nospace-vm-plan.md](review-nospace-vm-plan.md) | NospaceVM コードレビュー改善（vm.rs 1854行→vm/ ディレクトリモジュール分割、enum ドキュメントコメント追加、pub traced→private、#[allow(dead_code)] 削除、全41テストPASS） | 2026-07-11 |
 | [suspendable-interpreter/](suspendable-interpreter/) | インタプリタ中断・再開機能（明示的スタックマシン `NospaceVM` 実装、Phase 1-4 全完了：型・API骨格、スタックマシン実装、テスト統合190件、WASM API `WasmNospaceVM`、`serde_wasm_bindgen` バグ修正） | 2025-07-10 |
 | [code-design-review/](code-design-review/) | コード設計レビュー改善（エラー型統一、コード重複解消、API設計改善、Rustイディオム改善、unsafe除去）※02-module-splitting は残タスク | 2026-03-02 |
 | [step6-constexpr-block-design.md](step6-constexpr-block-design.md) | constexpr ブロック形式の実装（`constexpr: NAME { ... };`、ConstexprEnv・eval_constexpr_block・パーサー拡張・意味解析統合、テスト8件追加） | 2026-02-28 |
