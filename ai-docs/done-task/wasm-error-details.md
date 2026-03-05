@@ -1,5 +1,20 @@
 # WASM API エラー詳細情報の追加
 
+## 完了状況
+
+**完了** (2026-03-05)
+
+### 実施内容
+
+1. `Cargo.toml` — `wasm` feature に `dep:unicode-width` を追加
+2. `src/wasm_api/types.rs` — `WasmError` に `details: Option<String>` フィールドを追加、TypeScript 型定義に `details?: string;` を追加、`ResultErr::single_error` で `details: None` を明示
+3. `src/wasm_api/pipeline.rs` — `format_error_details` ヘルパー関数を追加し、`convert_errors` / `convert_compile_error` で `details` を生成するよう変更、ユニットテスト4件を追加
+
+### テスト結果
+
+- `cargo test`（default/cli feature）: 全て通過
+- `cargo test --features wasm wasm_api`: 4件追加テスト全て通過
+
 ## 概要
 
 WASM API のエラーレスポンス (`WasmError`) に `details` フィールドを追加し、CLI と同等の詳細なエラーログを返せるようにする。

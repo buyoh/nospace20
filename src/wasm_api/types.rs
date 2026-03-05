@@ -15,6 +15,7 @@ interface WasmError {
     message: string;
     line?: number;
     column?: number;
+    details?: string;
 }
 
 interface ResultErr {
@@ -139,6 +140,7 @@ impl ResultErr {
                 message,
                 line: None,
                 column: None,
+                details: None,
             }],
         }
     }
@@ -159,6 +161,8 @@ pub struct WasmError {
     pub line: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub column: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
 }
 
 /// Whitespace VM のステップ実行結果

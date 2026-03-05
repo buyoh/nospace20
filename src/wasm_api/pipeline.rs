@@ -87,16 +87,40 @@ pub(super) fn parse_opt_passes(
 // エラー変換
 // ========================================
 
+/// エラー詳細文字列を生成する（CLI の出力に相当）
+///
+/// 出力例:
+/// ```text
+/// line:7 column:10
+///   (*next)[0] = tail;
+///          ^
+/// ```
+fn format_error_details(text: &TextCode, line_0: usize, column_0: usize) -> String {
+    let line_str = text.line(line_0);
+    let line_1 = line_0 + 1;
+    let col_1 = column_0 + 1;
+    let prefix: String = line_str.chars().take(column_0).collect();
+    let width = unicode_width::UnicodeWidthStr::width(prefix.as_str());
+    format!(
+        "line:{} column:{}\n{}\n{}^",
+        line_1,
+        col_1,
+        line_str,
+        " ".repeat(width)
+    )
+}
+
 /// `CompileError` を `ResultErr` に変換する
 ///
 /// `CompileError` は位置情報（`SourceLocation`）を持つため、
 /// `TextCode` を使って行・列番号に変換する。
 pub(super) fn convert_compile_error(error: &CompileError, text: &TextCode) -> ResultErr {
-    let (line, column) = if let Some(loc) = &error.location {
+    let (line, column, details) = if let Some(loc) = &error.location {
         let (l, c) = text.char_index_to_line(loc.start);
-        (Some(l + 1), Some(c + 1))
+        let details = format_error_details(text, l, c);
+        (Some(l + 1), Some(c + 1), Some(details))
     } else {
-        (None, None)
+        (None, None, None)
     };
     ResultErr {
         success: false,
@@ -104,6 +128,7 @@ pub(super) fn convert_compile_error(error: &CompileError, text: &TextCode) -> Re
             message: format!("{}", error),
             line,
             column,
+            details,
         }],
     }
 }
@@ -113,17 +138,19 @@ pub(super) fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> Resu
     let wasm_errors: Vec<WasmError> = errors
         .iter()
         .map(|e| {
-            let (line, column) = if let Some(p) = e.code_pointer {
+            let (line, column, details) = if let Some(p) = e.code_pointer {
                 let (l, c) = text.char_index_to_line(p);
+                let details = format_error_details(text, l, c);
                 // NOTE: char_index_to_line は0-indexed。ユーザー向けには1-indexedにする。
-                (Some(l + 1), Some(c + 1))
+                (Some(l + 1), Some(c + 1), Some(details))
             } else {
-                (None, None)
+                (None, None, None)
             };
             WasmError {
                 message: e.message.to_string(),
                 line,
                 column,
+                details,
             }
         })
         .collect();
@@ -166,4 +193,57 @@ pub(super) fn analyze_and_optimize(
         optimize(&mut scope, &opt_options);
     }
     Ok((scope, text_code, opt_options))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::TextCode;
+
+    #[test]
+    fn test_format_error_details_ascii() {
+        let source = "hello world\nfoo bar baz\n";
+        let text = TextCode::new(source);
+        // line 1 (0-indexed), column 4 (0-indexed) → "bar"
+        let result = format_error_details(&text, 1, 4);
+        assert_eq!(result, "line:2 column:5\nfoo bar baz\n    ^");
+    }
+
+    #[test]
+    fn test_format_error_details_first_column() {
+        let source = "abcde\n";
+        let text = TextCode::new(source);
+        let result = format_error_details(&text, 0, 0);
+        assert_eq!(result, "line:1 column:1\nabcde\n^");
+    }
+
+    #[test]
+    fn test_convert_errors_has_details() {
+        use crate::CodeParseError;
+        // "int x = ;\n" のようなソース: エラー位置 8
+        let source = "int x = ;\n";
+        let text = TextCode::new(source);
+        let errors = vec![CodeParseError::new(Some(8), "unexpected token")];
+        let result = convert_errors(&errors, &text);
+        assert!(!result.success);
+        assert_eq!(result.errors.len(), 1);
+        let err = &result.errors[0];
+        assert_eq!(err.line, Some(1));
+        assert_eq!(err.column, Some(9));
+        let details = err.details.as_ref().expect("details should be Some");
+        assert!(details.contains("line:1 column:9"), "details={}", details);
+        assert!(details.contains("int x = ;"), "details={}", details);
+        assert!(details.contains('^'), "details={}", details);
+    }
+
+    #[test]
+    fn test_convert_errors_no_pointer_has_no_details() {
+        use crate::CodeParseError;
+        let source = "anything\n";
+        let text = TextCode::new(source);
+        let errors = vec![CodeParseError::new(None, "some error")];
+        let result = convert_errors(&errors, &text);
+        let err = &result.errors[0];
+        assert!(err.details.is_none());
+    }
 }

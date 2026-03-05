@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["cli"]
 cli = ["dep:clap", "dep:unicode-width"]
-wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen"]
+wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:unicode-width"]
 
 [[bin]]
 name = "nospace20"
