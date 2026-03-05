@@ -4,6 +4,8 @@ mod common;
 mod error_base;
 #[path = "code_test/interpreter_base.rs"]
 mod interpreter_base;
+#[path = "code_test/nospace_vm_base.rs"]
+mod nospace_vm_base;
 #[path = "code_test/test_config.rs"]
 mod test_config;
 #[path = "code_test/whitespace_base.rs"]
@@ -13,6 +15,7 @@ mod whitespace_self_base;
 
 use error_base::*;
 use interpreter_base::*;
+use nospace_vm_base::*;
 use whitespace_base::*;
 use whitespace_self_base::*;
 

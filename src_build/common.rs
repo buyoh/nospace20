@@ -35,6 +35,7 @@ pub struct TargetFlags {
     pub has_interpreter: bool,
     pub has_interpreter_randomize: bool,
     pub has_interpreter_opt_all: bool,
+    pub has_nospace_vm: bool,
     pub has_whitespace: bool,
     pub has_whitespace_self: bool,
     pub has_whitespace_self_strict: bool,
@@ -63,6 +64,9 @@ impl TargetFlags {
             has_interpreter_randomize: !exclude_targets
                 .iter()
                 .any(|t| t == "interpreter-randomize"),
+            // nospace_vm は interpreter と同じ除外ルールに従う
+            has_nospace_vm: !exclude_targets.iter().any(|t| t == "interpreter")
+                && !exclude_targets.iter().any(|t| t == "nospace-vm"),
             // alloc テストは opt_all 対象外（除外指定も可能）
             // interpreter 自体が除外されていれば opt_all も除外
             has_interpreter_opt_all: !has_alloc_ext

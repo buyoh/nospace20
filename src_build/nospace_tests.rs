@@ -53,6 +53,19 @@ fn {}() -> std::fmt::Result {{
         .unwrap();
     }
 
+    if flags.has_nospace_vm {
+        writeln!(
+            f,
+            r#"{}#[test]
+fn {}_vm() -> std::fmt::Result {{
+    test_ok_coding_base_vm("{}")
+}}
+"#,
+            comment_line, test.name, test.path
+        )
+        .unwrap();
+    }
+
     if flags.has_whitespace {
         writeln!(
             f,
@@ -203,6 +216,19 @@ fn {}() -> std::fmt::Result {{
         .unwrap();
     }
 
+    if flags.has_nospace_vm {
+        writeln!(
+            f,
+            r#"{}#[test]
+fn {}_vm() -> std::fmt::Result {{
+    test_ok_coding_io_base_vm("{}")
+}}
+"#,
+            comment_line, test.name, test.path
+        )
+        .unwrap();
+    }
+
     if flags.has_interpreter_opt_all {
         writeln!(
             f,
@@ -336,6 +362,20 @@ fn {}() -> std::fmt::Result {{
 }}
 "#,
             comment_line, test.name, base_fn, test.path
+        )
+        .unwrap();
+    }
+
+    // runtime_error のみ NospaceVM テストも生成
+    if base_fn == "test_runtime_error_base" && flags.has_nospace_vm {
+        writeln!(
+            f,
+            r#"{}#[test]
+fn {}_vm() -> std::fmt::Result {{
+    test_runtime_error_base_vm("{}")
+}}
+"#,
+            comment_line, test.name, test.path
         )
         .unwrap();
     }

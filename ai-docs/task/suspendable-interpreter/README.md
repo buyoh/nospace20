@@ -51,21 +51,38 @@ nospace インタプリタの実行を特定のステップ数で中断し、後
 
 ### Phase 2: 明示的スタックマシンの実装
 
-- [ ] `Frame` enum の定義（文リスト / 式評価 / 関数呼び出し / while / for / if / block）
-- [ ] `execute_step()` — 1ステップ実行（フレームスタックの先頭を処理）
-- [ ] 式評価のフレーム化（再帰→ループ+スタック変換）
-- [ ] 文実行のフレーム化
-- [ ] 関数呼び出し・復帰のフレーム化
-- [ ] ループ (while, for) のフレーム化
-- [ ] if/block 式のフレーム化
-- [ ] グローバル初期化のフレーム化
+- [x] `Frame` enum の定義（文リスト / 式評価 / 関数呼び出し / while / for / if / block）
+- [x] `execute_step()` — 1ステップ実行（フレームスタックの先頭を処理）
+- [x] 式評価のフレーム化（再帰→ループ+スタック変換）
+- [x] 文実行のフレーム化
+- [x] 関数呼び出し・復帰のフレーム化
+- [x] ループ (while, for) のフレーム化
+- [x] if/block 式のフレーム化
+- [x] グローバル初期化のフレーム化
+
+**Phase 2 完了日**: 2025-07-10
 
 ### Phase 3: テスト・統合
 
-- [ ] 既存テストケースが `NospaceVM` でも全て通ることの確認
-- [ ] `step(1)` での1式ずつ実行→再開のユニットテスト
-- [ ] `max_expression_count` 相当の動作確認（Suspended で止まり、再度 step で継続可能）
-- [ ] 再帰版インタプリタとの結果一致テスト
+- [x] 既存テストケースが `NospaceVM` でも全て通ることの確認 (190/190 テスト合格)
+- [x] `step(1)` での1式ずつ実行→再開のユニットテスト
+- [x] `max_expression_count` 相当の動作確認（Suspended で止まり、再度 step で継続可能）
+- [x] 再帰版インタプリタとの結果一致テスト
+
+**テスト概要**:
+- ユニットテスト: 40 tests (step(1), suspension/resume, result matching)
+- 統合テスト: 190 _vm tests (既存テストマニフェストから自動生成)
+- ビルドシステム: `src_build/nospace_tests.rs` に `_vm` テスト生成追加
+- テストベース: `tests/code_test/nospace_vm_base.rs` (新規)
+
+**修正されたバグ (Phase 2-3 で発見・修正)**:
+1. `set_for_phase` / `set_global_phase` が `frames.push` の後に呼ばれ `frames.last_mut()` が新しいフレームを指す
+2. `propagate_flow` の無限ループ (flow が設定されたまま `execute_one_step` に再入)
+3. For ループ init スコープが `ScopeBlock` で premature に解放される
+4. Break/Continue/Return(None) で scope cleanup がスキップされる
+5. LogicalAnd/LogicalOr が `eval_binary_pure` で None を返しパニック
+
+**Phase 3 完了日**: 2025-07-10
 
 ### Phase 4: WASM API 実装
 
