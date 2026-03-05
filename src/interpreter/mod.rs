@@ -9,10 +9,12 @@ mod allocator;
 mod environment;
 mod exec;
 mod types;
+pub mod vm;
 
 #[allow(unused_imports)]
 pub use environment::EnvironmentMetrics;
 pub use environment::{Environment, EnvironmentConfig};
+pub use vm::{NospaceVM, StepResult};
 
 use crate::semantic_analyzer::Scope;
 use exec::LocalEnvironment;

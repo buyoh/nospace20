@@ -39,12 +39,15 @@ nospace インタプリタの実行を特定のステップ数で中断し、後
 
 ### Phase 1: 型と API の骨格
 
-- [ ] `NospaceVM` 構造体の定義（`WhitespaceVM` 相当）
-- [ ] `StepResult` enum の定義 (`Complete` / `Suspended` / `Error`)
-- [ ] Builder パターンの実装 (`with_stdin`, `with_io`, `with_interactive_stdin` 等)
-- [ ] `step(budget) -> StepResult` メソッドの骨格
-- [ ] `Scope` を所有する設計（ライフタイムフリー、WASM 向け）
-- [ ] `lib.rs` に `NospaceVM` / `StepResult` の re-export 追加
+- [x] `NospaceVM` 構造体の定義（`WhitespaceVM` 相当）
+- [x] `StepResult` enum の定義 (`Complete` / `Suspended` / `Error`)
+- [x] Builder パターンの実装 (`with_stdin`, `with_io`, `with_config` 等)
+- [x] `step(budget) -> StepResult` メソッドの骨格
+- [x] `Scope` を所有する設計（ライフタイムフリー、WASM 向け）
+- [x] `lib.rs` に `NospaceVM` / `StepResult` の re-export 追加
+
+**実装ファイル**: `src/interpreter/vm.rs`（新規）
+**Phase 1 完了日**: 2026-03-05
 
 ### Phase 2: 明示的スタックマシンの実装
 

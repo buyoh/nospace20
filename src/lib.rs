@@ -8,6 +8,7 @@ pub use base::CodeParseError;
 pub use base::error::{NospaceError, CompileStage};
 pub use compiler_ws::CompileError;
 pub use interpreter::{Environment, EnvironmentConfig, InterpretError};
+pub use interpreter::{NospaceVM, StepResult};
 pub use logger::TextCode;
 pub use semantic_analyzer::Scope;
 use token_parser::PrettyToken;
