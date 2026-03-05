@@ -37,6 +37,7 @@
 - [address-zero-reserved.md](address-zero-reserved.md) - アドレス 0 の予約仕様追加（`__alloc` や変数アドレスが 0 を返さないことを明文化、ヌルポインタ相当として利用可能に）
 - [improve-unexpected-token-error.md](improve-unexpected-token-error.md) - unexpected token エラーメッセージ改善（実際に得られたトークンの情報を表示、Token::describe() 追加）
 - [postfix-subscript-operator.md](postfix-subscript-operator.md) - 汎用後置添字演算子（`(*next)[1]`等の任意式への`[expr]`適用、パース時脱糖方式、Step 1-4）
+- [review-nospace-vm.md](review-nospace-vm.md) - NospaceVM コードレビュー指摘事項（単一責任原則違反によるモジュール分割、ドキュメントコメント不足、pub フィールドのカプセル化）
 
 ## 現在のタスク
 
