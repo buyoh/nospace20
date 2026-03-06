@@ -12,8 +12,7 @@ use crate::{
 use super::{
     scope::ScopeResolver,
     types::{
-        Block, BuiltinFunctionKind, ConditionMode, ExecExpression, LocatedExecExpression,
-        ValueType,
+        Block, BuiltinFunctionKind, ConditionMode, ExecExpression, LocatedExecExpression, ValueType,
     },
 };
 
@@ -178,9 +177,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             if actual_op == Operator2::Assign {
                 match &actual_l.expression {
                     Expression::Variable(name) => {
-                        let resolved_name = parent_resolver.resolve_alias_chain(name).map_err(|e| {
-                            vec![code_parse_error!(loc.start, e)]
-                        })?;
+                        let resolved_name = parent_resolver
+                            .resolve_alias_chain(name)
+                            .map_err(|e| vec![code_parse_error!(loc.start, e)])?;
                         if parent_resolver.is_final_variable(&resolved_name) {
                             return Err(vec![code_parse_error!(
                                 loc.start,
@@ -189,9 +188,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                         }
                     }
                     Expression::ArrayAccess(name, _) => {
-                        let resolved_name = parent_resolver.resolve_alias_chain(name).map_err(|e| {
-                            vec![code_parse_error!(loc.start, e)]
-                        })?;
+                        let resolved_name = parent_resolver
+                            .resolve_alias_chain(name)
+                            .map_err(|e| vec![code_parse_error!(loc.start, e)])?;
                         if parent_resolver.is_final_variable(&resolved_name) {
                             return Err(vec![code_parse_error!(
                                 loc.start,
@@ -239,16 +238,10 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                 convert_to_exec_expression_with_resolver(cond, parent_resolver, func_return_types)?;
             // void 型の式は条件式に使用不可
             require_int_type(&exec_cond, func_return_types)?;
-            let (s1, es1) = super::analyze_block_for_expression(
-                stat1,
-                parent_resolver,
-                func_return_types,
-            )?;
-            let (s2, es2) = super::analyze_block_for_expression(
-                stat2,
-                parent_resolver,
-                func_return_types,
-            )?;
+            let (s1, es1) =
+                super::analyze_block_for_expression(stat1, parent_resolver, func_return_types)?;
+            let (s2, es2) =
+                super::analyze_block_for_expression(stat2, parent_resolver, func_return_types)?;
             Ok(make_located_exec(
                 ExecExpression::If(
                     ConditionMode::NonZero,
@@ -294,9 +287,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             }
 
             // まず alias を解決（組み込み関数へのエイリアスもサポートするため）
-            let resolved_f = parent_resolver.resolve_alias_chain(f).map_err(|e| {
-                vec![code_parse_error!(loc.start, e)]
-            })?;
+            let resolved_f = parent_resolver
+                .resolve_alias_chain(f)
+                .map_err(|e| vec![code_parse_error!(loc.start, e)])?;
 
             // 組み込み関数のリスト（__ で始まる）
             // alias 解決後の名前で BuiltinFunctionKind に変換
@@ -322,17 +315,13 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     loc,
                 ))
             } else {
-
                 // ブロックエイリアスのチェック: alias チェーン解決後の名前で検索
                 if let Some(block_body) = parent_resolver.resolve_block_alias(&resolved_f) {
                     // ブロックエイリアスに引数は不可
                     if !args.is_empty() {
                         return Err(vec![code_parse_error!(
                             loc.start,
-                            format!(
-                                "block alias '{}' cannot be called with arguments",
-                                f
-                            )
+                            format!("block alias '{}' cannot be called with arguments", f)
                         )]);
                     }
                     // ブロックエイリアスをインライン展開: 呼び出し元スコープで本体を解析
@@ -351,12 +340,14 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     ));
                 }
 
-                let func_ref = parent_resolver.resolve_function(&resolved_f).ok_or_else(|| {
-                    vec![code_parse_error!(
-                        loc.start,
-                        format!("undefined function: {}", f)
-                    )]
-                })?;
+                let func_ref = parent_resolver
+                    .resolve_function(&resolved_f)
+                    .ok_or_else(|| {
+                        vec![code_parse_error!(
+                            loc.start,
+                            format!("undefined function: {}", f)
+                        )]
+                    })?;
 
                 // 引数数チェック
                 let expected_count = parent_resolver
@@ -383,21 +374,23 @@ pub(super) fn convert_to_exec_expression_with_resolver(
         Expression::Factor(v) => Ok(make_located_exec(ExecExpression::Factor(v.to_owned()), loc)),
         Expression::Variable(v) => {
             // まず alias を解決（チェーン解決）
-            let resolved_name = parent_resolver.resolve_alias_chain(v).map_err(|e| {
-                vec![code_parse_error!(loc.start, e)]
-            })?;
+            let resolved_name = parent_resolver
+                .resolve_alias_chain(v)
+                .map_err(|e| vec![code_parse_error!(loc.start, e)])?;
 
             // まず constexpr テーブルを確認（定数式への置換）
             if let Some(const_val) = parent_resolver.resolve_constexpr(&resolved_name) {
                 return Ok(make_located_exec(ExecExpression::Factor(const_val), loc));
             }
             // 変数名を解決
-            let var_ref = parent_resolver.resolve_variable(&resolved_name).ok_or_else(|| {
-                vec![code_parse_error!(
-                    loc.start,
-                    format!("undefined variable: {}", v)
-                )]
-            })?;
+            let var_ref = parent_resolver
+                .resolve_variable(&resolved_name)
+                .ok_or_else(|| {
+                    vec![code_parse_error!(
+                        loc.start,
+                        format!("undefined variable: {}", v)
+                    )]
+                })?;
             Ok(make_located_exec(ExecExpression::Variable(var_ref), loc))
         }
         Expression::ArrayAccess(name, index_expr) => {

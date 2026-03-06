@@ -96,7 +96,7 @@ fn test_success_block_scoped_variable() {
             loc_expr(Expression::Factor(0)),
             false, // non-static
             false,
-            None,  // not an array
+            None, // not an array
         ),
         location: SourceLocation::new(150, 160),
     };
@@ -131,7 +131,7 @@ fn test_success_global_variable() {
             loc_expr(Expression::Factor(42)),
             false, // non-static explicitly, but global is implicitly static
             false,
-            None,  // not an array
+            None, // not an array
         ),
         location: SourceLocation::new(200, 210),
     };

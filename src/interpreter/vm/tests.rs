@@ -40,15 +40,13 @@ fn test_variable_assign() {
 
 #[test]
 fn test_if_true() {
-    let (rv, _) = run_src(
-        "func: __main() { let: x; x = if: 1 { 10; } else: { 20; }; return: x; }");
+    let (rv, _) = run_src("func: __main() { let: x; x = if: 1 { 10; } else: { 20; }; return: x; }");
     assert_eq!(rv, Some(10));
 }
 
 #[test]
 fn test_if_false() {
-    let (rv, _) = run_src(
-        "func: __main() { let: x; x = if: 0 { 20; } else: { 10; }; return: x; }");
+    let (rv, _) = run_src("func: __main() { let: x; x = if: 0 { 20; } else: { 10; }; return: x; }");
     assert_eq!(rv, Some(10));
 }
 
@@ -61,28 +59,32 @@ fn test_while_loop() {
 
 #[test]
 fn test_function_call() {
-    let (rv, _) = run_src(
-        "func: double(x) { return: x * 2; } func: __main() { return: double(21); }");
+    let (rv, _) =
+        run_src("func: double(x) { return: x * 2; } func: __main() { return: double(21); }");
     assert_eq!(rv, Some(42));
 }
 
 #[test]
 fn test_recursive_function() {
     // まず fib(2) = 1 を確認
-    let (rv2, _) = run_src(r#"
+    let (rv2, _) = run_src(
+        r#"
 func: fib(n) {
     if: n <= 1 { return: n; };
     return: fib(n - 1) + fib(n - 2);
 }
-func: __main() { return: fib(2); }"#);
+func: __main() { return: fib(2); }"#,
+    );
     assert_eq!(rv2, Some(1), "fib(2) should be 1");
 
-    let (rv, _) = run_src(r#"
+    let (rv, _) = run_src(
+        r#"
 func: fib(n) {
     if: n <= 1 { return: n; };
     return: fib(n - 1) + fib(n - 2);
 }
-func: __main() { return: fib(10); }"#);
+func: __main() { return: fib(10); }"#,
+    );
     assert_eq!(rv, Some(55));
 }
 
@@ -91,19 +93,41 @@ fn test_step_suspension() {
     let src = "func: __main() { let: i; let: s; i = 0; s = 0; while: i < 100 { s = s + i; i = i + 1; }; return: s; }";
     let mut vm = NospaceVM::from_source(src).unwrap();
     let r1 = vm.step(5);
-    assert!(matches!(r1, StepResult::Suspended), "expected Suspended, got {:?}", r1);
+    assert!(
+        matches!(r1, StepResult::Suspended),
+        "expected Suspended, got {:?}",
+        r1
+    );
     let r2 = vm.run(10_000_000);
-    assert!(matches!(r2, StepResult::Complete { return_value: Some(4950) }),
-        "expected Complete(4950), got {:?}", r2);
+    assert!(
+        matches!(
+            r2,
+            StepResult::Complete {
+                return_value: Some(4950)
+            }
+        ),
+        "expected Complete(4950), got {:?}",
+        r2
+    );
 }
 
 #[test]
 fn test_complete_is_idempotent() {
     let mut vm = NospaceVM::from_source("func: __main() { return: 1; }").unwrap();
     let r1 = vm.run(1_000_000);
-    assert!(matches!(r1, StepResult::Complete { return_value: Some(1) }));
+    assert!(matches!(
+        r1,
+        StepResult::Complete {
+            return_value: Some(1)
+        }
+    ));
     let r2 = vm.step(1);
-    assert!(matches!(r2, StepResult::Complete { return_value: Some(1) }));
+    assert!(matches!(
+        r2,
+        StepResult::Complete {
+            return_value: Some(1)
+        }
+    ));
 }
 
 #[test]
@@ -117,31 +141,43 @@ fn test_initial_state() {
 #[test]
 fn test_builder_with_stdin() {
     let stdin: Box<dyn BufRead> = Box::new(BufReader::new(Cursor::new("hello".as_bytes())));
-    let vm = NospaceVM::from_source("func: __main() { return: 0; }").unwrap().with_stdin(stdin);
+    let vm = NospaceVM::from_source("func: __main() { return: 0; }")
+        .unwrap()
+        .with_stdin(stdin);
     assert!(!vm.is_complete());
 }
 
 #[test]
 fn test_builder_with_config() {
     let vm = NospaceVM::from_source("func: __main() { return: 0; }")
-        .unwrap().with_config(EnvironmentConfig::new());
+        .unwrap()
+        .with_config(EnvironmentConfig::new());
     assert!(!vm.is_complete());
 }
 
 #[test]
 fn test_with_io_disables_capture() {
-    let stdin:  Box<dyn BufRead> = Box::new(BufReader::new(Cursor::new(b"" as &[u8])));
-    let stdout: Box<dyn Write>   = Box::new(Vec::<u8>::new());
+    let stdin: Box<dyn BufRead> = Box::new(BufReader::new(Cursor::new(b"" as &[u8])));
+    let stdout: Box<dyn Write> = Box::new(Vec::<u8>::new());
     let vm = NospaceVM::from_source("func: __main() { return: 0; }")
-        .unwrap().with_io(stdin, stdout);
+        .unwrap()
+        .with_io(stdin, stdout);
     assert_eq!(vm.get_stdout_string(), "");
 }
 
 #[test]
 fn test_step_result_debug() {
     let _ = format!("{:?}", StepResult::Suspended);
-    let _ = format!("{:?}", StepResult::Complete { return_value: Some(1) });
-    let _ = format!("{:?}", StepResult::Error(InterpretError::FunctionNotFound("f".into())));
+    let _ = format!(
+        "{:?}",
+        StepResult::Complete {
+            return_value: Some(1)
+        }
+    );
+    let _ = format!(
+        "{:?}",
+        StepResult::Error(InterpretError::FunctionNotFound("f".into()))
+    );
 }
 
 #[test]
@@ -258,7 +294,9 @@ fn test_step_one_preserves_state() {
     let mut suspended_count = 0;
     for _ in 0..3 {
         match vm.step(1) {
-            StepResult::Suspended => { suspended_count += 1; }
+            StepResult::Suspended => {
+                suspended_count += 1;
+            }
             StepResult::Complete { .. } => break,
             StepResult::Error(e) => panic!("unexpected error: {:?}", e),
         }
@@ -283,7 +321,11 @@ fn test_suspension_and_resume() {
 
     // 少ない budget → Suspended
     let r1 = vm.step(10);
-    assert!(matches!(r1, StepResult::Suspended), "expected Suspended, got {:?}", r1);
+    assert!(
+        matches!(r1, StepResult::Suspended),
+        "expected Suspended, got {:?}",
+        r1
+    );
     assert!(!vm.is_complete());
     let steps_after_first = vm.total_steps();
     assert!(steps_after_first > 0);
@@ -296,8 +338,16 @@ fn test_suspension_and_resume() {
 
     // 十分な budget で完了
     let r3 = vm.run(1_000_000);
-    assert!(matches!(r3, StepResult::Complete { return_value: Some(4950) }),
-        "expected Complete(4950), got {:?}", r3);
+    assert!(
+        matches!(
+            r3,
+            StepResult::Complete {
+                return_value: Some(4950)
+            }
+        ),
+        "expected Complete(4950), got {:?}",
+        r3
+    );
     assert!(vm.is_complete());
 }
 
@@ -317,7 +367,10 @@ fn test_total_steps_increments_correctly() {
     assert_eq!(vm.total_steps(), 0);
 
     vm.run(1_000_000);
-    assert!(vm.total_steps() > 0, "total_steps should be > 0 after execution");
+    assert!(
+        vm.total_steps() > 0,
+        "total_steps should be > 0 after execution"
+    );
 }
 
 #[test]
@@ -341,7 +394,10 @@ fn test_repeated_suspension_accumulates_steps() {
         }
     }
     assert!(suspend_count > 0, "should have suspended at least once");
-    assert!(vm.total_steps() > 0, "total_steps should increase across run");
+    assert!(
+        vm.total_steps() > 0,
+        "total_steps should increase across run"
+    );
 }
 
 // ===== 再帰版インタプリタとの結果一致テスト =====
@@ -371,22 +427,38 @@ fn assert_vm_matches_interpreter(src: &str) {
 
     // 結果を比較
     match (&interp_result, &vm_result) {
-        (Ok(interp_rv), StepResult::Complete { return_value: vm_rv }) => {
-            assert_eq!(interp_rv, vm_rv,
-                "return value mismatch: interpreter={:?}, vm={:?}", interp_rv, vm_rv);
+        (
+            Ok(interp_rv),
+            StepResult::Complete {
+                return_value: vm_rv,
+            },
+        ) => {
+            assert_eq!(
+                interp_rv, vm_rv,
+                "return value mismatch: interpreter={:?}, vm={:?}",
+                interp_rv, vm_rv
+            );
         }
         (Err(interp_err), StepResult::Error(vm_err)) => {
             // 両方エラー: OK（エラーメッセージの完全一致は不要）
             let _ = (interp_err, vm_err);
         }
         _ => {
-            panic!("result type mismatch: interpreter={:?}, vm={:?}", interp_result, vm_result);
+            panic!(
+                "result type mismatch: interpreter={:?}, vm={:?}",
+                interp_result, vm_result
+            );
         }
     }
 
     // trace を比較
-    assert_eq!(interp_traced, *vm.traced(),
-        "trace mismatch:\n  interpreter: {:?}\n  vm: {:?}", interp_traced, vm.traced());
+    assert_eq!(
+        interp_traced,
+        *vm.traced(),
+        "trace mismatch:\n  interpreter: {:?}\n  vm: {:?}",
+        interp_traced,
+        vm.traced()
+    );
 }
 
 #[test]
@@ -402,14 +474,14 @@ fn test_match_arithmetic() {
 #[test]
 fn test_match_variables() {
     assert_vm_matches_interpreter(
-        "func: __main() { let: x; let: y; x = 10; y = x * 3; return: y - x; }"
+        "func: __main() { let: x; let: y; x = 10; y = x * 3; return: y - x; }",
     );
 }
 
 #[test]
 fn test_match_if_expression() {
     assert_vm_matches_interpreter(
-        "func: __main() { let: r; r = if: 1 { 100; } else: { 200; }; return: r; }"
+        "func: __main() { let: r; r = if: 1 { 100; } else: { 200; }; return: r; }",
     );
 }
 
@@ -422,38 +494,45 @@ fn test_match_while_loop() {
 
 #[test]
 fn test_match_function_call() {
-    assert_vm_matches_interpreter(r#"
+    assert_vm_matches_interpreter(
+        r#"
 func: square(x) { return: x * x; }
 func: __main() { return: square(7); }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn test_match_recursive_function() {
-    assert_vm_matches_interpreter(r#"
+    assert_vm_matches_interpreter(
+        r#"
 func: fib(n) {
     if: n <= 1 { return: n; };
     return: fib(n - 1) + fib(n - 2);
 }
 func: __main() { return: fib(10); }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn test_match_trace() {
-    assert_vm_matches_interpreter(r#"
+    assert_vm_matches_interpreter(
+        r#"
 func: __main() {
     __trace(0);
     __trace(0);
     __trace(1);
     return: 0;
 }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn test_match_nested_scope() {
-    assert_vm_matches_interpreter(r#"
+    assert_vm_matches_interpreter(
+        r#"
 func: __main() {
     let: x;
     x = 1;
@@ -464,12 +543,14 @@ func: __main() {
     };
     return: x;
 }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn test_match_for_loop() {
-    assert_vm_matches_interpreter(r#"
+    assert_vm_matches_interpreter(
+        r#"
 func: __main() {
     let: s;
     s = 0;
@@ -478,12 +559,14 @@ func: __main() {
     };
     return: s;
 }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn test_match_break_continue() {
-    assert_vm_matches_interpreter(r#"
+    assert_vm_matches_interpreter(
+        r#"
 func: __main() {
     let: s;
     let: i;
@@ -497,27 +580,32 @@ func: __main() {
     };
     return: s;
 }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn test_match_global_variable() {
-    assert_vm_matches_interpreter(r#"
+    assert_vm_matches_interpreter(
+        r#"
 let: g;
 g = 100;
 func: __main() {
     return: g + 1;
 }
-"#);
+"#,
+    );
 }
 
 #[test]
 fn test_match_multiple_functions() {
-    assert_vm_matches_interpreter(r#"
+    assert_vm_matches_interpreter(
+        r#"
 func: add(a, b) { return: a + b; }
 func: mul(a, b) { return: a * b; }
 func: __main() { return: add(mul(3, 4), 5); }
-"#);
+"#,
+    );
 }
 
 #[test]

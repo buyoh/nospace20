@@ -5,7 +5,7 @@ use crate::compiler_ws::{
     types::WsNumber,
 };
 
-use super::{AllocRuntime, generate_common_epilogue, generate_common_prologue};
+use super::{generate_common_epilogue, generate_common_prologue, AllocRuntime};
 
 /// バンプアロケータ（現行方式）
 ///

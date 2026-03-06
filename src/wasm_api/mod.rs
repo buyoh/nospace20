@@ -11,8 +11,8 @@
 //! - [`whitespace_vm`]: Whitespace VM の WASM ラッパー
 //! - [`nospace_vm`]: NospaceVM の WASM ラッパー（`run()` API の代替）
 
-mod types;
-mod pipeline;
 mod api;
-mod whitespace_vm;
 mod nospace_vm;
+mod pipeline;
+mod types;
+mod whitespace_vm;

@@ -153,7 +153,7 @@ pub fn test_runtime_error_base_vm(test_name: &str) -> Result {
         let mut vm = NospaceVM::from_scope(a).expect("failed to create NospaceVM");
         let result = vm.run(1_000_000);
         match result {
-            StepResult::Error(_) => true,   // 期待通りのエラー
+            StepResult::Error(_) => true,         // 期待通りのエラー
             StepResult::Complete { .. } => false, // エラーが発生しなかった
             StepResult::Suspended => false,       // 完了しなかった
         }
@@ -167,9 +167,7 @@ pub fn test_runtime_error_base_vm(test_name: &str) -> Result {
             // StepResult::Error が返された: ランタイムエラーとして正常
         }
         Ok(false) => {
-            panic!(
-                "NospaceVM: expected runtime error but completed or suspended",
-            );
+            panic!("NospaceVM: expected runtime error but completed or suspended",);
         }
     }
     Ok(())

@@ -15,7 +15,9 @@ use super::{
     context::AnalyzeContext,
     expression::convert_to_exec_expression_with_resolver,
     scope::{Identifier, ScopeBuilder, ScopeResolver, ScopeType},
-    types::{infer_block_type, Block, ConditionMode, ExecStatement, LocatedExecStatement, ValueType},
+    types::{
+        infer_block_type, Block, ConditionMode, ExecStatement, LocatedExecStatement, ValueType,
+    },
 };
 
 /// Pass 2: 文リストを ExecStatement リストに変換する
@@ -48,41 +50,40 @@ pub(super) fn convert_to_exec_statements(
                 // 初期化式を変換（変数宣言自体はパス1で完了）
                 // final 変数の初期化代入は再代入ブロックの対象外にするため、
                 // init_expr のトップレベルの Assign を分解して直接構築する
-                let exec_init =
-                    if let crate::tree_parser::Expression::Operation2(
-                        Operator2::Assign,
-                        lhs_expr,
+                let exec_init = if let crate::tree_parser::Expression::Operation2(
+                    Operator2::Assign,
+                    lhs_expr,
+                    rhs_expr,
+                ) = &init.expression
+                {
+                    // 初期化代入: rhs のみ変換し、Assign を直接構築（final チェックなし）
+                    let exec_rhs = convert_to_exec_expression_with_resolver(
                         rhs_expr,
-                    ) = &init.expression
-                    {
-                        // 初期化代入: rhs のみ変換し、Assign を直接構築（final チェックなし）
-                        let exec_rhs = convert_to_exec_expression_with_resolver(
-                            rhs_expr,
-                            resolver,
-                            effective_func_return_types,
-                        )?;
-                        super::expression::require_int_type(&exec_rhs, effective_func_return_types)?;
-                        let exec_lhs = convert_to_exec_expression_with_resolver(
-                            lhs_expr,
-                            resolver,
-                            effective_func_return_types,
-                        )?;
-                        super::expression::make_located_exec(
-                            super::types::ExecExpression::Operation2(
-                                Operator2::Assign,
-                                exec_lhs,
-                                exec_rhs,
-                            ),
-                            &init.location,
-                        )
-                    } else {
-                        // 初期値なし（Factor(0)）の場合は通常変換
-                        convert_to_exec_expression_with_resolver(
-                            init,
-                            resolver,
-                            effective_func_return_types,
-                        )?
-                    };
+                        resolver,
+                        effective_func_return_types,
+                    )?;
+                    super::expression::require_int_type(&exec_rhs, effective_func_return_types)?;
+                    let exec_lhs = convert_to_exec_expression_with_resolver(
+                        lhs_expr,
+                        resolver,
+                        effective_func_return_types,
+                    )?;
+                    super::expression::make_located_exec(
+                        super::types::ExecExpression::Operation2(
+                            Operator2::Assign,
+                            exec_lhs,
+                            exec_rhs,
+                        ),
+                        &init.location,
+                    )
+                } else {
+                    // 初期値なし（Factor(0)）の場合は通常変換
+                    convert_to_exec_expression_with_resolver(
+                        init,
+                        resolver,
+                        effective_func_return_types,
+                    )?
+                };
                 let exec_stmt = ExecStatement::Expression(exec_init);
                 let located = LocatedExecStatement {
                     statement: exec_stmt,
@@ -299,7 +300,8 @@ pub(super) fn convert_to_exec_statements(
                 // for-init スコープの alias は展開済みのため、空のテーブルを渡す
                 let for_init_empty_alias: BTreeMap<String, String> = BTreeMap::new();
                 // for-init スコープのブロックエイリアスは展開済みのため、空のテーブルを渡す
-                let for_init_empty_block_alias: BTreeMap<String, Vec<LocatedStatement>> = BTreeMap::new();
+                let for_init_empty_block_alias: BTreeMap<String, Vec<LocatedStatement>> =
+                    BTreeMap::new();
                 for_resolver.enter_scope(
                     &init_scope.variable_indices,
                     &init_scope.variable_name_to_var_index,
@@ -325,8 +327,7 @@ pub(super) fn convert_to_exec_statements(
                     scope: cond_scope,
                     statements: cond_es,
                 };
-                if infer_block_type(&temp_cond_block, effective_func_return_types)
-                    != ValueType::Int
+                if infer_block_type(&temp_cond_block, effective_func_return_types) != ValueType::Int
                 {
                     return Err(vec![code_parse_error!(
                         loc.start,

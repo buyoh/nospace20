@@ -70,19 +70,28 @@ pub enum WsParseError {
 impl std::fmt::Display for WsParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidImp { position } =>
-                write!(f, "invalid IMP at position {}", position),
-            Self::InvalidCommand { position, imp } =>
-                write!(f, "invalid command for IMP '{}' at position {}", imp, position),
-            Self::UnexpectedEof { context } =>
-                write!(f, "unexpected end of file while parsing {}", context),
-            Self::InvalidNumber { position } =>
-                write!(f, "invalid number at position {}", position),
-            Self::InvalidLabel { position } =>
-                write!(f, "invalid label at position {}", position),
-            Self::DuplicateLabel { label_id, first_position, second_position } =>
-                write!(f, "duplicate label {} (first at {}, second at {})",
-                    label_id, first_position, second_position),
+            Self::InvalidImp { position } => write!(f, "invalid IMP at position {}", position),
+            Self::InvalidCommand { position, imp } => write!(
+                f,
+                "invalid command for IMP '{}' at position {}",
+                imp, position
+            ),
+            Self::UnexpectedEof { context } => {
+                write!(f, "unexpected end of file while parsing {}", context)
+            }
+            Self::InvalidNumber { position } => {
+                write!(f, "invalid number at position {}", position)
+            }
+            Self::InvalidLabel { position } => write!(f, "invalid label at position {}", position),
+            Self::DuplicateLabel {
+                label_id,
+                first_position,
+                second_position,
+            } => write!(
+                f,
+                "duplicate label {} (first at {}, second at {})",
+                label_id, first_position, second_position
+            ),
         }
     }
 }

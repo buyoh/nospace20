@@ -88,8 +88,7 @@ fn test_fsba_alloc_free_reuse_on_vm() {
     prog.push(Instruction::Exit);
     prog.append(fsba.generate_subroutines());
 
-    let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
-        .unwrap();
+    let mut vm = WhitespaceVM::from_instructions(prog.into_instructions()).unwrap();
     let result = vm.run(10000);
     assert!(
         matches!(result, StepResult::Complete),
@@ -372,8 +371,7 @@ fn test_fsba_prologue_epilogue_on_vm() {
     prog.push(Instruction::Exit);
     prog.append(fsba.generate_subroutines());
 
-    let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
-        .unwrap();
+    let mut vm = WhitespaceVM::from_instructions(prog.into_instructions()).unwrap();
     let result = vm.run(10000);
     assert!(
         matches!(result, StepResult::Complete),

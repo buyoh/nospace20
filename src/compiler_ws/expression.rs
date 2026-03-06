@@ -317,12 +317,20 @@ fn generate_comparison(
     }
 
     // ジャンプしなかった場合の値（jump_is_true = true なら false = 0）
-    prog.push(Instruction::Push(WsNumber(if spec.jump_is_true { 0 } else { 1 })));
+    prog.push(Instruction::Push(WsNumber(if spec.jump_is_true {
+        0
+    } else {
+        1
+    })));
     prog.push(Instruction::Jump(label_end));
 
     // ジャンプした場合の値（jump_is_true = true なら true = 1）
     prog.push(Instruction::Label(label_jump));
-    prog.push(Instruction::Push(WsNumber(if spec.jump_is_true { 1 } else { 0 })));
+    prog.push(Instruction::Push(WsNumber(if spec.jump_is_true {
+        1
+    } else {
+        0
+    })));
     prog.push(Instruction::Label(label_end));
 
     Ok(prog)
@@ -453,7 +461,9 @@ fn generate_binary_op(
                     prog.append(generate_store_variable_impl(ctx, var_ref, right, true)?);
                 }
                 ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
-                    prog.append(generate_store_array_impl(ctx, var_ref, index_expr, right, true)?);
+                    prog.append(generate_store_array_impl(
+                        ctx, var_ref, index_expr, right, true,
+                    )?);
                 }
                 ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
                     // デリファレンス代入: *ptr = value
@@ -921,7 +931,9 @@ fn generate_assign_void(
             prog.append(generate_store_variable_impl(ctx, var_ref, right, false)?);
         }
         ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
-            prog.append(generate_store_array_impl(ctx, var_ref, index_expr, right, false)?);
+            prog.append(generate_store_array_impl(
+                ctx, var_ref, index_expr, right, false,
+            )?);
         }
         ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
             // デリファレンス代入: *ptr = value（Retrieve なし）
@@ -937,5 +949,3 @@ fn generate_assign_void(
     }
     Ok(prog)
 }
-
-

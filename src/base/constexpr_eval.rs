@@ -10,7 +10,9 @@ use std::collections::BTreeMap;
 use crate::{
     base::{pure_eval, CodeParseError},
     code_parse_error,
-    tree_parser::{Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement},
+    tree_parser::{
+        Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement,
+    },
 };
 
 /// constexpr ブロック評価用の環境
@@ -142,7 +144,10 @@ pub fn eval_constexpr_expr(
                 let lv = eval_constexpr_expr(l, env)?;
                 let rv = eval_constexpr_expr(r, env)?;
                 pure_eval::eval_binary_pure(op, lv, rv).ok_or_else(|| {
-                    vec![code_parse_error!(loc, "division by zero in constexpr block")]
+                    vec![code_parse_error!(
+                        loc,
+                        "division by zero in constexpr block"
+                    )]
                 })
             }
         },
@@ -288,10 +293,7 @@ fn eval_constexpr_assign(
         | Operator2::DivideAssign
         | Operator2::ModuloAssign => {
             let old = env.get_variable(name).ok_or_else(|| {
-                vec![code_parse_error!(
-                    loc,
-                    format!("'{}' is not defined", name)
-                )]
+                vec![code_parse_error!(loc, format!("'{}' is not defined", name))]
             })?;
             let base_op = match op {
                 Operator2::PlusAssign => Operator2::Plus,
@@ -302,7 +304,10 @@ fn eval_constexpr_assign(
                 _ => unreachable!(),
             };
             pure_eval::eval_binary_pure(&base_op, old, rhs_value).ok_or_else(|| {
-                vec![code_parse_error!(loc, "division by zero in constexpr block")]
+                vec![code_parse_error!(
+                    loc,
+                    "division by zero in constexpr block"
+                )]
             })?
         }
         _ => unreachable!(),

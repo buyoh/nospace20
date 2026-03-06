@@ -1,6 +1,6 @@
 use super::*;
-use crate::tree_parser::{LocatedExpression, LocatedStatement};
 use crate::base::SourceLocation;
+use crate::tree_parser::{LocatedExpression, LocatedStatement};
 
 fn dummy_loc() -> SourceLocation {
     SourceLocation::from_single(0)
@@ -20,7 +20,11 @@ fn make_variable(name: &str) -> Box<LocatedExpression> {
     })
 }
 
-fn make_op2(op: Operator2, l: Box<LocatedExpression>, r: Box<LocatedExpression>) -> Box<LocatedExpression> {
+fn make_op2(
+    op: Operator2,
+    l: Box<LocatedExpression>,
+    r: Box<LocatedExpression>,
+) -> Box<LocatedExpression> {
     Box::new(LocatedExpression {
         expression: Expression::Operation2(op, l, r),
         location: dummy_loc(),
@@ -105,10 +109,7 @@ fn test_eval_block_let() {
     // { let: x(5); x; }  => 5
     let table = empty_table();
     let mut env = ConstexprEnv::new(&table);
-    let stmts = vec![
-        make_let_stmt("x", 5),
-        make_expr_stmt(make_variable("x")),
-    ];
+    let stmts = vec![make_let_stmt("x", 5), make_expr_stmt(make_variable("x"))];
     assert_eq!(eval_constexpr_block(&stmts, &mut env).unwrap(), 5);
 }
 
@@ -171,10 +172,7 @@ fn test_eval_block_nested_scope() {
     // ネストしたBlockは式として評価
     let table = empty_table();
     let mut env = ConstexprEnv::new(&table);
-    let inner_stmts = vec![
-        make_let_stmt("x", 2),
-        make_expr_stmt(make_variable("x")),
-    ];
+    let inner_stmts = vec![make_let_stmt("x", 2), make_expr_stmt(make_variable("x"))];
     let block_expr = Box::new(LocatedExpression {
         expression: Expression::Block(inner_stmts),
         location: dummy_loc(),

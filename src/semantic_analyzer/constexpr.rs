@@ -11,7 +11,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::{
     base::{constexpr_eval, pure_eval, CodeParseError},
     code_parse_error,
-    tree_parser::{Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement},
+    tree_parser::{
+        Expression, LocatedExpression, LocatedStatement, Operator1, Operator2, Statement,
+    },
 };
 
 /// constexpr 式を再帰的に評価する

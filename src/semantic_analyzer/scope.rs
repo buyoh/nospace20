@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use crate::{base::CodeParseError, code_parse_error};
 
-use crate::tree_parser::LocatedStatement;
 use super::types::{Block, IdentifierRef, LocatedExecStatement, ValueType, Variable};
+use crate::tree_parser::LocatedStatement;
 
 #[derive(Clone, Copy)]
 pub(super) struct FunctionIndex(pub usize, pub usize, pub ValueType); // (global_index, arg_count, return_type)
@@ -313,7 +313,8 @@ impl<'a> ScopeResolver<'a> {
     /// None の場合、変数が見つからない
     /// Some(None) の場合、通常変数（配列ではない）
     /// Some(Some(n)) の場合、サイズ n の配列
-    pub fn get_array_size(&self, name: &str) -> Option<Option<usize>> {        for scope_info in self.scope_stack.iter().rev() {
+    pub fn get_array_size(&self, name: &str) -> Option<Option<usize>> {
+        for scope_info in self.scope_stack.iter().rev() {
             if let Some(&var_idx) = scope_info.var_name_to_var_index.get(name) {
                 return Some(scope_info.variables[var_idx].array_size);
             }

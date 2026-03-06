@@ -1,8 +1,8 @@
 use std::{fmt::Result, fs, io};
 
 use nospace20::{
-    compile_to_ws, WsCompileOptions, interpret_func_with_io, parse_to_tokens, parse_to_tree,
-    semantic_analyze,
+    compile_to_ws, interpret_func_with_io, parse_to_tokens, parse_to_tree, semantic_analyze,
+    WsCompileOptions,
 };
 
 use super::test_config::TestConfig;

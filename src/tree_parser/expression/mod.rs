@@ -218,10 +218,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             Some((Token::Keyword(Keyword::If), _)) => self.parse_to_expression_tree_if_impl(),
             Some((Token::BraceL, _)) => self.parse_to_expression_tree_block_impl(),
             Some((token, token_info)) => {
-                let e = self.add_parse_error(
-                    token_info,
-                    format!("unexpected token {}", token.describe()),
-                );
+                let e = self
+                    .add_parse_error(token_info, format!("unexpected token {}", token.describe()));
                 let end = self.current_pos();
                 self.located(Expression::Invalid(e), start, end)
             }
@@ -451,7 +449,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             Some((Token::Keyword(Keyword::Else), token_info)) => {
                 let else_start = token_info.code_pointer;
                 self.iter.next(); // else キーワードを消費（コロンも内包済み）
-                // Keyword トークンがコロンを内包済みのため、コロン消費は不要
+                                  // Keyword トークンがコロンを内包済みのため、コロン消費は不要
 
                 match self.iter.peek() {
                     Some((Token::Keyword(Keyword::If), _)) => {

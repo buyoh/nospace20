@@ -54,7 +54,10 @@ fn test_eval_unary_pure_negative() {
     assert_eq!(eval_unary_pure(&Operator1::Negative, 5), Some(-5));
     assert_eq!(eval_unary_pure(&Operator1::Negative, -5), Some(5));
     // wrapping: i64::MIN の符号反転
-    assert_eq!(eval_unary_pure(&Operator1::Negative, i64::MIN), Some(i64::MIN));
+    assert_eq!(
+        eval_unary_pure(&Operator1::Negative, i64::MIN),
+        Some(i64::MIN)
+    );
 }
 
 #[test]

@@ -7,8 +7,8 @@ use crate::{
 };
 
 use super::environment::Environment;
-use crate::base::pure_eval;
 use super::types::{try_expr, ExpressionFlow, Flow};
+use crate::base::pure_eval;
 
 use std::cell::RefCell;
 
@@ -61,15 +61,15 @@ impl LocalEnvironment<'_, '_> {
         args: &Vec<i64>,
     ) -> LocalEnvironment<'a, 'aenv> {
         // アロケータ上に関数スコープ分の領域を確保
-        let base_addr = env.allocator.alloc_internal_uninit(
-            func.block.scope.variable_count,
-            env.config.randomize_uninit,
-        );
+        let base_addr = env
+            .allocator
+            .alloc_internal_uninit(func.block.scope.variable_count, env.config.randomize_uninit);
 
         // 引数を対応する変数にセット（最適化: 事前計算されたインデックスを使用）
         for (i, arg_val) in args.iter().enumerate() {
             if i < func.arg_indices.len() {
-                env.allocator.set(base_addr + func.arg_indices[i] as i64, *arg_val);
+                env.allocator
+                    .set(base_addr + func.arg_indices[i] as i64, *arg_val);
             }
         }
 
@@ -83,10 +83,10 @@ impl LocalEnvironment<'_, '_> {
     /// ブロックに入る
     fn enter_block(&mut self, scope: &Scope) {
         // アロケータ上にスコープ分の領域を確保（randomize_uninit モードではランダム値で初期化）
-        let base_addr = self.env.allocator.alloc_internal_uninit(
-            scope.variable_count,
-            self.env.config.randomize_uninit,
-        );
+        let base_addr = self
+            .env
+            .allocator
+            .alloc_internal_uninit(scope.variable_count, self.env.config.randomize_uninit);
         self.scope_stack.push(base_addr);
     }
 
@@ -250,7 +250,9 @@ impl LocalEnvironment<'_, '_> {
                         let slot_count = var.array_size.unwrap_or(1);
                         for i in 0..slot_count {
                             let val = self.env.allocator.get(static_addr + (slot_idx + i) as i64);
-                            self.env.allocator.set(base_addr + (slot_idx + i) as i64, val);
+                            self.env
+                                .allocator
+                                .set(base_addr + (slot_idx + i) as i64, val);
                         }
                     }
                 }
@@ -259,7 +261,9 @@ impl LocalEnvironment<'_, '_> {
 
         for (i, arg_val) in arg_values.iter().enumerate() {
             if i < func.arg_indices.len() {
-                self.env.allocator.set(base_addr + func.arg_indices[i] as i64, *arg_val);
+                self.env
+                    .allocator
+                    .set(base_addr + func.arg_indices[i] as i64, *arg_val);
             }
         }
         self.scope_stack.push(base_addr);
@@ -282,7 +286,9 @@ impl LocalEnvironment<'_, '_> {
                         let slot_count = var.array_size.unwrap_or(1);
                         for i in 0..slot_count {
                             let val = self.env.allocator.get(base_addr + (slot_idx + i) as i64);
-                            self.env.allocator.set(static_addr + (slot_idx + i) as i64, val);
+                            self.env
+                                .allocator
+                                .set(static_addr + (slot_idx + i) as i64, val);
                         }
                     }
                 }
@@ -587,8 +593,12 @@ impl LocalEnvironment<'_, '_> {
         }
         let v1 = try_expr!(self.interpret_expression(expr1));
         let v2 = try_expr!(self.interpret_expression(expr2));
-        let res = pure_eval::eval_binary_pure(op, v1, v2)
-            .unwrap_or_else(|| panic!("runtime error: zero division or unsupported operation {:?}", op));
+        let res = pure_eval::eval_binary_pure(op, v1, v2).unwrap_or_else(|| {
+            panic!(
+                "runtime error: zero division or unsupported operation {:?}",
+                op
+            )
+        });
         ExpressionFlow::Value(res)
     }
 

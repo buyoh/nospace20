@@ -11,12 +11,16 @@ fn create_test_env() -> Environment {
     Environment::new_with_config(stdin_cursor, stdout_buf, EnvironmentConfig::new())
 }
 
-fn create_test_env_with_stdout_capture() -> (Environment, std::rc::Rc<std::cell::RefCell<Vec<u8>>>) {
+fn create_test_env_with_stdout_capture() -> (Environment, std::rc::Rc<std::cell::RefCell<Vec<u8>>>)
+{
     let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(Vec::<u8>::new())));
     let stdout_buf = std::rc::Rc::new(std::cell::RefCell::new(Vec::<u8>::new()));
     let writer = crate::base::shared_writer::SharedWriter(std::rc::Rc::clone(&stdout_buf));
     let stdout: Box<dyn std::io::Write> = Box::new(writer);
-    (Environment::new_with_config(stdin_cursor, stdout, EnvironmentConfig::new()), stdout_buf)
+    (
+        Environment::new_with_config(stdin_cursor, stdout, EnvironmentConfig::new()),
+        stdout_buf,
+    )
 }
 
 fn parse_and_analyze(code: &str) -> Scope {
@@ -147,19 +151,28 @@ func: __main() {
     let mut env = create_test_env();
 
     let result = crate::interpreter::interpret_all(&mut env, &scope);
-    assert_eq!(result, Ok(Some(20)), "x should be modified to 20 via *p = 20");
+    assert_eq!(
+        result,
+        Ok(Some(20)),
+        "x should be modified to 20 via *p = 20"
+    );
 }
 
 // --- T1: 組み込み関数テスト ---
 
-fn create_test_env_with_stdin(stdin_data: &str) -> (Environment, std::rc::Rc<std::cell::RefCell<Vec<u8>>>) {
+fn create_test_env_with_stdin(
+    stdin_data: &str,
+) -> (Environment, std::rc::Rc<std::cell::RefCell<Vec<u8>>>) {
     let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(
         stdin_data.as_bytes().to_vec(),
     )));
     let stdout_buf = std::rc::Rc::new(std::cell::RefCell::new(Vec::<u8>::new()));
     let writer = crate::base::shared_writer::SharedWriter(std::rc::Rc::clone(&stdout_buf));
     let stdout: Box<dyn std::io::Write> = Box::new(writer);
-    (Environment::new_with_config(stdin_cursor, stdout, EnvironmentConfig::new()), stdout_buf)
+    (
+        Environment::new_with_config(stdin_cursor, stdout, EnvironmentConfig::new()),
+        stdout_buf,
+    )
 }
 
 fn get_stdout_from_capture(capture: &std::rc::Rc<std::cell::RefCell<Vec<u8>>>) -> String {
@@ -203,7 +216,11 @@ func: __main() {
     let scope = parse_and_analyze(code);
     let mut env = create_test_env();
     let result = crate::interpreter::interpret_all(&mut env, &scope);
-    assert_eq!(result, Ok(Some(0)), "__assert with non-zero should not panic");
+    assert_eq!(
+        result,
+        Ok(Some(0)),
+        "__assert with non-zero should not panic"
+    );
 }
 
 #[test]
@@ -275,7 +292,11 @@ func: __main() {
     let scope = parse_and_analyze(code);
     let (mut env, _) = create_test_env_with_stdin("A");
     let result = crate::interpreter::interpret_all(&mut env, &scope);
-    assert_eq!(result, Ok(Some(65)), "__getc() should read 'A' (65) from stdin");
+    assert_eq!(
+        result,
+        Ok(Some(65)),
+        "__getc() should read 'A' (65) from stdin"
+    );
 }
 
 // --- T2: 二項演算子テスト ---

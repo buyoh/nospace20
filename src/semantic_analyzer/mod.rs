@@ -192,7 +192,8 @@ fn analyze_internal_with_parent(
     // 型チェック用の関数戻り値型スライスを決定
     // inherited_func_return_types が空 = ルートまたは関数スコープ → global_functions から収集
     // inherited_func_return_types が非空 = if/while/block の内部 → 外側の型コンテキストを継承
-    let effective_func_return_types: Vec<ValueType> = if ctx.inherited_func_return_types.is_empty() {
+    let effective_func_return_types: Vec<ValueType> = if ctx.inherited_func_return_types.is_empty()
+    {
         ctx.global_functions.iter().map(|f| f.return_type).collect()
     } else {
         ctx.inherited_func_return_types.clone()
@@ -258,9 +259,9 @@ fn analyze_internal_with_parent(
             function_names: Vec::new(),
             function_name_to_index: BTreeMap::new(),
         },
-        main_function_index: None, // 一時スコープなので None
+        main_function_index: None,          // 一時スコープなので None
         static_init_statements: Vec::new(), // 未使用
-        root_statements: Vec::new(), // 未使用
+        root_statements: Vec::new(),        // 未使用
     };
 
     // 親のリゾルバを継承して新しいリゾルバを作成
@@ -313,10 +314,8 @@ fn analyze_internal_with_parent(
 pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
     let mut global_functions = Vec::new();
     let mut global_function_names = Vec::new();
-    let mut ctx = context::AnalyzeContext::new_root(
-        &mut global_functions,
-        &mut global_function_names,
-    );
+    let mut ctx =
+        context::AnalyzeContext::new_root(&mut global_functions, &mut global_function_names);
     analyze_internal(root, ScopeType::Root, &mut ctx)
         .map(|(scope, root_stmts)| scope.build(root_stmts, global_functions, global_function_names))
 }

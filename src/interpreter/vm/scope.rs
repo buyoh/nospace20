@@ -25,8 +25,10 @@ impl NospaceVM {
     }
 
     pub(super) fn enter_block(&mut self, scope: &crate::semantic_analyzer::Scope) -> i64 {
-        let base = self.env.allocator.alloc_internal_uninit(
-            scope.variable_count, self.env.config.randomize_uninit);
+        let base = self
+            .env
+            .allocator
+            .alloc_internal_uninit(scope.variable_count, self.env.config.randomize_uninit);
         self.scope_stack.push(base);
         base
     }
@@ -42,9 +44,14 @@ impl NospaceVM {
 
     pub(super) fn save_static_vars(&mut self, func_idx: usize, scope_addr: i64) {
         if let Some(&static_addr) = self.env.function_static_addrs.get(&func_idx) {
-            let vars: Vec<_> = self.scope.functions[func_idx].block.scope.variables
-                .iter().filter(|v| v.is_static)
-                .map(|v| (v.slot_index, v.array_size.unwrap_or(1))).collect();
+            let vars: Vec<_> = self.scope.functions[func_idx]
+                .block
+                .scope
+                .variables
+                .iter()
+                .filter(|v| v.is_static)
+                .map(|v| (v.slot_index, v.array_size.unwrap_or(1)))
+                .collect();
             for (slot, count) in vars {
                 for i in 0..count {
                     let v = self.env.allocator.get(scope_addr + (slot + i) as i64);
@@ -56,9 +63,14 @@ impl NospaceVM {
 
     pub(super) fn load_static_vars(&mut self, func_idx: usize, scope_addr: i64) {
         if let Some(&static_addr) = self.env.function_static_addrs.get(&func_idx) {
-            let vars: Vec<_> = self.scope.functions[func_idx].block.scope.variables
-                .iter().filter(|v| v.is_static)
-                .map(|v| (v.slot_index, v.array_size.unwrap_or(1))).collect();
+            let vars: Vec<_> = self.scope.functions[func_idx]
+                .block
+                .scope
+                .variables
+                .iter()
+                .filter(|v| v.is_static)
+                .map(|v| (v.slot_index, v.array_size.unwrap_or(1)))
+                .collect();
             for (slot, count) in vars {
                 for i in 0..count {
                     let v = self.env.allocator.get(static_addr + (slot + i) as i64);

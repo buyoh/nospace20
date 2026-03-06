@@ -19,11 +19,11 @@ pub fn run_alloc_free_sequence(
     global_heap_size: i64,
     ops: &[AllocOp],
 ) -> crate::whitespace::WhitespaceVM {
-    use crate::whitespace::{StepResult, WhitespaceVM};
+    use crate::compiler_ws::instruction::Instruction;
     use crate::compiler_ws::label::reserved_labels;
     use crate::compiler_ws::program::WsProgram;
-    use crate::compiler_ws::instruction::Instruction;
     use crate::compiler_ws::types::WsNumber;
+    use crate::whitespace::{StepResult, WhitespaceVM};
 
     let mut prog = WsProgram::new();
     prog.append(runtime.generate_memory_init(global_heap_size));
@@ -55,8 +55,7 @@ pub fn run_alloc_free_sequence(
     prog.push(Instruction::Exit);
     prog.append(runtime.generate_subroutines());
 
-    let mut vm = WhitespaceVM::from_instructions(prog.into_instructions())
-        .unwrap();
+    let mut vm = WhitespaceVM::from_instructions(prog.into_instructions()).unwrap();
     let result = vm.run(1_000_000);
     assert!(
         matches!(result, StepResult::Complete),

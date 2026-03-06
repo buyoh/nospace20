@@ -60,19 +60,17 @@ impl WasmNospaceVM {
             .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
         // I/O バッファ構築
-        let stdin_cursor: Box<dyn std::io::BufRead> = Box::new(BufReader::new(Cursor::new(
-            stdin.as_bytes().to_vec(),
-        )));
+        let stdin_cursor: Box<dyn std::io::BufRead> =
+            Box::new(BufReader::new(Cursor::new(stdin.as_bytes().to_vec())));
         let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
         let stdout_clone = Rc::clone(&stdout_buf);
         let stdout_writer: Box<dyn std::io::Write> = Box::new(SharedWriter(stdout_clone));
 
         // VM 構築
-        let mut vm = NospaceVM::from_scope(scope)
-            .map_err(|e| {
-                let err = ResultErr::single_error(format!("{}", e));
-                serde_wasm_bindgen::to_value(&err).unwrap()
-            })?;
+        let mut vm = NospaceVM::from_scope(scope).map_err(|e| {
+            let err = ResultErr::single_error(format!("{}", e));
+            serde_wasm_bindgen::to_value(&err).unwrap()
+        })?;
 
         // I/O 設定 (with_io は stdout_capture を無効化するため、直接フィールドを操作)
         vm = vm.with_io(stdin_cursor, stdout_writer);
@@ -155,7 +153,8 @@ impl WasmNospaceVM {
                 &obj,
                 &JsValue::from_str(&k.to_string()),
                 &JsValue::from_f64(*v as f64),
-            ).unwrap();
+            )
+            .unwrap();
         }
         obj.into()
     }

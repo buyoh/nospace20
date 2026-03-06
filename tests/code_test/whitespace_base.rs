@@ -1,6 +1,8 @@
 use std::{fs, io};
 
-use nospace20::{compile_to_ws, WsCompileOptions, parse_to_tokens, parse_to_tree, semantic_analyze};
+use nospace20::{
+    compile_to_ws, parse_to_tokens, parse_to_tree, semantic_analyze, WsCompileOptions,
+};
 
 use super::test_config::TestConfig;
 
@@ -22,8 +24,8 @@ pub fn test_whitespace_base(test_name: &str) {
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = semantic_analyze(&s).unwrap();
-    let ws_code =
-        compile_to_ws(&a, &WsCompileOptions::default()).unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
+    let ws_code = compile_to_ws(&a, &WsCompileOptions::default())
+        .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -70,8 +72,8 @@ pub fn test_whitespace_io_base(test_name: &str) {
     let t = parse_to_tokens(&ns_cnt).unwrap();
     let s = parse_to_tree(&t).unwrap();
     let a = semantic_analyze(&s).unwrap();
-    let ws_code =
-        compile_to_ws(&a, &WsCompileOptions::default()).unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
+    let ws_code = compile_to_ws(&a, &WsCompileOptions::default())
+        .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");

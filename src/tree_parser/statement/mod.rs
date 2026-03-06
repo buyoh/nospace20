@@ -165,10 +165,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
     /// `final:` キーワードを消費して final 変数宣言をパースする。
     /// `final: name(expr);` のように複数定義にも対応。
-    fn parse_to_statements_final_variable(
-        &mut self,
-        start_pos: usize,
-    ) -> Vec<LocatedStatement> {
+    fn parse_to_statements_final_variable(&mut self, start_pos: usize) -> Vec<LocatedStatement> {
         self.iter.next(); // Final キーワードを消費
         self.parse_variable_declarations(start_pos, false, true) // is_static=false, is_final=true
     }
@@ -182,7 +179,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
         loop {
             // 識別子を取得
-            let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+            let id = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id)
+            {
                 Ok(x) => x,
                 Err(e) => {
                     results.push(LocatedStatement {
@@ -242,8 +240,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     }
                 }
                 Some((_, token_info)) => {
-                    let err_idx =
-                        self.add_parse_error(token_info, "expected '(' or '{' after constexpr identifier");
+                    let err_idx = self.add_parse_error(
+                        token_info,
+                        "expected '(' or '{' after constexpr identifier",
+                    );
                     results.push(LocatedStatement {
                         statement: Statement::Invalid(err_idx),
                         location: SourceLocation::from_single(start_pos),
@@ -281,7 +281,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
         loop {
             // エイリアス名を取得
-            let name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+            let name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id)
+            {
                 Ok(x) => x,
                 Err(e) => {
                     results.push(LocatedStatement {
@@ -312,7 +313,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     self.iter.next();
 
                     // 最初の引数（識別子）を取得
-                    let first_target = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                    let first_target = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id)
+                    {
                         Ok(x) => x,
                         Err(e) => {
                             results.push(LocatedStatement {
@@ -332,7 +334,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             let mut alias_args: Vec<AliasArg> = Vec::new();
                             while let Some((Token::Comma, _)) = self.iter.peek() {
                                 self.iter.next(); // ',' を消費
-                                // alias 引数: 識別子 または 整数
+                                                  // alias 引数: 識別子 または 整数
                                 match self.iter.next() {
                                     Some((Token::Identifier(arg_id), _)) => {
                                         alias_args.push(AliasArg::Identifier(arg_id.clone()));
@@ -341,7 +343,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                                         alias_args.push(AliasArg::Value(*n));
                                     }
                                     Some((_, token_info)) => {
-                                        let err_idx = self.add_parse_error(token_info, "expected identifier or integer as alias argument");
+                                        let err_idx = self.add_parse_error(
+                                            token_info,
+                                            "expected identifier or integer as alias argument",
+                                        );
                                         results.push(LocatedStatement {
                                             statement: Statement::Invalid(err_idx),
                                             location: SourceLocation::from_single(start_pos),
@@ -350,7 +355,9 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                                         return results;
                                     }
                                     None => {
-                                        let err_idx = self.add_end_error("unexpected end of input in alias instantiation");
+                                        let err_idx = self.add_end_error(
+                                            "unexpected end of input in alias instantiation",
+                                        );
                                         results.push(LocatedStatement {
                                             statement: Statement::Invalid(err_idx),
                                             location: SourceLocation::from_single(start_pos),
@@ -384,7 +391,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             let loc = SourceLocation::new(start_pos, end_pos);
 
                             results.push(LocatedStatement {
-                                statement: Statement::AliasIdentifier(name.to_string(), first_target.to_string()),
+                                statement: Statement::AliasIdentifier(
+                                    name.to_string(),
+                                    first_target.to_string(),
+                                ),
                                 location: loc,
                             });
 
@@ -397,7 +407,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             }
                         }
                         Some((_, token_info)) => {
-                            let err_idx = self.add_parse_error(token_info, "expected ',' or ')' after alias target");
+                            let err_idx = self.add_parse_error(
+                                token_info,
+                                "expected ',' or ')' after alias target",
+                            );
                             results.push(LocatedStatement {
                                 statement: Statement::Invalid(err_idx),
                                 location: SourceLocation::from_single(start_pos),
@@ -406,7 +419,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                             return results;
                         }
                         None => {
-                            let err_idx = self.add_end_error("unexpected end of input in alias declaration");
+                            let err_idx =
+                                self.add_end_error("unexpected end of input in alias declaration");
                             results.push(LocatedStatement {
                                 statement: Statement::Invalid(err_idx),
                                 location: SourceLocation::from_single(start_pos),
@@ -416,7 +430,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     }
                 }
                 Some((_, token_info)) => {
-                    let err_idx = self.add_parse_error(token_info, "expected '(' or '{' after alias identifier");
+                    let err_idx = self
+                        .add_parse_error(token_info, "expected '(' or '{' after alias identifier");
                     results.push(LocatedStatement {
                         statement: Statement::Invalid(err_idx),
                         location: SourceLocation::from_single(start_pos),
@@ -425,7 +440,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     return results;
                 }
                 None => {
-                    let err_idx = self.add_end_error("unexpected end of input in alias declaration");
+                    let err_idx =
+                        self.add_end_error("unexpected end of input in alias declaration");
                     results.push(LocatedStatement {
                         statement: Statement::Invalid(err_idx),
                         location: SourceLocation::from_single(start_pos),
@@ -794,7 +810,13 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         });
 
         results.push(LocatedStatement {
-            statement: Statement::VariableDeclaration(id.to_string(), init_expr, is_static, is_final, None),
+            statement: Statement::VariableDeclaration(
+                id.to_string(),
+                init_expr,
+                is_static,
+                is_final,
+                None,
+            ),
             location: loc,
         });
     }
@@ -966,7 +988,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             match self.iter.next() {
                 Some((Token::Keyword(Keyword::Func), _)) => {
                     // alias: func: name(arg1, arg2, ...)
-                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id)
+                    {
                         Ok(x) => x,
                         Err(_) => break,
                     };
@@ -1000,7 +1023,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 Some((Token::Keyword(Keyword::Constexpr), _)) => {
                     // alias: constexpr: name
-                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id)
+                    {
                         Ok(x) => x,
                         Err(_) => break,
                     };
@@ -1011,7 +1035,8 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 Some((Token::Keyword(Keyword::Static), _)) => {
                     // alias: static: name
-                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+                    let param_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id)
+                    {
                         Ok(x) => x,
                         Err(_) => break,
                     };
@@ -1438,7 +1463,13 @@ fn desugar_repeat_form2(
         pos,
     );
     let init = vec![LocatedStatement {
-        statement: Statement::VariableDeclaration(counter_name.clone(), init_assign, false, false, None),
+        statement: Statement::VariableDeclaration(
+            counter_name.clone(),
+            init_assign,
+            false,
+            false,
+            None,
+        ),
         location: loc.clone(),
     }];
     let cond = vec![LocatedStatement {

@@ -46,9 +46,7 @@ pub enum StepResult {
     /// 実行継続中（バジェット消費で中断）
     Suspended,
     /// 正常終了
-    Complete {
-        return_value: Option<i64>,
-    },
+    Complete { return_value: Option<i64> },
     /// 実行時エラー
     Error(InterpretError),
 }
@@ -66,17 +64,27 @@ pub(super) enum FlowControl {
 /// グローバル初期化のフェーズ（static 変数初期化 → ルート文実行 → main 呼出し）
 pub(super) enum GlobalInitPhase {
     AllocGlobals,
-    ExecRootStaticInit { stmt_idx: usize },
-    ExecFuncStaticInits { func_idx: usize },
-    ExecFuncStaticStmt { func_idx: usize, static_addr: i64, stmt_idx: usize },
-    ExecRootStmts { stmt_idx: usize },
+    ExecRootStaticInit {
+        stmt_idx: usize,
+    },
+    ExecFuncStaticInits {
+        func_idx: usize,
+    },
+    ExecFuncStaticStmt {
+        func_idx: usize,
+        static_addr: i64,
+        stmt_idx: usize,
+    },
+    ExecRootStmts {
+        stmt_idx: usize,
+    },
     CallMain,
 }
 
 /// ExecBlock 完了時のアクション（スコープ解放・値 push の制御）
 pub(super) enum BlockCompletion {
-    MainFunc  { func_idx: usize, scope_addr: i64 },
-    UserFunc  { func_idx: usize, scope_addr: i64 },
+    MainFunc { func_idx: usize, scope_addr: i64 },
+    UserFunc { func_idx: usize, scope_addr: i64 },
     ScopeBlock { scope_addr: i64, push_value: bool },
     GlobalStmts,
 }
@@ -95,31 +103,48 @@ pub(super) enum EvalCont {
     Start,
     AfterUnary(Operator1),
     DerefAfter,
-    AfterArrayIndex { id_ref: IdentifierRef },
-    BinaryLeft  { op: Operator2, rhs: ExprPtr },
-    BinaryRight { op: Operator2, left: i64 },
+    AfterArrayIndex {
+        id_ref: IdentifierRef,
+    },
+    BinaryLeft {
+        op: Operator2,
+        rhs: ExprPtr,
+    },
+    BinaryRight {
+        op: Operator2,
+        left: i64,
+    },
     AssignVar(IdentifierRef),
-    AssignArrIndex { id_ref: IdentifierRef, rhs: ExprPtr },
-    AssignArrRhs   { base_addr: i64 },
-    AssignDerefPtr { rhs: ExprPtr },
-    AssignDerefRhs { addr: i64 },
+    AssignArrIndex {
+        id_ref: IdentifierRef,
+        rhs: ExprPtr,
+    },
+    AssignArrRhs {
+        base_addr: i64,
+    },
+    AssignDerefPtr {
+        rhs: ExprPtr,
+    },
+    AssignDerefRhs {
+        addr: i64,
+    },
     RefArrIndex(IdentifierRef),
     LogicalAndRhs(ExprPtr),
     LogicalOrRhs(ExprPtr),
     UserFuncArgs {
-        func_ref:  IdentifierRef,
-        args:      ArgsPtr,
-        next_arg:  usize,
+        func_ref: IdentifierRef,
+        args: ArgsPtr,
+        next_arg: usize,
         evaluated: Vec<i64>,
     },
     BuiltinArgs {
-        kind:      BuiltinFunctionKind,
-        args:      ArgsPtr,
-        next_arg:  usize,
+        kind: BuiltinFunctionKind,
+        args: ArgsPtr,
+        next_arg: usize,
         evaluated: Vec<i64>,
     },
     IfCond {
-        mode:       ConditionMode,
+        mode: ConditionMode,
         then_block: BlockPtr,
         else_block: BlockPtr,
     },
@@ -135,14 +160,14 @@ pub(super) enum WhilePhase {
 /// for ループの実行フェーズ（init → cond → body → step の繰り返し）
 pub(super) enum ForPhase {
     StartInit,
-    WaitInit  { init_scope_addr: i64 },
+    WaitInit { init_scope_addr: i64 },
     StartCond { init_scope_addr: i64 },
-    WaitCond  { init_scope_addr: i64 },
+    WaitCond { init_scope_addr: i64 },
     CheckCond { init_scope_addr: i64 },
     StartBody { init_scope_addr: i64 },
-    WaitBody  { init_scope_addr: i64 },
+    WaitBody { init_scope_addr: i64 },
     StartStep { init_scope_addr: i64 },
-    WaitStep  { init_scope_addr: i64 },
+    WaitStep { init_scope_addr: i64 },
 }
 
 /// 実行フレーム
@@ -150,28 +175,33 @@ pub(super) enum ForPhase {
 /// フレームスタックの末尾が現在実行中のフレーム。
 /// raw pointer は `NospaceVM` が `scope` を所有している間有効。
 pub(super) enum Frame {
-    GlobalInit { phase: GlobalInitPhase },
+    GlobalInit {
+        phase: GlobalInitPhase,
+    },
     ExecBlock {
-        stmts:     StmtsPtr,
-        next_idx:  usize,
+        stmts: StmtsPtr,
+        next_idx: usize,
         last_value: i64,
-        waiting:   ExecBlockWait,
+        waiting: ExecBlockWait,
         completion: BlockCompletion,
     },
-    EvalExpr { expr: ExprPtr, cont: EvalCont },
+    EvalExpr {
+        expr: ExprPtr,
+        cont: EvalCont,
+    },
     WhileLoop {
-        mode:  ConditionMode,
-        cond:  ExprPtr,
-        body:  BlockPtr,
+        mode: ConditionMode,
+        cond: ExprPtr,
+        body: BlockPtr,
         phase: WhilePhase,
     },
     ForLoop {
-        mode:       ConditionMode,
+        mode: ConditionMode,
         init_block: BlockPtr,
         cond_block: BlockPtr,
         step_block: BlockPtr,
         body_block: BlockPtr,
-        phase:      ForPhase,
+        phase: ForPhase,
     },
 }
 
@@ -189,17 +219,17 @@ pub(super) enum ExecuteResult {
 /// 明示的スタックマシンとして全実行状態を保持する。
 /// `step()` / `run()` で指定ステップずつ実行し、任意のタイミングで中断・再開可能。
 pub struct NospaceVM {
-    pub(super) scope:          Scope,
-    pub(super) frames:         Vec<Frame>,
-    pub(super) value_stack:    Vec<i64>,
-    pub(super) scope_stack:    Vec<i64>,
-    pub(super) flow:           Option<FlowControl>,
-    pub(super) env:            Environment,
+    pub(super) scope: Scope,
+    pub(super) frames: Vec<Frame>,
+    pub(super) value_stack: Vec<i64>,
+    pub(super) scope_stack: Vec<i64>,
+    pub(super) flow: Option<FlowControl>,
+    pub(super) env: Environment,
     pub(super) stdout_capture: Option<Rc<RefCell<Vec<u8>>>>,
-    pub(super) total_steps:    usize,
-    traced:         BTreeMap<i64, i64>,
-    pub(super) completed:      bool,
-    pub(super) return_value:   Option<i64>,
+    pub(super) total_steps: usize,
+    traced: BTreeMap<i64, i64>,
+    pub(super) completed: bool,
+    pub(super) return_value: Option<i64>,
 }
 
 impl NospaceVM {
@@ -222,16 +252,16 @@ impl NospaceVM {
     pub fn from_scope(scope: Scope) -> Result<Self, InterpretError> {
         // stdout キャプチャバッファを初期化
         let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
-        let stdout_writer: Box<dyn Write> =
-            Box::new(SharedWriter(Rc::clone(&stdout_buf)));
-        let stdin: Box<dyn BufRead> =
-            Box::new(BufReader::new(Cursor::new(Vec::<u8>::new())));
+        let stdout_writer: Box<dyn Write> = Box::new(SharedWriter(Rc::clone(&stdout_buf)));
+        let stdin: Box<dyn BufRead> = Box::new(BufReader::new(Cursor::new(Vec::<u8>::new())));
 
         let env = Environment::new_with_buffers(stdin, stdout_writer);
 
         Ok(Self {
             scope,
-            frames: vec![Frame::GlobalInit { phase: GlobalInitPhase::AllocGlobals }],
+            frames: vec![Frame::GlobalInit {
+                phase: GlobalInitPhase::AllocGlobals,
+            }],
             value_stack: Vec::new(),
             scope_stack: Vec::new(),
             flow: None,
@@ -370,10 +400,10 @@ impl NospaceVM {
         }
         match self.frames.last() {
             Some(Frame::GlobalInit { .. }) => self.step_global_init(),
-            Some(Frame::ExecBlock  { .. }) => self.step_exec_block(),
-            Some(Frame::EvalExpr   { .. }) => self.step_eval_expr(),
-            Some(Frame::WhileLoop  { .. }) => self.step_while(),
-            Some(Frame::ForLoop    { .. }) => self.step_for(),
+            Some(Frame::ExecBlock { .. }) => self.step_exec_block(),
+            Some(Frame::EvalExpr { .. }) => self.step_eval_expr(),
+            Some(Frame::WhileLoop { .. }) => self.step_while(),
+            Some(Frame::ForLoop { .. }) => self.step_for(),
             None => ExecuteResult::Complete(None),
         }
     }
@@ -386,22 +416,37 @@ impl NospaceVM {
         loop {
             match self.frames.last() {
                 None => {
-                    let val = if let FlowControl::Return(v) = flow { Some(v) } else { None };
+                    let val = if let FlowControl::Return(v) = flow {
+                        Some(v)
+                    } else {
+                        None
+                    };
                     self.flow = None;
                     return ExecuteResult::Complete(val);
                 }
                 Some(frame) => {
                     // WhileLoop/ForLoop は Break/Continue を step_while/step_for の WaitBody で処理
                     let loop_handles = match (frame, &flow) {
-                        (Frame::WhileLoop { .. }, FlowControl::Break | FlowControl::Continue) => true,
-                        (Frame::ForLoop   { .. }, FlowControl::Break | FlowControl::Continue) => true,
+                        (Frame::WhileLoop { .. }, FlowControl::Break | FlowControl::Continue) => {
+                            true
+                        }
+                        (Frame::ForLoop { .. }, FlowControl::Break | FlowControl::Continue) => true,
                         _ => false,
                     };
-                    if loop_handles { return ExecuteResult::Continue; }
+                    if loop_handles {
+                        return ExecuteResult::Continue;
+                    }
 
                     let frame = self.frames.pop().unwrap();
                     match frame {
-                        Frame::ExecBlock { completion: BlockCompletion::MainFunc { func_idx, scope_addr }, .. } => {
+                        Frame::ExecBlock {
+                            completion:
+                                BlockCompletion::MainFunc {
+                                    func_idx,
+                                    scope_addr,
+                                },
+                            ..
+                        } => {
                             if let FlowControl::Return(val) = &flow {
                                 let v = *val;
                                 self.save_static_vars(func_idx, scope_addr);
@@ -412,7 +457,14 @@ impl NospaceVM {
                             self.save_static_vars(func_idx, scope_addr);
                             self.leave_scope(scope_addr);
                         }
-                        Frame::ExecBlock { completion: BlockCompletion::UserFunc { func_idx, scope_addr }, .. } => {
+                        Frame::ExecBlock {
+                            completion:
+                                BlockCompletion::UserFunc {
+                                    func_idx,
+                                    scope_addr,
+                                },
+                            ..
+                        } => {
                             if let FlowControl::Return(val) = &flow {
                                 let v = *val;
                                 self.save_static_vars(func_idx, scope_addr);
@@ -424,7 +476,10 @@ impl NospaceVM {
                             self.save_static_vars(func_idx, scope_addr);
                             self.leave_scope(scope_addr);
                         }
-                        Frame::ExecBlock { completion: BlockCompletion::ScopeBlock { scope_addr, .. }, .. } => {
+                        Frame::ExecBlock {
+                            completion: BlockCompletion::ScopeBlock { scope_addr, .. },
+                            ..
+                        } => {
                             self.leave_scope(scope_addr);
                         }
                         _ => {}
@@ -438,20 +493,29 @@ impl NospaceVM {
 
     fn step_global_init(&mut self) -> ExecuteResult {
         let phase = match self.frames.last_mut() {
-            Some(Frame::GlobalInit { phase }) => std::mem::replace(phase, GlobalInitPhase::CallMain),
+            Some(Frame::GlobalInit { phase }) => {
+                std::mem::replace(phase, GlobalInitPhase::CallMain)
+            }
             _ => unreachable!(),
         };
         match phase {
             GlobalInitPhase::AllocGlobals => {
                 self.env.global_base_addr = self.env.allocator.alloc_internal_uninit(
-                    self.scope.variable_count, self.env.config.randomize_uninit);
+                    self.scope.variable_count,
+                    self.env.config.randomize_uninit,
+                );
                 for func_idx in 0..self.scope.functions.len() {
-                    let has_static = self.scope.functions[func_idx].block.scope.variables
-                        .iter().any(|v| v.is_static);
+                    let has_static = self.scope.functions[func_idx]
+                        .block
+                        .scope
+                        .variables
+                        .iter()
+                        .any(|v| v.is_static);
                     if has_static {
                         let sa = self.env.allocator.alloc_internal_uninit(
                             self.scope.functions[func_idx].block.scope.variable_count,
-                            self.env.config.randomize_uninit);
+                            self.env.config.randomize_uninit,
+                        );
                         self.env.function_static_addrs.insert(func_idx, sa);
                     }
                 }
@@ -472,7 +536,9 @@ impl NospaceVM {
                 // set_global_phase は frames.push より先に呼ぶ（last_mut が GlobalInit を指すように）
                 self.set_global_phase(GlobalInitPhase::ExecFuncStaticInits { func_idx: 0 });
                 self.frames.push(Frame::ExecBlock {
-                    stmts: ptr, next_idx: stmt_idx, last_value: 0,
+                    stmts: ptr,
+                    next_idx: stmt_idx,
+                    last_value: 0,
                     waiting: ExecBlockWait::None,
                     completion: BlockCompletion::GlobalStmts,
                 });
@@ -484,7 +550,10 @@ impl NospaceVM {
                 while fi < len {
                     let f = &self.scope.functions[fi];
                     if f.block.scope.variables.iter().any(|v| v.is_static)
-                        && !f.block.scope.static_init_statements.is_empty() { break; }
+                        && !f.block.scope.static_init_statements.is_empty()
+                    {
+                        break;
+                    }
                     fi += 1;
                 }
                 if fi >= len {
@@ -497,21 +566,37 @@ impl NospaceVM {
                 }
                 let static_addr = *self.env.function_static_addrs.get(&fi).unwrap();
                 self.set_global_phase(GlobalInitPhase::ExecFuncStaticStmt {
-                    func_idx: fi, static_addr, stmt_idx: 0 });
+                    func_idx: fi,
+                    static_addr,
+                    stmt_idx: 0,
+                });
                 ExecuteResult::Continue
             }
-            GlobalInitPhase::ExecFuncStaticStmt { func_idx, static_addr, stmt_idx } => {
-                let stmts = &self.scope.functions[func_idx].block.scope.static_init_statements;
+            GlobalInitPhase::ExecFuncStaticStmt {
+                func_idx,
+                static_addr,
+                stmt_idx,
+            } => {
+                let stmts = &self.scope.functions[func_idx]
+                    .block
+                    .scope
+                    .static_init_statements;
                 if stmt_idx >= stmts.len() {
-                    self.set_global_phase(GlobalInitPhase::ExecFuncStaticInits { func_idx: func_idx + 1 });
+                    self.set_global_phase(GlobalInitPhase::ExecFuncStaticInits {
+                        func_idx: func_idx + 1,
+                    });
                     return ExecuteResult::Continue;
                 }
                 let ptr: StmtsPtr = stmts as *const _;
                 // set_global_phase は frames.push より先に呼ぶ（last_mut が GlobalInit を指すように）
-                self.set_global_phase(GlobalInitPhase::ExecFuncStaticInits { func_idx: func_idx + 1 });
+                self.set_global_phase(GlobalInitPhase::ExecFuncStaticInits {
+                    func_idx: func_idx + 1,
+                });
                 self.scope_stack.push(static_addr);
                 self.frames.push(Frame::ExecBlock {
-                    stmts: ptr, next_idx: stmt_idx, last_value: 0,
+                    stmts: ptr,
+                    next_idx: stmt_idx,
+                    last_value: 0,
                     waiting: ExecBlockWait::None,
                     completion: BlockCompletion::GlobalStmts,
                 });
@@ -526,7 +611,9 @@ impl NospaceVM {
                 // set_global_phase は frames.push より先に呼ぶ（last_mut が GlobalInit を指すように）
                 self.set_global_phase(GlobalInitPhase::CallMain);
                 self.frames.push(Frame::ExecBlock {
-                    stmts: ptr, next_idx: stmt_idx, last_value: 0,
+                    stmts: ptr,
+                    next_idx: stmt_idx,
+                    last_value: 0,
                     waiting: ExecBlockWait::None,
                     completion: BlockCompletion::GlobalStmts,
                 });
@@ -535,8 +622,11 @@ impl NospaceVM {
             GlobalInitPhase::CallMain => {
                 let main_idx = match self.scope.main_function_index {
                     Some(i) => i,
-                    None => return ExecuteResult::Error(
-                        InterpretError::FunctionNotFound("__main".to_string())),
+                    None => {
+                        return ExecuteResult::Error(InterpretError::FunctionNotFound(
+                            "__main".to_string(),
+                        ))
+                    }
                 };
                 self.frames.pop(); // GlobalInit pop
                 self.push_func_frame(main_idx, &[], true);
@@ -546,32 +636,52 @@ impl NospaceVM {
     }
 
     fn set_global_phase(&mut self, phase: GlobalInitPhase) {
-        if let Some(Frame::GlobalInit { phase: p }) = self.frames.last_mut() { *p = phase; }
+        if let Some(Frame::GlobalInit { phase: p }) = self.frames.last_mut() {
+            *p = phase;
+        }
     }
 
     fn push_func_frame(&mut self, func_idx: usize, args: &[i64], is_main: bool) {
-        let has_static = self.scope.functions[func_idx].block.scope.variables
-            .iter().any(|v| v.is_static);
+        let has_static = self.scope.functions[func_idx]
+            .block
+            .scope
+            .variables
+            .iter()
+            .any(|v| v.is_static);
         let scope_addr = self.env.allocator.alloc_internal_uninit(
             self.scope.functions[func_idx].block.scope.variable_count,
-            self.env.config.randomize_uninit);
-        if has_static { self.load_static_vars(func_idx, scope_addr); }
+            self.env.config.randomize_uninit,
+        );
+        if has_static {
+            self.load_static_vars(func_idx, scope_addr);
+        }
         let arg_indices: Vec<usize> = self.scope.functions[func_idx].arg_indices.clone();
         for (i, &v) in args.iter().enumerate() {
             if i < arg_indices.len() {
-                self.env.allocator.set(scope_addr + arg_indices[i] as i64, v);
+                self.env
+                    .allocator
+                    .set(scope_addr + arg_indices[i] as i64, v);
             }
         }
         self.scope_stack.push(scope_addr);
         let stmts: StmtsPtr = &self.scope.functions[func_idx].block.statements as *const _;
         let completion = if is_main {
-            BlockCompletion::MainFunc { func_idx, scope_addr }
+            BlockCompletion::MainFunc {
+                func_idx,
+                scope_addr,
+            }
         } else {
-            BlockCompletion::UserFunc { func_idx, scope_addr }
+            BlockCompletion::UserFunc {
+                func_idx,
+                scope_addr,
+            }
         };
         self.frames.push(Frame::ExecBlock {
-            stmts, next_idx: 0, last_value: 0,
-            waiting: ExecBlockWait::None, completion,
+            stmts,
+            next_idx: 0,
+            last_value: 0,
+            waiting: ExecBlockWait::None,
+            completion,
         });
     }
 
@@ -580,16 +690,26 @@ impl NospaceVM {
     fn exec_builtin(&mut self, kind: BuiltinFunctionKind, args: &[i64]) -> i64 {
         let a0 = args.first().copied().unwrap_or(0);
         match kind {
-            BuiltinFunctionKind::Puti  => { self.env.write_int(a0);  a0 }
-            BuiltinFunctionKind::Putc  => { self.env.write_char(a0); a0 }
-            BuiltinFunctionKind::Geti  => self.env.read_int(),
-            BuiltinFunctionKind::Getc  => self.env.read_char(),
-            BuiltinFunctionKind::Clog  => {
-                if !self.env.config.ignore_debug { println!("__clog: {}", a0); }
+            BuiltinFunctionKind::Puti => {
+                self.env.write_int(a0);
+                a0
+            }
+            BuiltinFunctionKind::Putc => {
+                self.env.write_char(a0);
+                a0
+            }
+            BuiltinFunctionKind::Geti => self.env.read_int(),
+            BuiltinFunctionKind::Getc => self.env.read_char(),
+            BuiltinFunctionKind::Clog => {
+                if !self.env.config.ignore_debug {
+                    println!("__clog: {}", a0);
+                }
                 a0
             }
             BuiltinFunctionKind::Assert => {
-                if !self.env.config.ignore_debug && a0 == 0 { panic!("assertion failed"); }
+                if !self.env.config.ignore_debug && a0 == 0 {
+                    panic!("assertion failed");
+                }
                 a0
             }
             BuiltinFunctionKind::AssertNot => {
@@ -605,7 +725,10 @@ impl NospaceVM {
                 0
             }
             BuiltinFunctionKind::Alloc => self.env.allocator.alloc(a0),
-            BuiltinFunctionKind::Free  => { self.env.allocator.free(a0); 0 }
+            BuiltinFunctionKind::Free => {
+                self.env.allocator.free(a0);
+                0
+            }
         }
     }
 

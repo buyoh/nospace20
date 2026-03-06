@@ -8,10 +8,7 @@
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    compile_to_ws, CompileTarget, LanguageStd,
-    WsCompileOptions, WsOutputFormat,
-};
+use crate::{compile_to_ws, CompileTarget, LanguageStd, WsCompileOptions, WsOutputFormat};
 
 use super::pipeline;
 use super::types::{

@@ -7,16 +7,27 @@ impl NospaceVM {
 
     pub(super) fn step_exec_block(&mut self) -> ExecuteResult {
         let (stmts_ptr, next_idx, last_value, waiting) = match self.frames.last() {
-            Some(Frame::ExecBlock { stmts, next_idx, last_value, waiting, .. }) =>
-                (*stmts, *next_idx, *last_value, waiting.clone()),
+            Some(Frame::ExecBlock {
+                stmts,
+                next_idx,
+                last_value,
+                waiting,
+                ..
+            }) => (*stmts, *next_idx, *last_value, waiting.clone()),
             _ => unreachable!(),
         };
 
         match waiting {
             ExecBlockWait::WaitExpr => {
                 let val = self.value_stack.pop().unwrap_or(0);
-                if let Some(Frame::ExecBlock { last_value: lv, waiting: w, .. }) = self.frames.last_mut() {
-                    *lv = val; *w = ExecBlockWait::None;
+                if let Some(Frame::ExecBlock {
+                    last_value: lv,
+                    waiting: w,
+                    ..
+                }) = self.frames.last_mut()
+                {
+                    *lv = val;
+                    *w = ExecBlockWait::None;
                 }
                 return ExecuteResult::Continue;
             }
@@ -43,7 +54,9 @@ impl NospaceVM {
             return self.finish_exec_block(last_value);
         }
 
-        if let Some(Frame::ExecBlock { next_idx: ni, .. }) = self.frames.last_mut() { *ni += 1; }
+        if let Some(Frame::ExecBlock { next_idx: ni, .. }) = self.frames.last_mut() {
+            *ni += 1;
+        }
 
         let stmt = &stmts[next_idx].statement;
         match stmt {
@@ -52,7 +65,10 @@ impl NospaceVM {
                 if let Some(Frame::ExecBlock { waiting: w, .. }) = self.frames.last_mut() {
                     *w = ExecBlockWait::WaitExpr;
                 }
-                self.frames.push(Frame::EvalExpr { expr: ep, cont: EvalCont::Start });
+                self.frames.push(Frame::EvalExpr {
+                    expr: ep,
+                    cont: EvalCont::Start,
+                });
                 ExecuteResult::Continue
             }
             ExecStatement::Return(None) => {
@@ -65,7 +81,10 @@ impl NospaceVM {
                 if let Some(Frame::ExecBlock { waiting: w, .. }) = self.frames.last_mut() {
                     *w = ExecBlockWait::WaitReturn;
                 }
-                self.frames.push(Frame::EvalExpr { expr: ep, cont: EvalCont::Start });
+                self.frames.push(Frame::EvalExpr {
+                    expr: ep,
+                    cont: EvalCont::Start,
+                });
                 ExecuteResult::Continue
             }
             ExecStatement::Break => {
@@ -79,14 +98,17 @@ impl NospaceVM {
                 ExecuteResult::Continue
             }
             ExecStatement::While(mode, cond, body) => {
-                let cp: ExprPtr  = cond.as_ref() as *const _;
+                let cp: ExprPtr = cond.as_ref() as *const _;
                 let bp: BlockPtr = body as *const _;
                 let m = *mode;
                 if let Some(Frame::ExecBlock { waiting: w, .. }) = self.frames.last_mut() {
                     *w = ExecBlockWait::WaitStmt;
                 }
                 self.frames.push(Frame::WhileLoop {
-                    mode: m, cond: cp, body: bp, phase: WhilePhase::EvalCond,
+                    mode: m,
+                    cond: cp,
+                    body: bp,
+                    phase: WhilePhase::EvalCond,
                 });
                 ExecuteResult::Continue
             }
@@ -100,7 +122,11 @@ impl NospaceVM {
                     *w = ExecBlockWait::WaitStmt;
                 }
                 self.frames.push(Frame::ForLoop {
-                    mode: m, init_block: ib, cond_block: cb, step_block: sb, body_block: bb,
+                    mode: m,
+                    init_block: ib,
+                    cond_block: cb,
+                    step_block: sb,
+                    body_block: bb,
                     phase: ForPhase::StartInit,
                 });
                 ExecuteResult::Continue
@@ -111,25 +137,49 @@ impl NospaceVM {
     pub(super) fn finish_exec_block(&mut self, last_value: i64) -> ExecuteResult {
         let frame = self.frames.pop().unwrap();
         match frame {
-            Frame::ExecBlock { completion: BlockCompletion::MainFunc { func_idx, scope_addr }, .. } => {
+            Frame::ExecBlock {
+                completion:
+                    BlockCompletion::MainFunc {
+                        func_idx,
+                        scope_addr,
+                    },
+                ..
+            } => {
                 self.save_static_vars(func_idx, scope_addr);
                 self.leave_scope(scope_addr);
                 ExecuteResult::Complete(Some(last_value))
             }
-            Frame::ExecBlock { completion: BlockCompletion::UserFunc { func_idx, scope_addr }, .. } => {
+            Frame::ExecBlock {
+                completion:
+                    BlockCompletion::UserFunc {
+                        func_idx,
+                        scope_addr,
+                    },
+                ..
+            } => {
                 self.save_static_vars(func_idx, scope_addr);
                 self.leave_scope(scope_addr);
                 self.value_stack.push(last_value);
                 ExecuteResult::Continue
             }
-            Frame::ExecBlock { completion: BlockCompletion::ScopeBlock { scope_addr, push_value }, .. } => {
+            Frame::ExecBlock {
+                completion:
+                    BlockCompletion::ScopeBlock {
+                        scope_addr,
+                        push_value,
+                    },
+                ..
+            } => {
                 self.leave_scope(scope_addr);
-                if push_value { self.value_stack.push(last_value); }
+                if push_value {
+                    self.value_stack.push(last_value);
+                }
                 ExecuteResult::Continue
             }
-            Frame::ExecBlock { completion: BlockCompletion::GlobalStmts, .. } => {
-                ExecuteResult::Continue
-            }
+            Frame::ExecBlock {
+                completion: BlockCompletion::GlobalStmts,
+                ..
+            } => ExecuteResult::Continue,
             _ => ExecuteResult::Continue,
         }
     }
@@ -138,32 +188,52 @@ impl NospaceVM {
 
     pub(super) fn step_while(&mut self) -> ExecuteResult {
         let (mode, cond, body, phase) = match self.frames.last_mut() {
-            Some(Frame::WhileLoop { mode, cond, body, phase }) => {
-                (*mode, *cond, *body, std::mem::replace(phase, WhilePhase::EvalCond))
-            }
+            Some(Frame::WhileLoop {
+                mode,
+                cond,
+                body,
+                phase,
+            }) => (
+                *mode,
+                *cond,
+                *body,
+                std::mem::replace(phase, WhilePhase::EvalCond),
+            ),
             _ => unreachable!(),
         };
         match phase {
             WhilePhase::EvalCond => {
                 self.set_while_phase(WhilePhase::CheckCond);
-                self.frames.push(Frame::EvalExpr { expr: cond, cont: EvalCont::Start });
+                self.frames.push(Frame::EvalExpr {
+                    expr: cond,
+                    cont: EvalCont::Start,
+                });
                 ExecuteResult::Continue
             }
             WhilePhase::CheckCond => {
                 let cv = self.value_stack.pop().unwrap_or(0);
                 let ok = match mode {
-                    ConditionMode::NonZero  => cv != 0,
-                    ConditionMode::Zero     => cv == 0,
+                    ConditionMode::NonZero => cv != 0,
+                    ConditionMode::Zero => cv == 0,
                     ConditionMode::Negative => cv < 0,
                 };
-                if !ok { self.frames.pop(); return ExecuteResult::Continue; }
+                if !ok {
+                    self.frames.pop();
+                    return ExecuteResult::Continue;
+                }
                 let block = unsafe { &*body };
                 let sa = self.enter_block(&block.scope);
                 let stmts: StmtsPtr = &block.statements as *const _;
                 self.set_while_phase(WhilePhase::WaitBody);
                 self.frames.push(Frame::ExecBlock {
-                    stmts, next_idx: 0, last_value: 0, waiting: ExecBlockWait::None,
-                    completion: BlockCompletion::ScopeBlock { scope_addr: sa, push_value: false },
+                    stmts,
+                    next_idx: 0,
+                    last_value: 0,
+                    waiting: ExecBlockWait::None,
+                    completion: BlockCompletion::ScopeBlock {
+                        scope_addr: sa,
+                        push_value: false,
+                    },
                 });
                 ExecuteResult::Continue
             }
@@ -173,7 +243,9 @@ impl NospaceVM {
                     self.frames.pop();
                     return ExecuteResult::Continue;
                 }
-                if let Some(FlowControl::Continue) = &self.flow { self.flow = None; }
+                if let Some(FlowControl::Continue) = &self.flow {
+                    self.flow = None;
+                }
                 self.set_while_phase(WhilePhase::EvalCond);
                 ExecuteResult::Continue
             }
@@ -181,17 +253,30 @@ impl NospaceVM {
     }
 
     fn set_while_phase(&mut self, p: WhilePhase) {
-        if let Some(Frame::WhileLoop { phase, .. }) = self.frames.last_mut() { *phase = p; }
+        if let Some(Frame::WhileLoop { phase, .. }) = self.frames.last_mut() {
+            *phase = p;
+        }
     }
 
     // ─── ForLoop ───
 
     pub(super) fn step_for(&mut self) -> ExecuteResult {
         let (mode, ib, cb, sb, bb, phase) = match self.frames.last_mut() {
-            Some(Frame::ForLoop { mode, init_block, cond_block, step_block, body_block, phase }) => {
-                (*mode, *init_block, *cond_block, *step_block, *body_block,
-                 std::mem::replace(phase, ForPhase::StartInit))
-            }
+            Some(Frame::ForLoop {
+                mode,
+                init_block,
+                cond_block,
+                step_block,
+                body_block,
+                phase,
+            }) => (
+                *mode,
+                *init_block,
+                *cond_block,
+                *step_block,
+                *body_block,
+                std::mem::replace(phase, ForPhase::StartInit),
+            ),
             _ => unreachable!(),
         };
 
@@ -204,9 +289,14 @@ impl NospaceVM {
                 let stmts: StmtsPtr = &block.statements as *const _;
                 // set_for_phase を push の前に呼ぶ
                 // （push 後は frames.last() が ExecBlock になり ForLoop に届かない）
-                self.set_for_phase(ForPhase::WaitInit { init_scope_addr: sa });
+                self.set_for_phase(ForPhase::WaitInit {
+                    init_scope_addr: sa,
+                });
                 self.frames.push(Frame::ExecBlock {
-                    stmts, next_idx: 0, last_value: 0, waiting: ExecBlockWait::None,
+                    stmts,
+                    next_idx: 0,
+                    last_value: 0,
+                    waiting: ExecBlockWait::None,
                     completion: BlockCompletion::GlobalStmts,
                 });
                 ExecuteResult::Continue
@@ -222,8 +312,14 @@ impl NospaceVM {
                 let stmts: StmtsPtr = &block.statements as *const _;
                 self.set_for_phase(ForPhase::WaitCond { init_scope_addr });
                 self.frames.push(Frame::ExecBlock {
-                    stmts, next_idx: 0, last_value: 0, waiting: ExecBlockWait::None,
-                    completion: BlockCompletion::ScopeBlock { scope_addr: sa, push_value: true },
+                    stmts,
+                    next_idx: 0,
+                    last_value: 0,
+                    waiting: ExecBlockWait::None,
+                    completion: BlockCompletion::ScopeBlock {
+                        scope_addr: sa,
+                        push_value: true,
+                    },
                 });
                 ExecuteResult::Continue
             }
@@ -234,12 +330,14 @@ impl NospaceVM {
             ForPhase::CheckCond { init_scope_addr } => {
                 let cv = self.value_stack.pop().unwrap_or(0);
                 let ok = match mode {
-                    ConditionMode::NonZero  => cv != 0,
-                    ConditionMode::Zero     => cv == 0,
+                    ConditionMode::NonZero => cv != 0,
+                    ConditionMode::Zero => cv == 0,
                     ConditionMode::Negative => cv < 0,
                 };
                 if !ok {
-                    if self.scope_stack.last() == Some(&init_scope_addr) { self.scope_stack.pop(); }
+                    if self.scope_stack.last() == Some(&init_scope_addr) {
+                        self.scope_stack.pop();
+                    }
                     self.env.allocator.free_internal(init_scope_addr);
                     self.frames.pop();
                     return ExecuteResult::Continue;
@@ -253,20 +351,30 @@ impl NospaceVM {
                 let stmts: StmtsPtr = &block.statements as *const _;
                 self.set_for_phase(ForPhase::WaitBody { init_scope_addr });
                 self.frames.push(Frame::ExecBlock {
-                    stmts, next_idx: 0, last_value: 0, waiting: ExecBlockWait::None,
-                    completion: BlockCompletion::ScopeBlock { scope_addr: sa, push_value: false },
+                    stmts,
+                    next_idx: 0,
+                    last_value: 0,
+                    waiting: ExecBlockWait::None,
+                    completion: BlockCompletion::ScopeBlock {
+                        scope_addr: sa,
+                        push_value: false,
+                    },
                 });
                 ExecuteResult::Continue
             }
             ForPhase::WaitBody { init_scope_addr } => {
                 if let Some(FlowControl::Break) = &self.flow {
                     self.flow = None;
-                    if self.scope_stack.last() == Some(&init_scope_addr) { self.scope_stack.pop(); }
+                    if self.scope_stack.last() == Some(&init_scope_addr) {
+                        self.scope_stack.pop();
+                    }
                     self.env.allocator.free_internal(init_scope_addr);
                     self.frames.pop();
                     return ExecuteResult::Continue;
                 }
-                if let Some(FlowControl::Continue) = &self.flow { self.flow = None; }
+                if let Some(FlowControl::Continue) = &self.flow {
+                    self.flow = None;
+                }
                 self.set_for_phase(ForPhase::StartStep { init_scope_addr });
                 ExecuteResult::Continue
             }
@@ -276,15 +384,23 @@ impl NospaceVM {
                 let stmts: StmtsPtr = &block.statements as *const _;
                 self.set_for_phase(ForPhase::WaitStep { init_scope_addr });
                 self.frames.push(Frame::ExecBlock {
-                    stmts, next_idx: 0, last_value: 0, waiting: ExecBlockWait::None,
-                    completion: BlockCompletion::ScopeBlock { scope_addr: sa, push_value: false },
+                    stmts,
+                    next_idx: 0,
+                    last_value: 0,
+                    waiting: ExecBlockWait::None,
+                    completion: BlockCompletion::ScopeBlock {
+                        scope_addr: sa,
+                        push_value: false,
+                    },
                 });
                 ExecuteResult::Continue
             }
             ForPhase::WaitStep { init_scope_addr } => {
                 if let Some(FlowControl::Break) = &self.flow {
                     self.flow = None;
-                    if self.scope_stack.last() == Some(&init_scope_addr) { self.scope_stack.pop(); }
+                    if self.scope_stack.last() == Some(&init_scope_addr) {
+                        self.scope_stack.pop();
+                    }
                     self.env.allocator.free_internal(init_scope_addr);
                     self.frames.pop();
                     return ExecuteResult::Continue;
@@ -296,6 +412,8 @@ impl NospaceVM {
     }
 
     fn set_for_phase(&mut self, p: ForPhase) {
-        if let Some(Frame::ForLoop { phase, .. }) = self.frames.last_mut() { *phase = p; }
+        if let Some(Frame::ForLoop { phase, .. }) = self.frames.last_mut() {
+            *phase = p;
+        }
     }
 }

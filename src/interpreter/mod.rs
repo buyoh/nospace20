@@ -23,7 +23,11 @@ use types::Flow;
 // InterpretError を base::error から re-export（後方互換）
 pub use crate::base::error::interpret_error::InterpretError;
 
-pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> Result<Option<i64>, InterpretError> {
+pub fn interpret_func(
+    env: &mut Environment,
+    scope: &Scope,
+    func_name: &str,
+) -> Result<Option<i64>, InterpretError> {
     let func = match scope.get_function(func_name) {
         Some(f) => f,
         None => {
@@ -47,10 +51,9 @@ pub fn interpret_func(env: &mut Environment, scope: &Scope, func_name: &str) -> 
 /// 3. 非 static グローバル変数の初期化式を実行
 pub fn interpret_global(env: &mut Environment, scope: &Scope) -> Result<(), InterpretError> {
     // グローバル変数の領域をアロケータで確保（randomize_uninit モードではランダム値で初期化）
-    env.global_base_addr = env.allocator.alloc_internal_uninit(
-        scope.variable_count,
-        env.config.randomize_uninit,
-    );
+    env.global_base_addr = env
+        .allocator
+        .alloc_internal_uninit(scope.variable_count, env.config.randomize_uninit);
 
     // ルートレベル static 変数の初期化式を先に実行
     if !scope.static_init_statements.is_empty() {
@@ -110,10 +113,9 @@ fn initialize_function_statics(env: &mut Environment, scope: &Scope) -> Result<(
         }
 
         // static 変数用の永続ストレージをアロケータで確保
-        let static_addr = env.allocator.alloc_internal_uninit(
-            func.block.scope.variable_count,
-            env.config.randomize_uninit,
-        );
+        let static_addr = env
+            .allocator
+            .alloc_internal_uninit(func.block.scope.variable_count, env.config.randomize_uninit);
 
         if !func.block.scope.static_init_statements.is_empty() {
             // static_addr ブロック上で直接初期化式を実行

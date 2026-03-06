@@ -98,7 +98,9 @@ impl BuiltinFunctionKind {
     /// 組み込み関数の引数の数
     pub fn args_count(&self) -> usize {
         match self {
-            Self::Puti | Self::Putc | Self::Clog | Self::Assert | Self::AssertNot | Self::Trace => 1,
+            Self::Puti | Self::Putc | Self::Clog | Self::Assert | Self::AssertNot | Self::Trace => {
+                1
+            }
             Self::Geti | Self::Getc => 0,
             Self::Alloc | Self::Free => 1,
         }

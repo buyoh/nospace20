@@ -27,8 +27,8 @@ pub(super) fn parse_std_extensions(
     if js_val.is_undefined() || js_val.is_null() {
         return Ok((false, false));
     }
-    let ext_list: Vec<String> =
-        serde_wasm_bindgen::from_value(js_val).map_err(|e| ResultErr::single_error(format!("invalid std_extensions: {}", e)))?;
+    let ext_list: Vec<String> = serde_wasm_bindgen::from_value(js_val)
+        .map_err(|e| ResultErr::single_error(format!("invalid std_extensions: {}", e)))?;
     let mut debug_ext = false;
     let mut alloc_ext = false;
     for ext in &ext_list {
@@ -57,8 +57,8 @@ pub(super) fn parse_opt_passes(
     if js_val.is_undefined() || js_val.is_null() {
         return Ok(OptimizationOptions::none());
     }
-    let pass_list: Vec<String> =
-        serde_wasm_bindgen::from_value(js_val).map_err(|e| ResultErr::single_error(format!("invalid opt_passes: {}", e)))?;
+    let pass_list: Vec<String> = serde_wasm_bindgen::from_value(js_val)
+        .map_err(|e| ResultErr::single_error(format!("invalid opt_passes: {}", e)))?;
     if pass_list.is_empty() {
         return Ok(OptimizationOptions::none());
     }

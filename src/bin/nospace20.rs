@@ -3,21 +3,9 @@ use std::{io::Read, iter::repeat, process};
 use clap::{Parser, ValueEnum};
 use nospace20::cli_utils::CliCompileArgs;
 use nospace20::{
-    compile_to_ws,
-    interpret_with_env,
-    optimize,
-    parse_to_tokens,
-    parse_to_tree,
-    semantic_analyze,
-    CodeParseError,
-    CompileProperty,
-    CompileTarget,
-    Environment,
-    ExecutionMode,
-    TargetExtension,
-    TextCode,
-    WsCompileOptions,
-    WsOutputFormat,
+    compile_to_ws, interpret_with_env, optimize, parse_to_tokens, parse_to_tree, semantic_analyze,
+    CodeParseError, CompileProperty, CompileTarget, Environment, ExecutionMode, TargetExtension,
+    TextCode, WsCompileOptions, WsOutputFormat,
 };
 use unicode_width::UnicodeWidthStr;
 

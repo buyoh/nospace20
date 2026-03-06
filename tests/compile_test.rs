@@ -6,8 +6,8 @@
 mod common;
 
 use nospace20::{
-    compile_to_ws, WsCompileOptions, WsOutputFormat, parse_to_tokens, parse_to_tree,
-    semantic_analyze,
+    compile_to_ws, parse_to_tokens, parse_to_tree, semantic_analyze, WsCompileOptions,
+    WsOutputFormat,
 };
 
 #[test]
@@ -23,10 +23,13 @@ fn test_compile_debug_string() {
     let ast = parse_to_tree(&tokens).unwrap();
     let scope = semantic_analyze(&ast).unwrap();
 
-    let result = compile_to_ws(&scope, &WsCompileOptions {
-        output_format: WsOutputFormat::Mnemonic,
-        ..Default::default()
-    });
+    let result = compile_to_ws(
+        &scope,
+        &WsCompileOptions {
+            output_format: WsOutputFormat::Mnemonic,
+            ..Default::default()
+        },
+    );
     assert!(result.is_ok(), "Compilation failed: {:?}", result.err());
 
     let debug_str = result.unwrap();

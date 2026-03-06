@@ -36,12 +36,12 @@ pub(super) fn expand_template_instantiations(
     statements: &[LocatedStatement],
 ) -> Result<Vec<LocatedStatement>, Vec<CodeParseError>> {
     // テンプレート定義が存在するか確認（最適化: 存在しない場合は早期リターン）
-    let has_templates = statements.iter().any(|s| {
-        matches!(s.statement, Statement::TemplateFunctionDefinition { .. })
-    });
-    let has_instantiations = statements.iter().any(|s| {
-        matches!(s.statement, Statement::AliasInstantiation { .. })
-    });
+    let has_templates = statements
+        .iter()
+        .any(|s| matches!(s.statement, Statement::TemplateFunctionDefinition { .. }));
+    let has_instantiations = statements
+        .iter()
+        .any(|s| matches!(s.statement, Statement::AliasInstantiation { .. }));
 
     if !has_templates && !has_instantiations {
         return Ok(statements.to_vec());
@@ -51,18 +51,27 @@ pub(super) fn expand_template_instantiations(
     let mut template_map: BTreeMap<String, TemplateEntry> = BTreeMap::new();
     let mut errors: Vec<CodeParseError> = Vec::new();
     for stat in statements {
-        if let Statement::TemplateFunctionDefinition { name, args, alias_params, body } = &stat.statement {
+        if let Statement::TemplateFunctionDefinition {
+            name,
+            args,
+            alias_params,
+            body,
+        } = &stat.statement
+        {
             if template_map.contains_key(name.as_str()) {
                 errors.push(code_parse_error!(
                     stat.location.start,
                     format!("duplicate template function definition: '{}'", name)
                 ));
             } else {
-                template_map.insert(name.clone(), TemplateEntry {
-                    args: args.clone(),
-                    alias_params: alias_params.clone(),
-                    body: body.clone(),
-                });
+                template_map.insert(
+                    name.clone(),
+                    TemplateEntry {
+                        args: args.clone(),
+                        alias_params: alias_params.clone(),
+                        body: body.clone(),
+                    },
+                );
             }
         }
     }
@@ -77,7 +86,11 @@ pub(super) fn expand_template_instantiations(
             Statement::TemplateFunctionDefinition { .. } => {
                 // テンプレート定義はコード生成対象外 → スキップ
             }
-            Statement::AliasInstantiation { name, template_name, alias_args } => {
+            Statement::AliasInstantiation {
+                name,
+                template_name,
+                alias_args,
+            } => {
                 // テンプレートを検索
                 let template = match template_map.get(template_name.as_str()) {
                     Some(t) => t,
@@ -150,7 +163,10 @@ pub(super) fn expand_template_instantiations(
                                 }),
                             };
                             synthetic_body.push(LocatedStatement {
-                                statement: Statement::ConstexprDeclaration(param.name.clone(), expr),
+                                statement: Statement::ConstexprDeclaration(
+                                    param.name.clone(),
+                                    expr,
+                                ),
                                 location: loc.clone(),
                             });
                         }
@@ -189,13 +205,13 @@ pub(super) fn expand_template_instantiations(
                 // 自己再帰サポート: テンプレート名→インスタンス名の alias を挿入
                 // テンプレート名が alias パラメータ名と衝突しない場合のみ挿入する
                 // （alias パラメータ名が優先されるべきで、衝突時は不要かつ意図しない影響を与えるため）
-                let conflicts_with_param = template.alias_params.iter().any(|p| p.name == *template_name);
+                let conflicts_with_param = template
+                    .alias_params
+                    .iter()
+                    .any(|p| p.name == *template_name);
                 if !conflicts_with_param {
                     synthetic_body.push(LocatedStatement {
-                        statement: Statement::AliasIdentifier(
-                            template_name.clone(),
-                            name.clone(),
-                        ),
+                        statement: Statement::AliasIdentifier(template_name.clone(), name.clone()),
                         location: loc.clone(),
                     });
                 }

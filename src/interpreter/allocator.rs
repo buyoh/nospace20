@@ -184,7 +184,10 @@ impl InterpreterAllocator {
         };
         self.blocks.insert(addr, block);
 
-        debug_assert!(addr != 0, "alloc_internal() returned address 0, which is reserved");
+        debug_assert!(
+            addr != 0,
+            "alloc_internal() returned address 0, which is reserved"
+        );
         addr
     }
 

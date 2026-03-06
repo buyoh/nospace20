@@ -2,7 +2,11 @@ use crate::tree_parser::{Operator1, Operator2};
 
 /// bool を nospace の整数表現（0/1）に変換する
 pub(crate) fn bool_to_int(b: bool) -> i64 {
-    if b { 1 } else { 0 }
+    if b {
+        1
+    } else {
+        0
+    }
 }
 
 /// 純粋な二項演算を評価する

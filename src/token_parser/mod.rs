@@ -166,9 +166,7 @@ fn parse_number<I: Iterator<Item = (usize, char)>>(
                     value = value
                         .checked_mul(16)
                         .and_then(|v| v.checked_add(d as i64))
-                        .ok_or_else(|| {
-                            code_parse_error!(idx, "integer literal overflow")
-                        })?;
+                        .ok_or_else(|| code_parse_error!(idx, "integer literal overflow"))?;
                     has_digit = true;
                     iter.next();
                 } else {

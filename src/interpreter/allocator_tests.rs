@@ -111,7 +111,7 @@ fn test_access_freed() {
 fn test_block_boundary() {
     let mut a = new_alloc();
     let ptr = a.alloc(3); // ユーザーサイズ 3 → ptr, ptr+1, ptr+2 がアクセス可能
-    // ptr+3 はブロック境界外
+                          // ptr+3 はブロック境界外
     let result = std::panic::catch_unwind(move || a.get(ptr + 3));
     assert!(result.is_err());
 }
@@ -213,7 +213,9 @@ fn test_free_invalid_address_message() {
     let mut a = new_alloc();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| a.free(99999)));
     let err = result.unwrap_err();
-    let msg = err.downcast_ref::<String>().map(|s| s.as_str())
+    let msg = err
+        .downcast_ref::<String>()
+        .map(|s| s.as_str())
         .or_else(|| err.downcast_ref::<&str>().copied())
         .unwrap_or("");
     assert!(msg.contains("free"), "expected 'free' in error, got: {msg}");
@@ -226,10 +228,15 @@ fn test_double_free_message() {
     a.free(ptr);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| a.free(ptr)));
     let err = result.unwrap_err();
-    let msg = err.downcast_ref::<String>().map(|s| s.as_str())
+    let msg = err
+        .downcast_ref::<String>()
+        .map(|s| s.as_str())
         .or_else(|| err.downcast_ref::<&str>().copied())
         .unwrap_or("");
-    assert!(msg.contains("double free"), "expected 'double free' in error, got: {msg}");
+    assert!(
+        msg.contains("double free"),
+        "expected 'double free' in error, got: {msg}"
+    );
 }
 
 #[test]
@@ -237,22 +244,27 @@ fn test_access_freed_message() {
     let mut a = new_alloc();
     let ptr = a.alloc(3);
     a.free(ptr);
-    let result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| a.get(ptr)));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| a.get(ptr)));
     let err = result.unwrap_err();
-    let msg = err.downcast_ref::<String>().map(|s| s.as_str())
+    let msg = err
+        .downcast_ref::<String>()
+        .map(|s| s.as_str())
         .or_else(|| err.downcast_ref::<&str>().copied())
         .unwrap_or("");
-    assert!(msg.contains("freed memory"), "expected 'freed memory' in error, got: {msg}");
+    assert!(
+        msg.contains("freed memory"),
+        "expected 'freed memory' in error, got: {msg}"
+    );
 }
 
 #[test]
 fn test_access_unallocated_message() {
     let a = new_alloc();
-    let result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| a.get(99999)));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| a.get(99999)));
     let err = result.unwrap_err();
-    let msg = err.downcast_ref::<String>().map(|s| s.as_str())
+    let msg = err
+        .downcast_ref::<String>()
+        .map(|s| s.as_str())
         .or_else(|| err.downcast_ref::<&str>().copied())
         .unwrap_or("");
     assert!(

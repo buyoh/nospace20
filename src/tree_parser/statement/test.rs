@@ -91,11 +91,7 @@ fn parse_stmts(tokens: Vec<PrettyToken>) -> (Vec<LocatedStatement>, Vec<CodePars
 #[test]
 fn test_parse_let_statement() {
     // let: x;
-    let tokens = vec![
-        token_keyword_let(),
-        token_ident("x"),
-        token_semicolon(),
-    ];
+    let tokens = vec![token_keyword_let(), token_ident("x"), token_semicolon()];
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
@@ -142,11 +138,7 @@ fn test_parse_continue_statement() {
 #[test]
 fn test_parse_return_statement() {
     // return: 42;
-    let tokens = vec![
-        token_keyword_return(),
-        token_number(42),
-        token_semicolon(),
-    ];
+    let tokens = vec![token_keyword_return(), token_number(42), token_semicolon()];
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);

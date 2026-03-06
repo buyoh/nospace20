@@ -4,8 +4,8 @@ extern crate assert_matches;
 
 use std::collections::BTreeMap;
 
+pub use base::error::{CompileStage, NospaceError};
 pub use base::CodeParseError;
-pub use base::error::{NospaceError, CompileStage};
 pub use compiler_ws::CompileError;
 pub use interpreter::{Environment, EnvironmentConfig, InterpretError};
 pub use interpreter::{NospaceVM, StepResult};
@@ -64,7 +64,10 @@ pub fn interpret(scope: &Scope) -> Result<Option<i64>, InterpretError> {
 }
 
 /// グローバル変数の初期化を含む interpret（env 指定版）
-pub fn interpret_with_env(env: &mut Environment, scope: &Scope) -> Result<Option<i64>, InterpretError> {
+pub fn interpret_with_env(
+    env: &mut Environment,
+    scope: &Scope,
+) -> Result<Option<i64>, InterpretError> {
     interpreter::interpret_all(env, scope)
 }
 
@@ -174,10 +177,7 @@ pub struct WsCompileOptions {
 /// Whitespace にコンパイル（統合 API）
 ///
 /// `WsCompileOptions` によって出力形式・拡張・最適化を一括指定できる。
-pub fn compile_to_ws(
-    scope: &Scope,
-    options: &WsCompileOptions,
-) -> Result<String, CompileError> {
+pub fn compile_to_ws(scope: &Scope, options: &WsCompileOptions) -> Result<String, CompileError> {
     let prog = compiler_ws::compile_with_full_options(
         scope,
         options.debug_ext,
