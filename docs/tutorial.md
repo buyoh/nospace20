@@ -7,11 +7,14 @@ Original: https://github.com/buyoh/nospace/blob/master/docs/docs/tutorial.md
 ```
 func: __main() {
     __putc('H');
+    __putc('i');
+    __putc('\s');
+    __putc('H');
     __putc('e');
     __putc('l');
     __putc('l');
     __putc('o');
-    __putc('\n');
+    _ _ p u t c('\n');
 }
 ```
 
@@ -24,9 +27,12 @@ func: __main() {
   - `\` はエスケープ文字
   - バックスラッシュは `\\`
   - 改行(LF)は `\n`
-  - 半角スペースは `\s`
+  - 半角スペースは `\s`。
   - タブは `\t`
   - `'` は `\'`
+- 空白改行タブを一切含めること無く記述できるのが本言語の下らない特徴
+- 逆に、どこに空白改行タブを入れてもその空白は無視される
+  - `' '` は `''`と解釈され、コンパイルエラーになる
 
 ## Fibonacci
 
@@ -50,18 +56,11 @@ func: __main() {
 ```
 
 - `return` で関数の返り値を指定出来る
-  - 省略した場合は常に0
-- `if`
-- `else if` ではなく `else: if:` と書く
 - コメントは `#` で囲む
 - 変数宣言は `let`
-- ローカルスコープは関数のみ
-- 関数内のどこでも `let` を使うことが出来る
-- 関数外で`let`を使うとグローバルスコープになる
-- 同一スコープで同じ名前の変数の宣言は出来ない
-  - 関数も同様
+- 同一スコープで同じ名前の変数・関数の宣言は出来ない
 - `__geti()` で数字を読み込む
-  - whitespace interpreter側の実装依存でhaskell版では改行区切り
+  - whitespace interpreter側の実装依存。一般的には改行区切りで読み込まれる。
 
 ## Swap
 
@@ -96,11 +95,7 @@ func: rotate(begin, end) {
     };
 }
 func: __main(){
-    let: arr[4];
-    arr[0] = __getc();
-    arr[1] = __getc();
-    arr[2] = __getc();
-    arr[3] = __getc();
+    let: arr[]([__getc(), __getc(), __getc(), __getc()]);
     rotate(&arr, &arr+4);
     __putc(arr[0]);
     __putc(arr[1]);
@@ -112,12 +107,56 @@ func: __main(){
 - `while`
 - 配列の宣言は `let:arr[4];`
   - 配列サイズは定数のみ指定可能
-  - アップデートで変数が指定可能になるかも？
+  - 初期値を設定した場合は省略できる
+- 配列も`let` 宣言の時に初期化出来る
+- `a[3]([1,2])` で `a[0]` を `1`，`a[1]`を `2` に初期化する
+  - `a[2]` は確保されるが未定値
+- `a[]([1,2])` でサイズを省略できる（`a[2]` と同等）
 - `arr[1]` で 1番目の要素を参照する
-- `arr` は `arr[0]` と同義
-  - C言語と異なる
-- 空白改行タブを一切含めること無く記述できるのが本言語の下らない特徴
-- 逆に、どこに空白改行タブを入れてもその空白は無視される
+- `arr` は `arr[0]` と同義。C言語と異なる
+
+## Linked stack
+
+```
+let: tail(0);
+
+func: push_back(val) {
+  let: next(__alloc(2));
+  (*next)[0] = tail;
+  (*next)[1] = val;
+  # *(next + 0) = tail; #
+  # *(next + 1) = val; #
+  tail = next;
+}
+
+func: pop_back() {
+  if: tail == 0 {
+    return: 0; 
+  };
+  let: val((*tail)[1]);
+  let: p(tail);
+  tail = (*tail)[0];
+  __free(p);
+  return: val;
+}
+
+func: __main() {
+  for: {let: c(0); } {
+    c = __getc();
+    c > 32 && c != '$';
+  } {} {
+    if: '0' <= c && c <= '9' {
+      push_back(c - '0');
+    };
+    if: c == 'p' {
+      __puti(pop_back()); 
+    };
+  };
+}
+```
+
+- `__alloc(size)` でメモリを確保、`__free(ptr)` で解放する
+- `for` 文は 4 つのブロックから構成される: 初期化ブロック, 条件ブロック, 更新ブロック, 本体ブロック
 
 ## Sorting (Quick Sort)
 
@@ -126,11 +165,11 @@ func: swap(p, q) {
     let: t;
     t = *p; *p = *q; *q = t;
 }
-func: qsort(begin, end) {
-    if: end - begin <= 1 { return; };
+func: qsort(begin, end), alias: func: compare(l,r) {
+    if: end - begin <= 1 { return:; };
     let: pv(begin), it(begin + 1);
     while: it < end {
-        if: *pv > *it {
+        if: !compare(*pv, *it) {
             swap(pv + 1, it);
             swap(pv, pv + 1);
             pv += 1;
@@ -140,21 +179,38 @@ func: qsort(begin, end) {
     qsort(begin, pv);
     qsort(pv+1, end);
 }
+
+func: lesser(l, r) {
+  return: l < r;
+}
+
+func: greater(l, r) {
+  return: l > r;
+}
+
+alias: puti(__puti);
+alias: putc(__putc);
+
+alias: qsort_le(qsort, lesser);
+alias: qsort_ge(qsort, greater);
+
 func: __main() {
     let: arr[]([3,1,4,1,5,9,2,6,5]);
-    qsort(&arr, &arr+9);
-    let: i(0);
-    while: i < 9 {
-        __puti(arr[i]);
-        __putc('\s');
-        i += 1;
+    qsort_le(&arr, &arr+9);
+    repeat: i(0), 9, {
+        puti(arr[i]);
+        putc('\s');
+    };
+    let: arr2[]([3,1,4,1,5,9,2,6,5]);
+    qsort_ge(&arr2, &arr2+9);
+    repeat: i(0), 9, {
+        puti(arr2[i]);
+        putc('\s');
     };
 }
 ```
 
-- 配列も`let` 宣言の時に初期化出来る
-- `a[3]([1,2])` で `a[0]` を `1`，`a[1]`を `2` に初期化する
-  - `a[2]` は確保されるが未定値
-- `a[]([1,2])` でサイズを省略できる（`a[2]` と同等）
-- 初期化の値は定数でなくても良い
-- 半角スペースは `\s` で出力できる。`' '` は `''`と解釈され、コンパイルエラーになる
+- `alias` で関数や変数などの識別子の別名を定義できる。
+- `alias` はテンプレート関数の引数としても使用する。
+  - 関数定義に `alias` パラメータを追加したとき、その関数は実体を持たないテンプレート関数となる。
+  - テンプレート関数を `alias` 定義で参照し、パラメータに対応する識別子を渡すことで、そのテンプレート関数のインスタンス化が行われる。
