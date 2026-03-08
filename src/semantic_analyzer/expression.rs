@@ -87,7 +87,8 @@ pub(super) fn convert_to_exec_expression_with_resolver(
     let expr = &located_expr.expression;
     match expr {
         Expression::Operation1(Operator1::Ref, inner) => {
-            // & は変数または配列要素に対してのみ使用可能
+            // & は変数または配列要素、またはデリファレンス結果に適用可能。
+            // &(*x) = x となるため、Deref の場合は内側の式をそのまま返す。
             match &inner.expression {
                 Expression::Variable(name) => {
                     let (id_ref, value_type) = parent_resolver
@@ -146,6 +147,16 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                         ),
                         loc,
                     ))
+                }
+                // &(*x) = x : デリファレンス結果に & を適用した場合は内側の式を評価して返す
+                Expression::Operation1(Operator1::Deref, deref_inner) => {
+                    let exec_inner = convert_to_exec_expression_with_resolver(
+                        deref_inner,
+                        parent_resolver,
+                        func_return_types,
+                    )?;
+                    require_int_type(&exec_inner, func_return_types)?;
+                    Ok(exec_inner)
                 }
                 _ => Err(vec![code_parse_error!(
                     loc.start,

@@ -1,5 +1,5 @@
 {
   "type": "success_io",
   "stdin": "",
-  "stdout": "100\n200"
+  "stdout": "100\n10\n20\n30"
 }

@@ -351,18 +351,25 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             }
         };
 
-        // 後置演算子: (expr)[i], expr @ type, expr.field
+        // 後置演算子: (expr)[i] → *(&(expr) + i) に脱糖, expr @ type, expr.field
         // Identifier ケースの ArrayAccess (arr[i]) は match 内で既に処理されており、
         // ここでは括弧式・関数呼び出し・ArrayAccess 後の連鎖アクセスが対象となる。
+        // 旧仕様 *(expr + i) では expr がポインタを返す前提だったが、
+        // arr[i] = *(&arr + i) と一貫させるため *(&(expr) + i) に変更。
         loop {
             if let Some((Token::BracketL, _)) = self.iter.peek() {
                 self.iter.next(); // '[' を消費
                 let index_expr = self.parse_to_expression_tree_root();
                 match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
                 let end = self.current_pos();
-                // (expr)[i] → *(expr + i) に脱糖
+                // (expr)[i] → *(&(expr) + i) に脱糖
+                let ref_expr = self.located(
+                    Expression::Operation1(Operator1::Ref, result),
+                    start,
+                    end,
+                );
                 let plus_expr = self.located(
-                    Expression::Operation2(Operator2::Plus, result, index_expr),
+                    Expression::Operation2(Operator2::Plus, ref_expr, index_expr),
                     start,
                     end,
                 );
