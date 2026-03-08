@@ -234,7 +234,22 @@ cargo test --test code_test
 
 spec.md に `(expr)[i]` の脱糖ルールに関する記述を追加するかは、仕様の反映タスクとして別途検討。
 
-## 影響範囲
+## 進捗
+
+- [x] Step 1: `src/tree_parser/expression/mod.rs` の脱糖ルール変更（`*(expr + i)` → `*(&(expr) + i)`）
+- [x] Step 2: `src/semantic_analyzer/expression.rs` に `&(*x) = x` の恒等式を追加（Deref 結果への Ref 適用を許容）
+- [x] Step 3: 既存テスト3件（`postfix_subscript_read.ns`, `postfix_subscript_write.ns`, `postfix_subscript_compound.ns`）を新仕様に書き換え
+- [x] Step 4: `.check.json` の期待出力を更新
+- [x] Step 5: largeテスト `cargo test --test code_test postfix_subscript` → 21テスト全通過
+
+### 未解決
+
+- `src/tree_parser/expression/test.rs` の3ユニットテストが旧仕様の AST 構造を期待しているため失敗
+  - `test_parse_postfix_subscript_deref_paren`
+  - `test_parse_postfix_subscript_deref_paren_index_1`  
+  - `test_parse_postfix_subscript_expr_paren`
+  - 調査ドキュメント: `ai-docs/task/fix-tree-parser-postfix-subscript-unit-tests.md`
+
 
 ### 変更対象ファイル
 
