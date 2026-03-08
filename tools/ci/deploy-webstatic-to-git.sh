@@ -32,15 +32,7 @@ mkdir -p "$TMP_DIR"
 cd "$REPO_ROOT_DIR"
 GIT_REPO_NOSPACE20_URL=$(git config --get remote.origin.url)
 
-# -------------------------------------
-
-cd "$REPO_ROOT_DIR"
-NO_DEBUG=true bash "build-wasm.sh"
-
-if [ ! -f "$REPO_ROOT_DIR/pkg/"*.wasm ]; then
-  echo "Error: wasm build failed, pkg/wasm_bg.wasm not found"
-  exit 1
-fi
+VITE_NOSPACE_VERSION=$(cargo pkgid | cut -d# -f2)
 
 # -------------------------------------
 
@@ -48,14 +40,16 @@ cd "$TMP_DIR"
 git clone --depth 1 --branch "$GIT_REPO_WEBUI_BRANCH" "$GIT_REPO_WEBUI_URL" webui
 cd webui
 
-# Update webui with new wasm files
-cp "$REPO_ROOT_DIR/pkg/"*.wasm "$REPO_ROOT_DIR/pkg/"*.js "$REPO_ROOT_DIR/pkg/"*.ts \
-  "$WEBUI_WASM_DEST_DIR/"
+VITE_WEBUI_VERSION=$(git log -1 --format="%cd" --date=format:"%Y.%m.%d")
+
+bash tools/update-nospace20.sh "$REPO_ROOT_DIR"
 
 cat > .env.local <<EOL
 NODE_ENV=production
 VITE_APPLICATION_FLAVOR=wasm
 VITE_BASE_PATH="/nospace20/"
+VITE_NOSPACE_VERSION=$VITE_NOSPACE_VERSION
+VITE_WEBUI_VERSION=$VITE_WEBUI_VERSION
 EOL
 
 npm ci
