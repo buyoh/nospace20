@@ -759,7 +759,7 @@ fn test_parse_array_assign() {
     }
 }
 
-// 後置添字演算子のテスト: (*p)[0] → Deref(Plus(Deref(Variable("p")), Factor(0)))
+// 後置添字演算子のテスト: (*p)[0] → Deref(Plus(Ref(Deref(Variable("p"))), Factor(0)))
 #[test]
 fn test_parse_postfix_subscript_deref_paren() {
     // tokens: ( * p ) [ 0 ]
@@ -778,11 +778,14 @@ fn test_parse_postfix_subscript_deref_paren() {
         Expression::Operation1(Operator1::Deref, inner) => match inner.expression {
             Expression::Operation2(Operator2::Plus, left, right) => {
                 match left.expression {
-                    Expression::Operation1(Operator1::Deref, p) => match p.expression {
-                        Expression::Variable(name) => assert_eq!(name, "p"),
-                        _ => panic!("Expected Variable(p)"),
+                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression {
+                        Expression::Operation1(Operator1::Deref, p) => match p.expression {
+                            Expression::Variable(name) => assert_eq!(name, "p"),
+                            _ => panic!("Expected Variable(p)"),
+                        },
+                        _ => panic!("Expected Deref(Variable(p)) inside Ref"),
                     },
-                    _ => panic!("Expected Deref(Variable(p)) on left"),
+                    _ => panic!("Expected Ref(Deref(Variable(p))) on left"),
                 }
                 match right.expression {
                     Expression::Factor(0) => (),
@@ -795,7 +798,7 @@ fn test_parse_postfix_subscript_deref_paren() {
     }
 }
 
-// 後置添字演算子のテスト: (*p)[1] → Deref(Plus(Deref(Variable("p")), Factor(1)))
+// 後置添字演算子のテスト: (*p)[1] → Deref(Plus(Ref(Deref(Variable("p"))), Factor(1)))
 #[test]
 fn test_parse_postfix_subscript_deref_paren_index_1() {
     // tokens: ( * p ) [ 1 ]
@@ -814,11 +817,14 @@ fn test_parse_postfix_subscript_deref_paren_index_1() {
         Expression::Operation1(Operator1::Deref, inner) => match inner.expression {
             Expression::Operation2(Operator2::Plus, left, right) => {
                 match left.expression {
-                    Expression::Operation1(Operator1::Deref, p) => match p.expression {
-                        Expression::Variable(name) => assert_eq!(name, "p"),
-                        _ => panic!("Expected Variable(p)"),
+                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression {
+                        Expression::Operation1(Operator1::Deref, p) => match p.expression {
+                            Expression::Variable(name) => assert_eq!(name, "p"),
+                            _ => panic!("Expected Variable(p)"),
+                        },
+                        _ => panic!("Expected Deref(Variable(p)) inside Ref"),
                     },
-                    _ => panic!("Expected Deref(Variable(p)) on left"),
+                    _ => panic!("Expected Ref(Deref(Variable(p))) on left"),
                 }
                 match right.expression {
                     Expression::Factor(1) => (),
@@ -831,7 +837,7 @@ fn test_parse_postfix_subscript_deref_paren_index_1() {
     }
 }
 
-// 後置添字演算子のテスト: (x + y)[2] → Deref(Plus(Plus(Variable("x"), Variable("y")), Factor(2)))
+// 後置添字演算子のテスト: (x + y)[2] → Deref(Plus(Ref(Plus(Variable("x"), Variable("y"))), Factor(2)))
 #[test]
 fn test_parse_postfix_subscript_expr_paren() {
     // tokens: ( x + y ) [ 2 ]
@@ -851,17 +857,20 @@ fn test_parse_postfix_subscript_expr_paren() {
         Expression::Operation1(Operator1::Deref, inner) => match inner.expression {
             Expression::Operation2(Operator2::Plus, left, right) => {
                 match left.expression {
-                    Expression::Operation2(Operator2::Plus, ll, lr) => {
-                        match ll.expression {
-                            Expression::Variable(name) => assert_eq!(name, "x"),
-                            _ => panic!("Expected Variable(x)"),
+                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression {
+                        Expression::Operation2(Operator2::Plus, ll, lr) => {
+                            match ll.expression {
+                                Expression::Variable(name) => assert_eq!(name, "x"),
+                                _ => panic!("Expected Variable(x)"),
+                            }
+                            match lr.expression {
+                                Expression::Variable(name) => assert_eq!(name, "y"),
+                                _ => panic!("Expected Variable(y)"),
+                            }
                         }
-                        match lr.expression {
-                            Expression::Variable(name) => assert_eq!(name, "y"),
-                            _ => panic!("Expected Variable(y)"),
-                        }
-                    }
-                    _ => panic!("Expected Plus(x, y) on left"),
+                        _ => panic!("Expected Plus(x, y) inside Ref"),
+                    },
+                    _ => panic!("Expected Ref(Plus(x, y)) on left"),
                 }
                 match right.expression {
                     Expression::Factor(2) => (),
