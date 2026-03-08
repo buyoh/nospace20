@@ -28,6 +28,7 @@
 - [repeat-form1-upper-bound.md](repeat-form1-upper-bound.md) - repeat Form 1 の意味論変更（ループ回数→上限値、隠し変数廃止）
 - [keyword-colon-token-design.md](keyword-colon-token-design.md) - Keyword トークンにコロンを内包する設計の検討（break/continue/return の不整合分析）
 - [code-design-review/](code-design-review/) - コード設計レビュー残タスク（02-module-splitting のみ未着手。01,03,04,05,06 は [done-task](../done-task/code-design-review/) に移動済み）
+- [fix-postfix-subscript-semantics.md](fix-postfix-subscript-semantics.md) - 後置添字演算子 `(expr)[i]` の脱糖仕様変更（`*(expr + i)` → `*(&(expr) + i)` へ統一、テスト改善）
 - ~~[review-nospace-vm.md](../done-task/review-nospace-vm.md) / [review-nospace-vm-plan.md](../done-task/review-nospace-vm-plan.md)~~ - NospaceVM コードレビュー改善（vm.rs モジュール分割、ドキュメントコメント追加、カプセル化修正）→ done-task に移動
 - [separate-inline-tests.md](separate-inline-tests.md) - インラインテスト分離（19ファイルの `#[cfg(test)] mod tests` を別ファイルに分離、Step 1-3 段階実施）
 - [temporary-array-literals.md](temporary-array-literals.md) - 一時配列リテラル（文字列・配列を式として直接記述、候補1: 文スコープ一時 vs 候補2: 無名static変数、設計比較・推奨）
