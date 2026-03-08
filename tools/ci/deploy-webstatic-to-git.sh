@@ -15,7 +15,7 @@ WEBUI_WASM_DEST_DIR="src/web/libs/nospace20"
 # -----------------
 
 # Use GH_TOKEN
-if [ -n "$GH_TOKEN" ]; then
+if [ -v GH_TOKEN ] && [ -n "$GH_TOKEN" ]; then
   GIT_REPO_NOSPACE20_URL="https://x-access-token:${GH_TOKEN}@github.com/${GH_REPOSITORY}.git"
 fi
 
