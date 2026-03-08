@@ -82,14 +82,14 @@ pub struct CliCompileArgs {
 impl CliCompileArgs {
     /// Build target extensions from CLI arguments
     pub fn build_target_extensions(&self) -> Vec<TargetExtension> {
-        let mut extensions: Vec<TargetExtension> = 
+        let mut extensions: Vec<TargetExtension> =
             self.std_ext.iter().map(|e| (*e).into()).collect();
-        
+
         // Add Alloc by default unless --no-std-ext is specified
         if !self.no_std_ext && !extensions.contains(&TargetExtension::Alloc) {
             extensions.push(TargetExtension::Alloc);
         }
-        
+
         extensions
     }
 
