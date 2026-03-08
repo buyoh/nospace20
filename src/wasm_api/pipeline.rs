@@ -1,7 +1,8 @@
-//! 共通パイプライン・パラメータパーサ・エラー変換
+//! Common pipeline, parameter parsers, and error conversion
 //!
-//! `parse_to_tokens → parse_to_tree → semantic_analyze` の4箇所で重複していた
-//! パイプラインを共通化し、パラメータパーサとエラー変換もここに集約する。
+//! Commonalizes the pipeline duplicated in 4 places:
+//! `parse_to_tokens → parse_to_tree → semantic_analyze`
+//! Parameter parsers and error conversion are also consolidated here.
 
 use wasm_bindgen::prelude::*;
 
@@ -13,10 +14,10 @@ use crate::{
 use super::types::{JsOptPassArray, JsStdExtensionArray, ResultErr, WasmError};
 
 // ========================================
-// パラメータパーサ
+// Parameter parsers
 // ========================================
 
-/// `StdExtension[]` (JS 配列) をパースし、各拡張の有効/無効を返す
+/// Parse `StdExtension[]` (JS array) and return enabled/disabled status for each extension
 pub(super) fn parse_std_extensions(
     extensions: Option<JsStdExtensionArray>,
 ) -> Result<(bool, bool), ResultErr> {
@@ -46,7 +47,7 @@ pub(super) fn parse_std_extensions(
     Ok((debug_ext, alloc_ext))
 }
 
-/// `OptPass[]` (JS 配列) をパースし、`OptimizationOptions` を返す
+/// Parse `OptPass[]` (JS array) and return `OptimizationOptions`
 pub(super) fn parse_opt_passes(
     passes: Option<JsOptPassArray>,
 ) -> Result<OptimizationOptions, ResultErr> {
@@ -84,12 +85,12 @@ pub(super) fn parse_opt_passes(
 }
 
 // ========================================
-// エラー変換
+// Error conversion
 // ========================================
 
-/// エラー詳細文字列を生成する（CLI の出力に相当）
+/// Generate error detail string (equivalent to CLI output)
 ///
-/// 出力例:
+/// Example output:
 /// ```text
 /// line:7 column:10
 ///   (*next)[0] = tail;
@@ -110,10 +111,10 @@ fn format_error_details(text: &TextCode, line_0: usize, column_0: usize) -> Stri
     )
 }
 
-/// `CompileError` を `ResultErr` に変換する
+/// Convert `CompileError` to `ResultErr`
 ///
-/// `CompileError` は位置情報（`SourceLocation`）を持つため、
-/// `TextCode` を使って行・列番号に変換する。
+/// `CompileError` has position information (`SourceLocation`),
+/// so we use `TextCode` to convert it to line and column numbers.
 pub(super) fn convert_compile_error(error: &CompileError, text: &TextCode) -> ResultErr {
     let (line, column, details) = if let Some(loc) = &error.location {
         let (l, c) = text.char_index_to_line(loc.start);
@@ -133,7 +134,7 @@ pub(super) fn convert_compile_error(error: &CompileError, text: &TextCode) -> Re
     }
 }
 
-/// `CodeParseError[]` を `ResultErr` に変換する
+/// Convert `CodeParseError[]` to `ResultErr`
 pub(super) fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> ResultErr {
     let wasm_errors: Vec<WasmError> = errors
         .iter()
@@ -141,7 +142,7 @@ pub(super) fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> Resu
             let (line, column, details) = if let Some(p) = e.code_pointer {
                 let (l, c) = text.char_index_to_line(p);
                 let details = format_error_details(text, l, c);
-                // NOTE: char_index_to_line は0-indexed。ユーザー向けには1-indexedにする。
+                // NOTE: char_index_to_line is 0-indexed. Convert to 1-indexed for user-facing display.
                 (Some(l + 1), Some(c + 1), Some(details))
             } else {
                 (None, None, None)
@@ -162,13 +163,13 @@ pub(super) fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> Resu
 }
 
 // ========================================
-// 共通コンパイルパイプライン
+// Common compilation pipeline
 // ========================================
 
-/// nospace ソースをトークン解析・構文解析・意味解析する（共通パイプライン）
+/// Parse nospace source with token analysis, syntax analysis, and semantic analysis (common pipeline)
 ///
-/// `run`, `compile`, `parse`, `WasmWhitespaceVM::new` の4箇所で重複していた
-/// `parse_to_tokens → parse_to_tree → semantic_analyze` を一箇所に集約。
+/// Consolidates `parse_to_tokens → parse_to_tree → semantic_analyze` duplicated in 4 places:
+/// `run`, `compile`, `parse`, `WasmWhitespaceVM::new`.
 pub(super) fn analyze_source(source: &str) -> Result<(Scope, TextCode<'_>), ResultErr> {
     let text_code = TextCode::new(source);
     let source_string = source.to_string();
@@ -180,9 +181,9 @@ pub(super) fn analyze_source(source: &str) -> Result<(Scope, TextCode<'_>), Resu
     Ok((scope, text_code))
 }
 
-/// 共通パイプライン + 最適化適用
+/// Common pipeline + apply optimization
 ///
-/// `run`, `compile` の両関数で使われる「解析 + 最適化」のフロー。
+/// "Analysis + optimization" flow used by both `run` and `compile` functions.
 pub(super) fn analyze_and_optimize(
     source: &str,
     opt_passes: Option<JsOptPassArray>,

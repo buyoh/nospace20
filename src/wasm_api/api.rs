@@ -1,9 +1,9 @@
-//! トップレベル WASM API: `compile`, `parse` およびヘルパー関数
+//! Top-level WASM API: `compile`, `parse` and helper functions
 //!
-//! 各 API は内部パイプライン（`pipeline` モジュール）で共通化された処理を呼び出す。
+//! Each API calls processing commonized in the internal pipeline (`pipeline` module).
 //!
-//! `run()` 関数は NospaceVM (`WasmNospaceVM`) に置き換えられたため削除済み。
-//! ワンショット実行が必要な場合は `WasmNospaceVM` の `step()` ループを使用する。
+//! `run()` function has been removed as it was replaced by NospaceVM (`WasmNospaceVM`).
+//! For one-shot execution, use the `step()` loop of `WasmNospaceVM`.
 
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -17,14 +17,14 @@ use super::types::{
 };
 
 // ========================================
-// トップレベル API
+// Top-level API
 // ========================================
 
-/// nospace ソースコードをコンパイルする。
-/// CLI の `--mode=compile` に相当。
+/// Compile nospace source code.
+/// Equivalent to CLI's `--mode=compile`.
 ///
-/// - `std_extensions`: 有効にする拡張の配列（例: `["debug", "alloc"]`）
-/// - `opt_passes`: 有効にする最適化パスの配列（例: `["all"]` または `["constant-folding", "dead-code"]`）
+/// - `std_extensions`: Array of extensions to enable (e.g., `["debug", "alloc"]`)
+/// - `opt_passes`: Array of optimization passes to enable (e.g., `["all"]` or `["constant-folding", "dead-code"]`)
 #[wasm_bindgen]
 pub fn compile(
     source: &str,
@@ -38,7 +38,7 @@ pub fn compile(
         Err(e) => return serde_wasm_bindgen::to_value(&e).unwrap().into(),
     };
 
-    // パラメータ変換
+    // Parameter conversion
     let compile_target = match target {
         "ws" => CompileTarget::Ws,
         "mnemonic" => CompileTarget::Mnemonic,
@@ -63,7 +63,7 @@ pub fn compile(
         }
     };
 
-    // バリデーション
+    // Validation
     if matches!(compile_target, CompileTarget::Ws | CompileTarget::Mnemonic)
         && language_std != LanguageStd::Ws
     {
@@ -71,13 +71,13 @@ pub fn compile(
         return serde_wasm_bindgen::to_value(&e).unwrap().into();
     }
 
-    // 解析 + 最適化
+    // Parse + optimize
     let (scope, text_code, _) = match pipeline::analyze_and_optimize(source, opt_passes) {
         Ok(v) => v,
         Err(e) => return serde_wasm_bindgen::to_value(&e).unwrap().into(),
     };
 
-    // コンパイル
+    // Compile
     let output_format = match compile_target {
         CompileTarget::Ws => WsOutputFormat::Whitespace,
         CompileTarget::Mnemonic => WsOutputFormat::Mnemonic,
@@ -101,14 +101,14 @@ pub fn compile(
             js.into()
         }
         Err(e) => {
-            // CompileError を位置情報付きで変換
+            // Convert CompileError with position information
             let err_result = pipeline::convert_compile_error(&e, &text_code);
             serde_wasm_bindgen::to_value(&err_result).unwrap().into()
         }
     }
 }
 
-/// nospace ソースコードの構文チェックのみ行う。
+/// Perform only syntax checking on nospace source code.
 #[wasm_bindgen]
 pub fn parse(source: &str) -> JsParseResult {
     match pipeline::analyze_source(source) {
@@ -126,12 +126,12 @@ pub fn parse(source: &str) -> JsParseResult {
 }
 
 // ========================================
-// ヘルパー関数・メタデータ
+// Helper functions and metadata
 // ========================================
 
-/// 利用可能なオプションの一覧を返す
+/// Return a list of available options
 ///
-/// compile() や WasmWhitespaceVM で指定可能なオプション値を取得できる。
+/// Get option values that can be specified in compile() or WasmWhitespaceVM.
 #[wasm_bindgen(js_name = "getOptions")]
 pub fn get_options() -> JsOptionsDefinition {
     #[derive(Serialize)]

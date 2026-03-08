@@ -1,12 +1,12 @@
-//! TypeScript 型定義・Serde 結果構造体
+//! TypeScript type definitions and Serde result structures
 //!
-//! wasm_bindgen の `extern "C"` 型と、WASM API が返す Serde シリアライズ構造体を定義する。
+//! Defines wasm_bindgen `extern "C"` types and Serde-serializable structures returned by WASM API.
 
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 // ========================================
-// TypeScript 型定義
+// TypeScript type definitions
 // ========================================
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -42,19 +42,19 @@ interface VmStepResult {
     inputType?: "char" | "number";
 }
 
-/** コンパイルターゲット */
+/** Compile target */
 type CompileTarget = "ws" | "mnemonic";
 
-/** 言語サブセット */
+/** Language subset */
 type LanguageStd = "standard" | "ws";
 
-/** ターゲット拡張 */
+/** Target extensions */
 type StdExtension = "debug" | "alloc";
 
-/** 利用可能な最適化パス */
+/** Available optimization passes */
 type OptPass = "all" | "condition-opt" | "geti-opt" | "constant-folding" | "dead-code";
 
-/** 利用可能なオプション定義 */
+/** Available options definition */
 interface OptionsDefinition {
     readonly compileTargets: readonly CompileTarget[];
     readonly languageStds: readonly LanguageStd[];
@@ -64,7 +64,7 @@ interface OptionsDefinition {
 "#;
 
 // ========================================
-// extern "C" 型（wasm_bindgen の外部型）
+// extern "C" types (wasm_bindgen external types)
 // ========================================
 
 #[wasm_bindgen]
@@ -98,10 +98,10 @@ extern "C" {
 }
 
 // ========================================
-// Serde 結果構造体
+// Serde result structures
 // ========================================
 
-/// エラーレスポンス（構文エラー等）
+/// Error response (for syntax errors, etc.)
 #[derive(Serialize)]
 pub struct ResultErr {
     pub success: bool, // always false
@@ -109,7 +109,7 @@ pub struct ResultErr {
 }
 
 impl ResultErr {
-    /// 単一エラーメッセージから ResultErr を構築する
+    /// Construct ResultErr from a single error message
     pub fn single_error(message: String) -> Self {
         Self {
             success: false,
@@ -123,14 +123,14 @@ impl ResultErr {
     }
 }
 
-/// コンパイル成功時のレスポンス
+/// Response on successful compilation
 #[derive(Serialize)]
 pub struct CompileResultOk {
     pub success: bool, // always true
     pub output: String,
 }
 
-/// WASM API が返すエラーの詳細
+/// Detailed error information returned by WASM API
 #[derive(Serialize)]
 pub struct WasmError {
     pub message: String,
@@ -142,7 +142,7 @@ pub struct WasmError {
     pub details: Option<String>,
 }
 
-/// Whitespace VM のステップ実行結果
+/// Step execution result of Whitespace VM
 #[derive(Serialize)]
 pub struct VmStepResult {
     pub status: String, // "suspended" | "complete" | "error" | "waiting_for_input"

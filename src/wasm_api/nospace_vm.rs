@@ -1,10 +1,10 @@
-//! NospaceVM の WASM ラッパー
+//! WASM wrapper for NospaceVM
 //!
-//! nospace ソースからステップ実行可能な VM を構築する。
-//! `WasmWhitespaceVM` と同パターンのインターフェースを提供する。
+//! Construct a VM capable of step execution from nospace source.
+//! Provides the same interface pattern as `WasmWhitespaceVM`.
 //!
-//! `run()` API（再帰インタプリタ）の代替として使用する。
-//! ワンショット実行が必要な場合は `step()` ループで実現可能:
+//! Used as an alternative to the `run()` API (recursive interpreter).
+//! For one-shot execution, implement with `step()` loop:
 //! ```javascript
 //! const vm = new WasmNospaceVM(source, stdin);
 //! while (true) {
@@ -31,10 +31,10 @@ use super::types::{JsOptPassArray, JsVmStepResult, ResultErr, VmStepResult};
 // WasmNospaceVM
 // ========================================
 
-/// NospaceVM の WASM ラッパー
+/// WASM wrapper for NospaceVM
 ///
-/// JS 側ではオペーク型として扱われ、メソッド呼び出しで状態を操作する。
-/// `WasmWhitespaceVM` と同パターンのインターフェースを提供する。
+/// Treated as an opaque type on the JS side; manipulate state via method calls.
+/// Provides the same interface pattern as `WasmWhitespaceVM`.
 #[wasm_bindgen]
 pub struct WasmNospaceVM {
     vm: NospaceVM,
@@ -43,11 +43,11 @@ pub struct WasmNospaceVM {
 
 #[wasm_bindgen]
 impl WasmNospaceVM {
-    /// nospace ソースコードから VM を構築する
+    /// Construct VM from nospace source code
     ///
-    /// - `stdin`: 標準入力の内容
-    /// - `opt_passes`: 最適化パスの配列（省略可; 例: `["all"]`）
-    /// - `ignore_debug`: デバッグ用組み込み関数を無視するか（省略可、デフォルト false）
+    /// - `stdin`: Contents of standard input
+    /// - `opt_passes`: Array of optimization passes (optional; e.g., `["all"]`)
+    /// - `ignore_debug`: Whether to ignore debug built-in functions (optional, defaults to false)
     #[wasm_bindgen(constructor)]
     pub fn new(
         source: &str,
@@ -55,27 +55,27 @@ impl WasmNospaceVM {
         opt_passes: Option<JsOptPassArray>,
         ignore_debug: Option<bool>,
     ) -> Result<WasmNospaceVM, JsValue> {
-        // 解析 + 最適化
+        // Parse + optimize
         let (scope, _text_code, _) = pipeline::analyze_and_optimize(source, opt_passes)
             .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
-        // I/O バッファ構築
+        // Build I/O buffers
         let stdin_cursor: Box<dyn std::io::BufRead> =
             Box::new(BufReader::new(Cursor::new(stdin.as_bytes().to_vec())));
         let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
         let stdout_clone = Rc::clone(&stdout_buf);
         let stdout_writer: Box<dyn std::io::Write> = Box::new(SharedWriter(stdout_clone));
 
-        // VM 構築
+        // Build VM
         let mut vm = NospaceVM::from_scope(scope).map_err(|e| {
             let err = ResultErr::single_error(format!("{}", e));
             serde_wasm_bindgen::to_value(&err).unwrap()
         })?;
 
-        // I/O 設定 (with_io は stdout_capture を無効化するため、直接フィールドを操作)
+        // I/O configuration (with_io disables stdout_capture, so directly manipulate fields)
         vm = vm.with_io(stdin_cursor, stdout_writer);
 
-        // ignore_debug 設定
+        // ignore_debug configuration
         if ignore_debug.unwrap_or(false) {
             let mut config = EnvironmentConfig::default();
             config.ignore_debug = true;
@@ -88,9 +88,9 @@ impl WasmNospaceVM {
         })
     }
 
-    /// 指定ステップ数だけ実行する
+    /// Execute specified number of steps
     ///
-    /// 戻り値: VmStepResult ({ status: "suspended" | "complete" | "error", error?: string })
+    /// Returns: VmStepResult ({ status: "suspended" | "complete" | "error", error?: string })
     pub fn step(&mut self, budget: u32) -> JsVmStepResult {
         let result = self.vm.step(budget as usize);
 
@@ -116,17 +116,17 @@ impl WasmNospaceVM {
         js.into()
     }
 
-    /// 実行完了済みか
+    /// Whether execution is complete
     pub fn is_complete(&self) -> bool {
         self.vm.is_complete()
     }
 
-    /// 総式評価回数
+    /// Total number of expression evaluations
     pub fn total_steps(&self) -> usize {
         self.vm.total_steps()
     }
 
-    /// 標準出力バッファの内容を取得しクリアする
+    /// Get and clear stdout buffer contents
     #[wasm_bindgen(js_name = "flushStdout")]
     pub fn flush_stdout(&mut self) -> String {
         self.vm.flush();
@@ -136,15 +136,15 @@ impl WasmNospaceVM {
         text
     }
 
-    /// 戻り値を取得（完了時のみ有効）
+    /// Get return value (only valid when complete)
     #[wasm_bindgen(js_name = "getReturnValue")]
     pub fn get_return_value(&self) -> Option<i64> {
         self.vm.return_value()
     }
 
-    /// トレース情報を取得
+    /// Get trace information
     ///
-    /// 戻り値: { [key: string]: number }
+    /// Returns: { [key: string]: number }
     #[wasm_bindgen(js_name = "getTraced")]
     pub fn get_traced(&self) -> JsValue {
         let obj = js_sys::Object::new();

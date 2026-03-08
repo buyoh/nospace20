@@ -88,7 +88,7 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
     for error in errors.iter().take(3) {
         println!("error: {}", error.message);
 
-        // デバッグビルド時は内部位置情報を表示
+        // Display internal location information in debug builds
         #[cfg(debug_assertions)]
         {
             println!(
@@ -101,8 +101,8 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
         if let Some(code_pointer) = error.code_pointer {
             let (line_no, column) = text.char_index_to_line(code_pointer);
             let line_str = text.line(line_no);
-            // NOTE: line_no, column は内部的には0-indexed。
-            // ユーザー向け表示では1-indexedにする。
+            // NOTE: line_no and column are 0-indexed internally.
+            // Convert to 1-indexed for user-facing display.
             println!("line:{} column:{}", line_no + 1, column + 1);
             println!("{}", line_str);
             println!(
@@ -126,10 +126,10 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
 fn main() {
     let args = Args::parse();
 
-    // 最適化オプションを先に構築
+    // Build optimization options first
     let opt_options = args.compile.build_optimization_options();
 
-    // CompileProperty を構築
+    // Build CompileProperty
     let property = CompileProperty {
         std: args.compile.std.into(),
         mode: args.mode.into(),
@@ -140,15 +140,15 @@ fn main() {
         ignore_debug: args.ignore_debug,
     };
 
-    // バリデーション
+    // Validation
     if let Err(err) = property.validate() {
         eprintln!("error: {}", err);
         process::exit(1);
     }
 
-    // ソースコードの読み込み
+    // Load source code
     let code_raw = if let Some(file_path) = args.file {
-        // ファイルから読み込み
+        // Read from file
         match std::fs::read_to_string(&file_path) {
             Ok(content) => content,
             Err(err) => {
@@ -157,7 +157,7 @@ fn main() {
             }
         }
     } else {
-        // 標準入力から読み込み
+        // Read from stdin
         let mut code_raw = String::new();
         std::io::stdin().read_to_string(&mut code_raw).ok();
         code_raw
@@ -168,21 +168,21 @@ fn main() {
     let s = handle_parse_error(parse_to_tree(&t), &text);
     let mut a = handle_parse_error(semantic_analyze(&s), &text);
 
-    // 最適化パスの適用
+    // Apply optimization passes
     if opt_options.any_enabled() {
         optimize(&mut a, &opt_options);
     }
 
-    // モードに応じて処理
+    // Process according to mode
     match property.mode {
         ExecutionMode::Run => {
-            // __main 関数の存在チェック
+            // Check for existence of __main function
             if !a.has_function("__main") {
                 eprintln!("error: function '__main' not found");
                 process::exit(1);
             }
 
-            // インタプリタモード
+            // Interpreter mode
             let config = nospace20::EnvironmentConfig {
                 ignore_debug: property.ignore_debug,
                 ..Default::default()

@@ -1,6 +1,6 @@
-//! Whitespace VM の WASM ラッパー
+//! WASM wrapper for Whitespace VM
 //!
-//! nospace ソースもしくは Whitespace ソースからステップ実行可能な VM を構築する。
+//! Construct a VM capable of step execution from nospace or Whitespace source.
 
 use std::cell::RefCell;
 use std::io::Cursor;
@@ -24,13 +24,13 @@ use super::types::{
 pub(super) use crate::base::shared_writer::SharedWriter;
 
 // ========================================
-// Whitespace VM ヘルパー
+// Whitespace VM helpers
 // ========================================
 
-/// Whitespace ソースから VM を構築する共通ヘルパー
+/// Common helper to construct VM from Whitespace source
 ///
-/// `from_whitespace` と `from_whitespace_interactive` の重複を解消する。
-/// `interactive=true` のとき `with_interactive_stdin()` を適用する。
+/// Eliminates duplication between `from_whitespace` and `from_whitespace_interactive`.
+/// Applies `with_interactive_stdin()` when `interactive=true`.
 fn create_from_ws_source(
     ws_source: &str,
     initial_stdin: &str,
@@ -71,9 +71,9 @@ fn create_from_ws_source(
 // WasmWhitespaceVM
 // ========================================
 
-/// Whitespace VM の WASM ラッパー
+/// WASM wrapper for Whitespace VM
 ///
-/// JS 側ではオペーク型として扱われ、メソッド呼び出しで状態を操作する。
+/// Treated as an opaque type on the JS side; manipulate state via method calls.
 #[wasm_bindgen]
 pub struct WasmWhitespaceVM {
     vm: WhitespaceVM,
@@ -82,9 +82,9 @@ pub struct WasmWhitespaceVM {
 
 #[wasm_bindgen]
 impl WasmWhitespaceVM {
-    /// nospace ソースをコンパイルし、Whitespace VM を構築する
+    /// Compile nospace source and construct Whitespace VM
     ///
-    /// - `std_extensions`: 有効にする拡張の配列（例: `["debug", "alloc"]`）
+    /// - `std_extensions`: Array of extensions to enable (e.g., `["debug", "alloc"]`)
     #[wasm_bindgen(constructor)]
     pub fn new(
         nospace_source: &str,
@@ -98,7 +98,7 @@ impl WasmWhitespaceVM {
         let (scope, text_code) = pipeline::analyze_source(nospace_source)
             .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
-        // コンパイル
+        // Compile
         let ws_options = WsCompileOptions {
             debug_ext,
             alloc_ext,
@@ -111,16 +111,16 @@ impl WasmWhitespaceVM {
         create_from_ws_source(&ws_source, stdin, interactive.unwrap_or(false))
     }
 
-    /// Whitespace ソースコードから直接 VM を構築する
+    /// Construct VM directly from Whitespace source code
     #[wasm_bindgen(js_name = "fromWhitespace")]
     pub fn from_whitespace(ws_source: &str, stdin: &str) -> Result<WasmWhitespaceVM, JsValue> {
         create_from_ws_source(ws_source, stdin, false)
     }
 
-    /// Interactive モードで Whitespace ソースから VM を構築する
+    /// Construct VM from Whitespace source in interactive mode
     ///
-    /// stdin バッファが空の場合、WaitingForInput で一時停止する。
-    /// provide_stdin() で後からデータを追加可能。
+    /// When stdin buffer is empty, suspends with WaitingForInput.
+    /// Can add data later with provide_stdin().
     #[wasm_bindgen(js_name = "fromWhitespaceInteractive")]
     pub fn from_whitespace_interactive(
         ws_source: &str,
@@ -129,26 +129,26 @@ impl WasmWhitespaceVM {
         create_from_ws_source(ws_source, initial_stdin, true)
     }
 
-    /// stdin にデータを追加する（interactive モード用）
+    /// Add data to stdin (for interactive mode)
     ///
-    /// WaitingForInput 状態の際に呼び出し、次の step() で入力を再試行する。
-    /// InputNumber の場合、改行（\n）付きで投入する必要がある。
+    /// Call when in WaitingForInput state to retry input on next step().
+    /// For InputNumber, must provide with newline (\n).
     #[wasm_bindgen(js_name = "provideStdin")]
     pub fn provide_stdin(&mut self, data: &str) {
         self.vm.provide_stdin(data);
     }
 
-    /// stdin のストリーム終端を通知する（interactive モード用）
+    /// Notify end of stdin stream (for interactive mode)
     ///
-    /// 以降、バッファが空の状態で入力命令に到達すると EOF として処理される。
+    /// After this, if an input instruction is reached with an empty buffer, it will be treated as EOF.
     #[wasm_bindgen(js_name = "closeStdin")]
     pub fn close_stdin(&mut self) {
         self.vm.close_stdin();
     }
 
-    /// 指定ステップ数だけ実行する
+    /// Execute specified number of steps
     ///
-    /// 戻り値: { status: "suspended" | "complete" | "error" | "waiting_for_input", error?: string, inputType?: string }
+    /// Returns: { status: "suspended" | "complete" | "error" | "waiting_for_input", error?: string, inputType?: string }
     pub fn step(&mut self, budget: u32) -> JsVmStepResult {
         let result = self.vm.step(budget as usize);
 
@@ -182,33 +182,33 @@ impl WasmWhitespaceVM {
         js.into()
     }
 
-    /// 現在のプログラムカウンタ（命令インデックス）
+    /// Current program counter (instruction index)
     pub fn pc(&self) -> usize {
         self.vm.pc()
     }
 
-    /// 総実行命令数
+    /// Total number of instructions executed
     pub fn total_steps(&self) -> usize {
         self.vm.total_steps()
     }
 
-    /// 実行完了済みか
+    /// Whether execution is complete
     pub fn is_complete(&self) -> bool {
         self.vm.is_complete()
     }
 
-    /// データスタックの現在の内容
+    /// Current contents of data stack
     ///
-    /// 戻り値: number[] (i64 → JS number に変換。53bit 超は精度が落ちる)
+    /// Returns: number[] (i64 → JS number conversion. Precision drops for values > 53 bits)
     pub fn get_stack(&self) -> JsNumberArray {
         let stack: Vec<f64> = self.vm.data_stack().iter().map(|&v| v as f64).collect();
         let js: JsValue = serde_wasm_bindgen::to_value(&stack).unwrap();
         js.into()
     }
 
-    /// ヒープの現在の内容
+    /// Current contents of heap
     ///
-    /// 戻り値: { [address: string]: number }
+    /// Returns: { [address: string]: number }
     pub fn get_heap(&self) -> JsNumberRecord {
         let heap: std::collections::BTreeMap<String, f64> = self
             .vm
@@ -220,12 +220,12 @@ impl WasmWhitespaceVM {
         js.into()
     }
 
-    /// コールスタックの深さ
+    /// Depth of call stack
     pub fn call_stack_depth(&self) -> usize {
         self.vm.call_stack_depth()
     }
 
-    /// 標準出力バッファの内容を取得しクリアする
+    /// Get and clear stdout buffer contents
     pub fn flush_stdout(&mut self) -> String {
         let mut buf = self.stdout_buffer.borrow_mut();
         let text = String::from_utf8_lossy(&buf).to_string();
@@ -233,9 +233,9 @@ impl WasmWhitespaceVM {
         text
     }
 
-    /// トレース情報を取得
+    /// Get trace information
     ///
-    /// 戻り値: { [key: string]: number }
+    /// Returns: { [key: string]: number }
     pub fn get_traced(&self) -> JsValue {
         let obj = js_sys::Object::new();
         for (k, v) in self.vm.traced.iter() {
@@ -249,12 +249,12 @@ impl WasmWhitespaceVM {
         obj.into()
     }
 
-    /// 現在の命令のニーモニック表現を取得（デバッグ用）
+    /// Get mnemonic representation of current instruction (for debugging)
     pub fn current_instruction(&self) -> Option<String> {
         self.vm.current_instruction()
     }
 
-    /// 命令列全体のニーモニック表現を取得
+    /// Get mnemonic representation of entire instruction sequence
     pub fn disassemble(&self) -> JsStringArray {
         let instructions = self.vm.disassemble();
         let js: JsValue = serde_wasm_bindgen::to_value(&instructions).unwrap();
