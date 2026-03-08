@@ -1,0 +1,66 @@
+# Union-Find (Disjoint Set Union) example #
+# Input: n m, then m lines of cmd x y #
+# cmd=0 means unite(x, y), cmd=1 prints connectivity #
+
+func: find(parent, x) {
+  if: *(parent + x) != x {
+    *(parent + x) = find(parent, *(parent + x));
+  };
+  return: *(parent + x);
+}
+
+func: unite(parent, rank, x, y) {
+  let: rx(find(parent, x));
+  let: ry(find(parent, y));
+
+  if: rx == ry {
+    return: 0;
+  };
+
+  if: *(rank + rx) < *(rank + ry) {
+    *(parent + rx) = ry;
+  } else: if: *(rank + rx) > *(rank + ry) {
+    *(parent + ry) = rx;
+  } else: {
+    *(parent + ry) = rx;
+    *(rank + rx) = *(rank + rx) + 1;
+  };
+  return: 1;
+}
+
+func: __main() {
+  let: n(__geti());
+  let: m(__geti());
+  let: parent(__alloc(n));
+  let: rank(__alloc(n));
+
+  let: i(0);
+  while: i < n {
+    *(parent + i) = i;
+    *(rank + i) = 0;
+    i += 1;
+  };
+
+  let: k(0);
+  while: k < m {
+    let: cmd(__geti());
+    let: x(__geti());
+    let: y(__geti());
+
+    if: cmd == 0 {
+      unite(parent, rank, x, y);
+    } else: if: cmd == 1 {
+      if: find(parent, x) == find(parent, y) {
+        __puti(1);
+      } else: {
+        __puti(0);
+      };
+      __putc('\n');
+    };
+    k += 1;
+  };
+
+  __free(parent);
+  __free(rank);
+  return: 0;
+}

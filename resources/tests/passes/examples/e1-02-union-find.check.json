@@ -1,0 +1,65 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "single element no op",
+      "stdin": "1\n0\n",
+      "stdout": ""
+    },
+    {
+      "name": "two elements no union",
+      "stdin": "2\n1\n1\n0\n1\n",
+      "stdout": "0\n"
+    },
+    {
+      "name": "simple union two",
+      "stdin": "2\n2\n0\n0\n1\n1\n0\n1\n",
+      "stdout": "1\n"
+    },
+    {
+      "name": "three elements linear",
+      "stdin": "3\n4\n0\n0\n1\n0\n1\n2\n1\n0\n2\n1\n0\n1\n",
+      "stdout": "1\n1\n"
+    },
+    {
+      "name": "three isolated check",
+      "stdin": "3\n3\n0\n0\n1\n1\n0\n2\n1\n1\n2\n",
+      "stdout": "0\n0\n"
+    },
+    {
+      "name": "multiple components",
+      "stdin": "4\n6\n0\n0\n1\n0\n2\n3\n1\n0\n1\n1\n2\n3\n1\n0\n2\n1\n1\n3\n",
+      "stdout": "1\n1\n0\n0\n"
+    },
+    {
+      "name": "diamond structure",
+      "stdin": "4\n6\n0\n0\n1\n0\n0\n2\n0\n1\n3\n0\n2\n3\n1\n0\n3\n1\n1\n2\n",
+      "stdout": "1\n1\n"
+    },
+    {
+      "name": "union same root",
+      "stdin": "3\n4\n0\n0\n1\n0\n1\n2\n0\n0\n2\n1\n0\n1\n",
+      "stdout": "1\n"
+    },
+    {
+      "name": "all same set",
+      "stdin": "5\n6\n0\n0\n1\n0\n1\n2\n0\n2\n3\n0\n3\n4\n1\n0\n4\n1\n1\n3\n",
+      "stdout": "1\n1\n"
+    },
+    {
+      "name": "self union check",
+      "stdin": "2\n2\n0\n0\n0\n1\n0\n0\n",
+      "stdout": "1\n"
+    },
+    {
+      "name": "path compression test",
+      "stdin": "5\n5\n0\n0\n1\n0\n1\n2\n0\n2\n3\n0\n3\n4\n1\n0\n4\n",
+      "stdout": "1\n"
+    },
+    {
+      "name": "two separate groups",
+      "stdin": "6\n8\n0\n0\n1\n0\n1\n2\n0\n3\n4\n0\n4\n5\n1\n0\n2\n1\n3\n5\n1\n0\n3\n1\n2\n4\n",
+      "stdout": "1\n1\n0\n0\n"
+    }
+  ]
+}

@@ -1185,6 +1185,13 @@ tests:
     path: examples/e1-01-queue
     comment: ""
 
+  - name: test_example_union_find
+    type: success_io
+    path: examples/e1-02-union-find
+    comment: ""
+    std_ext: ["alloc"]
+    exclude_targets: [whitespace]
+
   # ========================================
   # Function argument count checks
   # ========================================
