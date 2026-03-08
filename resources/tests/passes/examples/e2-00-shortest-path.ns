@@ -1,0 +1,124 @@
+# Dijkstra's algorithm for shortest path in directed weighted graph #
+# Input: N vertices, S start, T target, M edges, then M edges (u, v, w) #
+# Output: shortest path cost or -1 if unreachable #
+
+# Find the unvisited vertex with minimum distance #
+func: find_min_unvisited(dist, visited, n) {
+  let: min_dist(0x7FFFFFFF);
+  let: min_vertex(-1);
+  let: i(0);
+  while: i < n {
+    if: *(visited + i) == 0 && *(dist + i) < min_dist {
+      min_dist = *(dist + i);
+      min_vertex = i;
+    };
+    i += 1;
+  };
+  return: min_vertex;
+}
+
+# Dijkstra's algorithm #
+func: dijkstra(n, s, t, graph, graph_size, graph_cost) {
+  let: dist(__alloc(n));
+  let: visited(__alloc(n));
+  
+  let: i(0);
+  while: i < n {
+    *(dist + i) = 0x7FFFFFFF;
+    *(visited + i) = 0;
+    i += 1;
+  };
+  
+  *(dist + s) = 0;
+  
+  let: count(0);
+  while: count < n {
+    let: u(find_min_unvisited(dist, visited, n));
+    if: u == -1 {
+      count = n;
+    } else: {
+      *(visited + u) = 1;
+      
+      # Relax edges #
+      let: i(0);
+      while: i < *(graph_size + u) {
+        let: v(*(*(graph + u) + i));
+        let: w(*(*(graph_cost + u) + i));
+        let: new_cost(*(dist + u) + w);
+        
+        if: *(visited + v) == 0 && new_cost < *(dist + v) {
+          *(dist + v) = new_cost;
+        };
+        
+        i += 1;
+      };
+      
+      count += 1;
+    };
+  };
+  
+  let: result(*(dist + t));
+  if: result == 0x7FFFFFFF {
+    result = -1;
+  };
+  
+  __free(dist);
+  __free(visited);
+  
+  return: result;
+}
+
+func: __main() {
+  let: n(__geti());
+  let: s(__geti());
+  let: t(__geti());
+  let: m(__geti());
+  
+  # Allocate adjacency list #
+  let: graph(__alloc(n));
+  let: graph_cost(__alloc(n));
+  let: graph_size(__alloc(n));
+  
+  let: i(0);
+  while: i < n {
+    *(graph + i) = __alloc(m + 1);
+    *(graph_cost + i) = __alloc(m + 1);
+    *(graph_size + i) = 0;
+    i += 1;
+  };
+  
+  # Read edges #
+  let: j(0);
+  while: j < m {
+    let: u(__geti());
+    let: v(__geti());
+    let: w(__geti());
+    
+    # Add edge u -> v with cost w #
+    let: idx(*(graph_size + u));
+    *(*(graph + u) + idx) = v;
+    *(*(graph_cost + u) + idx) = w;
+    *(graph_size + u) = *(graph_size + u) + 1;
+    
+    j += 1;
+  };
+  
+  # Run Dijkstra #
+  let: result(dijkstra(n, s, t, graph, graph_size, graph_cost));
+  __puti(result);
+  __putc('\n');
+  
+  # Free memory #
+  i = 0;
+  while: i < n {
+    __free(*(graph + i));
+    __free(*(graph_cost + i));
+    i += 1;
+  };
+  
+  __free(graph);
+  __free(graph_cost);
+  __free(graph_size);
+  
+  return: 0;
+}

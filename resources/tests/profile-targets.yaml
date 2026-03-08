@@ -19,6 +19,9 @@ targets:
   - path: examples/e1-02-union-find
     comment: "Union-Find example"
     stdin: "6\n8\n0\n0\n1\n0\n1\n2\n0\n3\n4\n0\n4\n5\n1\n0\n2\n1\n3\n5\n1\n0\n3\n1\n2\n4\n"
+  - path: examples/e2-00-shortest-path
+    comment: "Dijkstra shortest path example"
+    stdin: "4\n0\n3\n5\n0\n1\n2\n0\n2\n3\n1\n3\n4\n2\n3\n1\n1\n2\n5\n"
 
   # 統合
   - path: integration/integ_001

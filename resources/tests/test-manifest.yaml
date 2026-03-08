@@ -1192,6 +1192,13 @@ tests:
     std_ext: ["alloc"]
     exclude_targets: [whitespace]
 
+  - name: test_example_shortest_path
+    type: success_io
+    path: examples/e2-00-shortest-path
+    comment: ""
+    std_ext: ["alloc"]
+    exclude_targets: [whitespace]
+
   # ========================================
   # Function argument count checks
   # ========================================

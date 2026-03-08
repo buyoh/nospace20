@@ -1,0 +1,65 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "simple path",
+      "stdin": "2\n0\n1\n1\n0\n1\n5\n",
+      "stdout": "5\n"
+    },
+    {
+      "name": "single node",
+      "stdin": "1\n0\n0\n0\n",
+      "stdout": "0\n"
+    },
+    {
+      "name": "unreachable",
+      "stdin": "2\n0\n1\n0\n",
+      "stdout": "-1\n"
+    },
+    {
+      "name": "triangle shortest",
+      "stdin": "3\n0\n2\n3\n0\n1\n1\n1\n2\n1\n0\n2\n10\n",
+      "stdout": "2\n"
+    },
+    {
+      "name": "triangle longer path",
+      "stdin": "3\n0\n2\n2\n0\n1\n5\n1\n2\n3\n",
+      "stdout": "8\n"
+    },
+    {
+      "name": "linear path 4 nodes",
+      "stdin": "4\n0\n3\n3\n0\n1\n1\n1\n2\n2\n2\n3\n3\n",
+      "stdout": "6\n"
+    },
+    {
+      "name": "multiple shortest paths",
+      "stdin": "4\n0\n3\n4\n0\n1\n1\n0\n2\n1\n1\n3\n2\n2\n3\n2\n",
+      "stdout": "3\n"
+    },
+    {
+      "name": "diamond graph",
+      "stdin": "4\n0\n3\n5\n0\n1\n2\n0\n2\n3\n1\n3\n4\n2\n3\n1\n1\n2\n5\n",
+      "stdout": "4\n"
+    },
+    {
+      "name": "start equals target",
+      "stdin": "3\n1\n1\n2\n0\n1\n1\n1\n2\n1\n",
+      "stdout": "0\n"
+    },
+    {
+      "name": "large weights",
+      "stdin": "3\n0\n2\n2\n0\n1\n1000\n1\n2\n500\n",
+      "stdout": "1500\n"
+    },
+    {
+      "name": "complete graph 3 nodes",
+      "stdin": "3\n0\n2\n6\n0\n1\n1\n0\n2\n10\n1\n0\n1\n1\n2\n1\n2\n0\n1\n2\n1\n3\n",
+      "stdout": "2\n"
+    },
+    {
+      "name": "reverse edge ordering",
+      "stdin": "4\n0\n3\n6\n3\n2\n1\n2\n1\n1\n1\n0\n1\n0\n1\n5\n2\n3\n2\n1\n3\n1\n",
+      "stdout": "6\n"
+    }
+  ]
+}
