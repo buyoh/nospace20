@@ -32,55 +32,31 @@ Web Editor is implemented as a separate project, https://github.com/buyoh/nospac
 
 ## CLI Usage
 
+Run Nospace20 instantly.
+
 ```bash
-cargo run --bin nospace20
-cargo run --release --bin nospace20
+$ echo 10 | cargo run --release --bin nospace20 -- \
+    resources/tests/passes/examples/e0-01-fibonacci.ns --std-ext debug --opt all 
+89
+main exited
 ```
 
+Compile and run:
+
+```bash
+$ cargo run --bin nospace20 -- \
+    resources/tests/passes/examples/e0-01-fibonacci.ns \
+    --std-ext debug --opt all --mode compile --target ws > /tmp/out.ws
+$ echo 10 | cargo run --bin whitespace20 -- /tmp/out.ws
+89
 ```
-A nospace language interpreter and compiler
-
-Usage: nospace20 [OPTIONS] [FILE]
-
-Arguments:
-  [FILE]  Source file to execute (reads from stdin if not provided)
-
-Options:
-      --std <STD>          Language subset [default: standard] [possible values: standard, min, ws]
-      --mode <MODE>        Execution mode [default: run] [possible values: run, compile]
-      --target <TARGET>    Compile target (only with --mode=compile) [default: ws] [possible values: ws, mnemonic, json]
-      --std-ext <STD_EXT>  Standard extensions (only with --mode=compile, can be specified multiple times) [possible values: debug]
-  -o, --output <OUTPUT>    Output file (only with --mode=compile, stdout if not specified)
-  -d, --debug              Show trace results after execution
-      --ignore-debug       Ignore debug built-in functions (__assert, __assert_not, __trace, __clog)
-  -h, --help               Print help
-  -V, --version            Print version
-```
-
-- `--std`
-  - 言語のサブセットを指定するために使う。
-    - `standard` : 全ての機能が有効。デフォルト。
-    - `min` : （未対応）最小限の機能セット。セルフホスティングコンパイラを構築する際に使用。
-    - `ws` : whitespace で使用できる機能セット。
-- `--std-ext`
-  - 標準拡張機能を指定するために使う（`--mode=compile` かつ `--std=ws` の場合のみ有効）。複数指定可能。
-    - `debug` : デバッグ、assertion関数を有効にする（Whitespace コンパイル時のみ。interpreter モードでは常に有効）。
-- `--mode`
-  - `run`  : インタプリタモード。直接実行する。デフォルト。
-  - `compile` : コンパイルモード。
-- `--target`
-  - `ws` : whitespace へコンパイル。`std` が `ws` の場合のみ。
-  - `mnemonic`: ニーモニック表記へコンパイル。`std` が `ws` の場合のみ。
-  - `json` : （未対応）意味解析後の中間表現へコンパイル。
 
 ## Build
 
-### Standard Build (CLI)
+### Feature Flags
 
-```bash
-cargo build
-cargo build --release
-```
+- `cli` (default): Enable CLI binary build with `clap` and `unicode-width` dependencies
+- `wasm`: Enable WebAssembly build with `wasm-bindgen` and `serde-wasm-bindgen` dependencies
 
 ### WebAssembly Build
 
@@ -96,22 +72,14 @@ cargo build --target wasm32-unknown-unknown --lib --no-default-features --featur
 
 ```bash
 # Build WASM (bundler target works with Node.js)
-wasm-pack build --target bundler --features wasm
-# Debug build
-# wasm-pack build --dev  --out-dir pkg-dev --target bundler --features wasm
+wasm-pack build --dev --out-dir pkg-dev --target bundler --features wasm
 
 # Note: Node.js is only required to run the tests. The wasm-pack build itself does not depend on Node.js.
-
 # Run Node.js smoke tests
 cd tools/wasm-test && node test.mjs
 ```
 
-### Feature Flags
-
-- `cli` (default): Enable CLI binary build with `clap` and `unicode-width` dependencies
-- `wasm`: Enable WebAssembly build with `wasm-bindgen` and `serde-wasm-bindgen` dependencies
-
-### Tests
+## Tests
 
 ```bash
 cargo test
@@ -119,12 +87,6 @@ cargo test
 bash tools/setup-wsc.sh  # Once to setup wsc (Whitespace Compiler)
 cargo test -- --ignored
 ```
-
-## Other Features
-
-### Whitespace20
-
-TODO:
 
 ## docs
 
