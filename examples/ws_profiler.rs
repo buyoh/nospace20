@@ -59,7 +59,7 @@ struct CompileOptions {
 
 impl CompileOptions {
     fn from_args(args: &Args) -> Self {
-        let exts: Vec<TargetExtension> = args.compile.std_ext.iter().map(|e| (*e).into()).collect();
+        let exts: Vec<TargetExtension> = args.compile.build_target_extensions();
         Self {
             debug_ext: exts.contains(&TargetExtension::Debug),
             alloc_ext: exts.contains(&TargetExtension::Alloc),

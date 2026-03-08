@@ -134,7 +134,7 @@ fn main() {
         std: args.compile.std.into(),
         mode: args.mode.into(),
         target: args.target.into(),
-        target_extensions: args.compile.std_ext.into_iter().map(|e| e.into()).collect(),
+        target_extensions: args.compile.build_target_extensions(),
         output: args.output,
         debug: args.debug,
         ignore_debug: args.ignore_debug,

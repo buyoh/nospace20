@@ -12,17 +12,12 @@ use crate::{LanguageStd, OptimizationOptions, TargetExtension};
 pub enum CliStd {
     #[default]
     Standard,
-    Min,
-    Ws,
+    // Min,  // TODO: not yet implemented
 }
 
 impl From<CliStd> for LanguageStd {
-    fn from(cli: CliStd) -> Self {
-        match cli {
-            CliStd::Standard => LanguageStd::Standard,
-            CliStd::Min => LanguageStd::Min,
-            CliStd::Ws => LanguageStd::Ws,
-        }
+    fn from(_cli: CliStd) -> Self {
+        LanguageStd::Standard
     }
 }
 
@@ -71,9 +66,13 @@ pub struct CliCompileArgs {
     #[arg(long, value_enum, default_value_t = CliStd::Standard)]
     pub std: CliStd,
 
-    /// Standard extensions (can be specified multiple times)
+    /// Standard extensions (can be specified multiple times; alloc is enabled by default)
     #[arg(long = "std-ext", value_enum)]
     pub std_ext: Vec<CliTargetExt>,
+
+    /// Disable all default standard extensions (currently only alloc)
+    #[arg(long = "no-std-ext")]
+    pub no_std_ext: bool,
 
     /// Enable optimization passes (can be specified multiple times; use 'all' to enable everything)
     #[arg(long = "opt", value_enum)]
@@ -81,6 +80,19 @@ pub struct CliCompileArgs {
 }
 
 impl CliCompileArgs {
+    /// Build target extensions from CLI arguments
+    pub fn build_target_extensions(&self) -> Vec<TargetExtension> {
+        let mut extensions: Vec<TargetExtension> = 
+            self.std_ext.iter().map(|e| (*e).into()).collect();
+        
+        // Add Alloc by default unless --no-std-ext is specified
+        if !self.no_std_ext && !extensions.contains(&TargetExtension::Alloc) {
+            extensions.push(TargetExtension::Alloc);
+        }
+        
+        extensions
+    }
+
     /// CLI 引数から `OptimizationOptions` を構築する
     pub fn build_optimization_options(&self) -> OptimizationOptions {
         if self.opt.is_empty() {

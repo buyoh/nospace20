@@ -51,25 +51,16 @@ pub fn compile(
         }
     };
 
-    let language_std = match lang_std {
-        "ws" => LanguageStd::Ws,
+    let _language_std = match lang_std {
         "standard" => LanguageStd::Standard,
         _ => {
             let e = ResultErr::single_error(format!(
-                "unsupported std: '{}' (use 'standard' or 'ws')",
+                "unsupported std: '{}' (use 'standard')",
                 lang_std
             ));
             return serde_wasm_bindgen::to_value(&e).unwrap().into();
         }
     };
-
-    // Validation
-    if matches!(compile_target, CompileTarget::Ws | CompileTarget::Mnemonic)
-        && language_std != LanguageStd::Ws
-    {
-        let e = ResultErr::single_error(format!("target='{}' requires std='ws'", target));
-        return serde_wasm_bindgen::to_value(&e).unwrap().into();
-    }
 
     // Parse + optimize
     let (scope, text_code, _) = match pipeline::analyze_and_optimize(source, opt_passes) {
@@ -148,7 +139,7 @@ pub fn get_options() -> JsOptionsDefinition {
 
     let options = OptionsDefinition {
         compile_targets: vec!["ws", "mnemonic"],
-        language_stds: vec!["standard", "ws"],
+        language_stds: vec!["standard"],
         std_extensions: vec!["debug", "alloc"],
         opt_passes: vec![
             "all",

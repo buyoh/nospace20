@@ -10,10 +10,8 @@ pub enum LanguageStd {
     /// 全ての機能が有効（デフォルト）
     #[default]
     Standard,
-    /// 最小限の機能セット（未対応）
-    Min,
-    /// Whitespace コンパイル互換
-    Ws,
+    // /// 最小限の機能セット（未実装）
+    // Min,
 }
 
 /// 実行モード
@@ -114,23 +112,8 @@ pub struct CompileProperty {
 impl CompileProperty {
     /// バリデーション
     pub fn validate(&self) -> Result<(), ValidationError> {
-        // std=min は未対応
-        if self.std == LanguageStd::Min {
-            return Err(ValidationError::UnsupportedStd(self.std));
-        }
-
         // コンパイルモードの場合
         if self.mode == ExecutionMode::Compile {
-            // target=ws/mnemonic の場合、std=ws が必須
-            if matches!(self.target, CompileTarget::Ws | CompileTarget::Mnemonic) {
-                if self.std != LanguageStd::Ws {
-                    return Err(ValidationError::IncompatibleOptions {
-                        target: self.target,
-                        std: self.std,
-                    });
-                }
-            }
-
             // 未対応のターゲット
             match self.target {
                 CompileTarget::Json => {
@@ -139,15 +122,6 @@ impl CompileProperty {
                     ));
                 }
                 _ => {}
-            }
-        }
-
-        // --std-ext alloc は --mode=compile --std=ws またはインタープリタ実行時に有効
-        if self.target_extensions.contains(&TargetExtension::Alloc) {
-            if self.mode == ExecutionMode::Compile && self.std != LanguageStd::Ws {
-                return Err(ValidationError::InvalidExtension(
-                    "--std-ext alloc requires --mode=compile --std=ws".to_string(),
-                ));
             }
         }
 
