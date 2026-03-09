@@ -18,6 +18,7 @@ nospace 言語に明示的な型注釈・構造体を導入する設計タスク
 - [implementation.md](implementation.md) - モジュール別の実装設計
 - [struct-memory-layout.md](struct-memory-layout.md) - 構造体のメモリレイアウト設計
 - [dot-access-conflict.md](dot-access-conflict.md) - ドットアクセスと名前空間の関係（衝突なし: `$` 採用により解決済み）
+- [nested-struct-init.md](nested-struct-init.md) - 構造体リテラル式と初期化構文（`struct: Name(...)` 構文、決定済み）
 
 ## スコープ
 

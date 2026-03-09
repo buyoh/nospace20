@@ -21,7 +21,7 @@ struct: Point (x, y);              # 型省略 → 各フィールド int #
 # y: offset 1, size 1
 # total_size: 2
 
-struct: Line (start @ Point, end @ Point);  # 構造体フィールド #
+struct: Line (start@Point, end@Point);  # 構造体フィールド #
 # start: offset 0, size 2  (Point の total_size)
 # end:   offset 2, size 2
 # total_size: 4
@@ -32,7 +32,7 @@ struct: MyStruct (number, data[9]);  # 型省略 + 配列 #
 # total_size: 10
 
 # 明示的な型指定でも同じ結果 #
-struct: MyStruct (number: int, data: int[9]);
+struct: MyStruct (number@int, data@int[9]);
 ```
 
 ## 変数確保
@@ -40,7 +40,7 @@ struct: MyStruct (number: int, data: int[9]);
 ### ローカル変数
 
 ```
-let: s@MyStruct (10, [1,2,3,4,5,6,7,8,9]);
+let: s(struct: MyStruct(10, [1,2,3,4,5,6,7,8,9]));
 ```
 
 内部変換:
@@ -57,8 +57,8 @@ let: s[10]([10, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 構造体の初期化 `(val1, [val2, val3, ...])` は、フィールドのオフセット順にフラットに展開される:
 
 ```
-struct: MyStruct (number: int, data: int[9]);
-let: s@MyStruct (10, [1,2,3,4,5,6,7,8,9]);
+struct: MyStruct (number@int, data@int[9]);
+let: s(struct: MyStruct(10, [1,2,3,4,5,6,7,8,9]));
 
 # 内部的に:
 # slot[0] = 10     (number)
@@ -70,7 +70,7 @@ let: s@MyStruct (10, [1,2,3,4,5,6,7,8,9]);
 
 部分初期化:
 ```
-let: s@MyStruct (10);
+let: s(struct: MyStruct(10));
 # slot[0] = 10     (number)
 # slot[1..9] は未初期化
 ```
@@ -78,10 +78,10 @@ let: s@MyStruct (10);
 ### ネストした構造体の初期化
 
 ```
-struct: Point (x: int, y: int);
-struct: Line (start: Point, end: Point);
+struct: Point (x@int, y@int);
+struct: Line (start@Point, end@Point);
 
-let: line@Line ((1, 2), (3, 4));
+let: line(struct: Line(struct: Point(1, 2), struct: Point(3, 4)));
 # slot[0] = 1  (start.x)
 # slot[1] = 2  (start.y)
 # slot[2] = 3  (end.x)
@@ -145,7 +145,7 @@ let: data[10];
 `__alloc` で確保したメモリにも構造体ビューを適用できる:
 
 ```
-struct: Node (value: int, next: int);
+struct: Node (value@int, next@int);
 
 let: node;
 node = __alloc(2);  # Node のサイズ分確保 #

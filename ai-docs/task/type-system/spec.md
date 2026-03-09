@@ -59,18 +59,33 @@ func: print_value(x@int)@void {
   - 例: `@int` と注釈しているのに `return` 文がない → エラー
   - 例: `@void` と注釈しているのに `return: 式;` がある → エラー
 
-### 型注釈の優先順位
+### 型注釈の優先順位と結合順序
 
-`@` は後置演算子として扱い、配列アクセス `[]` と同じ優先順位レベルに位置する。
+`@`, `.`, `[]` は後置演算子として同じ優先順位レベルに位置し、左から右に結合する。
 
 ```
 expr_postfix ::=
-    | expr_val "[" expr "]"       # 配列インデックス
-    | expr_val "@" type_spec      # 型注釈
+    | expr_postfix "[" expr "]"     # 配列インデックス
+    | expr_postfix "@" type_spec    # 型注釈
+    | expr_postfix "." ident        # フィールドアクセス
     | expr_val
 ```
 
-ただし、`expr_postfix "@" type_spec "[" expr "]"` のように `@` と `[]` を連鎖させることはできない（構造体フィールドアクセスで `()` を使う場合を除く）。
+`@` は `type_spec` を貪欲に消費する。`type_spec` に `[N]` が含まれる場合はそれも型の一部として扱う。
+
+```
+x @ MyStruct[3]     # x @ (MyStruct[3]) — MyStruct[3] 型への型注釈
+(x @ MyStruct)[3]   # (x @ MyStruct)[3] — 構造体ビュー後に配列アクセス
+```
+
+後置演算子の連鎖は左から右に評価される:
+
+```
+data @ MyStruct .number      # ((data @ MyStruct).number)
+data @ MyStruct .data[0]     # (((data @ MyStruct).data)[0])
+```
+
+括弧は任意だが、可読性のために使用を推奨する。
 
 ## 明示的キャスト
 
@@ -98,19 +113,18 @@ func_call() @ void;  # 戻り値を明示的に捨てる #
 ### 構造体定義
 
 ```
-struct: MyStruct (number: int, data: int[9]);
+struct: MyStruct (number@int, data@int[9]);
 ```
 
-- `struct: Name (field1: type1, field2: type2, ...);` の形式で構造体を定義する。
+- `struct: Name (field1@type1, field2@type2, ...);` の形式で構造体を定義する。
 - 構造体名は**大文字で始まる**識別子でなければならない。
   - `MyStruct` → OK
   - `myStruct` → コンパイルエラー
   - `_MyStruct` → コンパイルエラー
 - フィールドは以下のいずれかの形式で定義する:
-  - `name: type` — 型を明示
+  - `name@type` — 型を明示（`@` で型を指定）
   - `name` — 型省略（`int` として扱う）
   - `name[N]` — 型省略の配列（`int[N]` として扱う）
-  - `name @ StructName` — フィールドが構造体型
 - フィールド型として使用可能な型: `int`, `int[N]` (固定配列), 他の構造体型
   - void 型のフィールドは不可
 - 構造体定義はトップレベル（グローバルスコープ）または関数内のスコープに配置可能。
@@ -120,41 +134,55 @@ struct: MyStruct (number: int, data: int[9]);
 
 ```
 # 型を明示する形式 #
-struct: MyStruct (number: int, data: int[9]);
+struct: MyStruct (number@int, data@int[9]);
 
 # 型を省略する形式（省略時は int）#
 struct: MyStruct (number, data[9]);
 
 # 構造体フィールド #
-struct: Point (x: int, y: int);
-struct: Line (start @ Point, end @ Point);
-# ↑ は以下と等価 #
-struct: Line (start: Point, end: Point);
+struct: Point (x@int, y@int);
+struct: Line (start@Point, end@Point);
 
 # 混在も可能 #
-struct: Complex (value, name[16], pos @ Point);
+struct: Complex (value, name[16], pos@Point);
 ```
 
-- `:` 形式と `@` 形式は同じ意味。`name: StructName` と `name @ StructName` は等価。
-- `@` 形式は、変数宣言の `let: x@Type` と視覚的に一貫性がある。
-- `:` は構造体のフィールド定義でのみ型指定に使える（nospace では `:` はキーワード構文の識別に使われるが、構造体フィールド定義の `name: type` は文脈上一意に判別可能）。
+- `@` 形式は変数宣言の `let: x@Type` と統一的な構文。
+- nospace では `:` はキーワード構文の識別に使われるため、フィールド定義では `@` を使用する。
 
 ### 構造体変数の宣言と初期化
 
+構造体リテラル式 `struct: Name(values...)` を使用して構造体変数を初期化する。
+詳細は [nested-struct-init.md](nested-struct-init.md) を参照。
+
 ```
-let: s@MyStruct (10, [1,2,3,4,5,6,7,8,9]);
+let: s@MyStruct(struct: MyStruct(10, [1,2,3,4,5,6,7,8,9]));
 ```
 
-- `let: name@StructName (init_values...);` で構造体変数を宣言・初期化する。
-- 初期化値はフィールド定義順に対応する。
+- `struct: Name(values...)` は構造体リテラル式。フィールド定義順に値を指定する。
+- 初期化値が構造体リテラルの場合、`@Type` 型注釈は省略可能（型がリテラルから推論される）。
 - 初期化値の一部または全部を省略できる。省略されたフィールドは未初期化。
 - 配列フィールドの初期化には配列初期化構文 `[...]` を使用する。
 
 ```
-let: s@MyStruct;                                 # 全フィールド未初期化 #
-let: s@MyStruct (10);                            # number=10, data は未初期化 #
-let: s@MyStruct (10, [1,2,3,4,5,6,7,8,9]);      # 全フィールド初期化 #
+let: s@MyStruct;                                                   # 全フィールド未初期化（型注釈必須）#
+let: s(struct: MyStruct(10));                                       # number=10, data は未初期化 #
+let: s(struct: MyStruct(10, [1,2,3,4,5,6,7,8,9]));                 # 全フィールド初期化 #
+let: s@MyStruct(struct: MyStruct(10, [1,2,3,4,5,6,7,8,9]));        # 型注釈を明示（省略可）#
 ```
+
+### ネストした構造体の初期化
+
+ネストした構造体フィールドの初期化には、構造体リテラル式をネストする。
+
+```
+struct: Point (x@int, y@int);
+struct: Line (start@Point, end@Point);
+
+let: line(struct: Line(struct: Point(10, 20), struct: Point(30, 40)));
+```
+
+- `struct:` キーワードにより構造体初期化の開始が構文上明確なため、パーサが型情報なしに構造を認識できる。
 
 ### フィールドアクセス
 
@@ -188,7 +216,7 @@ let: data[10];
 構造体のサイズは全フィールドの合計サイズ。パディングなし。
 
 ```
-struct: MyStruct (number: int, data: int[9]);
+struct: MyStruct (number@int, data@int[9]);
 # size = 1 + 9 = 10 スロット #
 ```
 
@@ -203,9 +231,9 @@ struct: MyStruct (number: int, data: int[9]);
 
 ```
 struct: Point (x, y);
-struct: Rect (top_left @ Point, bottom_right @ Point);
+struct: Rect (top_left@Point, bottom_right@Point);
 
-let: r@Rect ((1, 2), (3, 4));
+let: r(struct: Rect(struct: Point(1, 2), struct: Point(3, 4)));
 r.top_left.x = 10;   # r[0] = 10 と等価 #
 r.bottom_right.y = 20;  # r[3] = 20 と等価 #
 ```
@@ -255,10 +283,15 @@ param ::= ident ("@" type_spec)?
 # 構造体定義
 struct_decl ::= "struct" ":" ident "(" field_decl ("," field_decl)* ")" ";"
 field_decl ::=
-    | ident ":" type_spec                  # 型を明示: number: int
-    | ident "@" type_spec                   # 型を明示 (@形式): data @ Point
+    | ident "@" type_spec                   # 型を明示: number@int
     | ident ("[" integer "]")              # 型省略の配列: data[9] (= int[9])
     | ident                                  # 型省略: number (= int)
+
+# 構造体リテラル式
+struct_literal ::= "struct" ":" ident "(" (expr ("," expr)*)? ")"
+
+# 式の拡張（struct_literal を含む）
+expr_val ::= ... | struct_literal
 
 # グローバル文の拡張
 global_stmt ::= ... | struct_decl

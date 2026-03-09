@@ -67,6 +67,8 @@ pub enum Expression {
     FieldAccess(Box<LocatedExpression>, String),
     /// フィールド配列アクセス: expr.field_name[index]
     FieldArrayAccess(Box<LocatedExpression>, String, Box<LocatedExpression>),
+    /// 構造体リテラル: struct: Name(expr, expr, ...)
+    StructLiteral(String, Vec<LocatedExpression>),
 }
 ```
 
@@ -89,18 +91,13 @@ pub struct StructFieldDecl {
 }
 ```
 
-構造体フィールドのパースは以下の4パターンを認識する:
+構造体フィールドのパースは以下の3パターンを認識する:
 
 ```
 parse_struct_field:
     name = expect ident
-    if peek == Token::Colon:
-        # name: type 形式
-        consume Colon
-        type_spec = parse_type_spec()
-        → StructFieldDecl { name, type_spec: Some(type_spec), array_size: None }
-    else if peek == Token::At:
-        # name @ type 形式
+    if peek == Token::At:
+        # name@type 形式
         consume At
         type_spec = parse_type_spec()
         → StructFieldDecl { name, type_spec: Some(type_spec), array_size: None }
@@ -157,6 +154,26 @@ expr_postfix:
             break
     return val
 ```
+
+`expr_val` メソッドを拡張し、`Keyword(Struct)` を構造体リテラル式として認識:
+
+```
+expr_val:
+    // ... 既存のケース ...
+    if peek == Keyword(Struct):
+        consume Keyword(Struct)
+        name = expect Identifier (name starts with uppercase)
+        expect ParenthesisL
+        args = parse_comma_separated_expressions()  # 各引数は通常の式またはネストした struct: Name(...)
+        expect ParenthesisR
+        → Expression::StructLiteral(name, args)
+```
+
+構造体リテラル式は `expr_val` レベルでパースされるため、型情報なしに構文解析可能。
+`struct:` キーワードにより、構造体定義（文）と構造体リテラル（式）の区別はコンテキスト（文パーサ vs 式パーサ）で決定される。
+
+構造体リテラル式は `expr_val` レベルでパースされるため、型情報なしに構文解析可能。
+`struct:` キーワードにより、構造体定義（文）と構造体リテラル（式）の区別はコンテキスト（文パーサ vs 式パーサ）で決定される。
 
 7. `type_spec` パース関数の追加
 
