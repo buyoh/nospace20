@@ -16,22 +16,27 @@ namespace: MySpace {
 }
 ```
 
-### ドットアクセス
+### `$` アクセス
 
-名前空間内の識別子へのアクセスは `.`（ドット）演算子を使用する。
+名前空間内の識別子へのアクセスは `$` を使用する。
 
 ```bnf
-qualified_ident ::= ident ("." ident)*
+qualified_ident ::= ident ("$" ident)*
 ```
 
 ```
 let: y;
-y = MySpace.x;
-MySpace.helper();
+y = MySpace$x;
+MySpace$helper();
 ```
 
-ドットは識別子の一部として扱い（修飾識別子）、演算子としてではない。
+`$` は識別子の一部として扱い（修飾識別子）、演算子としてではない。
 これにより、式パーサへの変更を最小限に抑える。
+
+`.` ではなく `$` を採用する理由:
+- `.` は将来の小数点リテラルや構造体フィールドアクセス（`s.field`）と用途が衝突する
+- `$` は nospace 言語で未使用の記号であり、衝突がない
+- 識別子に `$` は使えないため、マングル名とユーザー定義名の区別が自明
 
 ## セマンティクス
 
@@ -43,17 +48,17 @@ MySpace.helper();
 func: __main() {
   let: x(1);
   namespace: MySpace {
-    let: x(2);           # 外側スコープに MySpace.x として定義 #
+    let: x(2);           # 外側スコープに MySpace$x として定義 #
     namespace: MySpace2 {
-      let: x(3);         # 外側スコープに MySpace.MySpace2.x として定義 #
+      let: x(3);         # 外側スコープに MySpace$MySpace2$x として定義 #
     }
-    __clog(x);            # 2 を出力。MySpace.x に解決 #
-    __clog(MySpace2.x);   # 3 を出力。MySpace.MySpace2.x に解決 #
+    __clog(x);            # 2 を出力。MySpace$x に解決 #
+    __clog(MySpace2$x);   # 3 を出力。MySpace$MySpace2$x に解決 #
   }
   __clog(x);              # 1 を出力。外側の x #
-  __clog(MySpace.x);      # 2 を出力 #
-  __clog(MySpace.MySpace2.x);  # 3 を出力 #
-  # MySpace2.x;           コンパイルエラー: MySpace2 はこのスコープに存在しない #
+  __clog(MySpace$x);      # 2 を出力 #
+  __clog(MySpace$MySpace2$x);  # 3 を出力 #
+  # MySpace2$x;           コンパイルエラー: MySpace2 はこのスコープに存在しない #
 }
 ```
 
@@ -66,20 +71,20 @@ func: __main() {
 名前空間ブロック内での識別子解決は、以下の優先順位で行われる。
 
 1. **現在の名前空間プレフィックスで修飾した名前**を探索
-   - `namespace: A { x; }` → まず `A.x` を探す
+   - `namespace: A { x; }` → まず `A$x` を探す
 2. **見つからない場合、プレフィックスなしの名前**で通常のスコープ解決を行う
-   - `namespace: A { y; }` → `A.y` が無ければ外側の `y` を探す
+   - `namespace: A { y; }` → `A$y` が無ければ外側の `y` を探す
 
-修飾名（ドット付き）は常に絶対的に解決される。
+修飾名（`$` 付き）は常に絶対的に解決される。
 
 ```
 let: x(1);
 namespace: A {
   let: x(2);
-  __clog(x);     # A.x = 2（名前空間内の x が優先）#
+  __clog(x);     # A$x = 2（名前空間内の x が優先）#
 }
 __clog(x);       # 1（外側の x）#
-__clog(A.x);     # 2（修飾名で参照）#
+__clog(A$x);     # 2（修飾名で参照）#
 ```
 
 ### 名前空間内に配置可能な宣言
@@ -102,11 +107,11 @@ __clog(A.x);     # 2（修飾名で参照）#
 namespace: Outer {
   namespace: Inner {
     let: val(42);
-    # val は Outer.Inner.val としてマングルされる #
+    # val は Outer$Inner$val としてマングルされる #
   }
-  __clog(Inner.val);  # 解決: Outer.Inner.val #
+  __clog(Inner$val);  # 解決: Outer$Inner$val #
 }
-__clog(Outer.Inner.val);  # 解決: Outer.Inner.val #
+__clog(Outer$Inner$val);  # 解決: Outer$Inner$val #
 ```
 
 ### 名前空間の再オープン
@@ -122,15 +127,15 @@ namespace: A { let: y(2); }  # コンパイルエラー: namespace 'A' is alread
 
 ### `__main` との関係
 
-`__main` 関数はグローバルスコープのエントリーポイントとして特別扱いされる。名前空間内の `__main` は通常の名前空間付き関数（例: `MySpace.__main`）となり、エントリーポイントにはならない。
+`__main` 関数はグローバルスコープのエントリーポイントとして特別扱いされる。名前空間内の `__main` は通常の名前空間付き関数（例: `MySpace$__main`）となり、エントリーポイントにはならない。
 
 ```
 namespace: Module {
   func: __main() { return: 0; }
-  # → Module.__main として登録。エントリーポイントではない #
+  # → Module$__main として登録。エントリーポイントではない #
 }
 func: __main() {
-  Module.__main();  # 通常の関数呼び出し #
+  Module$__main();  # 通常の関数呼び出し #
 }
 ```
 
@@ -141,7 +146,7 @@ func: __main() {
 
 ```
 namespace: Util {
-  __clog(42);  # 組み込み関数。Util.__clog ではない #
+  __clog(42);  # 組み込み関数。Util$__clog ではない #
 }
 ```
 
@@ -153,7 +158,7 @@ namespace: Util {
 
 ```
 func: __main() {
-  A.f();  # OK: A.f は関数ホイスティングにより利用可能 #
+  A$f();  # OK: A$f は関数ホイスティングにより利用可能 #
   namespace: A {
     func: f() { __clog(1); }
   }
@@ -183,10 +188,10 @@ global_stmt ::= ... | namespace_stmt
 stmt ::= ... | namespace_stmt
 
 # Tokens (追加)
-dot ::= "."
+dollar ::= "$"
 
 # ident を拡張（修飾識別子）
-qualified_ident ::= ident ("." ident)*
+qualified_ident ::= ident ("$" ident)*
 ```
 
 ## エラーケース

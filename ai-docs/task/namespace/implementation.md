@@ -10,15 +10,16 @@
 
 ```
 namespace: A {
-  let: x;       → 変数名 "A.x"
-  func: f() {}  → 関数名 "A.f"
+  let: x;       → 変数名 "A$x"
+  func: f() {}  → 関数名 "A$f"
   namespace: B {
-    let: y;     → 変数名 "A.B.y"
+    let: y;     → 変数名 "A$B$y"
   }
 }
 ```
 
-区切り文字は `.`（ドット）。識別子に `.` は使えないため、マングル名と非マングル名の区別は自明。
+区切り文字は `$`。識別子に `$` は使えないため、マングル名と非マングル名の区別は自明。
+`.` ではなく `$` を採用する理由: `.` は将来の小数点や構造体フィールドアクセスと衝突するため。
 
 ## Step 1: Token Parser (`src/token_parser/`)
 
@@ -36,22 +37,22 @@ pub enum Keyword {
 `as_keyword_token` でも `"namespace" => Some(Token::Keyword(Keyword::Namespace))` を追加。
 `as_str` にも `Keyword::Namespace => "namespace"` を追加。
 
-2. **`Token` enum に `Dot` を追加**
+2. **`Token` enum に `Dollar` を追加**
 
 ```rust
 pub enum Token {
     // ... 既存 ...
-    Dot,  // .
+    Dollar,  // $
 }
 ```
 
-`parse_to_tokens_internal` でドット文字 `'.'` を `Token::Dot` として認識する。
-現在 `.` はどこにも使われていないため、衝突はない。
+`parse_to_tokens_internal` でドル記号 `'$'` を `Token::Dollar` として認識する。
+現在 `$` はどこにも使われていないため、衝突はない。
 
-3. **`Token::describe` に `Dot` の記述を追加**
+3. **`Token::describe` に `Dollar` の記述を追加**
 
 ```rust
-Token::Dot => "'.'",
+Token::Dollar => "'$'",
 ```
 
 ### 影響範囲
@@ -85,49 +86,49 @@ namespace: ident { stmt* }
 - `{` `}` でブロックを囲む
 - **末尾セミコロンは不要**（`func:` と同じパターン）
 
-3. **修飾識別子のパース（ドットアクセス）**
+3. **修飾識別子のパース（`$` アクセス）**
 
 2つのアプローチを検討:
 
-**方式A: トークナイザ段階で結合**（推奨）
+**方式A: トークナイザ段階で結合**
 
-`parse_identifier_or_keyword` 内で、識別子の後に `.` + 識別子が続く場合、ドット込みで一つの `Token::Identifier("A.x")` として返す。
+`parse_identifier_or_keyword` 内で、識別子の後に `$` + 識別子が続く場合、`$` 込みで一つの `Token::Identifier("A$x")` として返す。
 
 利点:
 - tree_parser, semantic_analyzer, interpreter, compiler_ws への修正が最小
 - 修飾名は既存の `Identifier(String)` で自然に表現される
 
 欠点:
-- トークナイザが文脈依存的になる（ただし ".識別子" の規則は単純）
-- 将来 `.` を別の目的に使う場合に再設計が必要
+- トークナイザが文脈依存的になる（ただし "$識別子" の規則は単純）
+- 将来 `$` を別の目的に使う場合に再設計が必要
 
 **方式B: tree_parser で結合**
 
-`Token::Dot` をそのまま出力し、tree_parser の式パース（expr_val）で `ident "." ident "." ...` を検出して `Expression::Variable("A.B.x")` に変換する。
+`Token::Dollar` をそのまま出力し、tree_parser の式パース（expr_val）で `ident "$" ident "$" ...` を検出して `Expression::Variable("A$B$x")` に変換する。
 
 利点:
 - トークナイザが純粋なまま
-- ドットの別の用途への拡張が容易
+- `$` の別の用途への拡張が容易
 
 欠点:
-- tree_parser の式パースが複雑化する（変数参照・関数呼び出しの両方にドット処理を追加）
+- tree_parser の式パースが複雑化する（変数参照・関数呼び出しの両方に `$` 処理を追加）
 
 **推奨: 方式B**
 
 方式B を採用する。理由:
 - トークナイザの責務はトークン分割に限定すべき
-- tree_parser の expr_postfix レベルで `.ident` チェーンを展開すれば変更は局所的
-- 関数呼び出し `A.f()` にも対応が必要であり、tree_parser での処理が自然
+- tree_parser の expr_postfix レベルで `$ident` チェーンを展開すれば変更は局所的
+- 関数呼び出し `A$f()` にも対応が必要であり、tree_parser での処理が自然
 
-具体的には、`expr_val` での識別子パース後に `.` + 識別子のチェーンを貪欲に読み、結合した文字列を生成する:
+具体的には、`expr_val` での識別子パース後に `$` + 識別子のチェーンを貪欲に読み、結合した文字列を生成する:
 
 ```
 expr_val:
   ident の後:
-    while peek == Token::Dot {
-      consume Dot
+    while peek == Token::Dollar {
+      consume Dollar
       expect ident
-      name = name + "." + next_ident
+      name = name + "$" + next_ident
     }
     if peek == Token::ParenthesisL {
       関数呼び出し（修飾名）
@@ -160,7 +161,7 @@ expr_val:
 
 ```rust
 struct NamespaceContext {
-    /// 現在の名前空間プレフィックスのスタック（例: ["A", "B"] → "A.B."）
+    /// 現在の名前空間プレフィックスのスタック（例: ["A", "B"] → "A$B$"）
     prefix_stack: Vec<String>,
 }
 
@@ -169,7 +170,7 @@ impl NamespaceContext {
         if self.prefix_stack.is_empty() {
             String::new()
         } else {
-            self.prefix_stack.join(".") + "."
+            self.prefix_stack.join("$") + "$"
         }
     }
 
@@ -209,9 +210,9 @@ impl NamespaceContext {
 `ScopeResolver` の `resolve_variable` / `resolve_function` / `resolve_constexpr` / `resolve_alias_chain` に名前空間コンテキストを渡す。
 
 名前解決の追加ルール:
-- 変数名 `x` が来たとき、まず `{prefix}.x` で探索
+- 変数名 `x` が来たとき、まず `{prefix}$x` で探索
 - 見つからなければ `x` で通常の探索
-- ドット付き名前 `A.x` はそのまま探索
+- `$` 付き名前 `A$x` はそのまま探索
 
 具体的には、名前解決時に名前空間プレフィックスを考慮するラッパーを用意する:
 
@@ -221,15 +222,15 @@ fn resolve_with_namespace(
     ns_ctx: &NamespaceContext,
     name: &str,
 ) -> Option<IdentifierRef> {
-    // 名前がドットを含む場合（修飾名）→ そのまま解決
-    if name.contains('.') {
+    // 名前が `$` を含む場合（修飾名）→ そのまま解決
+    if name.contains('$') {
         // 絶対名として探索
-        // 現在の名前空間が "A.B" で、name が "C.x" の場合
-        // まず "A.B.C.x" を試し、なければ "A.C.x"、"C.x" と外側に向かって探索
+        // 現在の名前空間が "A$B" で、name が "C$x" の場合
+        // まず "A$B$C$x" を試し、なければ "A$C$x"、"C$x" と外側に向かって探索
         // → 相対解決
         ...
     }
-    // 名前にドットが含まれない場合
+    // 名前に `$` が含まれない場合
     // 1. プレフィックス付きで探索
     let mangled = ns_ctx.mangle(name);
     if let Some(r) = resolver.resolve_variable(&mangled) {
@@ -251,11 +252,11 @@ fn resolve_with_namespace(
 
 ### 修飾名の相対解決
 
-名前空間 `A.B` の内部で `C.x` を参照した場合の解決手順:
+名前空間 `A$B` の内部で `C$x` を参照した場合の解決手順:
 
-1. `A.B.C.x` を探索（現在の名前空間のサブ名前空間）
-2. `A.C.x` を探索（親の名前空間のサブ名前空間）
-3. `C.x` を探索（グローバルの名前空間のサブ名前空間）
+1. `A$B$C$x` を探索（現在の名前空間のサブ名前空間）
+2. `A$C$x` を探索（親の名前空間のサブ名前空間）
+3. `C$x` を探索（グローバルの名前空間のサブ名前空間）
 4. 見つからなければエラー
 
 これは、C++ の名前空間解決と同様のセマンティクス。
@@ -274,17 +275,17 @@ fn resolve_with_namespace(
 ### 変更なし
 
 意味解析の段階でマングリングが完了しているため、インタプリタへの変更は不要。
-マングル名（例: `A.x`）は通常の変数スロットインデックスに解決されており、インタプリタはインデックスベースでアクセスする。
+マングル名（例: `A$x`）は通常の変数スロットインデックスに解決されており、インタプリタはインデックスベースでアクセスする。
 
 ## Step 5: Compiler WS (`src/compiler_ws/`)
 
 ### 変更なし（または最小限）
 
 意味解析でマングリングが完了しているため、コンパイラへの変更は本質的に不要。
-SymbolTable のラベル生成にマングル名が使用されるが、ドット `.` を含む文字列がラベルに使われても Whitespace のラベルはバイナリ形式であり問題ない。
+SymbolTable のラベル生成にマングル名が使用されるが、`$` を含む文字列がラベルに使われても Whitespace のラベルはバイナリ形式であり問題ない。
 
 念のため確認事項:
-- `label.rs`: ラベル名にドットを含む識別子が渡されても正常に動作するか確認
+- `label.rs`: ラベル名に `$` を含む識別子が渡されても正常に動作するか確認
 - `memory.rs`: ヒープアドレスの割り当てにマングル名が影響しないか確認
 
 ## Step 6: Optimizer (`src/optimizer/`)
@@ -308,7 +309,7 @@ SymbolTable のラベル生成にマングル名が使用されるが、ドッ�
 
 ## 実装順序
 
-1. **Step 1: Token Parser** — `Namespace` キーワード、`Dot` トークン追加
+1. **Step 1: Token Parser** — `Namespace` キーワード、`Dollar` トークン追加
 2. **Step 2: Tree Parser** — `NamespaceDeclaration` のパース、修飾識別子のパース
 3. **Step 3: Semantic Analyzer** — マングリング、名前解決拡張（最大の作業量）
 4. **Step 8: Grammar / Syntax** — BNF・シンタックスハイライト更新
@@ -324,8 +325,8 @@ Step 4-7 は変更不要のため省略可能。
 namespace: Math {
   func: add(a, b) { return: a + b; }
 }
-alias: add(Math.add);
-add(1, 2);  # Math.add(1, 2) と同等 #
+alias: add(Math$add);
+add(1, 2);  # Math$add(1, 2) と同等 #
 ```
 
 ### テンプレートのインスタンス化と名前空間
@@ -335,9 +336,9 @@ add(1, 2);  # Math.add(1, 2) と同等 #
 ```
 func: tmpl(x), alias: constexpr: n { return: x + n; }
 namespace: Funcs {
-  alias: add5(tmpl, 5);   # マングル名: Funcs.add5 #
+  alias: add5(tmpl, 5);   # マングル名: Funcs$add5 #
 }
-Funcs.add5(10);  # 15 #
+Funcs$add5(10);  # 15 #
 ```
 
 ## 将来の拡張への影響
