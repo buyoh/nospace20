@@ -23,6 +23,7 @@ pub enum Keyword {
     Constexpr,
     Alias,
     Final,
+    Namespace,
 }
 
 #[derive(Debug)]
@@ -61,6 +62,7 @@ pub enum Token {
     Semicolon,       // ;
     Colon,           // :
     Comma,           // ,
+    Dollar,          // $
     Invalid,
 }
 
@@ -95,6 +97,7 @@ impl Keyword {
             Keyword::Constexpr => "constexpr",
             Keyword::Alias => "alias",
             Keyword::Final => "final",
+            Keyword::Namespace => "namespace",
         }
     }
 }
@@ -137,6 +140,7 @@ impl Token {
             Token::Semicolon => "';'".to_string(),
             Token::Colon => "':'".to_string(),
             Token::Comma => "','".to_string(),
+            Token::Dollar => "'$'".to_string(),
             Token::Invalid => "invalid token".to_string(),
         }
     }
@@ -358,6 +362,7 @@ fn as_keyword_token(id: &str) -> Option<Token> {
         "constexpr" => Some(Token::Keyword(Keyword::Constexpr)),
         "alias" => Some(Token::Keyword(Keyword::Alias)),
         "final" => Some(Token::Keyword(Keyword::Final)),
+        "namespace" => Some(Token::Keyword(Keyword::Namespace)),
         _ => None,
     }
 }
@@ -577,6 +582,7 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                 ';' => Token::Semicolon,
                 ':' => Token::Colon,
                 ',' => Token::Comma,
+                '$' => Token::Dollar,
                 _ => {
                     parse_errors.push(code_parse_error!(*idx, format!("invalid char: {}", c)));
                     iter.next();

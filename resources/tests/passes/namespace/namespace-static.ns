@@ -1,0 +1,14 @@
+# 名前空間内の static 変数テスト #
+namespace: Counter {
+  func: next() {
+    static: count(0);
+    count = count + 1;
+    return: count;
+  }
+}
+func: __main() {
+  __trace(0);
+  __assert(Counter$next() == 1);
+  __assert(Counter$next() == 2);
+  __assert(Counter$next() == 3);
+}

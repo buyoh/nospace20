@@ -99,12 +99,13 @@ pub(super) fn convert_to_exec_statements(
                 }
             }
             Statement::FunctionDeclaration(name, args, block) => {
-                // パス1aで登録済みの関数のグローバルインデックスを取得
+                // 名前空間プレフィックスを適用したマングル名でパス1aの登録内容を取得
+                let mangled_name = format!("{}{}", resolver.current_ns_prefix(), name);
                 let global_idx =
-                    if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
+                    if let Some(Identifier::Function(info)) = scope.identifier_map.get(&mangled_name) {
                         info.0
                     } else {
-                        panic!("internal error: function should be pre-registered in pass 1a");
+                        panic!("internal error: function '{}' should be pre-registered in pass 1a (mangled: '{}')", name, mangled_name);
                     };
 
                 // 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
@@ -139,7 +140,7 @@ pub(super) fn convert_to_exec_statements(
 
                 // 関数の戻り値型はパス1aで決定済みの値を使用
                 let func_return_type =
-                    if let Some(Identifier::Function(info)) = scope.identifier_map.get(name) {
+                    if let Some(Identifier::Function(info)) = scope.identifier_map.get(&mangled_name) {
                         info.2
                     } else {
                         panic!("internal error: function return_type should be in pass 1a info");
@@ -294,6 +295,7 @@ pub(super) fn convert_to_exec_statements(
                 // cond/step/body から init 変数を scope_depth=1 でアクセス可能にする
                 let mut for_resolver = super::scope::ScopeResolver {
                     scope_stack: resolver.scope_stack.clone(),
+                    namespace_prefix: resolver.namespace_prefix.clone(),
                 };
                 // for-init スコープの constexpr は展開済みのため、空のテーブルを渡す
                 let for_init_empty_constexpr: BTreeMap<String, i64> = BTreeMap::new();
@@ -384,6 +386,29 @@ pub(super) fn convert_to_exec_statements(
             }
             Statement::AliasBlock(_, _) => {
                 // ブロックエイリアスはパス0で処理済み。ExecStatement は生成しない
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                // 名前空間ブロック: スコープを作成せずに本体をフラット化して処理する。
+                // リゾルバに名前空間プレフィックスを追加してボディ内の識別子解決を名前空間対応にする。
+                let ns_resolver = super::scope::ScopeResolver {
+                    scope_stack: resolver.scope_stack.clone(),
+                    namespace_prefix: {
+                        let mut prefix = resolver.namespace_prefix.clone();
+                        prefix.push(ns_name.clone());
+                        prefix
+                    },
+                };
+                let body_stmts = convert_to_exec_statements(
+                    body,
+                    scope_type,
+                    scope,
+                    &ns_resolver,
+                    effective_func_return_types,
+                    ctx,
+                )?;
+                // ns_resolver は再入不可のため明示的にクリーンアップは不要
+                let _ = ns_resolver;
+                exec_statements.extend(body_stmts);
             }
             Statement::TemplateFunctionDefinition { .. } => {
                 // テンプレート定義はプレパスで処理済み（expand_template_instantiations 参照）

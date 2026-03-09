@@ -150,6 +150,7 @@ impl Scope {
 }
 
 /// スコープの種類
+#[derive(Clone, Copy)]
 pub(super) enum ScopeType {
     Root,
     Function,
@@ -193,12 +194,16 @@ pub(super) struct ScopeInfo<'a> {
 pub(super) struct ScopeResolver<'a> {
     /// スコープスタック（末尾が現在のスコープ）
     pub scope_stack: Vec<ScopeInfo<'a>>,
+    /// 現在の名前空間プレフィックススタック（例: ["A", "B"] → "A$B$"）
+    /// 識別子の名前空間対応の解決に使用する
+    pub namespace_prefix: Vec<String>,
 }
 
 impl<'a> ScopeResolver<'a> {
     pub fn new() -> Self {
         Self {
             scope_stack: Vec::new(),
+            namespace_prefix: Vec::new(),
         }
     }
 
@@ -231,12 +236,54 @@ impl<'a> ScopeResolver<'a> {
         self.scope_stack.pop();
     }
 
+    /// 現在の名前空間プレフィックス文字列を返す（例: ["A","B"] → "A$B$"）
+    pub fn current_ns_prefix(&self) -> String {
+        if self.namespace_prefix.is_empty() {
+            String::new()
+        } else {
+            self.namespace_prefix.join("$") + "$"
+        }
+    }
+
+    /// 名前空間対応の候補名リストを生成する
+    ///
+    /// 非修飾名（`$` なし）の場合: ["{prefix}name", "name"]
+    /// 修飾名（`$` あり）の場合: ["{prefix}name", "{parent_prefix}name", ..., "name"]
+    fn ns_candidate_names(&self, name: &str) -> Vec<String> {
+        if self.namespace_prefix.is_empty() {
+            return vec![name.to_string()];
+        }
+        let mut candidates = Vec::new();
+        // プレフィックスを段階的に減らしながら候補を生成
+        for i in (0..=self.namespace_prefix.len()).rev() {
+            if i == 0 {
+                candidates.push(name.to_string());
+            } else {
+                let prefix = self.namespace_prefix[..i].join("$") + "$";
+                candidates.push(format!("{}{}", prefix, name));
+            }
+        }
+        candidates
+    }
+
     /// 変数名を解決し、IdentifierRef を返す
     ///
     /// スコープスタックを逆順に探索し、最も近いスコープの変数を見つける。
     /// 関数スコープ境界を越えた場合、static 変数のみアクセス可能。
+    /// 名前空間プレフィックスが設定されている場合、プレフィックス付きの名前を優先して探索する。
     /// 見つからない場合は None を返す。
     pub fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
+        let candidates = self.ns_candidate_names(name);
+        for candidate in &candidates {
+            if let Some(result) = self.resolve_variable_exact(candidate) {
+                return Some(result);
+            }
+        }
+        None
+    }
+
+    /// 変数名を完全一致で解決する（名前空間プレフィックスなし）
+    fn resolve_variable_exact(&self, name: &str) -> Option<IdentifierRef> {
         // 最初に見つけた関数スコープ（自分の関数）より外側の関数スコープを越えた場合、境界を越えたとする
         let mut first_function_scope_depth: Option<usize> = None;
 
@@ -298,11 +345,15 @@ impl<'a> ScopeResolver<'a> {
     /// 変数が final かどうかを返す
     ///
     /// スコープスタックを内側から外側へ探索し、変数の is_final フラグを返す。
+    /// 名前空間プレフィックスを考慮した名前でも探索する。
     /// 変数が見つからない場合は false を返す。
     pub fn is_final_variable(&self, name: &str) -> bool {
-        for scope_info in self.scope_stack.iter().rev() {
-            if let Some(&var_idx) = scope_info.var_name_to_var_index.get(name) {
-                return scope_info.variables[var_idx].is_final;
+        let candidates = self.ns_candidate_names(name);
+        for candidate in &candidates {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(&var_idx) = scope_info.var_name_to_var_index.get(candidate.as_str()) {
+                    return scope_info.variables[var_idx].is_final;
+                }
             }
         }
         false
@@ -310,13 +361,19 @@ impl<'a> ScopeResolver<'a> {
 
     /// 変数の配列サイズを取得
     ///
+    /// 名前空間プレフィックスを考慮した名前でも探索する。
     /// None の場合、変数が見つからない
     /// Some(None) の場合、通常変数（配列ではない）
     /// Some(Some(n)) の場合、サイズ n の配列
     pub fn get_array_size(&self, name: &str) -> Option<Option<usize>> {
-        for scope_info in self.scope_stack.iter().rev() {
-            if let Some(&var_idx) = scope_info.var_name_to_var_index.get(name) {
-                return Some(scope_info.variables[var_idx].array_size);
+        let candidates = self.ns_candidate_names(name);
+        for candidate in &candidates {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(&var_idx) =
+                    scope_info.var_name_to_var_index.get(candidate.as_str())
+                {
+                    return Some(scope_info.variables[var_idx].array_size);
+                }
             }
         }
         None
@@ -327,33 +384,39 @@ impl<'a> ScopeResolver<'a> {
     /// ネスト関数の可視性チェック
     /// 全関数はグローバルに格納されるため、常に is_global=true を返す
     ///
+    /// 名前空間プレフィックスを考慮した名前でも探索する。
     /// スコープスタックを逆順に探索し、最も近いスコープの関数を見つける。
-    /// 子スコープの関数は見えないため、探索は現在のスコープから親に向かってのみ行う。
     /// 見つからない場合は None を返す。
     ///
     /// local_index はグローバル関数リストのインデックスを指す。
     pub fn resolve_function(&self, name: &str) -> Option<IdentifierRef> {
-        for (_depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
-            if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
-                // 全関数はルートスコープにフラット化されているため、
-                // 常に is_global=true、scope_depth=0 を返す
-                // local_index はグローバルインデックス
-                return Some(IdentifierRef {
-                    scope_depth: 0,
-                    local_index: info.0,
-                    is_global: true,
-                    owning_func_index: None,
-                });
+        let candidates = self.ns_candidate_names(name);
+        for candidate in &candidates {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(Identifier::Function(info)) = scope_info.func_map.get(candidate.as_str()) {
+                    // 全関数はルートスコープにフラット化されているため、
+                    // 常に is_global=true、scope_depth=0 を返す
+                    // local_index はグローバルインデックス
+                    return Some(IdentifierRef {
+                        scope_depth: 0,
+                        local_index: info.0,
+                        is_global: true,
+                        owning_func_index: None,
+                    });
+                }
             }
         }
         None
     }
 
-    /// 関数の期待される引数数を取得する
+    /// 関数の期待される引数数を取得する（名前空間対応）
     pub fn get_function_arg_count(&self, name: &str) -> Option<usize> {
-        for scope_info in self.scope_stack.iter().rev() {
-            if let Some(Identifier::Function(info)) = scope_info.func_map.get(name) {
-                return Some(info.1);
+        let candidates = self.ns_candidate_names(name);
+        for candidate in &candidates {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(Identifier::Function(info)) = scope_info.func_map.get(candidate.as_str()) {
+                    return Some(info.1);
+                }
             }
         }
         None
@@ -361,12 +424,16 @@ impl<'a> ScopeResolver<'a> {
 
     /// constexpr 定数名を解決し、定数値を返す
     ///
+    /// 名前空間プレフィックスを考慮した名前でも探索する。
     /// スコープスタックを内側から外側へ探索し、最も近いスコープの constexpr 値を返す。
     /// 見つからない場合は None を返す。
     pub fn resolve_constexpr(&self, name: &str) -> Option<i64> {
-        for scope_info in self.scope_stack.iter().rev() {
-            if let Some(&v) = scope_info.constexpr_table.get(name) {
-                return Some(v);
+        let candidates = self.ns_candidate_names(name);
+        for candidate in &candidates {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(&v) = scope_info.constexpr_table.get(candidate.as_str()) {
+                    return Some(v);
+                }
             }
         }
         None
@@ -374,12 +441,16 @@ impl<'a> ScopeResolver<'a> {
 
     /// ブロックエイリアス名を解決し、AST 本体を返す
     ///
+    /// 名前空間プレフィックスを考慮した名前でも探索する。
     /// スコープスタックを内側から外側へ探索する。
     /// 見つからない場合は None を返す。
     pub fn resolve_block_alias(&self, name: &str) -> Option<&Vec<LocatedStatement>> {
-        for scope_info in self.scope_stack.iter().rev() {
-            if let Some(body) = scope_info.block_alias_map.get(name) {
-                return Some(body);
+        let candidates = self.ns_candidate_names(name);
+        for candidate in &candidates {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(body) = scope_info.block_alias_map.get(candidate.as_str()) {
+                    return Some(body);
+                }
             }
         }
         None
@@ -387,13 +458,27 @@ impl<'a> ScopeResolver<'a> {
 
     /// エイリアス名をチェーン解決して最終的な識別子名を返す
     ///
+    /// 名前空間プレフィックスを考慮した名前でも探索する。
     /// スコープスタックを内側から外側へ探索し、エイリアスチェーンを解決する。
     /// 巡回参照が検出された場合はエラーを返す。
     /// エイリアスが定義されていない場合は、元の名前をそのまま返す。
     pub fn resolve_alias_chain(&self, name: &str) -> Result<String, String> {
         use std::collections::BTreeSet;
         let mut visited: BTreeSet<String> = BTreeSet::new();
-        let mut current = name.to_string();
+        // 最初の解決候補を名前空間対応で取得
+        let candidates = self.ns_candidate_names(name);
+        let mut current = {
+            let mut resolved_start = name.to_string();
+            'outer: for candidate in &candidates {
+                for scope_info in self.scope_stack.iter().rev() {
+                    if scope_info.alias_map.contains_key(candidate.as_str()) {
+                        resolved_start = candidate.clone();
+                        break 'outer;
+                    }
+                }
+            }
+            resolved_start
+        };
         loop {
             if visited.contains(&current) {
                 return Err(format!(

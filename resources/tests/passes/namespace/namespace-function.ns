@@ -1,0 +1,12 @@
+# 名前空間内の関数定義・呼び出しテスト #
+namespace: Math {
+  func: add(a, b) { return: a + b; }
+  func: mul(a, b) { return: a * b; }
+}
+func: __main() {
+  __trace(0);
+  let: r1(Math$add(3, 4));
+  let: r2(Math$mul(3, 4));
+  __assert(r1 == 7);
+  __assert(r2 == 12);
+}

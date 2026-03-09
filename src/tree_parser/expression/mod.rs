@@ -190,6 +190,28 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 // TODO: confirm whether the identifier is reserved e.g. func
                 let id = id.clone();
                 self.iter.next();
+                // 修飾識別子 A$B$x の処理: $ に続く識別子を貪欲に結合する
+                let mut qualified_id = id;
+                while let Some((Token::Dollar, _)) = self.iter.peek() {
+                    self.iter.next(); // '$' を消費
+                    match self.iter.next() {
+                        Some((Token::Identifier(next_id), _)) => {
+                            qualified_id = format!("{}${}", qualified_id, next_id);
+                        }
+                        Some((_, token_info)) => {
+                            let e = self
+                                .add_parse_error(token_info, "expected identifier after '$'");
+                            let end = self.current_pos();
+                            return self.located(Expression::Invalid(e), start, end);
+                        }
+                        None => {
+                            let e = self.add_end_error("unexpected end of input after '$'");
+                            let end = self.current_pos();
+                            return self.located(Expression::Invalid(e), start, end);
+                        }
+                    }
+                }
+                let id = qualified_id;
                 if let Some((Token::ParenthesisL, _)) = self.iter.peek() {
                     self.parse_to_expression_tree_function_located(&id, start)
                 } else if let Some((Token::BracketL, _)) = self.iter.peek() {

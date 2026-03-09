@@ -1,0 +1,10 @@
+# 名前空間内の constexpr 定義テスト #
+namespace: Config {
+  constexpr: MAX_SIZE(100);
+  constexpr: MIN_SIZE(10);
+}
+func: __main() {
+  __trace(0);
+  __assert(Config$MAX_SIZE == 100);
+  __assert(Config$MIN_SIZE == 10);
+}

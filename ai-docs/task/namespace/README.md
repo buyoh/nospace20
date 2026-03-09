@@ -18,3 +18,11 @@ nospace 言語に名前空間機能を追加する設計ドキュメント。
 - 名前空間は**コンパイル時の名前修飾**であり、ランタイムコストを導入しない
 - 既存の `Scope` 構造体はスコープ管理に使用されるが、名前空間は独立した名前修飾の層として実装する
 - Whitespace コンパイラ・インタプリタへの影響を最小限にするため、意味解析の段階で名前をフラット化（マングリング）する
+
+## 実装進捗
+
+- ✅ Step 1: Token Parser — `Namespace` キーワード、`Dollar` トークン追加完了
+- ✅ Step 2: Tree Parser — `NamespaceDeclaration` のパース、修飾識別子のパース完了
+- ✅ Step 3: Semantic Analyzer — マングリング、名前解決拡張完了
+- ✅ Large テスト追加 (passes/namespace/ に 7 件、fails/compile/ に 2 件)
+- ✅ 全テスト合格（リグレッションなし）

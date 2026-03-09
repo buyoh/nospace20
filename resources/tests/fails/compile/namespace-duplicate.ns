@@ -1,0 +1,8 @@
+# エラーケース: 名前空間内で同じ変数名を二重定義 #
+namespace: A {
+  let: x;
+  let: x;
+}
+func: __main() {
+  return: 0;
+}

@@ -1,0 +1,5 @@
+# エラーケース: 未定義の修飾名へのアクセス #
+func: __main() {
+  let: y(Undefined$x);
+  return: 0;
+}

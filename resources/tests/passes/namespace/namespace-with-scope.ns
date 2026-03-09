@@ -1,0 +1,20 @@
+# 名前空間とブロックスコープの組み合わせテスト #
+func: scoped_test() {
+  namespace: Scope {
+    let: x(10);
+    let: y(20);
+  }
+  __assert(Scope$x == 10);
+  __assert(Scope$y == 20);
+  if: 1 {
+    let: z(30);
+    namespace: Inner {
+      let: a(z + 1);
+    }
+    __assert(Inner$a == 31);
+  };
+}
+func: __main() {
+  __trace(0);
+  scoped_test();
+}

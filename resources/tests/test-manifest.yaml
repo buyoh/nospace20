@@ -1513,3 +1513,56 @@ tests:
     type: success_io
     path: template_functions/self_recursion_001
     comment: "テンプレート関数: ボディ内でテンプレート名を使った自己再帰呼び出し"
+
+  # ========================================
+  # Namespace
+  # ========================================
+  - name: test_namespace_basic
+    type: success
+    path: namespace/namespace-basic
+    comment: "名前空間の基本: 変数の定義と修飾アクセス"
+
+  - name: test_namespace_nested
+    type: success
+    path: namespace/namespace-nested
+    comment: "ネストした名前空間"
+
+  - name: test_namespace_function
+    type: success
+    path: namespace/namespace-function
+    comment: "名前空間内の関数定義・呼び出し"
+
+  - name: test_namespace_constexpr
+    type: success
+    path: namespace/namespace-constexpr
+    comment: "名前空間内の constexpr 定義"
+
+  - name: test_namespace_alias
+    type: success
+    path: namespace/namespace-alias
+    comment: "名前空間内の alias 定義"
+
+  - name: test_namespace_name_resolution
+    type: success
+    path: namespace/namespace-name-resolution
+    comment: "名前空間内での名前解決優先順位"
+
+  - name: test_namespace_static
+    type: success
+    path: namespace/namespace-static
+    comment: "名前空間内の static 変数"
+
+  - name: test_namespace_with_scope
+    type: success
+    path: namespace/namespace-with-scope
+    comment: "名前空間とブロックスコープの組み合わせ"
+
+  - name: test_namespace_compile_error_duplicate
+    type: compile_error
+    path: namespace-duplicate
+    comment: "エラー: 名前空間内で同じ変数名を二重定義"
+
+  - name: test_namespace_compile_error_undefined_access
+    type: compile_error
+    path: namespace-undefined-access
+    comment: "エラー: 未定義の修飾名へのアクセス"

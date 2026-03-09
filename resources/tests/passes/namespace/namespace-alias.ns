@@ -1,0 +1,10 @@
+# 名前空間内の alias 定義テスト #
+func: double_val(x) { return: x * 2; }
+namespace: Math {
+  alias: double(double_val);
+}
+func: __main() {
+  __trace(0);
+  __assert(Math$double(5) == 10);
+  __assert(Math$double(21) == 42);
+}

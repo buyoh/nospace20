@@ -1,0 +1,16 @@
+# ネストした名前空間のテスト #
+func: __main() {
+  __trace(0);
+  let: x(1);
+  namespace: MySpace {
+    let: x(2);
+    namespace: MySpace2 {
+      let: x(3);
+    }
+    __assert(x == 2);
+    __assert(MySpace2$x == 3);
+  }
+  __assert(x == 1);
+  __assert(MySpace$x == 2);
+  __assert(MySpace$MySpace2$x == 3);
+}

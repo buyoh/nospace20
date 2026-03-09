@@ -136,58 +136,8 @@ fn analyze_internal_with_parent(
     detect_block_alias_cycles(&block_alias_map_temp, &alias_map_temp)?;
 
     // パス1a: 関数宣言を先にスキャンして登録（ホイスティング対応）
-    for located_stat in statements {
-        let stat = &located_stat.statement;
-        match stat {
-            Statement::FunctionDeclaration(name, args, body) => {
-                let global_idx = ctx.global_functions.len();
-
-                let has_ret = has_return_statement(body);
-                if has_ret && !guarantees_return(body) {
-                    return Err(vec![code_parse_error!(format!(
-                        "semantic error: function '{}' has mixed return types (return in some paths but not all)",
-                        name
-                    ))]);
-                }
-                let return_type = if has_ret {
-                    ValueType::Int
-                } else {
-                    ValueType::Void
-                };
-
-                ctx.global_function_names.push(name.clone());
-                ctx.global_functions.push(Function {
-                    arg_indices: Vec::new(),
-                    return_type,
-                    is_unused: false,
-                    block: Block {
-                        scope: Scope {
-                            identifier_map: BTreeMap::new(),
-                            variable_indices: BTreeMap::new(),
-                            variable_name_to_var_index: BTreeMap::new(),
-                            variables: Vec::new(),
-                            variable_count: 0,
-                            functions: Vec::new(),
-                            symbol_table: SymbolTable {
-                                function_names: Vec::new(),
-                                function_name_to_index: BTreeMap::new(),
-                            },
-                            main_function_index: None,
-                            static_init_statements: Vec::new(),
-                            root_statements: Vec::new(),
-                        },
-                        statements: Vec::new(),
-                    },
-                });
-                // identifier_map にはグローバルインデックスと引数数と戻り値型を登録
-                scope.add_identifier(
-                    name,
-                    Identifier::Function(FunctionIndex(global_idx, args.len(), return_type)),
-                )?;
-            }
-            _ => {}
-        }
-    }
+    // 名前空間内の関数もマングル名で登録する
+    scan_function_declarations(statements, "", &mut scope, ctx)?;
 
     // 型チェック用の関数戻り値型スライスを決定
     // inherited_func_return_types が空 = ルートまたは関数スコープ → global_functions から収集
@@ -200,37 +150,8 @@ fn analyze_internal_with_parent(
     };
 
     // パス1b: 変数宣言収集（ホイスティング対応）
-    for located_stat in statements {
-        let stat = &located_stat.statement;
-        match stat {
-            Statement::VariableDeclaration(name, _, is_static_explicit, is_final, array_size) => {
-                // グローバル変数は暗黙的に static、明示的 static も考慮
-                let final_is_static = *is_static_explicit || is_static;
-                scope.add_variable(
-                    name,
-                    Variable {
-                        slot_index: 0, // build() で正しい値に設定される
-                        is_static: final_is_static,
-                        array_size: array_size.map(|n| n as usize),
-                        is_final: *is_final,
-                    },
-                )?;
-            }
-            Statement::FunctionDeclaration(_name, _, _) => {
-                // パス1aで処理済み
-            }
-            Statement::ConstexprDeclaration(_, _) => {
-                // コンパイル時定数は変数スロットを確保しない - パス0 で処理済み
-            }
-            Statement::AliasIdentifier(_, _) => {
-                // エイリアスはシンボルテーブルに登録しない - パス0 で処理済み
-            }
-            Statement::AliasBlock(_, _) => {
-                // ブロックエイリアスはシンボルテーブルに登録しない - パス0 で処理済み
-            }
-            _ => {}
-        }
-    }
+    // 名前空間内の変数もマングル名で登録する
+    scan_variable_declarations(statements, "", is_static, &mut scope)?;
 
     // 変数名からインデックスへのマッピングを先に構築（resolver で使用）
     // 配列サイズを考慮したスロットインデックスを使用
@@ -268,6 +189,7 @@ fn analyze_internal_with_parent(
     let mut resolver = if let Some(parent) = parent_resolver {
         let mut new_resolver = ScopeResolver {
             scope_stack: parent.scope_stack.clone(),
+            namespace_prefix: parent.namespace_prefix.clone(),
         };
         new_resolver.enter_scope(
             &temporary_scope.variable_indices,
@@ -318,6 +240,114 @@ pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError
         context::AnalyzeContext::new_root(&mut global_functions, &mut global_function_names);
     analyze_internal(root, ScopeType::Root, &mut ctx)
         .map(|(scope, root_stmts)| scope.build(root_stmts, global_functions, global_function_names))
+}
+
+/// パス1a: 関数宣言を再帰的にスキャンしてスコープビルダーに登録する（名前空間対応）
+///
+/// 名前空間内の関数は `{ns_prefix}{name}` でマングルされて登録される。
+fn scan_function_declarations(
+    statements: &[LocatedStatement],
+    ns_prefix: &str,
+    scope: &mut ScopeBuilder,
+    ctx: &mut context::AnalyzeContext,
+) -> Result<(), Vec<CodeParseError>> {
+    for located_stat in statements {
+        match &located_stat.statement {
+            Statement::FunctionDeclaration(name, args, body) => {
+                let mangled_name = format!("{}{}", ns_prefix, name);
+                let global_idx = ctx.global_functions.len();
+
+                let has_ret = has_return_statement(body);
+                if has_ret && !guarantees_return(body) {
+                    return Err(vec![code_parse_error!(format!(
+                        "semantic error: function '{}' has mixed return types (return in some paths but not all)",
+                        mangled_name
+                    ))]);
+                }
+                let return_type = if has_ret {
+                    ValueType::Int
+                } else {
+                    ValueType::Void
+                };
+
+                ctx.global_function_names.push(mangled_name.clone());
+                ctx.global_functions.push(Function {
+                    arg_indices: Vec::new(),
+                    return_type,
+                    is_unused: false,
+                    block: Block {
+                        scope: Scope {
+                            identifier_map: BTreeMap::new(),
+                            variable_indices: BTreeMap::new(),
+                            variable_name_to_var_index: BTreeMap::new(),
+                            variables: Vec::new(),
+                            variable_count: 0,
+                            functions: Vec::new(),
+                            symbol_table: SymbolTable {
+                                function_names: Vec::new(),
+                                function_name_to_index: BTreeMap::new(),
+                            },
+                            main_function_index: None,
+                            static_init_statements: Vec::new(),
+                            root_statements: Vec::new(),
+                        },
+                        statements: Vec::new(),
+                    },
+                });
+                // identifier_map にはグローバルインデックスと引数数と戻り値型を登録
+                scope.add_identifier(
+                    &mangled_name,
+                    Identifier::Function(FunctionIndex(global_idx, args.len(), return_type)),
+                )?;
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
+                scan_function_declarations(body, &sub_prefix, scope, ctx)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// パス1b: 変数宣言を再帰的にスキャンしてスコープビルダーに登録する（名前空間対応）
+///
+/// 名前空間内の変数は `{ns_prefix}{name}` でマングルされて登録される。
+fn scan_variable_declarations(
+    statements: &[LocatedStatement],
+    ns_prefix: &str,
+    is_static: bool,
+    scope: &mut ScopeBuilder,
+) -> Result<(), Vec<CodeParseError>> {
+    for located_stat in statements {
+        match &located_stat.statement {
+            Statement::VariableDeclaration(name, _, is_static_explicit, is_final, array_size) => {
+                let mangled_name = format!("{}{}", ns_prefix, name);
+                // グローバル変数は暗黙的に static、明示的 static も考慮
+                let final_is_static = *is_static_explicit || is_static;
+                scope.add_variable(
+                    &mangled_name,
+                    Variable {
+                        slot_index: 0, // build() で正しい値に設定される
+                        is_static: final_is_static,
+                        array_size: array_size.map(|n| n as usize),
+                        is_final: *is_final,
+                    },
+                )?;
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
+                scan_variable_declarations(body, &sub_prefix, is_static, scope)?;
+            }
+            // 以下はパス0で処理済み
+            Statement::FunctionDeclaration(_, _, _)
+            | Statement::ConstexprDeclaration(_, _)
+            | Statement::AliasIdentifier(_, _)
+            | Statement::AliasBlock(_, _) => {}
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

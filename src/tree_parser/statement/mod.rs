@@ -79,6 +79,9 @@ pub enum Statement {
         Vec<LocatedStatement>,
     ),
     Expression(Box<LocatedExpression>),
+    /// 名前空間宣言: `namespace: Name { 文... }`
+    /// 末尾セミコロンは不要（func: と同様の扱い）
+    NamespaceDeclaration(String, Vec<LocatedStatement>),
     Invalid(usize), // See, Expression::Invalid
 }
 
@@ -1062,6 +1065,27 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         params
     }
 
+    fn parse_to_statements_namespace(&mut self, start_pos: usize) -> LocatedStatement {
+        // 呼び出し元が既に Token::Keyword(Keyword::Namespace) を確認済み
+        // Keyword トークンがコロンを内包済みのため、コロン消費は不要
+        self.iter.next();
+        let name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id) {
+            Ok(x) => x,
+            Err(e) => {
+                return LocatedStatement {
+                    statement: Statement::Invalid(e),
+                    location: SourceLocation::from_single(start_pos),
+                };
+            }
+        };
+        let body = self.parse_to_statements_block();
+        let end_pos = self.current_pos_or(start_pos);
+        LocatedStatement {
+            statement: Statement::NamespaceDeclaration(name.to_string(), body),
+            location: SourceLocation::new(start_pos, end_pos),
+        }
+    }
+
     fn parse_to_statements_func(&mut self, start_pos: usize) -> LocatedStatement {
         // 呼び出し元が既に Token::Keyword(Keyword::Func) を確認済み
         // Keyword トークンがコロンを内包済みのため、コロン消費は不要
@@ -1390,6 +1414,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 Token::Keyword(Keyword::Repeat) => {
                     let stmt = self.parse_to_statements_repeat(start_pos);
+                    statements.push(stmt);
+                    continue;
+                }
+                Token::Keyword(Keyword::Namespace) => {
+                    let stmt = self.parse_to_statements_namespace(start_pos);
                     statements.push(stmt);
                     continue;
                 }

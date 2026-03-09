@@ -1,0 +1,10 @@
+# 名前空間の基本テスト: 変数の定義と修飾アクセス #
+func: __main() {
+  __trace(0);
+  let: x(1);
+  namespace: A {
+    let: x(2);
+  }
+  __assert(x == 1);
+  __assert(A$x == 2);
+}

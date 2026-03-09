@@ -17,64 +17,102 @@ use crate::{
 /// ステートメント列から alias（識別子エイリアス）定義を収集し、
 /// エイリアステーブル `BTreeMap<String, String>` を返す。
 ///
-/// 重複定義はエラーとして報告する。
+/// 重複定義はエラーとして報告する。名前空間内のエイリアスはマングル名で登録される。
 pub(super) fn collect_alias_map(
     statements: &[LocatedStatement],
 ) -> Result<BTreeMap<String, String>, Vec<CodeParseError>> {
     let mut alias_map: BTreeMap<String, String> = BTreeMap::new();
     let mut errors: Vec<CodeParseError> = Vec::new();
-    for located_stat in statements {
-        if let Statement::AliasIdentifier(name, target) = &located_stat.statement {
-            if alias_map.contains_key(name) {
-                errors.push(code_parse_error!(
-                    located_stat.location.start,
-                    format!("duplicate alias definition: '{}'", name)
-                ));
-            } else {
-                alias_map.insert(name.clone(), target.clone());
-            }
-        }
-    }
+    collect_alias_map_recursive(statements, "", &mut alias_map, &mut errors);
     if !errors.is_empty() {
         return Err(errors);
     }
     Ok(alias_map)
 }
 
+/// 再帰的に alias を収集するヘルパー
+fn collect_alias_map_recursive(
+    statements: &[LocatedStatement],
+    ns_prefix: &str,
+    alias_map: &mut BTreeMap<String, String>,
+    errors: &mut Vec<CodeParseError>,
+) {
+    for located_stat in statements {
+        match &located_stat.statement {
+            Statement::AliasIdentifier(name, target) => {
+                let mangled = format!("{}{}", ns_prefix, name);
+                if alias_map.contains_key(&mangled) {
+                    errors.push(code_parse_error!(
+                        located_stat.location.start,
+                        format!("duplicate alias definition: '{}'", mangled)
+                    ));
+                } else {
+                    alias_map.insert(mangled, target.clone());
+                }
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
+                collect_alias_map_recursive(body, &sub_prefix, alias_map, errors);
+            }
+            _ => {}
+        }
+    }
+}
+
 /// ステートメント列からブロックエイリアス定義を収集し、
 /// ブロックエイリアステーブル `BTreeMap<String, Vec<LocatedStatement>>` を返す。
 ///
 /// 重複定義・識別子エイリアスとの名前衝突はエラーとして報告する。
+/// 名前空間内のブロックエイリアスはマングル名で登録される。
 pub(super) fn collect_block_alias_map(
     statements: &[LocatedStatement],
     alias_map: &BTreeMap<String, String>,
 ) -> Result<BTreeMap<String, Vec<LocatedStatement>>, Vec<CodeParseError>> {
     let mut block_alias_map: BTreeMap<String, Vec<LocatedStatement>> = BTreeMap::new();
     let mut errors: Vec<CodeParseError> = Vec::new();
-    for located_stat in statements {
-        if let Statement::AliasBlock(name, body) = &located_stat.statement {
-            if block_alias_map.contains_key(name) {
-                errors.push(code_parse_error!(
-                    located_stat.location.start,
-                    format!("duplicate block alias definition: '{}'", name)
-                ));
-            } else if alias_map.contains_key(name) {
-                errors.push(code_parse_error!(
-                    located_stat.location.start,
-                    format!(
-                        "alias '{}' is defined as both identifier alias and block alias",
-                        name
-                    )
-                ));
-            } else {
-                block_alias_map.insert(name.clone(), body.clone());
-            }
-        }
-    }
+    collect_block_alias_map_recursive(statements, "", alias_map, &mut block_alias_map, &mut errors);
     if !errors.is_empty() {
         return Err(errors);
     }
     Ok(block_alias_map)
+}
+
+/// 再帰的にブロックエイリアスを収集するヘルパー
+fn collect_block_alias_map_recursive(
+    statements: &[LocatedStatement],
+    ns_prefix: &str,
+    alias_map: &BTreeMap<String, String>,
+    block_alias_map: &mut BTreeMap<String, Vec<LocatedStatement>>,
+    errors: &mut Vec<CodeParseError>,
+) {
+    for located_stat in statements {
+        match &located_stat.statement {
+            Statement::AliasBlock(name, body) => {
+                let mangled = format!("{}{}", ns_prefix, name);
+                if block_alias_map.contains_key(&mangled) {
+                    errors.push(code_parse_error!(
+                        located_stat.location.start,
+                        format!("duplicate block alias definition: '{}'", mangled)
+                    ));
+                } else if alias_map.contains_key(&mangled) {
+                    errors.push(code_parse_error!(
+                        located_stat.location.start,
+                        format!(
+                            "alias '{}' is defined as both identifier alias and block alias",
+                            mangled
+                        )
+                    ));
+                } else {
+                    block_alias_map.insert(mangled, body.clone());
+                }
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
+                collect_block_alias_map_recursive(body, &sub_prefix, alias_map, block_alias_map, errors);
+            }
+            _ => {}
+        }
+    }
 }
 
 /// ブロックエイリアスの AST を走査し、直接参照する他のブロックエイリアス名のセットを返す

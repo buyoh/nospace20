@@ -154,13 +154,9 @@ fn evaluate_constexpr_by_name(
 pub(super) fn collect_constexpr_table(
     statements: &[LocatedStatement],
 ) -> Result<BTreeMap<String, i64>, Vec<CodeParseError>> {
-    // 生式マップ（名前 → 生式）を構築
+    // 全ての constexpr を収集（名前空間内のものをマングル名で含む）
     let mut raw: BTreeMap<String, Box<LocatedExpression>> = BTreeMap::new();
-    for located_stat in statements {
-        if let Statement::ConstexprDeclaration(name, expr) = &located_stat.statement {
-            raw.insert(name.clone(), expr.clone());
-        }
-    }
+    collect_constexpr_raw(statements, "", &mut raw);
 
     if raw.is_empty() {
         return Ok(BTreeMap::new());
@@ -169,9 +165,9 @@ pub(super) fn collect_constexpr_table(
     // 各 constexpr を遅延評価
     let mut resolved: BTreeMap<String, i64> = BTreeMap::new();
     let mut errors: Vec<CodeParseError> = Vec::new();
-    for name in raw.keys() {
+    for name in raw.keys().cloned().collect::<Vec<_>>() {
         let mut evaluating: BTreeSet<String> = BTreeSet::new();
-        match evaluate_constexpr_by_name(name, &raw, &mut resolved, &mut evaluating) {
+        match evaluate_constexpr_by_name(&name, &raw, &mut resolved, &mut evaluating) {
             Ok(_) => {}
             Err(mut errs) => errors.append(&mut errs),
         }
@@ -182,4 +178,27 @@ pub(super) fn collect_constexpr_table(
     }
 
     Ok(resolved)
+}
+
+/// 名前空間を再帰的に探索し、constexpr の生式マップに収集する
+///
+/// `ns_prefix` が空の場合は名前をそのまま、非空の場合は `{ns_prefix}{name}` でマングル
+fn collect_constexpr_raw(
+    statements: &[LocatedStatement],
+    ns_prefix: &str,
+    raw: &mut BTreeMap<String, Box<LocatedExpression>>,
+) {
+    for located_stat in statements {
+        match &located_stat.statement {
+            Statement::ConstexprDeclaration(name, expr) => {
+                let mangled = format!("{}{}", ns_prefix, name);
+                raw.insert(mangled, expr.clone());
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
+                collect_constexpr_raw(body, &sub_prefix, raw);
+            }
+            _ => {}
+        }
+    }
 }
