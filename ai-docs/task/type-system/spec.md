@@ -106,11 +106,38 @@ struct: MyStruct (number: int, data: int[9]);
   - `MyStruct` → OK
   - `myStruct` → コンパイルエラー
   - `_MyStruct` → コンパイルエラー
-- フィールドは `name: type` の形式で定義する。
+- フィールドは以下のいずれかの形式で定義する:
+  - `name: type` — 型を明示
+  - `name` — 型省略（`int` として扱う）
+  - `name[N]` — 型省略の配列（`int[N]` として扱う）
+  - `name @ StructName` — フィールドが構造体型
 - フィールド型として使用可能な型: `int`, `int[N]` (固定配列), 他の構造体型
   - void 型のフィールドは不可
 - 構造体定義はトップレベル（グローバルスコープ）または関数内のスコープに配置可能。
 - ホイスティングされる（定義より前に使用可能）。
+
+#### フィールド定義の例
+
+```
+# 型を明示する形式 #
+struct: MyStruct (number: int, data: int[9]);
+
+# 型を省略する形式（省略時は int）#
+struct: MyStruct (number, data[9]);
+
+# 構造体フィールド #
+struct: Point (x: int, y: int);
+struct: Line (start @ Point, end @ Point);
+# ↑ は以下と等価 #
+struct: Line (start: Point, end: Point);
+
+# 混在も可能 #
+struct: Complex (value, name[16], pos @ Point);
+```
+
+- `:` 形式と `@` 形式は同じ意味。`name: StructName` と `name @ StructName` は等価。
+- `@` 形式は、変数宣言の `let: x@Type` と視覚的に一貫性がある。
+- `:` は構造体のフィールド定義でのみ型指定に使える（nospace では `:` はキーワード構文の識別に使われるが、構造体フィールド定義の `name: type` は文脈上一意に判別可能）。
 
 ### 構造体変数の宣言と初期化
 
@@ -173,6 +200,16 @@ struct: MyStruct (number: int, data: int[9]);
 - 構造体は値型ではない。代入 (`s1 = s2`) や関数の引数・戻り値としての受け渡しは直接サポートしない。
   - 構造体の参照(`&s`) やフィールド単位の操作で代替する。
 - ネストした構造体（フィールドが構造体型）はサポートする。アクセスは `s.inner.field` のようにチェーン可能。
+
+```
+struct: Point (x, y);
+struct: Rect (top_left @ Point, bottom_right @ Point);
+
+let: r@Rect ((1, 2), (3, 4));
+r.top_left.x = 10;   # r[0] = 10 と等価 #
+r.bottom_right.y = 20;  # r[3] = 20 と等価 #
+```
+
 - 再帰的な構造体定義（自身を含む構造体）は不可（コンパイルエラー）。
 
 ## 型仕様 (type_spec) の文法
@@ -217,7 +254,11 @@ param ::= ident ("@" type_spec)?
 
 # 構造体定義
 struct_decl ::= "struct" ":" ident "(" field_decl ("," field_decl)* ")" ";"
-field_decl ::= ident ":" type_spec
+field_decl ::=
+    | ident ":" type_spec                  # 型を明示: number: int
+    | ident "@" type_spec                   # 型を明示 (@形式): data @ Point
+    | ident ("[" integer "]")              # 型省略の配列: data[9] (= int[9])
+    | ident                                  # 型省略: number (= int)
 
 # グローバル文の拡張
 global_stmt ::= ... | struct_decl

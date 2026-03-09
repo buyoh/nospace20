@@ -76,8 +76,43 @@ pub enum Expression {
 pub enum Statement {
     // ... 既存 ...
     /// 構造体定義: struct: Name (field: type, ...);
-    StructDeclaration(String, Vec<(String, TypeSpec)>),
+    /// フィールドの型は省略可能（省略時は Int）
+    StructDeclaration(String, Vec<StructFieldDecl>),
 }
+
+/// 構造体フィールド宣言
+#[derive(Clone, Debug)]
+pub struct StructFieldDecl {
+    pub name: String,
+    pub type_spec: Option<TypeSpec>,  // None = int（型省略）
+    pub array_size: Option<usize>,    // Some(N) = name[N] 形式
+}
+```
+
+構造体フィールドのパースは以下の4パターンを認識する:
+
+```
+parse_struct_field:
+    name = expect ident
+    if peek == Token::Colon:
+        # name: type 形式
+        consume Colon
+        type_spec = parse_type_spec()
+        → StructFieldDecl { name, type_spec: Some(type_spec), array_size: None }
+    else if peek == Token::At:
+        # name @ type 形式
+        consume At
+        type_spec = parse_type_spec()
+        → StructFieldDecl { name, type_spec: Some(type_spec), array_size: None }
+    else if peek == Token::BracketL:
+        # name[N] 形式 (= int[N])
+        consume BracketL
+        size = expect integer
+        consume BracketR
+        → StructFieldDecl { name, type_spec: None, array_size: Some(size) }
+    else:
+        # name 形式 (= int)
+        → StructFieldDecl { name, type_spec: None, array_size: None }
 ```
 
 4. `VariableDeclaration` の変更

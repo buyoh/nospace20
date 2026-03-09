@@ -16,20 +16,23 @@ nospace は Whitespace をターゲットとするため、メモリモデルは
 ### 例
 
 ```
-struct: Point (x: int, y: int);
+struct: Point (x, y);              # 型省略 → 各フィールド int #
 # x: offset 0, size 1
 # y: offset 1, size 1
 # total_size: 2
 
-struct: Line (start: Point, end: Point);
+struct: Line (start @ Point, end @ Point);  # 構造体フィールド #
 # start: offset 0, size 2  (Point の total_size)
 # end:   offset 2, size 2
 # total_size: 4
 
-struct: MyStruct (number: int, data: int[9]);
+struct: MyStruct (number, data[9]);  # 型省略 + 配列 #
 # number: offset 0, size 1
 # data:   offset 1, size 9
 # total_size: 10
+
+# 明示的な型指定でも同じ結果 #
+struct: MyStruct (number: int, data: int[9]);
 ```
 
 ## 変数確保
