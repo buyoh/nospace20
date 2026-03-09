@@ -179,6 +179,17 @@ expr_val:
 
 ```
 parse_type_spec():
+    # 参照型の接頭辞を処理
+    # トークナイザが && を DoubleAmpersand として結合するため、両方を受理する
+    if peek == Token::Ampersand:
+        consume Ampersand
+        inner = parse_type_spec()   # 再帰
+        return TypeSpec::Ref(inner)
+    else if peek == Token::DoubleAmpersand:
+        consume DoubleAmpersand
+        inner = parse_type_spec()   # 再帰
+        return TypeSpec::Ref(TypeSpec::Ref(inner))  # 2重参照に展開
+
     if peek == Identifier("int"):
         consume → TypeSpec::Int
     else if peek == Identifier("void"):
