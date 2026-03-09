@@ -391,9 +391,11 @@ tree_parser の `Expression::FieldAccess(expr, field_name)` を意味解析で�
 
 **影響範囲**: `expression.rs` (Phase 2 で一部対応済み)
 
-## Phase 6: ドットアクセスの統合
+## ~~Phase 6: ドットアクセスの統合~~ (不要)
 
-namespace タスクとの調整が必要。詳細は [dot-access-conflict.md](dot-access-conflict.md) を参照。
+名前空間のアクセスに `$` が採用されたため、`.` との衝突はない。
+構造体フィールドアクセスの `.` は Phase 4 で完結し、名前空間との統合 Phase は不要。
+詳細は [dot-access-conflict.md](dot-access-conflict.md) を参照。
 
 ## インタプリタ (`src/interpreter/`) への影響
 
