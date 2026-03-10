@@ -92,6 +92,7 @@ fn make_let_stmt(name: &str, value: i64) -> LocatedStatement {
             false,
             false,
             None,
+            None,
         ),
         location: dummy_loc(),
     }
@@ -205,6 +206,7 @@ fn test_eval_block_static_error() {
             true, // is_static=true
             false,
             None,
+            None,
         ),
         location: dummy_loc(),
     }];
@@ -222,6 +224,7 @@ fn test_eval_block_final_error() {
             false,
             true, // is_final=true
             None,
+            None,
         ),
         location: dummy_loc(),
     }];
@@ -234,11 +237,12 @@ fn test_eval_block_array_error() {
     let mut env = ConstexprEnv::new(&table);
     let stmts = vec![LocatedStatement {
         statement: Statement::VariableDeclaration(
-            "arr".to_string(),
-            make_factor(0),
+            "a".to_string(),
+            make_factor(1),
             false,
             false,
-            Some(10), // array_size=Some(10)
+            Some(1),
+            None,
         ),
         location: dummy_loc(),
     }];

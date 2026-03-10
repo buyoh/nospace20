@@ -22,7 +22,7 @@ use crate::base::error::NospaceError;
 use crate::base::shared_writer::SharedWriter;
 use crate::semantic_analyzer::{
     Block, BuiltinFunctionKind, ConditionMode, ExecExpression, ExecStatement, IdentifierRef,
-    InternalBuiltinFunctionKind, LocatedExecExpression, LocatedExecStatement, Scope,
+    InternalBuiltinFunctionKind, LocatedExecExpression, LocatedExecStatement, Scope, ValueType,
 };
 use crate::tree_parser::{Operator1, Operator2};
 
@@ -105,6 +105,19 @@ pub(super) enum EvalCont {
     DerefAfter,
     AfterArrayIndex {
         id_ref: IdentifierRef,
+    },
+    VoidCastAfter,
+    StructField {
+        offset: usize,
+        field_type: ValueType,
+    },
+    StructFieldArrayIndex {
+        offset: usize,
+        index_expr: ExprPtr,
+    },
+    StructFieldArrayFinish {
+        base_addr: i64,
+        offset: usize,
     },
     BinaryLeft {
         op: Operator2,

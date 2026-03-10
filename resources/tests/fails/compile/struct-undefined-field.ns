@@ -1,0 +1,6 @@
+struct: Point(x, y);
+
+func: __main() {
+  let: p@Point(1, 2);
+  __puti(p.z);
+}

@@ -1,0 +1,5 @@
+struct: point(x);
+
+func: __main() {
+  let: x(0);
+}

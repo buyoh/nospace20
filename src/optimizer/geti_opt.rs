@@ -88,7 +88,7 @@ fn optimize_statement(stmt: &mut LocatedExecStatement) {
 /// 変換できた場合は `Some(new_inner_expression)` を返す。
 fn try_transform_geti(located: &LocatedExecExpression) -> Option<ExecExpression> {
     if let ExecExpression::Operation2(Operator2::Assign, lhs, rhs) = &located.expression {
-        if let ExecExpression::Variable(var_ref) = &lhs.expression {
+        if let ExecExpression::Variable(var_ref, _) = &lhs.expression {
             match &rhs.expression {
                 ExecExpression::BuiltinFunction(BuiltinFunctionKind::Geti, args)
                     if args.is_empty() =>
@@ -136,6 +136,22 @@ fn recurse_into_expr(located: &mut Box<LocatedExecExpression>) {
             for arg in args {
                 recurse_into_expr(arg);
             }
+        }
+        ExecExpression::ArrayAccess(_, index_expr, _) => {
+            recurse_into_expr(index_expr);
+        }
+        ExecExpression::TypeAssertion(inner, _) => {
+            recurse_into_expr(inner);
+        }
+        ExecExpression::VoidCast(inner) => {
+            recurse_into_expr(inner);
+        }
+        ExecExpression::StructFieldAccess(base, _, _, _) => {
+            recurse_into_expr(base);
+        }
+        ExecExpression::StructFieldArrayAccess(base, _, index_expr, _) => {
+            recurse_into_expr(base);
+            recurse_into_expr(index_expr);
         }
         _ => {}
     }

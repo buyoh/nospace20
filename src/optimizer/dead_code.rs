@@ -144,9 +144,22 @@ fn collect_called_in_expr(
         ExecExpression::ArrayAccess(_, index_expr, _) => {
             collect_called_in_expr(&index_expr.expression, reachable, worklist);
         }
+        ExecExpression::TypeAssertion(inner, _) => {
+            collect_called_in_expr(&inner.expression, reachable, worklist)
+        }
+        ExecExpression::VoidCast(inner) => {
+            collect_called_in_expr(&inner.expression, reachable, worklist)
+        }
+        ExecExpression::StructFieldAccess(base, _, _, _) => {
+            collect_called_in_expr(&base.expression, reachable, worklist)
+        }
+        ExecExpression::StructFieldArrayAccess(base, _, index_expr, _) => {
+            collect_called_in_expr(&base.expression, reachable, worklist);
+            collect_called_in_expr(&index_expr.expression, reachable, worklist)
+        }
         // Factor, Variable, InternalBuiltinFunction はリーフノード
         ExecExpression::Factor(_)
-        | ExecExpression::Variable(_)
+        | ExecExpression::Variable(_, _)
         | ExecExpression::InternalBuiltinFunction(_) => {}
     }
 }

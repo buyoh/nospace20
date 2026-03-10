@@ -50,5 +50,16 @@ nospace 言語に明示的な型注釈・構造体を導入する設計タスク
 | Phase 5 | 明示的キャスト (`@ void`) | Phase 2 |
 ## 既存タスクとの関連
 
-- [namespace/](../namespace/) - 名前空間は `$` でアクセスするため `.` との衝突なし（[dot-access-conflict.md](dot-access-conflict.md) に経緯を記録）
-- [temporary-array-literals.md](../temporary-array-literals.md) - 構造体初期化との相互作用
+- [namespace/](../../task/namespace/) - 名前空間は `$` でアクセスするため `.` との衝突なし（[dot-access-conflict.md](dot-access-conflict.md) に経緯を記録）
+- [temporary-array-literals.md](../../task/temporary-array-literals.md) - 構造体初期化との相互作用
+
+## Progress
+
+### 2026-03-10
+
+- Implemented parser changes for type annotations and struct syntax.
+- Added semantic checks and execution support for type annotations, void cast, and struct access.
+- Added large tests for type annotations, void cast, structs, and error cases.
+- Updated unit tests and test manifest.
+- Ran full test suite; only existing test failure is invalid_token_001 (documented).
+- Pending: commit.

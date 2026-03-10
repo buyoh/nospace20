@@ -6,7 +6,8 @@
 
 use crate::base::SourceLocation;
 use crate::semantic_analyzer::{
-    ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Scope, Variable,
+    ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Scope, ValueType,
+    Variable,
 };
 use crate::tree_parser::Operator2;
 
@@ -30,6 +31,7 @@ pub fn apply(scope: &mut Scope) {
         is_static: false,
         is_final: false,
         array_size: None,
+        value_type: ValueType::Int,
     };
     let var_index = scope.variables.len();
     scope.variables.push(var);
@@ -56,7 +58,7 @@ pub fn apply(scope: &mut Scope) {
     let init_expr = ExecExpression::Operation2(
         Operator2::Assign,
         Box::new(LocatedExecExpression {
-            expression: ExecExpression::Variable(var_ref),
+            expression: ExecExpression::Variable(var_ref, ValueType::Int),
             location: dummy_location.clone(),
         }),
         Box::new(LocatedExecExpression {

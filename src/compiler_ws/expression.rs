@@ -5,7 +5,7 @@ use crate::compiler_ws::{
     memory::heap_layout, program::WsProgram, types::WsNumber, CompileError, CompileErrorKind,
 };
 use crate::semantic_analyzer::{
-    ConditionMode, ExecExpression, InternalBuiltinFunctionKind, LocatedExecExpression,
+    ConditionMode, ExecExpression, InternalBuiltinFunctionKind, LocatedExecExpression, ValueType,
 };
 use crate::tree_parser::{Operator1, Operator2};
 
@@ -37,7 +37,10 @@ pub fn generate_expression(
         }
 
         // 変数参照
-        ExecExpression::Variable(var_ref) => generate_load_variable(ctx, var_ref),
+        ExecExpression::Variable(var_ref, value_type) => match value_type {
+            ValueType::Struct(_) => generate_variable_address(ctx, var_ref),
+            _ => generate_load_variable(ctx, var_ref),
+        },
 
         // 配列アクセス
         ExecExpression::ArrayAccess(var_ref, index_expr, _array_size) => {
@@ -86,6 +89,31 @@ pub fn generate_expression(
         // 最適化パスで生成される内部組み込み関数
         ExecExpression::InternalBuiltinFunction(kind) => {
             generate_internal_builtin_function(ctx, kind)
+        }
+        ExecExpression::TypeAssertion(inner, _) => generate_expression(ctx, inner),
+        ExecExpression::VoidCast(inner) => {
+            let mut prog = generate_expression(ctx, inner)?;
+            prog.push(Instruction::Discard);
+            prog.push(Instruction::Push(WsNumber(0)));
+            Ok(prog)
+        }
+        ExecExpression::StructFieldAccess(base, offset, _, field_type) => {
+            let mut prog = generate_expression(ctx, base)?;
+            prog.push(Instruction::Push(WsNumber(*offset as i64)));
+            prog.push(Instruction::Add);
+            if !matches!(field_type, ValueType::Struct(_)) {
+                prog.push(Instruction::Retrieve);
+            }
+            Ok(prog)
+        }
+        ExecExpression::StructFieldArrayAccess(base, offset, index_expr, _) => {
+            let mut prog = generate_expression(ctx, base)?;
+            prog.push(Instruction::Push(WsNumber(*offset as i64)));
+            prog.push(Instruction::Add);
+            prog.append(generate_expression(ctx, index_expr)?);
+            prog.push(Instruction::Add);
+            prog.push(Instruction::Retrieve);
+            Ok(prog)
         }
     }
 }
@@ -194,7 +222,7 @@ fn generate_unary_op(
         Operator1::Ref => {
             // 変数または配列要素のアドレスを取得
             match &inner.expression {
-                ExecExpression::Variable(var_ref) => {
+                ExecExpression::Variable(var_ref, _) => {
                     prog.append(generate_variable_address(ctx, var_ref)?);
                 }
                 ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
@@ -457,7 +485,7 @@ fn generate_binary_op(
         Operator2::Assign => {
             // 左辺は変数参照、配列アクセス、またはデリファレンスである必要がある
             match &left.expression {
-                ExecExpression::Variable(var_ref) => {
+                ExecExpression::Variable(var_ref, _) => {
                     prog.append(generate_store_variable_impl(ctx, var_ref, right, true)?);
                 }
                 ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
@@ -927,7 +955,7 @@ fn generate_assign_void(
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
     match &left.expression {
-        ExecExpression::Variable(var_ref) => {
+        ExecExpression::Variable(var_ref, _) => {
             prog.append(generate_store_variable_impl(ctx, var_ref, right, false)?);
         }
         ExecExpression::ArrayAccess(var_ref, index_expr, _) => {

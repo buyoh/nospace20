@@ -1,0 +1,12 @@
+struct: Inner(a, b);
+struct: Outer(inner@Inner, c);
+
+func: __main() {
+  let: o@Outer(struct: Inner(10, 20), 30);
+  __puti(o.inner.a);
+  __putc(10);
+  __puti(o.inner.b);
+  __putc(10);
+  __puti(o.c);
+  __putc(10);
+}

@@ -174,7 +174,28 @@ fn optimize_expression(expr: ExecExpression, loc: SourceLocation) -> ExecExpress
             ExecExpression::UserFunction(func_ref, args)
         }
 
-        // リーフノード（Factor, Variable, ArrayAccess, InternalBuiltinFunction）
+        ExecExpression::ArrayAccess(id_ref, mut index_expr, size) => {
+            optimize_located_expr(&mut index_expr);
+            ExecExpression::ArrayAccess(id_ref, index_expr, size)
+        }
+        ExecExpression::TypeAssertion(mut inner, value_type) => {
+            optimize_located_expr(&mut inner);
+            ExecExpression::TypeAssertion(inner, value_type)
+        }
+        ExecExpression::VoidCast(mut inner) => {
+            optimize_located_expr(&mut inner);
+            ExecExpression::VoidCast(inner)
+        }
+        ExecExpression::StructFieldAccess(mut base, offset, array_size, field_type) => {
+            optimize_located_expr(&mut base);
+            ExecExpression::StructFieldAccess(base, offset, array_size, field_type)
+        }
+        ExecExpression::StructFieldArrayAccess(mut base, offset, mut index_expr, size) => {
+            optimize_located_expr(&mut base);
+            optimize_located_expr(&mut index_expr);
+            ExecExpression::StructFieldArrayAccess(base, offset, index_expr, size)
+        }
+        // リーフノード（Factor, Variable, InternalBuiltinFunction）
         other => other,
     }
 }

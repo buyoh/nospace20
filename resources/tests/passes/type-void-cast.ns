@@ -1,0 +1,7 @@
+func: __main() {
+  let: x(5);
+  x = x + 1;
+  x @ void;
+  __puti(x);
+  __putc(10);
+}

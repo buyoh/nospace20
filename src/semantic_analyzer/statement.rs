@@ -16,7 +16,8 @@ use super::{
     expression::convert_to_exec_expression_with_resolver,
     scope::{Identifier, ScopeBuilder, ScopeResolver, ScopeType},
     types::{
-        infer_block_type, Block, ConditionMode, ExecStatement, LocatedExecStatement, ValueType,
+        infer_block_type, Block, ConditionMode, ExecExpression, ExecStatement,
+        LocatedExecStatement, ValueType,
     },
 };
 
@@ -46,7 +47,200 @@ pub(super) fn convert_to_exec_statements(
         let stat = &located_stat.statement;
         let loc = &located_stat.location;
         match stat {
-            Statement::VariableDeclaration(_name, init, is_static_explicit, _, _) => {
+            Statement::VariableDeclaration(name, init, is_static_explicit, _, _, type_annot) => {
+                let (var_ref, var_type) = resolver.resolve_variable_with_type(name).ok_or_else(|| {
+                    vec![code_parse_error!(
+                        loc.start,
+                        format!("undefined variable: {}", name)
+                    )]
+                })?;
+
+                if let ValueType::Struct(struct_idx) = var_type.clone() {
+                    if let crate::tree_parser::Expression::Operation2(
+                        Operator2::Assign,
+                        _,
+                        rhs_expr,
+                    ) = &init.expression
+                    {
+                        if let crate::tree_parser::Expression::StructLiteral(_, args) =
+                            &rhs_expr.expression
+                        {
+                            let struct_def = resolver
+                                .get_struct_definition(struct_idx)
+                                .ok_or_else(|| {
+                                    vec![code_parse_error!(
+                                        loc.start,
+                                        "unknown struct type"
+                                    )]
+                                })?;
+                            let mut init_statements = Vec::new();
+                            let mut value_exprs = Vec::new();
+                            let mut arg_index = 0usize;
+
+                            for field in &struct_def.fields {
+                                match &field.value_type {
+                                    ValueType::Int => {
+                                        let expr = args.get(arg_index).ok_or_else(|| {
+                                            vec![code_parse_error!(
+                                                loc.start,
+                                                "struct initializer has too few values"
+                                            )]
+                                        })?;
+                                        let exec_expr = convert_to_exec_expression_with_resolver(
+                                            &Box::new(expr.clone()),
+                                            resolver,
+                                            effective_func_return_types,
+                                        )?;
+                                        super::expression::require_int_type(
+                                            &exec_expr,
+                                            effective_func_return_types,
+                                        )?;
+                                        value_exprs.push(exec_expr);
+                                        arg_index += 1;
+                                    }
+                                    ValueType::Array(_, size) => {
+                                        for _ in 0..*size {
+                                            let expr = args.get(arg_index).ok_or_else(|| {
+                                                vec![code_parse_error!(
+                                                    loc.start,
+                                                    "struct initializer has too few values"
+                                                )]
+                                            })?;
+                                            let exec_expr =
+                                                convert_to_exec_expression_with_resolver(
+                                                    &Box::new(expr.clone()),
+                                                    resolver,
+                                                    effective_func_return_types,
+                                                )?;
+                                            super::expression::require_int_type(
+                                                &exec_expr,
+                                                effective_func_return_types,
+                                            )?;
+                                            value_exprs.push(exec_expr);
+                                            arg_index += 1;
+                                        }
+                                    }
+                                    ValueType::Struct(nested_idx) => {
+                                        let expr = args.get(arg_index).ok_or_else(|| {
+                                            vec![code_parse_error!(
+                                                loc.start,
+                                                "struct initializer has too few values"
+                                            )]
+                                        })?;
+                                        if let crate::tree_parser::Expression::StructLiteral(
+                                            _,
+                                            nested_args,
+                                        ) = &expr.expression
+                                        {
+                                            let nested_def = resolver
+                                                .get_struct_definition(*nested_idx)
+                                                .ok_or_else(|| {
+                                                    vec![code_parse_error!(
+                                                        loc.start,
+                                                        "unknown struct type"
+                                                    )]
+                                                })?;
+                                            let mut nested_index = 0usize;
+                                            for nested_field in &nested_def.fields {
+                                                let count = match &nested_field.value_type {
+                                                    ValueType::Array(_, size) => *size,
+                                                    ValueType::Int => 1,
+                                                    _ => 1,
+                                                };
+                                                for _ in 0..count {
+                                                    let nested_expr = nested_args
+                                                        .get(nested_index)
+                                                        .ok_or_else(|| {
+                                                            vec![code_parse_error!(
+                                                                loc.start,
+                                                                "nested struct initializer has too few values"
+                                                            )]
+                                                        })?;
+                                                    let exec_expr =
+                                                        convert_to_exec_expression_with_resolver(
+                                                            &Box::new(nested_expr.clone()),
+                                                            resolver,
+                                                            effective_func_return_types,
+                                                        )?;
+                                                    super::expression::require_int_type(
+                                                        &exec_expr,
+                                                        effective_func_return_types,
+                                                    )?;
+                                                    value_exprs.push(exec_expr);
+                                                    nested_index += 1;
+                                                }
+                                            }
+                                            if nested_index != nested_args.len() {
+                                                return Err(vec![code_parse_error!(
+                                                    loc.start,
+                                                    "nested struct initializer has too many values"
+                                                )]);
+                                            }
+                                            arg_index += 1;
+                                        } else {
+                                            return Err(vec![code_parse_error!(
+                                                loc.start,
+                                                "struct field initializer must be struct literal"
+                                            )]);
+                                        }
+                                    }
+                                    ValueType::Void => {
+                                        return Err(vec![code_parse_error!(
+                                            loc.start,
+                                            "struct field cannot be void"
+                                        )]);
+                                    }
+                                }
+                            }
+
+                            if arg_index != args.len() {
+                                return Err(vec![code_parse_error!(
+                                    loc.start,
+                                    "struct initializer has too many values"
+                                )]);
+                            }
+
+                            for (i, value_expr) in value_exprs.into_iter().enumerate() {
+                                let lhs = super::expression::make_located_exec(
+                                    super::types::ExecExpression::ArrayAccess(
+                                        var_ref,
+                                        super::expression::make_located_exec(
+                                            super::types::ExecExpression::Factor(i as i64),
+                                            &init.location,
+                                        ),
+                                        struct_def.total_size,
+                                    ),
+                                    &init.location,
+                                );
+                                let assign_expr = super::expression::make_located_exec(
+                                    super::types::ExecExpression::Operation2(
+                                        Operator2::Assign,
+                                        lhs,
+                                        value_expr,
+                                    ),
+                                    &init.location,
+                                );
+                                init_statements.push(LocatedExecStatement {
+                                    statement: ExecStatement::Expression(assign_expr),
+                                    location: loc.clone(),
+                                });
+                            }
+
+                            if *is_static_explicit {
+                                scope.static_init_statements.extend(init_statements);
+                            } else {
+                                exec_statements.extend(init_statements);
+                            }
+                            continue;
+                        } else {
+                            return Err(vec![code_parse_error!(
+                                loc.start,
+                                "struct variable must be initialized with struct literal"
+                            )]);
+                        }
+                    }
+                }
+
                 // 初期化式を変換（変数宣言自体はパス1で完了）
                 // final 変数の初期化代入は再代入ブロックの対象外にするため、
                 // init_expr のトップレベルの Assign を分解して直接構築する
@@ -84,6 +278,18 @@ pub(super) fn convert_to_exec_statements(
                         effective_func_return_types,
                     )?
                 };
+                if let Some(type_spec) = type_annot {
+                    let expected = super::expression::resolve_type_spec(type_spec, resolver)?;
+                    let actual = exec_init.infer_type(effective_func_return_types);
+                    if matches!(var_type, ValueType::Struct(_))
+                        && matches!(exec_init.expression, ExecExpression::Factor(0))
+                    {
+                        // struct default initialization (zeroed)
+                    } else if expected != actual {
+                        return Err(vec![code_parse_error!(loc.start, "type mismatch")]);
+                    }
+                }
+
                 let exec_stmt = ExecStatement::Expression(exec_init);
                 let located = LocatedExecStatement {
                     statement: exec_stmt,
@@ -98,7 +304,8 @@ pub(super) fn convert_to_exec_statements(
                     exec_statements.push(located);
                 }
             }
-            Statement::FunctionDeclaration(name, args, block) => {
+            Statement::StructDeclaration(_, _) => {}
+            Statement::FunctionDeclaration(name, args, block, _return_type_annot) => {
                 // 名前空間プレフィックスを適用したマングル名でパス1aの登録内容を取得
                 let mangled_name = format!("{}{}", resolver.current_ns_prefix(), name);
                 let global_idx =
@@ -130,7 +337,7 @@ pub(super) fn convert_to_exec_statements(
                 // 引数のインデックスを事前計算（最適化）
                 let arg_indices: Vec<usize> = args
                     .iter()
-                    .map(|arg_name| {
+                    .map(|(arg_name, _)| {
                         *built_scope
                             .variable_indices
                             .get(arg_name)
@@ -141,7 +348,7 @@ pub(super) fn convert_to_exec_statements(
                 // 関数の戻り値型はパス1aで決定済みの値を使用
                 let func_return_type =
                     if let Some(Identifier::Function(info)) = scope.identifier_map.get(&mangled_name) {
-                        info.2
+                        info.2.clone()
                     } else {
                         panic!("internal error: function return_type should be in pass 1a info");
                     };
@@ -312,6 +519,8 @@ pub(super) fn convert_to_exec_statements(
                     &for_init_empty_constexpr,
                     &for_init_empty_alias,
                     &for_init_empty_block_alias,
+                    &init_scope.struct_definitions,
+                    &init_scope.struct_name_to_index,
                     false,
                     None,
                 );

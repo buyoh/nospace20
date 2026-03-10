@@ -150,7 +150,7 @@ fn collect_block_alias_refs_in_stmt(
             collect_block_alias_refs_in_stmts(step, block_alias_map, alias_map, refs);
             collect_block_alias_refs_in_stmts(body, block_alias_map, alias_map, refs);
         }
-        Statement::VariableDeclaration(_, expr, _, _, _) => {
+        Statement::VariableDeclaration(_, expr, _, _, _, _) => {
             collect_block_alias_refs_in_expr(expr, block_alias_map, alias_map, refs)
         }
         Statement::AliasBlock(_, body) => {

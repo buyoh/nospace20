@@ -505,7 +505,7 @@ impl LocalEnvironment<'_, '_> {
         match op {
             Operator1::Ref => {
                 match &expr1.expression {
-                    ExecExpression::Variable(id_ref) => {
+                    ExecExpression::Variable(id_ref, _) => {
                         let addr = self.resolve_address(id_ref);
                         ExpressionFlow::Value(addr)
                     }
@@ -544,7 +544,7 @@ impl LocalEnvironment<'_, '_> {
         // 代入演算子: 特別処理
         if let Operator2::Assign = op {
             match &expr1.expression {
-                ExecExpression::Variable(id_ref) => {
+                ExecExpression::Variable(id_ref, _) => {
                     let v = try_expr!(self.interpret_expression(expr2));
                     // Phase 2: IdentifierRef を使用して O(1) でアクセス
                     self.set_variable(id_ref, v);
@@ -620,9 +620,12 @@ impl LocalEnvironment<'_, '_> {
                 self.interpret_call_user_function_by_ref(func_ref, args)
             }
             ExecExpression::Factor(v) => ExpressionFlow::Value(*v),
-            ExecExpression::Variable(id_ref) => {
-                // IdentifierRef を使用して O(1) でアクセス
-                ExpressionFlow::Value(self.get_variable(id_ref))
+            ExecExpression::Variable(id_ref, value_type) => {
+                let value = match value_type {
+                    crate::semantic_analyzer::ValueType::Struct(_) => self.resolve_address(id_ref),
+                    _ => self.get_variable(id_ref),
+                };
+                ExpressionFlow::Value(value)
             }
             ExecExpression::ArrayAccess(id_ref, index_expr, _array_size) => {
                 let index = try_expr!(self.interpret_expression(index_expr));
@@ -637,6 +640,26 @@ impl LocalEnvironment<'_, '_> {
                 self.interpret_if(mode, cond, then_block, else_block)
             }
             ExecExpression::Block(block) => self.interpret_block(block),
+            ExecExpression::TypeAssertion(inner, _) => self.interpret_expression(inner),
+            ExecExpression::VoidCast(inner) => {
+                let _ = try_expr!(self.interpret_expression(inner));
+                ExpressionFlow::Value(0)
+            }
+            ExecExpression::StructFieldAccess(base, offset, _, field_type) => {
+                let base_addr = try_expr!(self.interpret_expression(base));
+                let addr = base_addr + *offset as i64;
+                match field_type {
+                    crate::semantic_analyzer::ValueType::Struct(_) => {
+                        ExpressionFlow::Value(addr)
+                    }
+                    _ => ExpressionFlow::Value(self.get_by_address(addr)),
+                }
+            }
+            ExecExpression::StructFieldArrayAccess(base, offset, idx, _) => {
+                let base_addr = try_expr!(self.interpret_expression(base));
+                let index = try_expr!(self.interpret_expression(idx));
+                ExpressionFlow::Value(self.get_by_address(base_addr + *offset as i64 + index))
+            }
             ExecExpression::InternalBuiltinFunction(kind) => {
                 self.interpret_internal_builtin_function(kind)
             }

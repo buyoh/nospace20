@@ -38,6 +38,38 @@ impl NospaceVM {
                 let v = self.env.allocator.get(addr);
                 self.finish_eval(v)
             }
+            EvalCont::VoidCastAfter => {
+                let _ = self.value_stack.pop().unwrap_or(0);
+                self.finish_eval(0)
+            }
+            EvalCont::StructField { offset, field_type } => {
+                let base_addr = self.value_stack.pop().unwrap_or(0);
+                let addr = base_addr + offset as i64;
+                match field_type {
+                    ValueType::Struct(_) => self.finish_eval(addr),
+                    _ => {
+                        let v = self.env.allocator.get(addr);
+                        self.finish_eval(v)
+                    }
+                }
+            }
+            EvalCont::StructFieldArrayIndex { offset, index_expr } => {
+                let base_addr = self.value_stack.pop().unwrap_or(0);
+                self.set_eval_cont(EvalCont::StructFieldArrayFinish { base_addr, offset });
+                self.frames.push(Frame::EvalExpr {
+                    expr: index_expr,
+                    cont: EvalCont::Start,
+                });
+                ExecuteResult::Continue
+            }
+            EvalCont::StructFieldArrayFinish { base_addr, offset } => {
+                let index = self.value_stack.pop().unwrap_or(0);
+                let v = self
+                    .env
+                    .allocator
+                    .get(base_addr + offset as i64 + index);
+                self.finish_eval(v)
+            }
             EvalCont::BinaryLeft { op, rhs } => {
                 let left = self.value_stack.pop().unwrap_or(0);
                 self.set_eval_cont(EvalCont::BinaryRight { op, left });
@@ -233,8 +265,11 @@ impl NospaceVM {
     pub(super) fn eval_start(&mut self, expr: &LocatedExecExpression) -> ExecuteResult {
         match &expr.expression {
             ExecExpression::Factor(v) => self.finish_eval(*v),
-            ExecExpression::Variable(id) => {
-                let v = self.get_variable(id);
+            ExecExpression::Variable(id, value_type) => {
+                let v = match value_type {
+                    crate::semantic_analyzer::ValueType::Struct(_) => self.resolve_addr(id),
+                    _ => self.get_variable(id),
+                };
                 self.finish_eval(v)
             }
             ExecExpression::ArrayAccess(id_ref, index_expr, _) => {
@@ -249,7 +284,7 @@ impl NospaceVM {
             }
             ExecExpression::Operation1(op, inner) => match op {
                 Operator1::Ref => match &inner.expression {
-                    ExecExpression::Variable(id) => {
+                    ExecExpression::Variable(id, _) => {
                         let addr = self.resolve_addr(id);
                         self.finish_eval(addr)
                     }
@@ -397,6 +432,49 @@ impl NospaceVM {
                 let r = self.exec_internal_builtin(kind);
                 self.finish_eval(r)
             }
+            ExecExpression::TypeAssertion(inner, _) => {
+                let ip: ExprPtr = inner.as_ref() as *const _;
+                self.frames.pop();
+                self.frames.push(Frame::EvalExpr {
+                    expr: ip,
+                    cont: EvalCont::Start,
+                });
+                ExecuteResult::Continue
+            }
+            ExecExpression::VoidCast(inner) => {
+                let ip: ExprPtr = inner.as_ref() as *const _;
+                self.set_eval_cont(EvalCont::VoidCastAfter);
+                self.frames.push(Frame::EvalExpr {
+                    expr: ip,
+                    cont: EvalCont::Start,
+                });
+                ExecuteResult::Continue
+            }
+            ExecExpression::StructFieldAccess(base, offset, _, field_type) => {
+                let ip: ExprPtr = base.as_ref() as *const _;
+                self.set_eval_cont(EvalCont::StructField {
+                    offset: *offset,
+                    field_type: field_type.clone(),
+                });
+                self.frames.push(Frame::EvalExpr {
+                    expr: ip,
+                    cont: EvalCont::Start,
+                });
+                ExecuteResult::Continue
+            }
+            ExecExpression::StructFieldArrayAccess(base, offset, index_expr, _) => {
+                let base_ptr: ExprPtr = base.as_ref() as *const _;
+                let index_ptr: ExprPtr = index_expr.as_ref() as *const _;
+                self.set_eval_cont(EvalCont::StructFieldArrayIndex {
+                    offset: *offset,
+                    index_expr: index_ptr,
+                });
+                self.frames.push(Frame::EvalExpr {
+                    expr: base_ptr,
+                    cont: EvalCont::Start,
+                });
+                ExecuteResult::Continue
+            }
         }
     }
 
@@ -407,7 +485,7 @@ impl NospaceVM {
     ) -> ExecuteResult {
         let rp: ExprPtr = rhs as *const _;
         match &lhs.expression {
-            ExecExpression::Variable(id_ref) => {
+            ExecExpression::Variable(id_ref, _) => {
                 let id = *id_ref;
                 self.set_eval_cont(EvalCont::AssignVar(id));
                 self.frames.push(Frame::EvalExpr {

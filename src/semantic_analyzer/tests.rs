@@ -97,6 +97,7 @@ fn test_success_block_scoped_variable() {
             false, // non-static
             false,
             None, // not an array
+            None,
         ),
         location: SourceLocation::new(150, 160),
     };
@@ -113,7 +114,12 @@ fn test_success_block_scoped_variable() {
     };
 
     let func = LocatedStatement {
-        statement: Statement::FunctionDeclaration("test".to_string(), vec![], vec![if_expr]),
+        statement: Statement::FunctionDeclaration(
+            "test".to_string(),
+            vec![],
+            vec![if_expr],
+            None,
+        ),
         location: SourceLocation::new(135, 175),
     };
 
@@ -132,6 +138,7 @@ fn test_success_global_variable() {
             false, // non-static explicitly, but global is implicitly static
             false,
             None, // not an array
+            None,
         ),
         location: SourceLocation::new(200, 210),
     };
@@ -155,7 +162,12 @@ fn test_success_simple_function() {
     };
 
     let func = LocatedStatement {
-        statement: Statement::FunctionDeclaration("__main".to_string(), vec![], vec![return_stmt]),
+        statement: Statement::FunctionDeclaration(
+            "__main".to_string(),
+            vec![],
+            vec![return_stmt],
+            None,
+        ),
         location: SourceLocation::new(0, 35),
     };
 
@@ -173,6 +185,7 @@ fn test_success_ref_variable() {
             loc_expr(Expression::Factor(0)),
             false,
             false,
+            None,
             None,
         ),
         location: SourceLocation::new(20, 30),
@@ -196,6 +209,7 @@ fn test_success_ref_variable() {
             "__main".to_string(),
             vec![],
             vec![var_decl, ref_expr, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 60),
     };
@@ -226,6 +240,7 @@ fn test_error_ref_literal() {
             "__main".to_string(),
             vec![],
             vec![ref_expr, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 45),
     };
@@ -254,6 +269,7 @@ fn test_error_ref_expression() {
             false,
             false,
             None,
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -280,6 +296,7 @@ fn test_error_ref_expression() {
             "__main".to_string(),
             vec![],
             vec![var_decl, ref_expr, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 65),
     };
@@ -308,6 +325,7 @@ fn test_success_deref_variable() {
             false,
             false,
             None,
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -330,6 +348,7 @@ fn test_success_deref_variable() {
             "__main".to_string(),
             vec![],
             vec![var_decl, deref_expr, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 60),
     };
@@ -351,6 +370,7 @@ fn test_success_array_declaration() {
             false,
             false,
             Some(3), // array size
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -365,6 +385,7 @@ fn test_success_array_declaration() {
             "__main".to_string(),
             vec![],
             vec![var_decl, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 50),
     };
@@ -390,6 +411,7 @@ fn test_success_multiple_variables_with_array() {
             false,
             false,
             None,
+            None,
         ),
         location: SourceLocation::new(20, 25),
     };
@@ -401,6 +423,7 @@ fn test_success_multiple_variables_with_array() {
             false,
             false,
             Some(3),
+            None,
         ),
         location: SourceLocation::new(30, 40),
     };
@@ -411,6 +434,7 @@ fn test_success_multiple_variables_with_array() {
             loc_expr(Expression::Factor(0)),
             false,
             false,
+            None,
             None,
         ),
         location: SourceLocation::new(45, 50),
@@ -426,6 +450,7 @@ fn test_success_multiple_variables_with_array() {
             "__main".to_string(),
             vec![],
             vec![var_a, var_arr, var_b, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 70),
     };
@@ -452,6 +477,7 @@ fn test_success_array_access() {
             false,
             false,
             Some(3),
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -474,6 +500,7 @@ fn test_success_array_access() {
             "__main".to_string(),
             vec![],
             vec![var_decl, array_access, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 65),
     };
@@ -493,6 +520,7 @@ fn test_success_array_assignment() {
             false,
             false,
             Some(3),
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -519,6 +547,7 @@ fn test_success_array_assignment() {
             "__main".to_string(),
             vec![],
             vec![var_decl, array_assign, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 70),
     };
@@ -539,6 +568,7 @@ fn test_error_array_access_non_array() {
             false,
             false,
             None, // not an array
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -561,6 +591,7 @@ fn test_error_array_access_non_array() {
             "__main".to_string(),
             vec![],
             vec![var_decl, array_access, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 65),
     };
@@ -592,6 +623,7 @@ fn test_error_array_access_undefined() {
             "__main".to_string(),
             vec![],
             vec![array_access, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 55),
     };
@@ -617,6 +649,7 @@ fn test_success_ref_array_element() {
             false,
             false,
             Some(3),
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -642,6 +675,7 @@ fn test_success_ref_array_element() {
             "__main".to_string(),
             vec![],
             vec![var_decl, ref_expr, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 65),
     };
@@ -661,6 +695,7 @@ fn test_success_static_array() {
             true, // static
             false,
             Some(3),
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -675,6 +710,7 @@ fn test_success_static_array() {
             "__main".to_string(),
             vec![],
             vec![var_decl, return_stmt],
+            None,
         ),
         location: SourceLocation::new(0, 50),
     };
@@ -700,6 +736,7 @@ fn test_variable_slot_index() {
             false,
             false,
             None,
+            None,
         ),
         location: SourceLocation::new(20, 30),
     };
@@ -711,6 +748,7 @@ fn test_variable_slot_index() {
             false,
             false,
             Some(3),
+            None,
         ),
         location: SourceLocation::new(40, 50),
     };
@@ -721,6 +759,7 @@ fn test_variable_slot_index() {
             loc_expr(Expression::Factor(0)),
             false,
             false,
+            None,
             None,
         ),
         location: SourceLocation::new(60, 70),
@@ -736,6 +775,7 @@ fn test_variable_slot_index() {
             "__main".to_string(),
             vec![],
             vec![var_a, var_arr, var_b, ret],
+            None,
         ),
         location: SourceLocation::new(0, 100),
     };

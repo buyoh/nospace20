@@ -24,6 +24,7 @@ pub enum Keyword {
     Alias,
     Final,
     Namespace,
+    Struct,
 }
 
 #[derive(Debug)]
@@ -32,6 +33,8 @@ pub enum Token {
     Identifier(String),
     Keyword(Keyword),
     StringLiteral(Vec<i64>), // 文字列リテラル（各文字のASCII値のベクタ、ヌル終端は含まない）
+    At,      // @
+    Dot,     // .
     Plus,
     Minus,
     Asterisk,
@@ -98,6 +101,7 @@ impl Keyword {
             Keyword::Alias => "alias",
             Keyword::Final => "final",
             Keyword::Namespace => "namespace",
+            Keyword::Struct => "struct",
         }
     }
 }
@@ -110,6 +114,8 @@ impl Token {
             Token::Identifier(s) => format!("identifier '{}'", s),
             Token::Keyword(k) => format!("keyword '{}'", k.as_str()),
             Token::StringLiteral(_) => "string literal".to_string(),
+            Token::At => "'@'".to_string(),
+            Token::Dot => "'.'".to_string(),
             Token::Plus => "'+'".to_string(),
             Token::Minus => "'-'".to_string(),
             Token::Asterisk => "'*'".to_string(),
@@ -363,6 +369,7 @@ fn as_keyword_token(id: &str) -> Option<Token> {
         "alias" => Some(Token::Keyword(Keyword::Alias)),
         "final" => Some(Token::Keyword(Keyword::Final)),
         "namespace" => Some(Token::Keyword(Keyword::Namespace)),
+        "struct" => Some(Token::Keyword(Keyword::Struct)),
         _ => None,
     }
 }
@@ -583,6 +590,8 @@ fn parse_to_tokens_internal<I: Iterator<Item = (usize, char)>>(
                 ':' => Token::Colon,
                 ',' => Token::Comma,
                 '$' => Token::Dollar,
+                '@' => Token::At,
+                '.' => Token::Dot,
                 _ => {
                     parse_errors.push(code_parse_error!(*idx, format!("invalid char: {}", c)));
                     iter.next();

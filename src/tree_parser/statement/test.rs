@@ -31,6 +31,10 @@ fn token_keyword_continue() -> PrettyToken {
     )
 }
 
+fn token_keyword_struct() -> PrettyToken {
+    (Token::Keyword(Keyword::Struct), TokenInfo { code_pointer: 0 })
+}
+
 fn token_ident(name: &str) -> PrettyToken {
     (
         Token::Identifier(name.to_string()),
@@ -79,6 +83,10 @@ fn token_bracket_r() -> PrettyToken {
     (Token::BracketR, TokenInfo { code_pointer: 0 })
 }
 
+fn token_at() -> PrettyToken {
+    (Token::At, TokenInfo { code_pointer: 0 })
+}
+
 fn token_op_single_equal() -> PrettyToken {
     (Token::SingleEqual, TokenInfo { code_pointer: 0 })
 }
@@ -96,10 +104,11 @@ fn test_parse_let_statement() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, expr, is_static, _, array_size) => {
+        Statement::VariableDeclaration(name, expr, is_static, _, array_size, type_annot) => {
             assert_eq!(name, "x");
             assert_eq!(*is_static, false); // non-static
             assert_eq!(*array_size, None); // not an array
+            assert!(type_annot.is_none());
             match expr.expression {
                 Expression::Factor(0) => (), // デフォルト値は0
                 _ => panic!("Expected Factor(0)"),
@@ -213,10 +222,11 @@ fn test_parse_func_no_args() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::FunctionDeclaration(name, args, body) => {
+        Statement::FunctionDeclaration(name, args, body, return_type) => {
             assert_eq!(name, "foo");
             assert_eq!(args.len(), 0);
             assert_eq!(body.len(), 0);
+            assert!(return_type.is_none());
         }
         _ => panic!("Expected Statement::FunctionDeclaration"),
     }
@@ -238,11 +248,12 @@ fn test_parse_func_one_arg() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::FunctionDeclaration(name, args, body) => {
+        Statement::FunctionDeclaration(name, args, body, return_type) => {
             assert_eq!(name, "bar");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], "x");
+            assert_eq!(args[0].0, "x");
             assert_eq!(body.len(), 0);
+            assert!(return_type.is_none());
         }
         _ => panic!("Expected Statement::FunctionDeclaration"),
     }
@@ -266,12 +277,13 @@ fn test_parse_func_multi_args() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::FunctionDeclaration(name, args, body) => {
+        Statement::FunctionDeclaration(name, args, body, return_type) => {
             assert_eq!(name, "baz");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], "x");
-            assert_eq!(args[1], "y");
+            assert_eq!(args[0].0, "x");
+            assert_eq!(args[1].0, "y");
             assert_eq!(body.len(), 0);
+            assert!(return_type.is_none());
         }
         _ => panic!("Expected Statement::FunctionDeclaration"),
     }
@@ -295,16 +307,102 @@ fn test_parse_func_with_body() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::FunctionDeclaration(name, args, body) => {
+        Statement::FunctionDeclaration(name, args, body, return_type) => {
             assert_eq!(name, "foo");
             assert_eq!(args.len(), 0);
             assert_eq!(body.len(), 1);
+            assert!(return_type.is_none());
             match &body[0].statement {
                 Statement::Return(_) => (),
                 _ => panic!("Expected Statement::Return in body"),
             }
         }
         _ => panic!("Expected Statement::FunctionDeclaration"),
+    }
+}
+
+#[test]
+fn test_parse_let_with_type_annotation() {
+    // let: x@int;
+    let tokens = vec![
+        token_keyword_let(),
+        token_ident("x"),
+        token_at(),
+        token_ident("int"),
+        token_semicolon(),
+    ];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].statement {
+        Statement::VariableDeclaration(name, _, _, _, _, type_annot) => {
+            assert_eq!(name, "x");
+            assert!(matches!(type_annot, Some(TypeSpec::Int)));
+        }
+        _ => panic!("Expected Statement::VariableDeclaration"),
+    }
+}
+
+#[test]
+fn test_parse_func_arg_and_return_type() {
+    // func: f(x@int)@void {}
+    let tokens = vec![
+        token_keyword_func(),
+        token_ident("f"),
+        token_paren_l(),
+        token_ident("x"),
+        token_at(),
+        token_ident("int"),
+        token_paren_r(),
+        token_at(),
+        token_ident("void"),
+        token_brace_l(),
+        token_brace_r(),
+    ];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].statement {
+        Statement::FunctionDeclaration(name, args, body, return_type) => {
+            assert_eq!(name, "f");
+            assert_eq!(args.len(), 1);
+            assert_eq!(args[0].0, "x");
+            assert!(matches!(args[0].1, Some(TypeSpec::Int)));
+            assert!(matches!(return_type, Some(TypeSpec::Void)));
+            assert!(body.is_empty());
+        }
+        _ => panic!("Expected Statement::FunctionDeclaration"),
+    }
+}
+
+#[test]
+fn test_parse_struct_declaration() {
+    // struct: Point(x, y@int);
+    let tokens = vec![
+        token_keyword_struct(),
+        token_ident("Point"),
+        token_paren_l(),
+        token_ident("x"),
+        token_comma(),
+        token_ident("y"),
+        token_at(),
+        token_ident("int"),
+        token_paren_r(),
+        token_semicolon(),
+    ];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].statement {
+        Statement::StructDeclaration(name, fields) => {
+            assert_eq!(name, "Point");
+            assert_eq!(fields.len(), 2);
+            assert_eq!(fields[0].name, "x");
+            assert!(fields[0].type_spec.is_none());
+            assert_eq!(fields[1].name, "y");
+            assert!(matches!(fields[1].type_spec, Some(TypeSpec::Int)));
+        }
+        _ => panic!("Expected Statement::StructDeclaration"),
     }
 }
 
@@ -324,13 +422,13 @@ fn test_parse_multiple_statements() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 2);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, _, _, _) => {
+        Statement::VariableDeclaration(name, _, _, _, _, _) => {
             assert_eq!(name, "x");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
     match &stmts[1].statement {
-        Statement::VariableDeclaration(name, _, _, _, _) => {
+        Statement::VariableDeclaration(name, _, _, _, _, _) => {
             assert_eq!(name, "y");
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
@@ -352,10 +450,11 @@ fn test_parse_array_declaration() {
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, expr, is_static, _, array_size) => {
+        Statement::VariableDeclaration(name, expr, is_static, _, array_size, type_annot) => {
             assert_eq!(name, "arr");
             assert_eq!(*is_static, false);
             assert_eq!(*array_size, Some(4));
+            assert!(type_annot.is_none());
             match expr.expression {
                 Expression::Factor(0) => (), // デフォルト初期化
                 _ => panic!("Expected Factor(0)"),
@@ -399,10 +498,11 @@ fn test_parse_array_declaration_with_init() {
 
     // 1つ目: 配列宣言
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, _, array_size) => {
+        Statement::VariableDeclaration(name, _, is_static, _, array_size, type_annot) => {
             assert_eq!(name, "arr");
             assert_eq!(*is_static, false);
             assert_eq!(*array_size, Some(3));
+            assert!(type_annot.is_none());
         }
         _ => panic!("Expected Statement::VariableDeclaration"),
     }
@@ -483,7 +583,7 @@ fn test_parse_array_declaration_size_omitted_with_init() {
 
     // 1つ目: 配列宣言（サイズ3と推論）
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, _, array_size) => {
+        Statement::VariableDeclaration(name, _, is_static, _, array_size, _) => {
             assert_eq!(name, "arr");
             assert_eq!(*is_static, false);
             assert_eq!(*array_size, Some(3), "Expected inferred size 3");
@@ -543,7 +643,7 @@ fn test_parse_array_declaration_size_omitted_string() {
 
     // 1つ目: 配列宣言（サイズ4と推論: 3文字 + null）
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, _, array_size) => {
+        Statement::VariableDeclaration(name, _, is_static, _, array_size, _) => {
             assert_eq!(name, "str");
             assert_eq!(*is_static, false);
             assert_eq!(
@@ -682,7 +782,7 @@ fn test_parse_static_variable() {
     assert!(errs.is_empty(), "Expected no errors");
     assert_eq!(stmts.len(), 1);
     match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, _, _) => {
+        Statement::VariableDeclaration(name, _, is_static, _, _, _) => {
             assert_eq!(name, "x");
             assert_eq!(
                 *is_static, true,

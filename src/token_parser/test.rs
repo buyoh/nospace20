@@ -104,6 +104,19 @@ test_ok_parse!(test_ok_p_2, "let:a;", it => {
     assert_matches!(it.next(), None);
 });
 
+test_ok_parse!(test_ok_struct_keyword_colon, "struct:Name", it => {
+    assert_matches!(it.next(), Some(Token::Keyword(Keyword::Struct)));
+    assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "Name");
+    assert_matches!(it.next(), None);
+});
+
+test_ok_parse!(test_ok_at_token, "x@int", it => {
+    assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "x");
+    assert_matches!(it.next(), Some(Token::At));
+    assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "int");
+    assert_matches!(it.next(), None);
+});
+
 // コロンなしのキーワード候補は識別子としてパースされる
 test_ok_parse_identifier!(test_ok_pi_keyword_let_no_colon, "let");
 test_ok_parse_identifier!(test_ok_pi_keyword_break_no_colon, "break");

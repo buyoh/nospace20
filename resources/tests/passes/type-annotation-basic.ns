@@ -1,0 +1,8 @@
+func: __main() {
+  let: x@int(7);
+  let: y(3);
+  let: z;
+  z = (y @ int) + x;
+  __puti(z);
+  __putc(10);
+}

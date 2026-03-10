@@ -13,15 +13,16 @@ use crate::{
     code_parse_error,
     tree_parser::{
         AliasArg, AliasParam, AliasParamKind, Expression, LocatedExpression, LocatedStatement,
-        Statement,
+        Statement, TypeSpec,
     },
 };
 
 /// テンプレートエントリ（`TemplateFunctionDefinition` から収集）
 struct TemplateEntry {
-    args: Vec<String>,
+    args: Vec<(String, Option<TypeSpec>)>,
     alias_params: Vec<AliasParam>,
     body: Vec<LocatedStatement>,
+    return_type: Option<TypeSpec>,
 }
 
 /// テンプレート関数のインスタンス化を展開するプレパス
@@ -56,6 +57,7 @@ pub(super) fn expand_template_instantiations(
             args,
             alias_params,
             body,
+            return_type,
         } = &stat.statement
         {
             if template_map.contains_key(name.as_str()) {
@@ -70,6 +72,7 @@ pub(super) fn expand_template_instantiations(
                         args: args.clone(),
                         alias_params: alias_params.clone(),
                         body: body.clone(),
+                        return_type: return_type.clone(),
                     },
                 );
             }
@@ -225,6 +228,7 @@ pub(super) fn expand_template_instantiations(
                         name.clone(),
                         template.args.clone(),
                         synthetic_body,
+                        template.return_type.clone(),
                     ),
                     location: stat.location.clone(),
                 });

@@ -39,7 +39,7 @@
 - [improve-unexpected-token-error.md](improve-unexpected-token-error.md) - unexpected token エラーメッセージ改善（実際に得られたトークンの情報を表示、Token::describe() 追加）
 - [postfix-subscript-operator.md](postfix-subscript-operator.md) - 汎用後置添字演算子（`(*next)[1]`等の任意式への`[expr]`適用、パース時脱糖方式、Step 1-4）
 - [namespace/](namespace/) - 名前空間（スコープを作らない名前修飾機構、$アクセス、コンパイル時マングリング、Step 1-8）
-- [type-system/](type-system/) - 型システム（`@` 型注釈構文、`int`/`void` 型の明示化、`struct:` 構造体定義、フィールドアクセス、明示的キャスト、Phase 1-6）
+- ~~[type-system/](../done-task/type-system/) - 型システム（`@` 型注釈構文、`int`/`void` 型の明示化、`struct:` 構造体定義、フィールドアクセス、明示的キャスト、Phase 1-6）~~ → done-task に移動 (2026-03-10)
 - ~~[review-nospace-vm.md](../done-task/review-nospace-vm.md)~~ - NospaceVM コードレビュー指摘事項（単一責任原則違反によるモジュール分割、ドキュメントコメント不足、pub フィールドのカプセル化）→ done-task に移動
 
 ## 現在のタスク

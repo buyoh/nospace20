@@ -1,0 +1,9 @@
+struct: Point(x, y);
+
+func: __main() {
+  let: p@Point(3, 4);
+  __puti(p.x);
+  __putc(10);
+  __puti(p.y);
+  __putc(10);
+}

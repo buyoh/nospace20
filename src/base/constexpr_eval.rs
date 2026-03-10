@@ -187,7 +187,7 @@ fn eval_constexpr_block_inner(
 
     for stmt in statements {
         match &stmt.statement {
-            Statement::VariableDeclaration(name, init, is_static, is_final, array_size) => {
+            Statement::VariableDeclaration(name, init, is_static, is_final, array_size, _type_annot) => {
                 // static, final, array はコンパイル時ブロック内では禁止
                 if *is_static {
                     return Err(vec![code_parse_error!(

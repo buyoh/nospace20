@@ -1370,6 +1370,54 @@ tests:
     comment: "void return:;による早期脱出（IO付き）"
 
   # ========================================
+  # Type system: annotations and structs
+  # ========================================
+  - name: test_type_annotation_basic_001
+    type: success_io
+    path: type-annotation-basic
+    comment: "Type annotation for variables and expressions"
+
+  - name: test_type_annotation_func_001
+    type: success_io
+    path: type-annotation-func
+    comment: "Type annotations for function args and return type"
+
+  - name: test_type_void_cast_001
+    type: success_io
+    path: type-void-cast
+    comment: "Explicit void cast using @void"
+
+  - name: test_struct_basic_001
+    type: success_io
+    path: struct-basic
+    comment: "Struct declaration, initialization, and field access"
+
+  - name: test_struct_field_access_001
+    type: success_io
+    path: struct-field-access
+    comment: "Struct array field access"
+
+  - name: test_struct_nested_001
+    type: success_io
+    path: struct-nested
+    comment: "Nested struct field access"
+
+  - name: test_compile_error_type_mismatch_001
+    type: compile_error
+    path: type-mismatch
+    comment: "Error: type annotation mismatch"
+
+  - name: test_compile_error_struct_undefined_field_001
+    type: compile_error
+    path: struct-undefined-field
+    comment: "Error: undefined struct field"
+
+  - name: test_parse_error_struct_invalid_name_001
+    type: syntax_error
+    path: struct-invalid-name
+    comment: "Error: struct name must start with uppercase"
+
+  # ========================================
   # for / repeat 文
   # ========================================
   - name: test_control_flow_for_basic_001

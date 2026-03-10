@@ -44,6 +44,16 @@ pub enum Operator1 {
     Deref, // *
 }
 
+/// 型指定（型注釈に使用）
+#[derive(Clone, Debug)]
+pub enum TypeSpec {
+    Int,
+    Void,
+    Named(String),
+    Array(Box<TypeSpec>, usize),
+    Ref(Box<TypeSpec>),
+}
+
 /// 位置情報付きの Expression
 #[derive(Clone, Debug)]
 pub struct LocatedExpression {
@@ -62,6 +72,14 @@ pub enum Expression {
     ),
     Block(Vec<LocatedStatement>),                  // ブロックスコープ式
     Function(String, Vec<Box<LocatedExpression>>), // 関数呼び出し
+    /// 型注釈: expr @ type_spec
+    TypeAnnotation(Box<LocatedExpression>, TypeSpec),
+    /// フィールドアクセス: expr.field_name
+    FieldAccess(Box<LocatedExpression>, String),
+    /// フィールド配列アクセス: expr.field_name[index]
+    FieldArrayAccess(Box<LocatedExpression>, String, Box<LocatedExpression>),
+    /// 構造体リテラル: struct: Name(expr, expr, ...)
+    StructLiteral(String, Vec<LocatedExpression>),
     Factor(i64),
     Variable(String),
     ArrayAccess(String, Box<LocatedExpression>), // 配列アクセス: arr[expr]
@@ -180,6 +198,83 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     fn parse_to_expression_tree_factor(&mut self) -> Box<LocatedExpression> {
         let start = self.current_pos();
         let mut result = match self.iter.peek() {
+            Some((Token::Keyword(Keyword::Struct), _)) => {
+                self.iter.next();
+                let name = match self.iter.next() {
+                    Some((Token::Identifier(id), token_info)) => {
+                        if !id.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+                            let e = self.add_parse_error(
+                                token_info,
+                                "struct name must start with an uppercase letter",
+                            );
+                            let end = self.current_pos();
+                            return self.located(Expression::Invalid(e), start, end);
+                        }
+                        id.clone()
+                    }
+                    Some((_, token_info)) => {
+                        let e = self.add_parse_error(token_info, "expected struct name");
+                        let end = self.current_pos();
+                        return self.located(Expression::Invalid(e), start, end);
+                    }
+                    None => {
+                        let e = self.add_end_error("unexpected end of input");
+                        let end = self.current_pos();
+                        return self.located(Expression::Invalid(e), start, end);
+                    }
+                };
+
+                if let Err(e) = match_expect_token!(self, self.iter.next(), Token::ParenthesisL)
+                {
+                    let end = self.current_pos();
+                    return self.located(Expression::Invalid(e), start, end);
+                }
+
+                let mut args = Vec::<LocatedExpression>::new();
+                enum State {
+                    L,
+                    Eval,
+                    Comma,
+                }
+                let mut state = State::L;
+                loop {
+                    match self.iter.peek() {
+                        Some((Token::ParenthesisR, token_info)) => {
+                            if let State::Comma = state {
+                                self.add_parse_error(token_info, "unexpected comma");
+                            }
+                            self.iter.next();
+                            let end = self.current_pos();
+                            return self.located(
+                                Expression::StructLiteral(name.clone(), args),
+                                start,
+                                end,
+                            );
+                        }
+                        Some((Token::Comma, token_info)) => {
+                            if let State::Eval = state {
+                                state = State::Comma;
+                            } else {
+                                self.add_parse_error(token_info, "unexpected comma");
+                            }
+                            self.iter.next();
+                        }
+                        Some((_, token_info)) => {
+                            if let State::Eval = state {
+                                self.add_parse_error(token_info, "missing comma");
+                            }
+                            let e = self.parse_to_expression_tree_root();
+                            args.push((*e).clone());
+                            state = State::Eval;
+                        }
+                        None => {
+                            let e = self.add_end_error("unexpected end of input");
+                            let end = self.current_pos();
+                            return self.located(Expression::Invalid(e), start, end);
+                        }
+                    }
+                }
+            }
             Some((Token::Number(val), _)) => {
                 let val = *val;
                 self.iter.next();
@@ -252,7 +347,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             }
         };
 
-        // 後置添字演算子: (expr)[i] → *(expr + i) に脱糖する。
+        // 後置演算子: (expr)[i], expr @ type, expr.field
         // Identifier ケースの ArrayAccess (arr[i]) は match 内で既に処理されており、
         // ここでは括弧式・関数呼び出し・ArrayAccess 後の連鎖アクセスが対象となる。
         loop {
@@ -272,6 +367,47 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                     start,
                     end,
                 );
+            } else if let Some((Token::At, _)) = self.iter.peek() {
+                self.iter.next(); // '@'
+                let type_spec = match self.parse_type_spec() {
+                    Ok(ts) => ts,
+                    Err(e) => {
+                        let end = self.current_pos();
+                        return self.located(Expression::Invalid(e), start, end);
+                    }
+                };
+                let end = self.current_pos();
+                result = self.located(Expression::TypeAnnotation(result, type_spec), start, end);
+            } else if let Some((Token::Dot, _)) = self.iter.peek() {
+                self.iter.next(); // '.'
+                let field = match self.iter.next() {
+                    Some((Token::Identifier(id), _)) => id.clone(),
+                    Some((_, token_info)) => {
+                        let e = self.add_parse_error(token_info, "expected field identifier");
+                        let end = self.current_pos();
+                        return self.located(Expression::Invalid(e), start, end);
+                    }
+                    None => {
+                        let e = self.add_end_error("unexpected end of input");
+                        let end = self.current_pos();
+                        return self.located(Expression::Invalid(e), start, end);
+                    }
+                };
+
+                if let Some((Token::BracketL, _)) = self.iter.peek() {
+                    self.iter.next();
+                    let index_expr = self.parse_to_expression_tree_root();
+                    match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
+                    let end = self.current_pos();
+                    result = self.located(
+                        Expression::FieldArrayAccess(result, field, index_expr),
+                        start,
+                        end,
+                    );
+                } else {
+                    let end = self.current_pos();
+                    result = self.located(Expression::FieldAccess(result, field), start, end);
+                }
             } else {
                 break;
             }
@@ -509,6 +645,77 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     fn parse_to_expression_tree_root(&mut self) -> Box<LocatedExpression> {
         // if/while は factor レベルで解析されるため、ここでは assign から開始
         self.parse_to_expression_tree_assign()
+    }
+
+    fn parse_type_spec(&mut self) -> Result<TypeSpec, usize> {
+        let mut ref_depth = 0usize;
+        loop {
+            match self.iter.peek() {
+                Some((Token::Ampersand, _)) => {
+                    self.iter.next();
+                    ref_depth += 1;
+                }
+                Some((Token::DoubleAmpersand, _)) => {
+                    self.iter.next();
+                    ref_depth += 2;
+                }
+                _ => break,
+            }
+        }
+
+        let mut base = match self.iter.peek() {
+            Some((Token::Identifier(id), _)) if id == "int" => {
+                self.iter.next();
+                TypeSpec::Int
+            }
+            Some((Token::Identifier(id), _)) if id == "void" => {
+                self.iter.next();
+                TypeSpec::Void
+            }
+            Some((Token::Identifier(id), token_info)) => {
+                let name = id.clone();
+                self.iter.next();
+                if !name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+                    let e = self.add_parse_error(
+                        token_info,
+                        "expected type specifier",
+                    );
+                    return Err(e);
+                }
+                TypeSpec::Named(name)
+            }
+            Some((_, token_info)) => {
+                let e = self.add_parse_error(token_info, "expected type specifier");
+                return Err(e);
+            }
+            None => {
+                let e = self.add_end_error("unexpected end of input");
+                return Err(e);
+            }
+        };
+
+        while let Some((Token::BracketL, _)) = self.iter.peek() {
+            self.iter.next();
+            let size = match self.iter.next() {
+                Some((Token::Number(n), _)) if *n > 0 => *n as usize,
+                Some((_, token_info)) => {
+                    let e = self.add_parse_error(token_info, "expected array size");
+                    return Err(e);
+                }
+                None => {
+                    let e = self.add_end_error("unexpected end of input");
+                    return Err(e);
+                }
+            };
+            match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
+            base = TypeSpec::Array(Box::new(base), size);
+        }
+
+        let mut spec = base;
+        for _ in 0..ref_depth {
+            spec = TypeSpec::Ref(Box::new(spec));
+        }
+        Ok(spec)
     }
 }
 

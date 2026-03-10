@@ -468,7 +468,13 @@ fn count_nested_vars_in_expression(
         ExecExpression::ArrayAccess(_, index_expr, _) => {
             count_nested_vars_in_expression(index_expr)
         }
-        ExecExpression::Variable(_) | ExecExpression::Factor(_) => 0,
+        ExecExpression::Variable(_, _) | ExecExpression::Factor(_) => 0,
         ExecExpression::InternalBuiltinFunction(_) => 0,
+        ExecExpression::TypeAssertion(inner, _) => count_nested_vars_in_expression(inner),
+        ExecExpression::VoidCast(inner) => count_nested_vars_in_expression(inner),
+        ExecExpression::StructFieldAccess(base, _, _, _) => count_nested_vars_in_expression(base),
+        ExecExpression::StructFieldArrayAccess(base, _, index_expr, _) => {
+            count_nested_vars_in_expression(base) + count_nested_vars_in_expression(index_expr)
+        }
     }
 }

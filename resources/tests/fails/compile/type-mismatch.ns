@@ -1,0 +1,6 @@
+struct: Foo(a);
+
+func: __main() {
+  let: x(1);
+  x = x @ Foo;
+}

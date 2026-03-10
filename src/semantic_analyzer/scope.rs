@@ -4,10 +4,12 @@ use std::collections::BTreeMap;
 
 use crate::{base::CodeParseError, code_parse_error};
 
-use super::types::{Block, IdentifierRef, LocatedExecStatement, ValueType, Variable};
+use super::types::{
+    Block, IdentifierRef, LocatedExecStatement, StructDefinition, ValueType, Variable,
+};
 use crate::tree_parser::LocatedStatement;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) struct FunctionIndex(pub usize, pub usize, pub ValueType); // (global_index, arg_count, return_type)
 
 #[derive(Clone, Copy)]
@@ -64,6 +66,8 @@ impl Function {
             variables: Vec::new(),
             variable_count: 0,
             functions: Vec::new(),
+            struct_definitions: Vec::new(),
+            struct_name_to_index: BTreeMap::new(),
             symbol_table: SymbolTable {
                 function_names: Vec::new(),
                 function_name_to_index: BTreeMap::new(),
@@ -119,6 +123,11 @@ pub struct Scope {
 
     /// 関数リスト（interpreter からアクセスするため pub(crate)）
     pub(crate) functions: Vec<Function>,
+
+    /// 構造体定義
+    pub struct_definitions: Vec<StructDefinition>,
+    /// 構造体名 → インデックス
+    pub struct_name_to_index: BTreeMap<String, usize>,
 
     /// デバッグ用シンボルテーブル
     pub symbol_table: SymbolTable,
@@ -177,6 +186,10 @@ pub(super) struct ScopeInfo<'a> {
     pub alias_map: &'a BTreeMap<String, String>,
     /// ブロックエイリアステーブル（名前 → AST 本体）
     pub block_alias_map: &'a BTreeMap<String, Vec<LocatedStatement>>,
+    /// 構造体定義リスト
+    pub struct_definitions: &'a Vec<StructDefinition>,
+    /// 構造体名 → インデックス
+    pub struct_name_to_index: &'a BTreeMap<String, usize>,
     /// このスコープが関数スコープかどうか
     pub is_function_scope: bool,
     /// この関数スコープのグローバル関数インデックス
@@ -216,6 +229,8 @@ impl<'a> ScopeResolver<'a> {
         constexpr_table: &'a BTreeMap<String, i64>,
         alias_map: &'a BTreeMap<String, String>,
         block_alias_map: &'a BTreeMap<String, Vec<LocatedStatement>>,
+        struct_definitions: &'a Vec<StructDefinition>,
+        struct_name_to_index: &'a BTreeMap<String, usize>,
         is_function_scope: bool,
         func_global_index: Option<usize>,
     ) {
@@ -227,6 +242,8 @@ impl<'a> ScopeResolver<'a> {
             constexpr_table,
             alias_map,
             block_alias_map,
+            struct_definitions,
+            struct_name_to_index,
             is_function_scope,
             func_global_index,
         });
@@ -276,6 +293,16 @@ impl<'a> ScopeResolver<'a> {
         let candidates = self.ns_candidate_names(name);
         for candidate in &candidates {
             if let Some(result) = self.resolve_variable_exact(candidate) {
+                return Some(result);
+            }
+        }
+        None
+    }
+
+    pub fn resolve_variable_with_type(&self, name: &str) -> Option<(IdentifierRef, ValueType)> {
+        let candidates = self.ns_candidate_names(name);
+        for candidate in &candidates {
+            if let Some(result) = self.resolve_variable_with_type_exact(candidate) {
                 return Some(result);
             }
         }
@@ -342,6 +369,59 @@ impl<'a> ScopeResolver<'a> {
         None
     }
 
+    fn resolve_variable_with_type_exact(
+        &self,
+        name: &str,
+    ) -> Option<(IdentifierRef, ValueType)> {
+        let mut first_function_scope_depth: Option<usize> = None;
+
+        for (depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
+            if scope_info.is_function_scope && first_function_scope_depth.is_none() {
+                first_function_scope_depth = Some(depth);
+            }
+
+            if let Some(&local_index) = scope_info.var_indices.get(name) {
+                let var_idx = scope_info.var_name_to_var_index.get(name)?;
+                let var = &scope_info.variables[*var_idx];
+
+                let crossed_function_boundary =
+                    if let Some(first_func_depth) = first_function_scope_depth {
+                        depth > first_func_depth && scope_info.is_function_scope
+                    } else {
+                        false
+                    };
+
+                if crossed_function_boundary && !var.is_static {
+                    continue;
+                }
+
+                let is_global = depth == self.scope_stack.len() - 1
+                    && self
+                        .scope_stack
+                        .first()
+                        .map(|s| s.is_function_scope)
+                        .unwrap_or(false);
+
+                let owning_func_index = if crossed_function_boundary && var.is_static {
+                    scope_info.func_global_index
+                } else {
+                    None
+                };
+
+                return Some((
+                    IdentifierRef {
+                        scope_depth: depth,
+                        local_index,
+                        is_global,
+                        owning_func_index,
+                    },
+                    var.value_type.clone(),
+                ));
+            }
+        }
+        None
+    }
+
     /// 変数が final かどうかを返す
     ///
     /// スコープスタックを内側から外側へ探索し、変数の is_final フラグを返す。
@@ -377,6 +457,22 @@ impl<'a> ScopeResolver<'a> {
             }
         }
         None
+    }
+
+    pub fn resolve_struct_index(&self, name: &str) -> Option<usize> {
+        for scope_info in self.scope_stack.iter().rev() {
+            if let Some(idx) = scope_info.struct_name_to_index.get(name) {
+                return Some(*idx);
+            }
+        }
+        None
+    }
+
+    pub fn get_struct_definition(&self, index: usize) -> Option<&StructDefinition> {
+        self.scope_stack
+            .iter()
+            .rev()
+            .find_map(|scope_info| scope_info.struct_definitions.get(index))
     }
 
     /// 関数名を解決し、IdentifierRef を返す
@@ -512,6 +608,10 @@ pub(super) struct ScopeBuilder {
     pub variables: Vec<Variable>,
     /// 変数名のリスト（variables と同じ順序）
     pub variable_names: Vec<String>,
+    /// 構造体定義
+    pub struct_definitions: Vec<StructDefinition>,
+    /// 構造体名 → インデックス
+    pub struct_name_to_index: BTreeMap<String, usize>,
     /// static 変数の初期化文を一時的に保持
     pub static_init_statements: Vec<LocatedExecStatement>,
 }
@@ -522,6 +622,8 @@ impl ScopeBuilder {
             identifier_map: BTreeMap::new(),
             variables: vec![],
             variable_names: vec![],
+            struct_definitions: Vec::new(),
+            struct_name_to_index: BTreeMap::new(),
             static_init_statements: vec![],
         }
     }
@@ -570,6 +672,8 @@ impl ScopeBuilder {
             variables: self.variables,
             variable_count,
             functions,
+            struct_definitions: self.struct_definitions,
+            struct_name_to_index: self.struct_name_to_index,
             symbol_table,
             main_function_index,
             static_init_statements: self.static_init_statements,

@@ -8,12 +8,16 @@ use crate::tree_parser::{Operator1, Operator2};
 /// コンパイラ内部で int と void の2種類の型を管理する。
 /// 明示的な型定義構文は言語仕様に存在しないが、
 /// コンパイル時に不正な型使用を検出するために使用する。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueType {
     /// 整数型（i64）
     Int,
     /// 値なし型（while, else なし if, return なし関数など）
     Void,
+    /// 構造体型。構造体定義のインデックスを保持。
+    Struct(usize),
+    /// 固定長配列型 (要素型, サイズ)
+    Array(Box<ValueType>, usize),
 }
 
 impl ValueType {
@@ -149,6 +153,25 @@ pub(crate) struct Variable {
     pub array_size: Option<usize>,
     /// final フラグ。true の場合、初期値設定後は再代入不可。
     pub is_final: bool,
+    /// 変数の型
+    pub value_type: ValueType,
+}
+
+/// 構造体のフィールド情報
+#[derive(Clone)]
+pub struct StructField {
+    pub name: String,
+    pub value_type: ValueType,
+    pub offset: usize,
+    pub size: usize,
+}
+
+/// 構造体定義
+#[derive(Clone)]
+pub struct StructDefinition {
+    pub name: String,
+    pub fields: Vec<StructField>,
+    pub total_size: usize,
 }
 
 /// 位置情報付きの実行可能な式
@@ -183,10 +206,23 @@ pub(crate) enum ExecExpression {
     UserFunction(IdentifierRef, Vec<Box<LocatedExecExpression>>),
     Factor(i64),
     /// 変数参照
-    Variable(IdentifierRef),
+    Variable(IdentifierRef, ValueType),
     /// 配列アクセス: (変数参照, インデックス式, 配列サイズ)
     /// 配列サイズは境界チェックに使用
     ArrayAccess(IdentifierRef, Box<LocatedExecExpression>, usize),
+    /// 型注釈 (検証済み)
+    TypeAssertion(Box<LocatedExecExpression>, ValueType),
+    /// void キャスト
+    VoidCast(Box<LocatedExecExpression>),
+    /// 構造体フィールドアクセス
+    StructFieldAccess(
+        Box<LocatedExecExpression>,
+        usize,
+        Option<usize>,
+        ValueType,
+    ),
+    /// 構造体フィールド配列アクセス
+    StructFieldArrayAccess(Box<LocatedExecExpression>, usize, Box<LocatedExecExpression>, usize),
     /// 最適化パスで生成される内部組み込み関数
     /// 意味解析では生成されず、最適化パスでのみ生成される。
     InternalBuiltinFunction(InternalBuiltinFunctionKind),
@@ -243,7 +279,7 @@ impl ExecExpression {
     pub(crate) fn infer_type(&self, func_return_types: &[ValueType]) -> ValueType {
         match self {
             ExecExpression::Factor(_) => ValueType::Int,
-            ExecExpression::Variable(_) => ValueType::Int,
+            ExecExpression::Variable(_, value_type) => value_type.clone(),
             ExecExpression::ArrayAccess(_, _, _) => ValueType::Int,
             ExecExpression::Operation1(_, _) => ValueType::Int,
             ExecExpression::Operation2(Operator2::Assign, _, rhs) => {
@@ -265,13 +301,20 @@ impl ExecExpression {
                 // id_ref.local_index はグローバル関数インデックス
                 func_return_types
                     .get(id_ref.local_index)
-                    .copied()
+                    .cloned()
                     .unwrap_or(ValueType::Void)
             }
             ExecExpression::InternalBuiltinFunction(kind) => match kind {
                 InternalBuiltinFunctionKind::Getiv(_) => ValueType::Int,
                 InternalBuiltinFunctionKind::Getcv(_) => ValueType::Int,
             },
+            ExecExpression::TypeAssertion(_, vt) => vt.clone(),
+            ExecExpression::VoidCast(_) => ValueType::Void,
+            ExecExpression::StructFieldAccess(_, _, _, field_type) => match field_type {
+                ValueType::Struct(_) => field_type.clone(),
+                _ => ValueType::Int,
+            },
+            ExecExpression::StructFieldArrayAccess(_, _, _, _) => ValueType::Int,
         }
     }
 }

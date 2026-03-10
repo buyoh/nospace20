@@ -6,7 +6,7 @@
 use crate::{
     base::{CodeParseError, SourceLocation},
     code_parse_error,
-    tree_parser::{Expression, LocatedExpression, Operator1, Operator2},
+    tree_parser::{Expression, LocatedExpression, Operator1, Operator2, TypeSpec},
 };
 
 use super::{
@@ -21,10 +21,14 @@ pub(super) fn require_int_type(
     expr: &LocatedExecExpression,
     func_return_types: &[ValueType],
 ) -> Result<(), Vec<CodeParseError>> {
-    if expr.infer_type(func_return_types) == ValueType::Void {
-        Err(vec![code_parse_error!(
+    let inferred = expr.infer_type(func_return_types);
+    if inferred != ValueType::Int {
+        let message = if inferred == ValueType::Void {
             "semantic error: cannot use void expression as a value"
-        )])
+        } else {
+            "semantic error: cannot use non-int expression as a value"
+        };
+        Err(vec![code_parse_error!(message)])
     } else {
         Ok(())
     }
@@ -39,6 +43,30 @@ pub(super) fn make_located_exec(
         expression: expr,
         location: location.clone(),
     })
+}
+
+pub(super) fn resolve_type_spec(
+    type_spec: &TypeSpec,
+    resolver: &ScopeResolver,
+) -> Result<ValueType, Vec<CodeParseError>> {
+    match type_spec {
+        TypeSpec::Int => Ok(ValueType::Int),
+        TypeSpec::Void => Ok(ValueType::Void),
+        TypeSpec::Named(name) => resolver
+            .resolve_struct_index(name)
+            .map(ValueType::Struct)
+            .ok_or_else(|| {
+                vec![code_parse_error!(format!(
+                    "semantic error: undefined struct type '{}'",
+                    name
+                ))]
+            }),
+        TypeSpec::Array(inner, size) => {
+            let inner_value = resolve_type_spec(inner, resolver)?;
+            Ok(ValueType::Array(Box::new(inner_value), *size))
+        }
+        TypeSpec::Ref(_) => Ok(ValueType::Int),
+    }
 }
 
 /// 式を ExecExpression に変換する（識別子解決あり）
@@ -57,27 +85,34 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             // & は変数または配列要素に対してのみ使用可能
             match &inner.expression {
                 Expression::Variable(name) => {
-                    let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
-                        vec![code_parse_error!(
-                            loc.start,
-                            format!("undefined variable: {}", name)
-                        )]
-                    })?;
+                    let (id_ref, value_type) = parent_resolver
+                        .resolve_variable_with_type(name)
+                        .ok_or_else(|| {
+                            vec![code_parse_error!(
+                                loc.start,
+                                format!("undefined variable: {}", name)
+                            )]
+                        })?;
                     Ok(make_located_exec(
                         ExecExpression::Operation1(
                             Operator1::Ref,
-                            make_located_exec(ExecExpression::Variable(id_ref), &inner.location),
+                            make_located_exec(
+                                ExecExpression::Variable(id_ref, value_type),
+                                &inner.location,
+                            ),
                         ),
                         loc,
                     ))
                 }
                 Expression::ArrayAccess(name, index_expr) => {
-                    let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
-                        vec![code_parse_error!(
-                            loc.start,
-                            format!("undefined variable: {}", name)
-                        )]
-                    })?;
+                    let (id_ref, _value_type) = parent_resolver
+                        .resolve_variable_with_type(name)
+                        .ok_or_else(|| {
+                            vec![code_parse_error!(
+                                loc.start,
+                                format!("undefined variable: {}", name)
+                            )]
+                        })?;
 
                     // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
                     let array_size = parent_resolver
@@ -258,6 +293,179 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                 loc,
             ))
         }
+        Expression::TypeAnnotation(inner_expr, type_spec) => {
+            let expected_type = resolve_type_spec(type_spec, parent_resolver)?;
+            let actual_expr = convert_to_exec_expression_with_resolver(
+                inner_expr,
+                parent_resolver,
+                func_return_types,
+            )?;
+            let actual_type = actual_expr.infer_type(func_return_types);
+
+            if expected_type == ValueType::Void && actual_type == ValueType::Int {
+                return Ok(make_located_exec(ExecExpression::VoidCast(actual_expr), loc));
+            }
+
+            if let ValueType::Struct(expected_idx) = expected_type.clone() {
+                if let Some(struct_def) = parent_resolver.get_struct_definition(expected_idx) {
+                    match (&inner_expr.expression, actual_type) {
+                        (Expression::Variable(name), ValueType::Array(_, size)) => {
+                            if size < struct_def.total_size {
+                                return Err(vec![code_parse_error!(
+                                    loc.start,
+                                    format!(
+                                        "type mismatch: array size {} is smaller than struct '{}' size {}",
+                                        size, struct_def.name, struct_def.total_size
+                                    )
+                                )]);
+                            }
+                            let (id_ref, value_type) = parent_resolver
+                                .resolve_variable_with_type(name)
+                                .ok_or_else(|| {
+                                    vec![code_parse_error!(
+                                        loc.start,
+                                        format!("undefined variable: {}", name)
+                                    )]
+                                })?;
+                            let addr_expr = make_located_exec(
+                                ExecExpression::Operation1(
+                                    Operator1::Ref,
+                                    make_located_exec(
+                                        ExecExpression::Variable(id_ref, value_type),
+                                        &inner_expr.location,
+                                    ),
+                                ),
+                                &inner_expr.location,
+                            );
+                            return Ok(make_located_exec(
+                                ExecExpression::TypeAssertion(addr_expr, expected_type),
+                                loc,
+                            ));
+                        }
+                        (_, ValueType::Struct(actual_idx)) if actual_idx == expected_idx => {
+                            return Ok(make_located_exec(
+                                ExecExpression::TypeAssertion(actual_expr, expected_type),
+                                loc,
+                            ));
+                        }
+                        _ => {
+                            return Err(vec![code_parse_error!(loc.start, "type mismatch")]);
+                        }
+                    }
+                }
+            }
+
+            if expected_type != actual_type {
+                return Err(vec![code_parse_error!(loc.start, "type mismatch")]);
+            }
+
+            Ok(make_located_exec(
+                ExecExpression::TypeAssertion(actual_expr, expected_type),
+                loc,
+            ))
+        }
+        Expression::FieldAccess(base_expr, field_name) => {
+            let exec_base = convert_to_exec_expression_with_resolver(
+                base_expr,
+                parent_resolver,
+                func_return_types,
+            )?;
+            let base_type = exec_base.infer_type(func_return_types);
+            let struct_idx = match base_type {
+                ValueType::Struct(idx) => idx,
+                _ => {
+                    return Err(vec![code_parse_error!(
+                        loc.start,
+                        "field access on non-struct value"
+                    )]);
+                }
+            };
+            let struct_def = parent_resolver.get_struct_definition(struct_idx).ok_or_else(|| {
+                vec![code_parse_error!(loc.start, "unknown struct type")]
+            })?;
+            let field = struct_def
+                .fields
+                .iter()
+                .find(|f| f.name == *field_name)
+                .ok_or_else(|| {
+                    vec![code_parse_error!(
+                        loc.start,
+                        format!("undefined field '{}'", field_name)
+                    )]
+                })?;
+            let field_type = field.value_type.clone();
+            let array_size = match &field_type {
+                ValueType::Array(_, size) => Some(*size),
+                _ => None,
+            };
+            Ok(make_located_exec(
+                ExecExpression::StructFieldAccess(
+                    exec_base,
+                    field.offset,
+                    array_size,
+                    field_type,
+                ),
+                loc,
+            ))
+        }
+        Expression::FieldArrayAccess(base_expr, field_name, index_expr) => {
+            let exec_base = convert_to_exec_expression_with_resolver(
+                base_expr,
+                parent_resolver,
+                func_return_types,
+            )?;
+            let base_type = exec_base.infer_type(func_return_types);
+            let struct_idx = match base_type {
+                ValueType::Struct(idx) => idx,
+                _ => {
+                    return Err(vec![code_parse_error!(
+                        loc.start,
+                        "field access on non-struct value"
+                    )]);
+                }
+            };
+            let struct_def = parent_resolver.get_struct_definition(struct_idx).ok_or_else(|| {
+                vec![code_parse_error!(loc.start, "unknown struct type")]
+            })?;
+            let field = struct_def
+                .fields
+                .iter()
+                .find(|f| f.name == *field_name)
+                .ok_or_else(|| {
+                    vec![code_parse_error!(
+                        loc.start,
+                        format!("undefined field '{}'", field_name)
+                    )]
+                })?;
+            let array_size = match &field.value_type {
+                ValueType::Array(_, size) => *size,
+                _ => {
+                    return Err(vec![code_parse_error!(
+                        loc.start,
+                        format!("field '{}' is not an array", field_name)
+                    )]);
+                }
+            };
+            let exec_index = convert_to_exec_expression_with_resolver(
+                index_expr,
+                parent_resolver,
+                func_return_types,
+            )?;
+            require_int_type(&exec_index, func_return_types)?;
+            Ok(make_located_exec(
+                ExecExpression::StructFieldArrayAccess(
+                    exec_base,
+                    field.offset,
+                    exec_index,
+                    array_size,
+                ),
+                loc,
+            ))
+        }
+        Expression::StructLiteral(_, _) => Err(vec![code_parse_error!(
+            loc.start,
+            "semantic error: struct literal can only be used in struct initialization"
+        )]),
         Expression::Block(statements) => {
             let (s, es) = super::analyze_block_for_expression(
                 statements,
@@ -383,23 +591,28 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                 return Ok(make_located_exec(ExecExpression::Factor(const_val), loc));
             }
             // 変数名を解決
-            let var_ref = parent_resolver
-                .resolve_variable(&resolved_name)
+            let (var_ref, value_type) = parent_resolver
+                .resolve_variable_with_type(&resolved_name)
                 .ok_or_else(|| {
                     vec![code_parse_error!(
                         loc.start,
                         format!("undefined variable: {}", v)
                     )]
                 })?;
-            Ok(make_located_exec(ExecExpression::Variable(var_ref), loc))
+            Ok(make_located_exec(
+                ExecExpression::Variable(var_ref, value_type),
+                loc,
+            ))
         }
         Expression::ArrayAccess(name, index_expr) => {
-            let id_ref = parent_resolver.resolve_variable(name).ok_or_else(|| {
-                vec![code_parse_error!(
-                    loc.start,
-                    format!("undefined variable: {}", name)
-                )]
-            })?;
+            let (id_ref, _value_type) = parent_resolver
+                .resolve_variable_with_type(name)
+                .ok_or_else(|| {
+                    vec![code_parse_error!(
+                        loc.start,
+                        format!("undefined variable: {}", name)
+                    )]
+                })?;
 
             // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
             let array_size = parent_resolver

@@ -35,7 +35,7 @@ use template::expand_template_instantiations;
 use crate::{
     base::CodeParseError,
     code_parse_error,
-    tree_parser::{LocatedStatement, Statement},
+    tree_parser::{LocatedStatement, Statement, StructFieldDecl, TypeSpec},
 };
 
 // tests.rs が `use super::*;` でこれらの型を使用するため、テスト時のみインポートする
@@ -97,7 +97,7 @@ fn analyze_internal(
 fn analyze_internal_with_parent(
     statements: &Vec<LocatedStatement>,
     scope_type: ScopeType,
-    initial_vars: Vec<String>,
+    initial_vars: Vec<(String, Option<TypeSpec>)>,
     parent_resolver: Option<&ScopeResolver>,
     ctx: &mut context::AnalyzeContext,
 ) -> Result<(ScopeBuilder, Vec<LocatedExecStatement>), Vec<CodeParseError>> {
@@ -108,19 +108,39 @@ fn analyze_internal_with_parent(
 
     let mut scope = ScopeBuilder::new();
 
+    if let Some(parent) = parent_resolver {
+        if let Some(parent_scope) = parent.scope_stack.last() {
+            scope.struct_definitions = parent_scope.struct_definitions.clone();
+            scope.struct_name_to_index = parent_scope.struct_name_to_index.clone();
+        }
+    }
+
     // グローバル変数は暗黙的に static
     let is_static = matches!(scope_type, ScopeType::Root);
     let is_function_scope = matches!(scope_type, ScopeType::Root | ScopeType::Function);
 
     // 初期変数を登録（関数の引数など）
-    for var_name in initial_vars {
+    for (var_name, type_annot) in initial_vars {
+        let value_type = match type_annot {
+            None => ValueType::Int,
+            Some(spec) => match spec {
+                TypeSpec::Int => ValueType::Int,
+                _ => {
+                    return Err(vec![code_parse_error!(format!(
+                        "semantic error: argument '{}' must be int type",
+                        var_name
+                    ))]);
+                }
+            },
+        };
         scope.add_variable(
             &var_name,
             Variable {
-                slot_index: 0,    // build() で正しい値に設定される
-                is_static: false, // 関数引数は非 static
-                array_size: None, // 関数引数は配列ではない
-                is_final: false,  // 関数引数は final 不可
+                slot_index: 0,
+                is_static: false,
+                array_size: None,
+                is_final: false,
+                value_type,
             },
         )?;
     }
@@ -135,7 +155,10 @@ fn analyze_internal_with_parent(
     // パス0: ブロックエイリアスの巡回参照チェック
     detect_block_alias_cycles(&block_alias_map_temp, &alias_map_temp)?;
 
-    // パス1a: 関数宣言を先にスキャンして登録（ホイスティング対応）
+    // パス1a: 構造体定義を収集
+    collect_struct_declarations(statements, "", &mut scope)?;
+
+    // パス1b: 関数宣言を先にスキャンして登録（ホイスティング対応）
     // 名前空間内の関数もマングル名で登録する
     scan_function_declarations(statements, "", &mut scope, ctx)?;
 
@@ -144,12 +167,12 @@ fn analyze_internal_with_parent(
     // inherited_func_return_types が非空 = if/while/block の内部 → 外側の型コンテキストを継承
     let effective_func_return_types: Vec<ValueType> = if ctx.inherited_func_return_types.is_empty()
     {
-        ctx.global_functions.iter().map(|f| f.return_type).collect()
+        ctx.global_functions.iter().map(|f| f.return_type.clone()).collect()
     } else {
         ctx.inherited_func_return_types.clone()
     };
 
-    // パス1b: 変数宣言収集（ホイスティング対応）
+    // パス1c: 変数宣言収集（ホイスティング対応）
     // 名前空間内の変数もマングル名で登録する
     scan_variable_declarations(statements, "", is_static, &mut scope)?;
 
@@ -176,6 +199,8 @@ fn analyze_internal_with_parent(
         variables: scope.variables.clone(), // Clone が必要
         variable_count: slot_index,
         functions: Vec::new(), // 未使用
+        struct_definitions: scope.struct_definitions.clone(),
+        struct_name_to_index: scope.struct_name_to_index.clone(),
         symbol_table: SymbolTable {
             function_names: Vec::new(),
             function_name_to_index: BTreeMap::new(),
@@ -199,6 +224,8 @@ fn analyze_internal_with_parent(
             &constexpr_table_temp,
             &alias_map_temp,
             &block_alias_map_temp,
+            &temporary_scope.struct_definitions,
+            &temporary_scope.struct_name_to_index,
             is_function_scope,
             ctx.func_global_index,
         );
@@ -213,6 +240,8 @@ fn analyze_internal_with_parent(
             &constexpr_table_temp,
             &alias_map_temp,
             &block_alias_map_temp,
+            &temporary_scope.struct_definitions,
+            &temporary_scope.struct_name_to_index,
             is_function_scope,
             ctx.func_global_index,
         );
@@ -253,27 +282,85 @@ fn scan_function_declarations(
 ) -> Result<(), Vec<CodeParseError>> {
     for located_stat in statements {
         match &located_stat.statement {
-            Statement::FunctionDeclaration(name, args, body) => {
+            Statement::FunctionDeclaration(name, args, body, return_type_annot) => {
                 let mangled_name = format!("{}{}", ns_prefix, name);
                 let global_idx = ctx.global_functions.len();
 
-                let has_ret = has_return_statement(body);
-                if has_ret && !guarantees_return(body) {
-                    return Err(vec![code_parse_error!(format!(
-                        "semantic error: function '{}' has mixed return types (return in some paths but not all)",
-                        mangled_name
-                    ))]);
+                for (arg_name, type_annot) in args {
+                    if let Some(spec) = type_annot {
+                        if !matches!(spec, TypeSpec::Int) {
+                            return Err(vec![code_parse_error!(
+                                located_stat.location.start,
+                                format!(
+                                    "semantic error: argument '{}' must be int type",
+                                    arg_name
+                                )
+                            )]);
+                        }
+                    }
                 }
-                let return_type = if has_ret {
-                    ValueType::Int
+
+                let has_ret = has_return_statement(body);
+                let return_type = if let Some(spec) = return_type_annot {
+                    match spec {
+                        TypeSpec::Int => {
+                            if has_ret && !guarantees_return(body) {
+                                return Err(vec![code_parse_error!(format!(
+                                    "semantic error: function '{}' has mixed return types (return in some paths but not all)",
+                                    mangled_name
+                                ))]);
+                            }
+                            if !has_ret {
+                                return Err(vec![code_parse_error!(
+                                    located_stat.location.start,
+                                    format!(
+                                        "semantic error: function '{}' has @int but no return value",
+                                        mangled_name
+                                    )
+                                )]);
+                            }
+                            ValueType::Int
+                        }
+                        TypeSpec::Void => {
+                            if has_ret {
+                                return Err(vec![code_parse_error!(
+                                    located_stat.location.start,
+                                    format!(
+                                        "semantic error: function '{}' has @void but returns a value",
+                                        mangled_name
+                                    )
+                                )]);
+                            }
+                            ValueType::Void
+                        }
+                        _ => {
+                            return Err(vec![code_parse_error!(
+                                located_stat.location.start,
+                                format!(
+                                    "semantic error: function '{}' has unsupported return type",
+                                    mangled_name
+                                )
+                            )]);
+                        }
+                    }
                 } else {
-                    ValueType::Void
+                    if has_ret && !guarantees_return(body) {
+                        return Err(vec![code_parse_error!(format!(
+                            "semantic error: function '{}' has mixed return types (return in some paths but not all)",
+                            mangled_name
+                        ))]);
+                    }
+                    if has_ret {
+                        ValueType::Int
+                    } else {
+                        ValueType::Void
+                    }
                 };
 
                 ctx.global_function_names.push(mangled_name.clone());
                 ctx.global_functions.push(Function {
                     arg_indices: Vec::new(),
-                    return_type,
+                    return_type: return_type.clone(),
                     is_unused: false,
                     block: Block {
                         scope: Scope {
@@ -283,6 +370,8 @@ fn scan_function_declarations(
                             variables: Vec::new(),
                             variable_count: 0,
                             functions: Vec::new(),
+                            struct_definitions: Vec::new(),
+                            struct_name_to_index: BTreeMap::new(),
                             symbol_table: SymbolTable {
                                 function_names: Vec::new(),
                                 function_name_to_index: BTreeMap::new(),
@@ -321,17 +410,62 @@ fn scan_variable_declarations(
 ) -> Result<(), Vec<CodeParseError>> {
     for located_stat in statements {
         match &located_stat.statement {
-            Statement::VariableDeclaration(name, _, is_static_explicit, is_final, array_size) => {
+            Statement::VariableDeclaration(
+                name,
+                _,
+                is_static_explicit,
+                is_final,
+                array_size,
+                type_annot,
+            ) => {
                 let mangled_name = format!("{}{}", ns_prefix, name);
                 // グローバル変数は暗黙的に static、明示的 static も考慮
                 let final_is_static = *is_static_explicit || is_static;
+                let mut effective_array_size = array_size.map(|n| n as usize);
+                let value_type = if let Some(spec) = type_annot {
+                    resolve_value_type(spec, scope)?
+                } else if let Some(size) = effective_array_size {
+                    ValueType::Array(Box::new(ValueType::Int), size)
+                } else {
+                    ValueType::Int
+                };
+
+                if matches!(value_type, ValueType::Void) {
+                    return Err(vec![code_parse_error!(
+                        located_stat.location.start,
+                        format!(
+                            "semantic error: variable '{}' cannot have void type",
+                            mangled_name
+                        )
+                    )]);
+                }
+
+                if let ValueType::Struct(idx) = value_type {
+                    let def = scope
+                        .struct_definitions
+                        .get(idx)
+                        .ok_or_else(|| {
+                            vec![code_parse_error!(
+                                located_stat.location.start,
+                                format!(
+                                    "semantic error: unknown struct type for '{}'",
+                                    mangled_name
+                                )
+                            )]
+                        })?;
+                    effective_array_size = Some(def.total_size);
+                } else if let ValueType::Array(_, size) = &value_type {
+                    effective_array_size = Some(*size);
+                }
+
                 scope.add_variable(
                     &mangled_name,
                     Variable {
                         slot_index: 0, // build() で正しい値に設定される
                         is_static: final_is_static,
-                        array_size: array_size.map(|n| n as usize),
+                        array_size: effective_array_size,
                         is_final: *is_final,
+                        value_type,
                     },
                 )?;
             }
@@ -340,7 +474,8 @@ fn scan_variable_declarations(
                 scan_variable_declarations(body, &sub_prefix, is_static, scope)?;
             }
             // 以下はパス0で処理済み
-            Statement::FunctionDeclaration(_, _, _)
+            Statement::FunctionDeclaration(_, _, _, _)
+            | Statement::StructDeclaration(_, _)
             | Statement::ConstexprDeclaration(_, _)
             | Statement::AliasIdentifier(_, _)
             | Statement::AliasBlock(_, _) => {}
@@ -348,6 +483,302 @@ fn scan_variable_declarations(
         }
     }
     Ok(())
+}
+
+fn resolve_value_type(
+    type_spec: &TypeSpec,
+    scope: &ScopeBuilder,
+) -> Result<ValueType, Vec<CodeParseError>> {
+    match type_spec {
+        TypeSpec::Int => Ok(ValueType::Int),
+        TypeSpec::Void => Ok(ValueType::Void),
+        TypeSpec::Named(name) => scope
+            .struct_name_to_index
+            .get(name)
+            .map(|idx| ValueType::Struct(*idx))
+            .ok_or_else(|| {
+                vec![code_parse_error!(format!(
+                    "semantic error: undefined struct type '{}'",
+                    name
+                ))]
+            }),
+        TypeSpec::Array(inner, size) => {
+            let inner_value = resolve_value_type(inner, scope)?;
+            Ok(ValueType::Array(Box::new(inner_value), *size))
+        }
+        TypeSpec::Ref(_) => Ok(ValueType::Int),
+    }
+}
+
+fn collect_struct_declarations(
+    statements: &[LocatedStatement],
+    ns_prefix: &str,
+    scope: &mut ScopeBuilder,
+) -> Result<(), Vec<CodeParseError>> {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let mut field_map: BTreeMap<String, Vec<StructFieldDecl>> = BTreeMap::new();
+    let mut errors = Vec::new();
+
+    collect_struct_declarations_recursive(
+        statements,
+        ns_prefix,
+        scope,
+        &mut field_map,
+        &mut errors,
+    );
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
+    let mut visiting = BTreeSet::new();
+    let mut resolved = BTreeSet::new();
+    let names: Vec<String> = field_map.keys().cloned().collect();
+    for name in names {
+        resolve_struct_definition(
+            &name,
+            scope,
+            &field_map,
+            &mut visiting,
+            &mut resolved,
+            &mut errors,
+        );
+    }
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    Ok(())
+}
+
+fn collect_struct_declarations_recursive(
+    statements: &[LocatedStatement],
+    ns_prefix: &str,
+    scope: &mut ScopeBuilder,
+    field_map: &mut std::collections::BTreeMap<String, Vec<StructFieldDecl>>,
+    errors: &mut Vec<CodeParseError>,
+) {
+    for located_stat in statements {
+        match &located_stat.statement {
+            Statement::StructDeclaration(name, fields) => {
+                let mangled = format!("{}{}", ns_prefix, name);
+                if !name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+                    errors.push(code_parse_error!(
+                        located_stat.location.start,
+                        "struct name must start with an uppercase letter"
+                    ));
+                    continue;
+                }
+                if scope.struct_name_to_index.contains_key(&mangled) {
+                    errors.push(code_parse_error!(
+                        located_stat.location.start,
+                        format!("semantic error: duplicate struct definition '{}'", mangled)
+                    ));
+                    continue;
+                }
+                let idx = scope.struct_definitions.len();
+                scope.struct_name_to_index.insert(mangled.clone(), idx);
+                scope.struct_definitions.push(types::StructDefinition {
+                    name: mangled.clone(),
+                    fields: Vec::new(),
+                    total_size: 0,
+                });
+                field_map.insert(mangled, fields.clone());
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
+                collect_struct_declarations_recursive(body, &sub_prefix, scope, field_map, errors);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn resolve_struct_definition(
+    name: &str,
+    scope: &mut ScopeBuilder,
+    field_map: &std::collections::BTreeMap<String, Vec<StructFieldDecl>>,
+    visiting: &mut std::collections::BTreeSet<String>,
+    resolved: &mut std::collections::BTreeSet<String>,
+    errors: &mut Vec<CodeParseError>,
+) {
+    if resolved.contains(name) {
+        return;
+    }
+    if visiting.contains(name) {
+        errors.push(code_parse_error!(format!(
+            "semantic error: recursive struct definition '{}'",
+            name
+        )));
+        return;
+    }
+
+    visiting.insert(name.to_string());
+
+    let fields = match field_map.get(name) {
+        Some(f) => f,
+        None => {
+            errors.push(code_parse_error!(format!(
+                "semantic error: missing struct definition '{}'",
+                name
+            )));
+            visiting.remove(name);
+            return;
+        }
+    };
+
+    let mut resolved_fields = Vec::new();
+    let mut offset = 0usize;
+
+    for field in fields {
+        let value_type = if let Some(spec) = &field.type_spec {
+            match resolve_type_spec_with_structs(
+                spec,
+                scope,
+                field_map,
+                visiting,
+                resolved,
+                errors,
+            ) {
+                Some(v) => v,
+                None => {
+                    visiting.remove(name);
+                    return;
+                }
+            }
+        } else if let Some(size) = field.array_size {
+            ValueType::Array(Box::new(ValueType::Int), size)
+        } else {
+            ValueType::Int
+        };
+
+        if matches!(value_type, ValueType::Void) {
+            errors.push(code_parse_error!(format!(
+                "semantic error: field '{}' in '{}' cannot be void",
+                field.name, name
+            )));
+            visiting.remove(name);
+            return;
+        }
+
+        let size = value_type_size(&value_type, scope, field_map, visiting, resolved, errors);
+        if size == 0 {
+            visiting.remove(name);
+            return;
+        }
+
+        resolved_fields.push(types::StructField {
+            name: field.name.clone(),
+            value_type: value_type.clone(),
+            offset,
+            size,
+        });
+        offset += size;
+    }
+
+    if let Some(idx) = scope.struct_name_to_index.get(name).cloned() {
+        if let Some(def) = scope.struct_definitions.get_mut(idx) {
+            def.fields = resolved_fields;
+            def.total_size = offset;
+        }
+    }
+
+    visiting.remove(name);
+    resolved.insert(name.to_string());
+}
+
+fn resolve_type_spec_with_structs(
+    spec: &TypeSpec,
+    scope: &mut ScopeBuilder,
+    field_map: &std::collections::BTreeMap<String, Vec<StructFieldDecl>>,
+    visiting: &mut std::collections::BTreeSet<String>,
+    resolved: &mut std::collections::BTreeSet<String>,
+    errors: &mut Vec<CodeParseError>,
+) -> Option<ValueType> {
+    match spec {
+        TypeSpec::Int => Some(ValueType::Int),
+        TypeSpec::Void => Some(ValueType::Void),
+        TypeSpec::Named(name) => {
+            if !scope.struct_name_to_index.contains_key(name) {
+                errors.push(code_parse_error!(format!(
+                    "semantic error: undefined struct type '{}'",
+                    name
+                )));
+                return None;
+            }
+            resolve_struct_definition(
+                name,
+                scope,
+                field_map,
+                visiting,
+                resolved,
+                errors,
+            );
+            scope
+                .struct_name_to_index
+                .get(name)
+                .cloned()
+                .map(ValueType::Struct)
+        }
+        TypeSpec::Array(inner, size) => {
+            let inner_value = resolve_type_spec_with_structs(
+                inner,
+                scope,
+                field_map,
+                visiting,
+                resolved,
+                errors,
+            )?;
+            Some(ValueType::Array(Box::new(inner_value), *size))
+        }
+        TypeSpec::Ref(_) => Some(ValueType::Int),
+    }
+}
+
+fn value_type_size(
+    value_type: &ValueType,
+    scope: &mut ScopeBuilder,
+    field_map: &std::collections::BTreeMap<String, Vec<StructFieldDecl>>,
+    visiting: &mut std::collections::BTreeSet<String>,
+    resolved: &mut std::collections::BTreeSet<String>,
+    errors: &mut Vec<CodeParseError>,
+) -> usize {
+    match value_type {
+        ValueType::Int => 1,
+        ValueType::Void => 0,
+        ValueType::Struct(idx) => {
+            let name = scope
+                .struct_definitions
+                .get(*idx)
+                .map(|d| d.name.clone())
+                .unwrap_or_default();
+            resolve_struct_definition(
+                &name,
+                scope,
+                field_map,
+                visiting,
+                resolved,
+                errors,
+            );
+            scope
+                .struct_definitions
+                .get(*idx)
+                .map(|d| d.total_size)
+                .unwrap_or(0)
+        }
+        ValueType::Array(inner, size) => {
+            let inner_size = value_type_size(
+                inner,
+                scope,
+                field_map,
+                visiting,
+                resolved,
+                errors,
+            );
+            inner_size * size
+        }
+    }
 }
 
 #[cfg(test)]

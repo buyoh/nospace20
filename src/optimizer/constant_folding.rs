@@ -169,6 +169,24 @@ fn fold_expression(expr: ExecExpression, loc: SourceLocation) -> ExecExpression 
             ExecExpression::ArrayAccess(id_ref, idx_expr, size)
         }
 
+        ExecExpression::TypeAssertion(mut inner, value_type) => {
+            fold_located_expr(&mut inner);
+            ExecExpression::TypeAssertion(inner, value_type)
+        }
+        ExecExpression::VoidCast(mut inner) => {
+            fold_located_expr(&mut inner);
+            ExecExpression::VoidCast(inner)
+        }
+        ExecExpression::StructFieldAccess(mut base, offset, array_size, field_type) => {
+            fold_located_expr(&mut base);
+            ExecExpression::StructFieldAccess(base, offset, array_size, field_type)
+        }
+        ExecExpression::StructFieldArrayAccess(mut base, offset, mut idx_expr, size) => {
+            fold_located_expr(&mut base);
+            fold_located_expr(&mut idx_expr);
+            ExecExpression::StructFieldArrayAccess(base, offset, idx_expr, size)
+        }
+
         // --- 末端ノード（変換なし） ---
         other => other,
     }

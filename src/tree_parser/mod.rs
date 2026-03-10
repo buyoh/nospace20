@@ -11,9 +11,10 @@ pub(crate) use self::expression::Expression;
 pub(crate) use self::expression::LocatedExpression;
 pub(crate) use self::expression::Operator1;
 pub(crate) use self::expression::Operator2;
+pub(crate) use self::expression::TypeSpec;
 use self::statement::parse_to_statements;
 pub(crate) use self::statement::{
-    AliasArg, AliasParam, AliasParamKind, LocatedStatement, Statement,
+    AliasArg, AliasParam, AliasParamKind, LocatedStatement, Statement, StructFieldDecl,
 };
 
 #[macro_use]
