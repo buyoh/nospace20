@@ -1,4 +1,4 @@
 // Invalid token test
 func: __main() {
-  @ invalid token
+  ~ invalid token
 }
