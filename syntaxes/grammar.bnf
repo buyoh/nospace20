@@ -3,7 +3,7 @@
 # 現在の言語仕様 (docs/spec.md) に基づく BNF 定義
 # 未実装の機能はコメントで注記
 
-program ::= (func | global_stmt)*
+program ::= (func | struct_decl | global_stmt)*
 
 ## Tokens
 
@@ -45,7 +45,10 @@ expr_unary ::=
     | expr_postfix
 
 expr_postfix ::=
-    | expr_val "[" expr "]"                   # 配列インデックス
+    | expr_postfix "[" expr "]"               # 配列インデックス
+    | expr_postfix "@" type_spec              # 型注釈 / キャスト
+    | expr_postfix "." ident                  # フィールドアクセス
+    | expr_postfix "." ident "[" expr "]"     # 配列フィールドアクセス
     | expr_val
 
 expr_val ::=
@@ -55,6 +58,15 @@ expr_val ::=
     | ident
     | "(" expr ")"
     | block                                    # ブロックスコープ式
+    | "struct" ":" ident "(" (expr ("," expr)*)? ")"  # 構造体リテラル
+
+## Type Specifiers
+
+type_spec ::= "&"* type_base ("[" integer "]")*
+type_base ::=
+    | "int"                                   # 整数型
+    | "void"                                  # void型
+    | /[A-Z][A-Za-z0-9_]*/                    # 構造体名（大文字始まり）
 
 ## Statements
 
@@ -65,11 +77,14 @@ global_stmt ::=
     | final
     | constexpr
     | alias
+    | struct_decl
     | expr ";"
 
 func ::=
-    | "func" ":" ident "(" (ident ("," ident)*)? ")" block
-    | "func" ":" ident "(" (ident ("," ident)*)? ")" ("," "alias" ":" alias_param ("," alias_param)*)? block
+    | "func" ":" ident "(" (func_param ("," func_param)*)? ")" ("@" type_spec)? block
+    | "func" ":" ident "(" (func_param ("," func_param)*)? ")" ("@" type_spec)? ("," "alias" ":" alias_param ("," alias_param)*)? block
+
+func_param ::= ident ("@" type_spec)?
 
 alias_param ::=
     | "constexpr" ":" ident
@@ -100,7 +115,7 @@ alias_arg ::=
     | ident    # 関数名・static 変数名・constexpr 識別子
     | integer  # constexpr パラメータへの整数リテラル
 
-let_decl ::= ident ("[" integer? "]")? ("(" array_init | string_init | expr ")")?
+let_decl ::= ident ("@" type_spec)? ("[" integer? "]")?  ("(" array_init | string_init | expr ")")?  # @typeは[N]より前に記述
 array_init ::= "[" expr ("," expr)* "]"
 string_init ::= string_literal
 
@@ -117,6 +132,7 @@ stmt ::=
     | final
     | constexpr
     | alias
+    | struct_decl                              # 構造体定義
     | func                                    # ネストした関数定義
     | expr ";"
 
@@ -166,6 +182,13 @@ block ::= "{" stmt* "}"
 #   __putc(x)       - 文字（ASCII）を出力
 #   __geti()        - 整数を入力
 #   __getc()        - 1文字を入力
+
+## 構造体定義
+
+struct_decl ::= "struct" ":" ident "(" struct_field ("," struct_field)* ")" ";"
+struct_field ::=
+    | ident ("@" type_spec)?                  # 型明示（省略時は int）
+    | ident "[" integer "]"                    # 型省略の配列 (= int[N])
 
 ## 未実装機能
 #
