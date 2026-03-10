@@ -10,6 +10,6 @@
 - Actual: tokenization succeeds because `@` is now a valid token for type annotations.
 - Likely cause: Phase 1 adds the `@` token, so this test no longer represents an invalid token case.
 
-## Next steps
-- Replace the test input with a truly invalid token, or update the expectation to a parse error.
-- Leave the existing test unchanged for now per task instructions.
+## Resolution
+- Replaced `@` with `~` in `invalid_token_001.ns` (commit a4296cc).
+- Test now passes.

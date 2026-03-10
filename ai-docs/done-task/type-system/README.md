@@ -61,5 +61,5 @@ nospace 言語に明示的な型注釈・構造体を導入する設計タスク
 - Added semantic checks and execution support for type annotations, void cast, and struct access.
 - Added large tests for type annotations, void cast, structs, and error cases.
 - Updated unit tests and test manifest.
-- Ran full test suite; only existing test failure is invalid_token_001 (documented).
+- Ran full test suite; invalid_token_001 failure was fixed (commit a4296cc).
 - Pending: commit.
