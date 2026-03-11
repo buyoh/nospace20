@@ -1,0 +1,9 @@
+# エラーケース: 自身の名前空間を import #
+namespace: M2 {
+  let: n1(10);
+  import: M2;
+}
+
+func: __main() {
+  return: 0;
+}

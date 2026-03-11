@@ -1,0 +1,13 @@
+# エラーケース: import した識別子と同名の識別子が衝突 (weak なし) #
+namespace: N1 {
+  let: n1(10);
+}
+
+namespace: M2 {
+  import: N1;
+  let: n1(99);
+}
+
+func: __main() {
+  return: 0;
+}

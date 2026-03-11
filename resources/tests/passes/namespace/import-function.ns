@@ -1,0 +1,18 @@
+# import function テスト: 関数の import #
+namespace: Math {
+  func: add(a, b) { return: a + b; }
+  func: mul(a, b) { return: a * b; }
+  func: square(x) { return: mul(x, x); }
+}
+
+namespace: Calc {
+  import: Math;
+  __trace(0);
+  __assert(add(3, 4) == 7);
+  __assert(mul(3, 4) == 12);
+  __assert(square(5) == 25);
+}
+
+func: __main() {
+  __trace(1);
+}

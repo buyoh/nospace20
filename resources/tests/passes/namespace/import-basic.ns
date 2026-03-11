@@ -1,0 +1,20 @@
+# import の基本テスト: 変数と関数の import #
+namespace: N1 {
+  let: n1(10);
+  let: n2(20);
+  func: add(a, b) { return: a + b; }
+}
+
+namespace: M2 {
+  import: N1;
+  __trace(0);
+  __assert(n1 == 10);
+  __assert(n2 == 20);
+  __assert(add(3, 4) == 7);
+  # 元の修飾名でもアクセス可能 #
+  __assert(N1$n1 == 10);
+}
+
+func: __main() {
+  __trace(1);
+}

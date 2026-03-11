@@ -1,0 +1,8 @@
+# エラーケース: 未定義の名前空間を import #
+namespace: M2 {
+  import: Undefined;
+}
+
+func: __main() {
+  return: 0;
+}

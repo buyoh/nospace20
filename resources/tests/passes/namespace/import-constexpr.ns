@@ -1,0 +1,16 @@
+# import constexpr テスト: constexpr の import #
+namespace: Constants {
+  constexpr: SIZE(10);
+  constexpr: HALF(SIZE / 2);
+}
+
+namespace: User {
+  import: Constants;
+  __trace(0);
+  __assert(SIZE == 10);
+  __assert(HALF == 5);
+}
+
+func: __main() {
+  __trace(1);
+}

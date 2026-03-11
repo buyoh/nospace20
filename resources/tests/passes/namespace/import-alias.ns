@@ -1,0 +1,17 @@
+# import alias テスト: alias の import #
+func: double_val(x) { return: x * 2; }
+
+namespace: Utils {
+  alias: double(double_val);
+}
+
+namespace: App {
+  import: Utils;
+  __trace(0);
+  __assert(double(5) == 10);
+  __assert(double(21) == 42);
+}
+
+func: __main() {
+  __trace(1);
+}

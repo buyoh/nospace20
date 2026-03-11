@@ -1,0 +1,20 @@
+# import weak + export 組み合わせテスト #
+namespace: N1 {
+  let: n1(10);
+  let: n2(20);
+}
+
+namespace: M2 {
+  import: weak: export: N1;
+  let: n1(99);
+  __trace(0);
+  __assert(n1 == 99);    # M2$n1 を優先 #
+  __assert(n2 == 20);    # N1$n2 を参照可能 #
+  __assert(N1$n1 == 10); # N1$n1 を修飾名で参照 #
+}
+
+func: __main() {
+  __trace(1);
+  __assert(M2$n1 == 99); # M2$n1 を参照 #
+  __assert(M2$n2 == 20); # export により M2$n2 として参照可能 #
+}

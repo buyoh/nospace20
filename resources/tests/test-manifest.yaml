@@ -1614,3 +1614,71 @@ tests:
     type: compile_error
     path: namespace-undefined-access
     comment: "エラー: 未定義の修飾名へのアクセス"
+
+  # ========================================
+  # Import
+  # ========================================
+  - name: test_import_basic
+    type: success
+    path: namespace/import-basic
+    comment: "import の基本: 変数と関数の import"
+
+  - name: test_import_weak
+    type: success
+    path: namespace/import-weak
+    comment: "import weak: 衝突時に既存を優先"
+
+  - name: test_import_export
+    type: success
+    path: namespace/import-export
+    comment: "import export: 外部から修飾名でアクセス可能"
+
+  - name: test_import_weak_export
+    type: success
+    path: namespace/import-weak-export
+    comment: "import weak + export の組み合わせ"
+
+  - name: test_import_constexpr
+    type: success
+    path: namespace/import-constexpr
+    comment: "constexpr の import"
+
+  - name: test_import_alias
+    type: success
+    path: namespace/import-alias
+    comment: "alias の import"
+
+  - name: test_import_function
+    type: success
+    path: namespace/import-function
+    comment: "関数の import"
+
+  - name: test_import_global
+    type: success
+    path: namespace/import-global
+    comment: "グローバルスコープでの import"
+
+  - name: test_import_compile_error_collision
+    type: compile_error
+    path: import-collision
+    comment: "エラー: import した識別子と同名の識別子が衝突 (weak なし)"
+
+  - name: test_import_compile_error_undefined_ns
+    type: compile_error
+    path: import-undefined-ns
+    comment: "エラー: 未定義の名前空間を import"
+
+  - name: test_import_compile_error_no_external_access
+    type: compile_error
+    path: import-no-external-access
+    comment: "エラー: export なしで外部から import した識別子にアクセス"
+
+  - name: test_import_compile_error_duplicate
+    type: compile_error
+    path: import-duplicate
+    comment: "エラー: 同一名前空間の重複 import"
+
+  - name: test_import_compile_error_self
+    type: compile_error
+    path: import-self
+    comment: "エラー: 自身の名前空間を import"

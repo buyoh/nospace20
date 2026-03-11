@@ -1,0 +1,13 @@
+# import global テスト: グローバルスコープでの import #
+namespace: Utils {
+  func: helper() { return: 42; }
+  let: val(100);
+}
+
+import: Utils;
+
+func: __main() {
+  __trace(0);
+  __assert(helper() == 42);
+  __assert(val == 100);
+}

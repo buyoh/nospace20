@@ -1,0 +1,13 @@
+# エラーケース: 同一名前空間の重複 import #
+namespace: N1 {
+  let: n1(10);
+}
+
+namespace: M2 {
+  import: N1;
+  import: N1;
+}
+
+func: __main() {
+  return: 0;
+}

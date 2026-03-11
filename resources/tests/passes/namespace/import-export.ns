@@ -1,0 +1,19 @@
+# import export 修飾子テスト: 外部から修飾名でアクセス可能 #
+namespace: N1 {
+  let: n1(10);
+  let: n2(20);
+}
+
+namespace: M2 {
+  import: export: N1;
+  __trace(0);
+  __assert(n1 == 10);
+  __assert(n2 == 20);
+}
+
+func: __main() {
+  __trace(1);
+  # export により M2$n1, M2$n2 として参照可能 #
+  __assert(M2$n1 == 10);
+  __assert(M2$n2 == 20);
+}

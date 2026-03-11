@@ -1,0 +1,13 @@
+# エラーケース: export なしで外部から import した識別子にアクセス #
+namespace: N1 {
+  let: n1(10);
+}
+
+namespace: M2 {
+  import: N1;
+}
+
+func: __main() {
+  let: x(M2$n1);
+  return: 0;
+}
