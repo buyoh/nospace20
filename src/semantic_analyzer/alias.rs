@@ -108,7 +108,13 @@ fn collect_block_alias_map_recursive(
             }
             Statement::NamespaceDeclaration(ns_name, body) => {
                 let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
-                collect_block_alias_map_recursive(body, &sub_prefix, alias_map, block_alias_map, errors);
+                collect_block_alias_map_recursive(
+                    body,
+                    &sub_prefix,
+                    alias_map,
+                    block_alias_map,
+                    errors,
+                );
             }
             _ => {}
         }

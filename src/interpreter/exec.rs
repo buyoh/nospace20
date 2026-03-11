@@ -649,9 +649,7 @@ impl LocalEnvironment<'_, '_> {
                 let base_addr = try_expr!(self.interpret_expression(base));
                 let addr = base_addr + *offset as i64;
                 match field_type {
-                    crate::semantic_analyzer::ValueType::Struct(_) => {
-                        ExpressionFlow::Value(addr)
-                    }
+                    crate::semantic_analyzer::ValueType::Struct(_) => ExpressionFlow::Value(addr),
                     _ => ExpressionFlow::Value(self.get_by_address(addr)),
                 }
             }

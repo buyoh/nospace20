@@ -202,7 +202,12 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 self.iter.next();
                 let name = match self.iter.next() {
                     Some((Token::Identifier(id), token_info)) => {
-                        if !id.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+                        if !id
+                            .chars()
+                            .next()
+                            .map(|c| c.is_ascii_uppercase())
+                            .unwrap_or(false)
+                        {
                             let e = self.add_parse_error(
                                 token_info,
                                 "struct name must start with an uppercase letter",
@@ -224,8 +229,7 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                     }
                 };
 
-                if let Err(e) = match_expect_token!(self, self.iter.next(), Token::ParenthesisL)
-                {
+                if let Err(e) = match_expect_token!(self, self.iter.next(), Token::ParenthesisL) {
                     let end = self.current_pos();
                     return self.located(Expression::Invalid(e), start, end);
                 }
@@ -294,8 +298,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                             qualified_id = format!("{}${}", qualified_id, next_id);
                         }
                         Some((_, token_info)) => {
-                            let e = self
-                                .add_parse_error(token_info, "expected identifier after '$'");
+                            let e =
+                                self.add_parse_error(token_info, "expected identifier after '$'");
                             let end = self.current_pos();
                             return self.located(Expression::Invalid(e), start, end);
                         }
@@ -675,11 +679,13 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             Some((Token::Identifier(id), token_info)) => {
                 let name = id.clone();
                 self.iter.next();
-                if !name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
-                    let e = self.add_parse_error(
-                        token_info,
-                        "expected type specifier",
-                    );
+                if !name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_uppercase())
+                    .unwrap_or(false)
+                {
+                    let e = self.add_parse_error(token_info, "expected type specifier");
                     return Err(e);
                 }
                 TypeSpec::Named(name)

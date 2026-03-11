@@ -584,7 +584,12 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             Some((Token::Identifier(id), token_info)) => {
                 let name = id.clone();
                 self.iter.next();
-                if !name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+                if !name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_uppercase())
+                    .unwrap_or(false)
+                {
                     let e = self.add_parse_error(token_info, "expected type specifier");
                     return Err(e);
                 }
@@ -1302,7 +1307,12 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             }
         };
 
-        if !name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+        if !name
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_uppercase())
+            .unwrap_or(false)
+        {
             let err_idx = self.add_parse_error(
                 &TokenInfo {
                     code_pointer: start_pos,
@@ -1394,9 +1404,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     if is_weak {
                         let pos = self.current_pos_or(start_pos);
                         let err_idx = self.add_parse_error(
-                            &TokenInfo {
-                                code_pointer: pos,
-                            },
+                            &TokenInfo { code_pointer: pos },
                             "duplicate 'weak:' modifier",
                         );
                         self.skip_to_semicolon();
@@ -1412,9 +1420,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     if is_export {
                         let pos = self.current_pos_or(start_pos);
                         let err_idx = self.add_parse_error(
-                            &TokenInfo {
-                                code_pointer: pos,
-                            },
+                            &TokenInfo { code_pointer: pos },
                             "duplicate 'export:' modifier",
                         );
                         self.skip_to_semicolon();

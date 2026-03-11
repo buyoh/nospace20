@@ -151,7 +151,9 @@ fn analyze_internal_with_parent(
         for (ns, member_map) in &parent.import_table {
             let entry = import_bundle.import_table.entry(ns.clone()).or_default();
             for (member, target) in member_map {
-                entry.entry(member.clone()).or_insert_with(|| target.clone());
+                entry
+                    .entry(member.clone())
+                    .or_insert_with(|| target.clone());
             }
         }
     }
@@ -186,7 +188,10 @@ fn analyze_internal_with_parent(
     // inherited_func_return_types が非空 = if/while/block の内部 → 外側の型コンテキストを継承
     let effective_func_return_types: Vec<ValueType> = if ctx.inherited_func_return_types.is_empty()
     {
-        ctx.global_functions.iter().map(|f| f.return_type.clone()).collect()
+        ctx.global_functions
+            .iter()
+            .map(|f| f.return_type.clone())
+            .collect()
     } else {
         ctx.inherited_func_return_types.clone()
     };
@@ -406,7 +411,9 @@ fn resolve_namespace_name(
     None
 }
 
-fn collect_import_bundle(statements: &[LocatedStatement]) -> Result<ImportBundle, Vec<CodeParseError>> {
+fn collect_import_bundle(
+    statements: &[LocatedStatement],
+) -> Result<ImportBundle, Vec<CodeParseError>> {
     let mut known_namespaces: BTreeSet<String> = BTreeSet::new();
     let mut direct_members: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut imports: Vec<ImportDecl> = Vec::new();
@@ -432,7 +439,10 @@ fn collect_import_bundle(statements: &[LocatedStatement]) -> Result<ImportBundle
         ) else {
             errors.push(code_parse_error!(
                 imp.location,
-                format!("semantic error: undefined namespace '{}'", imp.target_ns_name)
+                format!(
+                    "semantic error: undefined namespace '{}'",
+                    imp.target_ns_name
+                )
             ));
             continue;
         };
@@ -554,10 +564,7 @@ fn scan_function_declarations(
                         if !matches!(spec, TypeSpec::Int) {
                             return Err(vec![code_parse_error!(
                                 located_stat.location.start,
-                                format!(
-                                    "semantic error: argument '{}' must be int type",
-                                    arg_name
-                                )
+                                format!("semantic error: argument '{}' must be int type", arg_name)
                             )]);
                         }
                     }
@@ -704,18 +711,12 @@ fn scan_variable_declarations(
                 }
 
                 if let ValueType::Struct(idx) = value_type {
-                    let def = scope
-                        .struct_definitions
-                        .get(idx)
-                        .ok_or_else(|| {
-                            vec![code_parse_error!(
-                                located_stat.location.start,
-                                format!(
-                                    "semantic error: unknown struct type for '{}'",
-                                    mangled_name
-                                )
-                            )]
-                        })?;
+                    let def = scope.struct_definitions.get(idx).ok_or_else(|| {
+                        vec![code_parse_error!(
+                            located_stat.location.start,
+                            format!("semantic error: unknown struct type for '{}'", mangled_name)
+                        )]
+                    })?;
                     effective_array_size = Some(def.total_size);
                 } else if let ValueType::Array(_, size) = &value_type {
                     effective_array_size = Some(*size);
@@ -826,7 +827,12 @@ fn collect_struct_declarations_recursive(
         match &located_stat.statement {
             Statement::StructDeclaration(name, fields) => {
                 let mangled = format!("{}{}", ns_prefix, name);
-                if !name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+                if !name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_uppercase())
+                    .unwrap_or(false)
+                {
                     errors.push(code_parse_error!(
                         located_stat.location.start,
                         "struct name must start with an uppercase letter"
@@ -896,14 +902,8 @@ fn resolve_struct_definition(
 
     for field in fields {
         let value_type = if let Some(spec) = &field.type_spec {
-            match resolve_type_spec_with_structs(
-                spec,
-                scope,
-                field_map,
-                visiting,
-                resolved,
-                errors,
-            ) {
+            match resolve_type_spec_with_structs(spec, scope, field_map, visiting, resolved, errors)
+            {
                 Some(v) => v,
                 None => {
                     visiting.remove(name);
@@ -970,14 +970,7 @@ fn resolve_type_spec_with_structs(
                 )));
                 return None;
             }
-            resolve_struct_definition(
-                name,
-                scope,
-                field_map,
-                visiting,
-                resolved,
-                errors,
-            );
+            resolve_struct_definition(name, scope, field_map, visiting, resolved, errors);
             scope
                 .struct_name_to_index
                 .get(name)
@@ -986,12 +979,7 @@ fn resolve_type_spec_with_structs(
         }
         TypeSpec::Array(inner, size) => {
             let inner_value = resolve_type_spec_with_structs(
-                inner,
-                scope,
-                field_map,
-                visiting,
-                resolved,
-                errors,
+                inner, scope, field_map, visiting, resolved, errors,
             )?;
             Some(ValueType::Array(Box::new(inner_value), *size))
         }
@@ -1016,14 +1004,7 @@ fn value_type_size(
                 .get(*idx)
                 .map(|d| d.name.clone())
                 .unwrap_or_default();
-            resolve_struct_definition(
-                &name,
-                scope,
-                field_map,
-                visiting,
-                resolved,
-                errors,
-            );
+            resolve_struct_definition(&name, scope, field_map, visiting, resolved, errors);
             scope
                 .struct_definitions
                 .get(*idx)
@@ -1031,14 +1012,7 @@ fn value_type_size(
                 .unwrap_or(0)
         }
         ValueType::Array(inner, size) => {
-            let inner_size = value_type_size(
-                inner,
-                scope,
-                field_map,
-                visiting,
-                resolved,
-                errors,
-            );
+            let inner_size = value_type_size(inner, scope, field_map, visiting, resolved, errors);
             inner_size * size
         }
     }

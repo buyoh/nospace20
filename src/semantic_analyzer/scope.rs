@@ -396,10 +396,7 @@ impl<'a> ScopeResolver<'a> {
         None
     }
 
-    fn resolve_variable_with_type_exact(
-        &self,
-        name: &str,
-    ) -> Option<(IdentifierRef, ValueType)> {
+    fn resolve_variable_with_type_exact(&self, name: &str) -> Option<(IdentifierRef, ValueType)> {
         let mut first_function_scope_depth: Option<usize> = None;
 
         for (depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
@@ -476,9 +473,7 @@ impl<'a> ScopeResolver<'a> {
         let candidates = self.ns_candidate_names(name);
         for candidate in &candidates {
             for scope_info in self.scope_stack.iter().rev() {
-                if let Some(&var_idx) =
-                    scope_info.var_name_to_var_index.get(candidate.as_str())
-                {
+                if let Some(&var_idx) = scope_info.var_name_to_var_index.get(candidate.as_str()) {
                     return Some(scope_info.variables[var_idx].array_size);
                 }
             }
@@ -516,7 +511,9 @@ impl<'a> ScopeResolver<'a> {
         let candidates = self.ns_candidate_names(name);
         for candidate in &candidates {
             for scope_info in self.scope_stack.iter().rev() {
-                if let Some(Identifier::Function(info)) = scope_info.func_map.get(candidate.as_str()) {
+                if let Some(Identifier::Function(info)) =
+                    scope_info.func_map.get(candidate.as_str())
+                {
                     // 全関数はルートスコープにフラット化されているため、
                     // 常に is_global=true、scope_depth=0 を返す
                     // local_index はグローバルインデックス
@@ -531,7 +528,8 @@ impl<'a> ScopeResolver<'a> {
         }
         if let Some(imported) = self.resolve_imported_name(name) {
             for scope_info in self.scope_stack.iter().rev() {
-                if let Some(Identifier::Function(info)) = scope_info.func_map.get(imported.as_str()) {
+                if let Some(Identifier::Function(info)) = scope_info.func_map.get(imported.as_str())
+                {
                     return Some(IdentifierRef {
                         scope_depth: 0,
                         local_index: info.0,
@@ -549,14 +547,17 @@ impl<'a> ScopeResolver<'a> {
         let candidates = self.ns_candidate_names(name);
         for candidate in &candidates {
             for scope_info in self.scope_stack.iter().rev() {
-                if let Some(Identifier::Function(info)) = scope_info.func_map.get(candidate.as_str()) {
+                if let Some(Identifier::Function(info)) =
+                    scope_info.func_map.get(candidate.as_str())
+                {
                     return Some(info.1);
                 }
             }
         }
         if let Some(imported) = self.resolve_imported_name(name) {
             for scope_info in self.scope_stack.iter().rev() {
-                if let Some(Identifier::Function(info)) = scope_info.func_map.get(imported.as_str()) {
+                if let Some(Identifier::Function(info)) = scope_info.func_map.get(imported.as_str())
+                {
                     return Some(info.1);
                 }
             }

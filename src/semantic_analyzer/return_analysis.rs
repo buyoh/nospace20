@@ -32,7 +32,7 @@ pub(super) fn has_return_statement(statements: &[LocatedStatement]) -> bool {
                 }
             }
             // ネストした関数宣言は除外（別の関数の return なので）
-                Statement::FunctionDeclaration(_, _, _, _) => {}
+            Statement::FunctionDeclaration(_, _, _, _) => {}
             _ => {}
         }
     }

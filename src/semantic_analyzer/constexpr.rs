@@ -55,13 +55,7 @@ fn evaluate_constexpr_expr(
             }
             if raw.contains_key(name) {
                 // 前方参照: 他の constexpr を評価する
-                return evaluate_constexpr_by_name(
-                    name,
-                    raw,
-                    import_table,
-                    resolved,
-                    evaluating,
-                );
+                return evaluate_constexpr_by_name(name, raw, import_table, resolved, evaluating);
             }
             if !name.contains('$') {
                 for candidate in ns_candidate_names(current_ns, name) {
@@ -296,13 +290,8 @@ pub(super) fn collect_constexpr_table(
     let mut errors: Vec<CodeParseError> = Vec::new();
     for name in raw.keys().cloned().collect::<Vec<_>>() {
         let mut evaluating: BTreeSet<String> = BTreeSet::new();
-        match evaluate_constexpr_by_name(
-            &name,
-            &raw,
-            import_table,
-            &mut resolved,
-            &mut evaluating,
-        ) {
+        match evaluate_constexpr_by_name(&name, &raw, import_table, &mut resolved, &mut evaluating)
+        {
             Ok(_) => {}
             Err(mut errs) => errors.append(&mut errs),
         }

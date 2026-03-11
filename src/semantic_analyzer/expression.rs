@@ -308,7 +308,10 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             let actual_type = actual_expr.infer_type(func_return_types);
 
             if expected_type == ValueType::Void && actual_type == ValueType::Int {
-                return Ok(make_located_exec(ExecExpression::VoidCast(actual_expr), loc));
+                return Ok(make_located_exec(
+                    ExecExpression::VoidCast(actual_expr),
+                    loc,
+                ));
             }
 
             if let ValueType::Struct(expected_idx) = expected_type.clone() {
@@ -385,9 +388,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     )]);
                 }
             };
-            let struct_def = parent_resolver.get_struct_definition(struct_idx).ok_or_else(|| {
-                vec![code_parse_error!(loc.start, "unknown struct type")]
-            })?;
+            let struct_def = parent_resolver
+                .get_struct_definition(struct_idx)
+                .ok_or_else(|| vec![code_parse_error!(loc.start, "unknown struct type")])?;
             let field = struct_def
                 .fields
                 .iter()
@@ -404,12 +407,7 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                 _ => None,
             };
             Ok(make_located_exec(
-                ExecExpression::StructFieldAccess(
-                    exec_base,
-                    field.offset,
-                    array_size,
-                    field_type,
-                ),
+                ExecExpression::StructFieldAccess(exec_base, field.offset, array_size, field_type),
                 loc,
             ))
         }
@@ -429,9 +427,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     )]);
                 }
             };
-            let struct_def = parent_resolver.get_struct_definition(struct_idx).ok_or_else(|| {
-                vec![code_parse_error!(loc.start, "unknown struct type")]
-            })?;
+            let struct_def = parent_resolver
+                .get_struct_definition(struct_idx)
+                .ok_or_else(|| vec![code_parse_error!(loc.start, "unknown struct type")])?;
             let field = struct_def
                 .fields
                 .iter()

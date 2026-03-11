@@ -36,8 +36,8 @@ pub enum Token {
     Identifier(String),
     Keyword(Keyword),
     StringLiteral(Vec<i64>), // 文字列リテラル（各文字のASCII値のベクタ、ヌル終端は含まない）
-    At,      // @
-    Dot,     // .
+    At,                      // @
+    Dot,                     // .
     Plus,
     Minus,
     Asterisk,

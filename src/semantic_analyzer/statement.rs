@@ -48,12 +48,13 @@ pub(super) fn convert_to_exec_statements(
         let loc = &located_stat.location;
         match stat {
             Statement::VariableDeclaration(name, init, is_static_explicit, _, _, type_annot) => {
-                let (var_ref, var_type) = resolver.resolve_variable_with_type(name).ok_or_else(|| {
-                    vec![code_parse_error!(
-                        loc.start,
-                        format!("undefined variable: {}", name)
-                    )]
-                })?;
+                let (var_ref, var_type) =
+                    resolver.resolve_variable_with_type(name).ok_or_else(|| {
+                        vec![code_parse_error!(
+                            loc.start,
+                            format!("undefined variable: {}", name)
+                        )]
+                    })?;
 
                 if let ValueType::Struct(struct_idx) = var_type.clone() {
                     if let crate::tree_parser::Expression::Operation2(
@@ -65,13 +66,9 @@ pub(super) fn convert_to_exec_statements(
                         if let crate::tree_parser::Expression::StructLiteral(_, args) =
                             &rhs_expr.expression
                         {
-                            let struct_def = resolver
-                                .get_struct_definition(struct_idx)
-                                .ok_or_else(|| {
-                                    vec![code_parse_error!(
-                                        loc.start,
-                                        "unknown struct type"
-                                    )]
+                            let struct_def =
+                                resolver.get_struct_definition(struct_idx).ok_or_else(|| {
+                                    vec![code_parse_error!(loc.start, "unknown struct type")]
                                 })?;
                             let mut init_statements = Vec::new();
                             let mut value_exprs = Vec::new();
@@ -308,12 +305,13 @@ pub(super) fn convert_to_exec_statements(
             Statement::FunctionDeclaration(name, args, block, _return_type_annot) => {
                 // 名前空間プレフィックスを適用したマングル名でパス1aの登録内容を取得
                 let mangled_name = format!("{}{}", resolver.current_ns_prefix(), name);
-                let global_idx =
-                    if let Some(Identifier::Function(info)) = scope.identifier_map.get(&mangled_name) {
-                        info.0
-                    } else {
-                        panic!("internal error: function '{}' should be pre-registered in pass 1a (mangled: '{}')", name, mangled_name);
-                    };
+                let global_idx = if let Some(Identifier::Function(info)) =
+                    scope.identifier_map.get(&mangled_name)
+                {
+                    info.0
+                } else {
+                    panic!("internal error: function '{}' should be pre-registered in pass 1a (mangled: '{}')", name, mangled_name);
+                };
 
                 // 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
                 // global_functions と global_function_names を渡す
@@ -346,12 +344,13 @@ pub(super) fn convert_to_exec_statements(
                     .collect();
 
                 // 関数の戻り値型はパス1aで決定済みの値を使用
-                let func_return_type =
-                    if let Some(Identifier::Function(info)) = scope.identifier_map.get(&mangled_name) {
-                        info.2.clone()
-                    } else {
-                        panic!("internal error: function return_type should be in pass 1a info");
-                    };
+                let func_return_type = if let Some(Identifier::Function(info)) =
+                    scope.identifier_map.get(&mangled_name)
+                {
+                    info.2.clone()
+                } else {
+                    panic!("internal error: function return_type should be in pass 1a info");
+                };
 
                 ctx.global_functions[global_idx] = super::scope::Function {
                     arg_indices,

@@ -114,12 +114,7 @@ fn test_success_block_scoped_variable() {
     };
 
     let func = LocatedStatement {
-        statement: Statement::FunctionDeclaration(
-            "test".to_string(),
-            vec![],
-            vec![if_expr],
-            None,
-        ),
+        statement: Statement::FunctionDeclaration("test".to_string(), vec![], vec![if_expr], None),
         location: SourceLocation::new(135, 175),
     };
 

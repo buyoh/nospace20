@@ -32,11 +32,17 @@ fn token_keyword_continue() -> PrettyToken {
 }
 
 fn token_keyword_struct() -> PrettyToken {
-    (Token::Keyword(Keyword::Struct), TokenInfo { code_pointer: 0 })
+    (
+        Token::Keyword(Keyword::Struct),
+        TokenInfo { code_pointer: 0 },
+    )
 }
 
 fn token_keyword_import() -> PrettyToken {
-    (Token::Keyword(Keyword::Import), TokenInfo { code_pointer: 0 })
+    (
+        Token::Keyword(Keyword::Import),
+        TokenInfo { code_pointer: 0 },
+    )
 }
 
 fn token_keyword_weak() -> PrettyToken {
@@ -44,7 +50,10 @@ fn token_keyword_weak() -> PrettyToken {
 }
 
 fn token_keyword_export() -> PrettyToken {
-    (Token::Keyword(Keyword::Export), TokenInfo { code_pointer: 0 })
+    (
+        Token::Keyword(Keyword::Export),
+        TokenInfo { code_pointer: 0 },
+    )
 }
 
 fn token_ident(name: &str) -> PrettyToken {

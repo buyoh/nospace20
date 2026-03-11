@@ -215,14 +215,14 @@ pub(crate) enum ExecExpression {
     /// void キャスト
     VoidCast(Box<LocatedExecExpression>),
     /// 構造体フィールドアクセス
-    StructFieldAccess(
+    StructFieldAccess(Box<LocatedExecExpression>, usize, Option<usize>, ValueType),
+    /// 構造体フィールド配列アクセス
+    StructFieldArrayAccess(
         Box<LocatedExecExpression>,
         usize,
-        Option<usize>,
-        ValueType,
+        Box<LocatedExecExpression>,
+        usize,
     ),
-    /// 構造体フィールド配列アクセス
-    StructFieldArrayAccess(Box<LocatedExecExpression>, usize, Box<LocatedExecExpression>, usize),
     /// 最適化パスで生成される内部組み込み関数
     /// 意味解析では生成されず、最適化パスでのみ生成される。
     InternalBuiltinFunction(InternalBuiltinFunctionKind),

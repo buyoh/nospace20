@@ -64,10 +64,7 @@ impl NospaceVM {
             }
             EvalCont::StructFieldArrayFinish { base_addr, offset } => {
                 let index = self.value_stack.pop().unwrap_or(0);
-                let v = self
-                    .env
-                    .allocator
-                    .get(base_addr + offset as i64 + index);
+                let v = self.env.allocator.get(base_addr + offset as i64 + index);
                 self.finish_eval(v)
             }
             EvalCont::BinaryLeft { op, rhs } => {
