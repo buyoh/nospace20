@@ -1,6 +1,6 @@
 [package]
 name = "nospace20"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["buyoh <mai@ukibune.net>"]
 edition = "2021"
 
