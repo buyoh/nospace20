@@ -38,7 +38,7 @@
         },
         {
           "name": "keyword.declaration.nospace",
-          "match": "\\b(func|let|static|final|constexpr|alias|struct)\\b"
+          "match": "\\b(func|let|static|final|constexpr|alias|struct|namespace|import|weak|export)\\b"
         }
       ]
     },

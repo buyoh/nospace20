@@ -16,6 +16,23 @@ use crate::{
     },
 };
 
+fn ns_candidate_names(current_ns: &str, name: &str) -> Vec<String> {
+    if current_ns.is_empty() {
+        return vec![name.to_string()];
+    }
+
+    let parts: Vec<&str> = current_ns.split('$').collect();
+    let mut candidates = Vec::new();
+    for i in (0..=parts.len()).rev() {
+        if i == 0 {
+            candidates.push(name.to_string());
+        } else {
+            candidates.push(format!("{}${}", parts[..i].join("$"), name));
+        }
+    }
+    candidates
+}
+
 /// constexpr 式を再帰的に評価する
 ///
 /// `raw` は未解決の constexpr 定義（名前 → 生式）。
@@ -23,7 +40,9 @@ use crate::{
 /// `evaluating` は巡回参照検知用の「現在評価中」セット。
 fn evaluate_constexpr_expr(
     expr: &LocatedExpression,
+    current_ns: &str,
     raw: &BTreeMap<String, Box<LocatedExpression>>,
+    import_table: &BTreeMap<String, BTreeMap<String, String>>,
     resolved: &mut BTreeMap<String, i64>,
     evaluating: &mut BTreeSet<String>,
 ) -> Result<i64, Vec<CodeParseError>> {
@@ -36,7 +55,48 @@ fn evaluate_constexpr_expr(
             }
             if raw.contains_key(name) {
                 // 前方参照: 他の constexpr を評価する
-                return evaluate_constexpr_by_name(name, raw, resolved, evaluating);
+                return evaluate_constexpr_by_name(
+                    name,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                );
+            }
+            if !name.contains('$') {
+                for candidate in ns_candidate_names(current_ns, name) {
+                    if let Some(&v) = resolved.get(candidate.as_str()) {
+                        return Ok(v);
+                    }
+                    if raw.contains_key(candidate.as_str()) {
+                        return evaluate_constexpr_by_name(
+                            candidate.as_str(),
+                            raw,
+                            import_table,
+                            resolved,
+                            evaluating,
+                        );
+                    }
+                }
+
+                if let Some(imported_name) = import_table
+                    .get(current_ns)
+                    .and_then(|m| m.get(name.as_str()))
+                    .cloned()
+                {
+                    if let Some(&v) = resolved.get(imported_name.as_str()) {
+                        return Ok(v);
+                    }
+                    if raw.contains_key(imported_name.as_str()) {
+                        return evaluate_constexpr_by_name(
+                            imported_name.as_str(),
+                            raw,
+                            import_table,
+                            resolved,
+                            evaluating,
+                        );
+                    }
+                }
             }
             Err(vec![code_parse_error!(
                 loc,
@@ -45,11 +105,25 @@ fn evaluate_constexpr_expr(
         }
         Expression::Operation1(op, inner) => match op {
             Operator1::Negative => {
-                let v = evaluate_constexpr_expr(inner, raw, resolved, evaluating)?;
+                let v = evaluate_constexpr_expr(
+                    inner,
+                    current_ns,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                )?;
                 Ok(v.wrapping_neg())
             }
             Operator1::LogicalNot => {
-                let v = evaluate_constexpr_expr(inner, raw, resolved, evaluating)?;
+                let v = evaluate_constexpr_expr(
+                    inner,
+                    current_ns,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                )?;
                 Ok(pure_eval::bool_to_int(v == 0))
             }
             _ => Err(vec![code_parse_error!(
@@ -69,26 +143,68 @@ fn evaluate_constexpr_expr(
             )]),
             Operator2::LogicalAnd => {
                 // 短絡評価: 左辺が0なら右辺を評価しない
-                let lv = evaluate_constexpr_expr(l, raw, resolved, evaluating)?;
+                let lv = evaluate_constexpr_expr(
+                    l,
+                    current_ns,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                )?;
                 if lv == 0 {
                     return Ok(0);
                 }
-                let rv = evaluate_constexpr_expr(r, raw, resolved, evaluating)?;
+                let rv = evaluate_constexpr_expr(
+                    r,
+                    current_ns,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                )?;
                 Ok(pure_eval::bool_to_int(rv != 0))
             }
             Operator2::LogicalOr => {
                 // 短絡評価: 左辺が非0なら右辺を評価しない
-                let lv = evaluate_constexpr_expr(l, raw, resolved, evaluating)?;
+                let lv = evaluate_constexpr_expr(
+                    l,
+                    current_ns,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                )?;
                 if lv != 0 {
                     return Ok(1);
                 }
-                let rv = evaluate_constexpr_expr(r, raw, resolved, evaluating)?;
+                let rv = evaluate_constexpr_expr(
+                    r,
+                    current_ns,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                )?;
                 Ok(pure_eval::bool_to_int(rv != 0))
             }
             _ => {
                 // Plus, Minus, Multiply, Divide, Modulo, 比較演算
-                let lv = evaluate_constexpr_expr(l, raw, resolved, evaluating)?;
-                let rv = evaluate_constexpr_expr(r, raw, resolved, evaluating)?;
+                let lv = evaluate_constexpr_expr(
+                    l,
+                    current_ns,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                )?;
+                let rv = evaluate_constexpr_expr(
+                    r,
+                    current_ns,
+                    raw,
+                    import_table,
+                    resolved,
+                    evaluating,
+                )?;
                 pure_eval::eval_binary_pure(op, lv, rv).ok_or_else(|| {
                     vec![code_parse_error!(
                         loc,
@@ -108,6 +224,7 @@ fn evaluate_constexpr_expr(
 fn evaluate_constexpr_by_name(
     name: &str,
     raw: &BTreeMap<String, Box<LocatedExpression>>,
+    import_table: &BTreeMap<String, BTreeMap<String, String>>,
     resolved: &mut BTreeMap<String, i64>,
     evaluating: &mut BTreeSet<String>,
 ) -> Result<i64, Vec<CodeParseError>> {
@@ -129,6 +246,10 @@ fn evaluate_constexpr_by_name(
             ))])
         }
     };
+    let current_ns = name
+        .rsplit_once('$')
+        .map(|(ns, _)| ns.to_string())
+        .unwrap_or_default();
     evaluating.insert(name.to_string());
     let v = match &expr.expression {
         Expression::Block(stmts) => {
@@ -139,7 +260,14 @@ fn evaluate_constexpr_by_name(
         }
         _ => {
             // 式形式: 既存のロジックを使用
-            evaluate_constexpr_expr(&expr, raw, resolved, evaluating)?
+            evaluate_constexpr_expr(
+                &expr,
+                current_ns.as_str(),
+                raw,
+                import_table,
+                resolved,
+                evaluating,
+            )?
         }
     };
     evaluating.remove(name);
@@ -153,6 +281,7 @@ fn evaluate_constexpr_by_name(
 /// 同名の constexpr や変数との名前衝突は意味解析パス1b での重複チェックに委ねる。
 pub(super) fn collect_constexpr_table(
     statements: &[LocatedStatement],
+    import_table: &BTreeMap<String, BTreeMap<String, String>>,
 ) -> Result<BTreeMap<String, i64>, Vec<CodeParseError>> {
     // 全ての constexpr を収集（名前空間内のものをマングル名で含む）
     let mut raw: BTreeMap<String, Box<LocatedExpression>> = BTreeMap::new();
@@ -167,7 +296,13 @@ pub(super) fn collect_constexpr_table(
     let mut errors: Vec<CodeParseError> = Vec::new();
     for name in raw.keys().cloned().collect::<Vec<_>>() {
         let mut evaluating: BTreeSet<String> = BTreeSet::new();
-        match evaluate_constexpr_by_name(&name, &raw, &mut resolved, &mut evaluating) {
+        match evaluate_constexpr_by_name(
+            &name,
+            &raw,
+            import_table,
+            &mut resolved,
+            &mut evaluating,
+        ) {
             Ok(_) => {}
             Err(mut errs) => errors.append(&mut errs),
         }

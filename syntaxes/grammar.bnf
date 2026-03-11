@@ -77,6 +77,7 @@ global_stmt ::=
     | final
     | constexpr
     | alias
+    | import
     | struct_decl
     | expr ";"
 
@@ -115,6 +116,9 @@ alias_arg ::=
     | ident    # 関数名・static 変数名・constexpr 識別子
     | integer  # constexpr パラメータへの整数リテラル
 
+import ::= "import" ":" import_modifier* ident ";"
+import_modifier ::= "weak" ":" | "export" ":"
+
 let_decl ::= ident ("@" type_spec)? ("[" integer? "]")?  ("(" array_init | string_init | expr ")")?  # @typeは[N]より前に記述
 array_init ::= "[" expr ("," expr)* "]"
 string_init ::= string_literal
@@ -132,6 +136,7 @@ stmt ::=
     | final
     | constexpr
     | alias
+    | import
     | struct_decl                              # 構造体定義
     | func                                    # ネストした関数定義
     | expr ";"

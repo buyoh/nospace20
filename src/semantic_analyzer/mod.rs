@@ -24,7 +24,7 @@ mod statement;
 mod template;
 mod types;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use alias::{collect_alias_map, collect_block_alias_map, detect_block_alias_cycles};
 use constexpr::collect_constexpr_table;
@@ -146,10 +146,29 @@ fn analyze_internal_with_parent(
     }
 
     // 3パス解析 → 4パス解析（Pass 0 を追加）
+    let mut import_bundle = collect_import_bundle(statements)?;
+    if let Some(parent) = parent_resolver {
+        for (ns, member_map) in &parent.import_table {
+            let entry = import_bundle.import_table.entry(ns.clone()).or_default();
+            for (member, target) in member_map {
+                entry.entry(member.clone()).or_insert_with(|| target.clone());
+            }
+        }
+    }
+
     // パス0: constexpr 定義の収集・評価
-    let constexpr_table_temp = collect_constexpr_table(statements)?;
+    let constexpr_table_temp = collect_constexpr_table(statements, &import_bundle.import_table)?;
     // パス0: alias（識別子エイリアス）定義の収集
-    let alias_map_temp = collect_alias_map(statements)?;
+    let mut alias_map_temp = collect_alias_map(statements)?;
+    for (k, v) in import_bundle.export_aliases {
+        if alias_map_temp.contains_key(&k) {
+            return Err(vec![code_parse_error!(format!(
+                "semantic error: duplicate alias definition '{}'",
+                k
+            ))]);
+        }
+        alias_map_temp.insert(k, v);
+    }
     // パス0: ブロックエイリアス定義の収集
     let block_alias_map_temp = collect_block_alias_map(statements, &alias_map_temp)?;
     // パス0: ブロックエイリアスの巡回参照チェック
@@ -215,6 +234,7 @@ fn analyze_internal_with_parent(
         let mut new_resolver = ScopeResolver {
             scope_stack: parent.scope_stack.clone(),
             namespace_prefix: parent.namespace_prefix.clone(),
+            import_table: import_bundle.import_table.clone(),
         };
         new_resolver.enter_scope(
             &temporary_scope.variable_indices,
@@ -232,6 +252,7 @@ fn analyze_internal_with_parent(
         new_resolver
     } else {
         let mut new_resolver = ScopeResolver::new();
+        new_resolver.import_table = import_bundle.import_table.clone();
         new_resolver.enter_scope(
             &temporary_scope.variable_indices,
             &temporary_scope.variable_name_to_var_index,
@@ -269,6 +290,248 @@ pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError
         context::AnalyzeContext::new_root(&mut global_functions, &mut global_function_names);
     analyze_internal(root, ScopeType::Root, &mut ctx)
         .map(|(scope, root_stmts)| scope.build(root_stmts, global_functions, global_function_names))
+}
+
+#[derive(Clone)]
+struct ImportDecl {
+    current_ns: String,
+    target_ns_name: String,
+    is_weak: bool,
+    is_export: bool,
+    location: usize,
+}
+
+struct ImportBundle {
+    import_table: BTreeMap<String, BTreeMap<String, String>>,
+    export_aliases: BTreeMap<String, String>,
+}
+
+fn ns_prefix(ns: &str) -> String {
+    if ns.is_empty() {
+        String::new()
+    } else {
+        format!("{}$", ns)
+    }
+}
+
+fn add_direct_member(members: &mut BTreeMap<String, BTreeSet<String>>, ns: &str, name: &str) {
+    members
+        .entry(ns.to_string())
+        .or_default()
+        .insert(name.to_string());
+}
+
+fn collect_namespace_info_recursive(
+    statements: &[LocatedStatement],
+    current_ns: &str,
+    known_namespaces: &mut BTreeSet<String>,
+    direct_members: &mut BTreeMap<String, BTreeSet<String>>,
+    imports: &mut Vec<ImportDecl>,
+) {
+    for located in statements {
+        match &located.statement {
+            Statement::VariableDeclaration(name, _, _, _, _, _) => {
+                add_direct_member(direct_members, current_ns, name);
+            }
+            Statement::FunctionDeclaration(name, _, _, _) => {
+                add_direct_member(direct_members, current_ns, name);
+            }
+            Statement::ConstexprDeclaration(name, _) => {
+                add_direct_member(direct_members, current_ns, name);
+            }
+            Statement::AliasIdentifier(name, _) | Statement::AliasBlock(name, _) => {
+                add_direct_member(direct_members, current_ns, name);
+            }
+            Statement::ImportDeclaration {
+                namespace_name,
+                is_weak,
+                is_export,
+            } => {
+                imports.push(ImportDecl {
+                    current_ns: current_ns.to_string(),
+                    target_ns_name: namespace_name.clone(),
+                    is_weak: *is_weak,
+                    is_export: *is_export,
+                    location: located.location.start,
+                });
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                let sub_ns = if current_ns.is_empty() {
+                    ns_name.clone()
+                } else {
+                    format!("{}${}", current_ns, ns_name)
+                };
+                known_namespaces.insert(sub_ns.clone());
+                collect_namespace_info_recursive(
+                    body,
+                    &sub_ns,
+                    known_namespaces,
+                    direct_members,
+                    imports,
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+fn resolve_namespace_name(
+    current_ns: &str,
+    target: &str,
+    known_namespaces: &BTreeSet<String>,
+) -> Option<String> {
+    if target.contains('$') {
+        return known_namespaces
+            .contains(target)
+            .then(|| target.to_string());
+    }
+
+    if current_ns.is_empty() {
+        return known_namespaces
+            .contains(target)
+            .then(|| target.to_string());
+    }
+
+    let parts: Vec<&str> = current_ns.split('$').collect();
+    for i in (0..=parts.len()).rev() {
+        let candidate = if i == 0 {
+            target.to_string()
+        } else {
+            format!("{}${}", parts[..i].join("$"), target)
+        };
+        if known_namespaces.contains(candidate.as_str()) {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn collect_import_bundle(statements: &[LocatedStatement]) -> Result<ImportBundle, Vec<CodeParseError>> {
+    let mut known_namespaces: BTreeSet<String> = BTreeSet::new();
+    let mut direct_members: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut imports: Vec<ImportDecl> = Vec::new();
+
+    collect_namespace_info_recursive(
+        statements,
+        "",
+        &mut known_namespaces,
+        &mut direct_members,
+        &mut imports,
+    );
+
+    let mut import_table: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    let mut export_aliases: BTreeMap<String, String> = BTreeMap::new();
+    let mut seen_imports: BTreeSet<(String, String)> = BTreeSet::new();
+    let mut errors: Vec<CodeParseError> = Vec::new();
+
+    for imp in imports {
+        let Some(resolved_target_ns) = resolve_namespace_name(
+            imp.current_ns.as_str(),
+            imp.target_ns_name.as_str(),
+            &known_namespaces,
+        ) else {
+            errors.push(code_parse_error!(
+                imp.location,
+                format!("semantic error: undefined namespace '{}'", imp.target_ns_name)
+            ));
+            continue;
+        };
+
+        if imp.current_ns == resolved_target_ns {
+            errors.push(code_parse_error!(
+                imp.location,
+                format!(
+                    "semantic error: cannot import current namespace '{}'",
+                    imp.target_ns_name
+                )
+            ));
+            continue;
+        }
+
+        let import_key = (imp.current_ns.clone(), resolved_target_ns.clone());
+        if seen_imports.contains(&import_key) {
+            errors.push(code_parse_error!(
+                imp.location,
+                format!(
+                    "semantic error: duplicate import of namespace '{}'",
+                    imp.target_ns_name
+                )
+            ));
+            continue;
+        }
+        seen_imports.insert(import_key);
+
+        let source_members = direct_members
+            .get(resolved_target_ns.as_str())
+            .cloned()
+            .unwrap_or_default();
+        let local_members = direct_members
+            .get(imp.current_ns.as_str())
+            .cloned()
+            .unwrap_or_default();
+
+        for member in source_members {
+            let imported_full = format!("{}{}", ns_prefix(&resolved_target_ns), member);
+
+            if local_members.contains(member.as_str()) {
+                if imp.is_weak {
+                    continue;
+                }
+                errors.push(code_parse_error!(
+                    imp.location,
+                    format!(
+                        "semantic error: imported identifier '{}' conflicts with existing declaration",
+                        member
+                    )
+                ));
+                continue;
+            }
+
+            let local_table = import_table.entry(imp.current_ns.clone()).or_default();
+            if let Some(existing) = local_table.get(member.as_str()) {
+                if existing != &imported_full {
+                    if imp.is_weak {
+                        continue;
+                    }
+                    errors.push(code_parse_error!(
+                        imp.location,
+                        format!(
+                            "semantic error: imported identifier '{}' conflicts with another import",
+                            member
+                        )
+                    ));
+                }
+                continue;
+            }
+            local_table.insert(member.clone(), imported_full.clone());
+
+            if imp.is_export {
+                let exported_key = format!("{}{}", ns_prefix(&imp.current_ns), member);
+                if let Some(existing) = export_aliases.get(exported_key.as_str()) {
+                    if existing != &imported_full {
+                        errors.push(code_parse_error!(
+                            imp.location,
+                            format!(
+                                "semantic error: exported import '{}' conflicts with another export",
+                                exported_key
+                            )
+                        ));
+                    }
+                    continue;
+                }
+                export_aliases.insert(exported_key, imported_full);
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
+    Ok(ImportBundle {
+        import_table,
+        export_aliases,
+    })
 }
 
 /// パス1a: 関数宣言を再帰的にスキャンしてスコープビルダーに登録する（名前空間対応）

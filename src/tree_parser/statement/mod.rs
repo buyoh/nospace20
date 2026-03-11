@@ -95,6 +95,12 @@ pub enum Statement {
     /// 名前空間宣言: `namespace: Name { 文... }`
     /// 末尾セミコロンは不要（func: と同様の扱い）
     NamespaceDeclaration(String, Vec<LocatedStatement>),
+    /// import 宣言: `import: [weak:] [export:] Namespace;`
+    ImportDeclaration {
+        namespace_name: String,
+        is_weak: bool,
+        is_export: bool,
+    },
     /// 構造体定義: struct: Name (field: type, ...);
     /// フィールドの型は省略可能（省略時は Int）
     StructDeclaration(String, Vec<StructFieldDecl>),
@@ -1376,6 +1382,79 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         }
     }
 
+    fn parse_to_statements_import(&mut self, start_pos: usize) -> LocatedStatement {
+        self.iter.next();
+
+        let mut is_weak = false;
+        let mut is_export = false;
+
+        loop {
+            match self.iter.peek() {
+                Some((Token::Keyword(Keyword::Weak), _)) => {
+                    if is_weak {
+                        let pos = self.current_pos_or(start_pos);
+                        let err_idx = self.add_parse_error(
+                            &TokenInfo {
+                                code_pointer: pos,
+                            },
+                            "duplicate 'weak:' modifier",
+                        );
+                        self.skip_to_semicolon();
+                        return LocatedStatement {
+                            statement: Statement::Invalid(err_idx),
+                            location: SourceLocation::from_single(start_pos),
+                        };
+                    }
+                    is_weak = true;
+                    self.iter.next();
+                }
+                Some((Token::Keyword(Keyword::Export), _)) => {
+                    if is_export {
+                        let pos = self.current_pos_or(start_pos);
+                        let err_idx = self.add_parse_error(
+                            &TokenInfo {
+                                code_pointer: pos,
+                            },
+                            "duplicate 'export:' modifier",
+                        );
+                        self.skip_to_semicolon();
+                        return LocatedStatement {
+                            statement: Statement::Invalid(err_idx),
+                            location: SourceLocation::from_single(start_pos),
+                        };
+                    }
+                    is_export = true;
+                    self.iter.next();
+                }
+                _ => break,
+            }
+        }
+
+        let namespace_name = match match_expect_token!(self, self.iter.next(), Token::Identifier(id) => id)
+        {
+            Ok(x) => x,
+            Err(e) => {
+                self.skip_to_semicolon();
+                return LocatedStatement {
+                    statement: Statement::Invalid(e),
+                    location: SourceLocation::from_single(start_pos),
+                };
+            }
+        };
+
+        match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
+        let end_pos = self.current_pos_or(start_pos);
+
+        LocatedStatement {
+            statement: Statement::ImportDeclaration {
+                namespace_name: namespace_name.to_string(),
+                is_weak,
+                is_export,
+            },
+            location: SourceLocation::new(start_pos, end_pos),
+        }
+    }
+
     fn parse_to_statements_func(&mut self, start_pos: usize) -> LocatedStatement {
         // 呼び出し元が既に Token::Keyword(Keyword::Func) を確認済み
         // Keyword トークンがコロンを内包済みのため、コロン消費は不要
@@ -1742,6 +1821,11 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 Token::Keyword(Keyword::Namespace) => {
                     let stmt = self.parse_to_statements_namespace(start_pos);
+                    statements.push(stmt);
+                    continue;
+                }
+                Token::Keyword(Keyword::Import) => {
+                    let stmt = self.parse_to_statements_import(start_pos);
                     statements.push(stmt);
                     continue;
                 }

@@ -487,3 +487,34 @@ namespace セクションに import の仕様を追記。
 ### Q3: import した識別子の種別をまたがる衝突はどうするか？
 
 **A**: import 元に constexpr `n` があり、現在の名前空間に変数 `n` がある場合も衝突としてエラー（`weak:` なし）。種別を問わず同名の識別子は衝突する。
+
+## 進捗
+
+### 2026-03-11 実装完了
+
+- Token parser:
+  - `Keyword` に `Import` / `Weak` / `Export` を追加
+  - トークナイズテスト `test_ok_import_with_modifiers` を追加
+- Tree parser:
+  - `Statement::ImportDeclaration { namespace_name, is_weak, is_export }` を追加
+  - `import: [weak:] [export:] Namespace;` のパースを実装
+  - パーステスト `test_parse_import_basic` / `test_parse_import_weak_export` を追加
+- Semantic analyzer:
+  - import 収集・検証・解決用のプレパスを追加
+  - `ScopeResolver` に import テーブルを追加し、変数/関数/constexpr/alias 解決で import を参照
+  - `export:` は alias 生成として既存 alias 解決機構に統合
+  - `weak:`、重複 import、自己 import、未定義 namespace、衝突検出を実装
+  - constexpr 評価で import と名前空間候補解決を参照可能に修正
+- 仕様反映:
+  - `syntaxes/grammar.bnf` に import 文法を追加
+  - `syntaxes/nospace.tmLanguage.json` に import/weak/export キーワードを追加
+  - `docs/spec.md` に import 仕様を追記
+
+### 実行テスト
+
+- `cargo test --test code_test test_import`
+  - 結果: `69 passed; 0 failed; 8 ignored`
+- `cargo test --lib test_parse_import`
+  - 結果: `2 passed; 0 failed`
+- `cargo test --lib test_ok_import_with_modifiers`
+  - 結果: `1 passed; 0 failed`

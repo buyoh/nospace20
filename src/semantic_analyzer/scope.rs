@@ -210,6 +210,8 @@ pub(super) struct ScopeResolver<'a> {
     /// 現在の名前空間プレフィックススタック（例: ["A", "B"] → "A$B$"）
     /// 識別子の名前空間対応の解決に使用する
     pub namespace_prefix: Vec<String>,
+    /// import 解決テーブル: current namespace (no trailing '$') -> imported name -> fully-qualified target
+    pub import_table: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl<'a> ScopeResolver<'a> {
@@ -217,7 +219,26 @@ impl<'a> ScopeResolver<'a> {
         Self {
             scope_stack: Vec::new(),
             namespace_prefix: Vec::new(),
+            import_table: BTreeMap::new(),
         }
+    }
+
+    fn current_ns_key(&self) -> String {
+        if self.namespace_prefix.is_empty() {
+            String::new()
+        } else {
+            self.namespace_prefix.join("$")
+        }
+    }
+
+    fn resolve_imported_name(&self, name: &str) -> Option<String> {
+        if name.contains('$') {
+            return None;
+        }
+        self.import_table
+            .get(self.current_ns_key().as_str())
+            .and_then(|m| m.get(name))
+            .cloned()
     }
 
     pub fn enter_scope(
@@ -296,6 +317,9 @@ impl<'a> ScopeResolver<'a> {
                 return Some(result);
             }
         }
+        if let Some(imported) = self.resolve_imported_name(name) {
+            return self.resolve_variable_exact(&imported);
+        }
         None
     }
 
@@ -305,6 +329,9 @@ impl<'a> ScopeResolver<'a> {
             if let Some(result) = self.resolve_variable_with_type_exact(candidate) {
                 return Some(result);
             }
+        }
+        if let Some(imported) = self.resolve_imported_name(name) {
+            return self.resolve_variable_with_type_exact(&imported);
         }
         None
     }
@@ -502,6 +529,18 @@ impl<'a> ScopeResolver<'a> {
                 }
             }
         }
+        if let Some(imported) = self.resolve_imported_name(name) {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(Identifier::Function(info)) = scope_info.func_map.get(imported.as_str()) {
+                    return Some(IdentifierRef {
+                        scope_depth: 0,
+                        local_index: info.0,
+                        is_global: true,
+                        owning_func_index: None,
+                    });
+                }
+            }
+        }
         None
     }
 
@@ -511,6 +550,13 @@ impl<'a> ScopeResolver<'a> {
         for candidate in &candidates {
             for scope_info in self.scope_stack.iter().rev() {
                 if let Some(Identifier::Function(info)) = scope_info.func_map.get(candidate.as_str()) {
+                    return Some(info.1);
+                }
+            }
+        }
+        if let Some(imported) = self.resolve_imported_name(name) {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(Identifier::Function(info)) = scope_info.func_map.get(imported.as_str()) {
                     return Some(info.1);
                 }
             }
@@ -528,6 +574,13 @@ impl<'a> ScopeResolver<'a> {
         for candidate in &candidates {
             for scope_info in self.scope_stack.iter().rev() {
                 if let Some(&v) = scope_info.constexpr_table.get(candidate.as_str()) {
+                    return Some(v);
+                }
+            }
+        }
+        if let Some(imported) = self.resolve_imported_name(name) {
+            for scope_info in self.scope_stack.iter().rev() {
+                if let Some(&v) = scope_info.constexpr_table.get(imported.as_str()) {
                     return Some(v);
                 }
             }
@@ -575,6 +628,11 @@ impl<'a> ScopeResolver<'a> {
             }
             resolved_start
         };
+        if current == name {
+            if let Some(imported) = self.resolve_imported_name(name) {
+                current = imported;
+            }
+        }
         loop {
             if visited.contains(&current) {
                 return Err(format!(

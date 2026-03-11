@@ -110,6 +110,15 @@ test_ok_parse!(test_ok_struct_keyword_colon, "struct:Name", it => {
     assert_matches!(it.next(), None);
 });
 
+test_ok_parse!(test_ok_import_with_modifiers, "import:weak:export:N1;", it => {
+    assert_matches!(it.next(), Some(Token::Keyword(Keyword::Import)));
+    assert_matches!(it.next(), Some(Token::Keyword(Keyword::Weak)));
+    assert_matches!(it.next(), Some(Token::Keyword(Keyword::Export)));
+    assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "N1");
+    assert_matches!(it.next(), Some(Token::Semicolon));
+    assert_matches!(it.next(), None);
+});
+
 test_ok_parse!(test_ok_at_token, "x@int", it => {
     assert_matches!(it.next(), Some(Token::Identifier(x)) if *x == "x");
     assert_matches!(it.next(), Some(Token::At));

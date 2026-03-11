@@ -754,6 +754,44 @@ y = MySpace$x;
 MySpace$helper();
 ```
 
+### import
+
+- `import:` は名前空間の識別子を現在の名前空間へ取り込む
+- 取り込まれた識別子は、現在の名前空間内でのみ非修飾名として参照できる
+- 自身の名前空間 import、未定義名前空間 import、同一名前空間の重複 import はコンパイルエラー
+
+```
+namespace: N1 {
+  let: n1(10);
+  func: add(a, b) { return: a + b; }
+}
+
+namespace: M2 {
+  import: N1;
+  __assert(n1 == 10);
+  __assert(add(2, 3) == 5);
+}
+```
+
+修飾子:
+
+- `weak:`
+  - 衝突時に現在の名前空間側を優先し、import 側を取り込まない
+- `export:`
+  - import した識別子を `M2$name` のような修飾名でも外部から参照可能にする
+- `weak:` と `export:` は併用可能で、順序は任意
+
+```
+namespace: M2 {
+  import: weak: export: N1;
+}
+```
+
+制約:
+
+- import の import は伝播しない（対象名前空間に直接定義された識別子のみ対象）
+- ネスト名前空間の中身は自動では取り込まれない
+
 ## 暗黙的型システム
 
 nospace は暗黙的に **int** と **void** の2つの型を使用する。

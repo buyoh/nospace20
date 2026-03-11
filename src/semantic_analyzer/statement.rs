@@ -503,6 +503,7 @@ pub(super) fn convert_to_exec_statements(
                 let mut for_resolver = super::scope::ScopeResolver {
                     scope_stack: resolver.scope_stack.clone(),
                     namespace_prefix: resolver.namespace_prefix.clone(),
+                    import_table: resolver.import_table.clone(),
                 };
                 // for-init スコープの constexpr は展開済みのため、空のテーブルを渡す
                 let for_init_empty_constexpr: BTreeMap<String, i64> = BTreeMap::new();
@@ -606,6 +607,7 @@ pub(super) fn convert_to_exec_statements(
                         prefix.push(ns_name.clone());
                         prefix
                     },
+                    import_table: resolver.import_table.clone(),
                 };
                 let body_stmts = convert_to_exec_statements(
                     body,
@@ -626,6 +628,9 @@ pub(super) fn convert_to_exec_statements(
             Statement::AliasInstantiation { .. } => {
                 // テンプレートインスタンス化はプレパスで FunctionDeclaration に展開済み
                 // ExecStatement は生成しない
+            }
+            Statement::ImportDeclaration { .. } => {
+                // import 宣言は Pass 0 で解決済み。ExecStatement は生成しない
             }
             Statement::Invalid(_) => (),
         }

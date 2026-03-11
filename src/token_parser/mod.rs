@@ -24,6 +24,9 @@ pub enum Keyword {
     Alias,
     Final,
     Namespace,
+    Import,
+    Weak,
+    Export,
     Struct,
 }
 
@@ -101,6 +104,9 @@ impl Keyword {
             Keyword::Alias => "alias",
             Keyword::Final => "final",
             Keyword::Namespace => "namespace",
+            Keyword::Import => "import",
+            Keyword::Weak => "weak",
+            Keyword::Export => "export",
             Keyword::Struct => "struct",
         }
     }
@@ -369,6 +375,9 @@ fn as_keyword_token(id: &str) -> Option<Token> {
         "alias" => Some(Token::Keyword(Keyword::Alias)),
         "final" => Some(Token::Keyword(Keyword::Final)),
         "namespace" => Some(Token::Keyword(Keyword::Namespace)),
+        "import" => Some(Token::Keyword(Keyword::Import)),
+        "weak" => Some(Token::Keyword(Keyword::Weak)),
+        "export" => Some(Token::Keyword(Keyword::Export)),
         "struct" => Some(Token::Keyword(Keyword::Struct)),
         _ => None,
     }

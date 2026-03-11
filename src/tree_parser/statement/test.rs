@@ -35,6 +35,18 @@ fn token_keyword_struct() -> PrettyToken {
     (Token::Keyword(Keyword::Struct), TokenInfo { code_pointer: 0 })
 }
 
+fn token_keyword_import() -> PrettyToken {
+    (Token::Keyword(Keyword::Import), TokenInfo { code_pointer: 0 })
+}
+
+fn token_keyword_weak() -> PrettyToken {
+    (Token::Keyword(Keyword::Weak), TokenInfo { code_pointer: 0 })
+}
+
+fn token_keyword_export() -> PrettyToken {
+    (Token::Keyword(Keyword::Export), TokenInfo { code_pointer: 0 })
+}
+
 fn token_ident(name: &str) -> PrettyToken {
     (
         Token::Identifier(name.to_string()),
@@ -403,6 +415,52 @@ fn test_parse_struct_declaration() {
             assert!(matches!(fields[1].type_spec, Some(TypeSpec::Int)));
         }
         _ => panic!("Expected Statement::StructDeclaration"),
+    }
+}
+
+#[test]
+fn test_parse_import_basic() {
+    let tokens = vec![token_keyword_import(), token_ident("N1"), token_semicolon()];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].statement {
+        Statement::ImportDeclaration {
+            namespace_name,
+            is_weak,
+            is_export,
+        } => {
+            assert_eq!(namespace_name, "N1");
+            assert!(!is_weak);
+            assert!(!is_export);
+        }
+        _ => panic!("Expected Statement::ImportDeclaration"),
+    }
+}
+
+#[test]
+fn test_parse_import_weak_export() {
+    let tokens = vec![
+        token_keyword_import(),
+        token_keyword_weak(),
+        token_keyword_export(),
+        token_ident("N1"),
+        token_semicolon(),
+    ];
+    let (stmts, errs) = parse_stmts(tokens);
+    assert!(errs.is_empty(), "Expected no errors");
+    assert_eq!(stmts.len(), 1);
+    match &stmts[0].statement {
+        Statement::ImportDeclaration {
+            namespace_name,
+            is_weak,
+            is_export,
+        } => {
+            assert_eq!(namespace_name, "N1");
+            assert!(*is_weak);
+            assert!(*is_export);
+        }
+        _ => panic!("Expected Statement::ImportDeclaration"),
     }
 }
 
