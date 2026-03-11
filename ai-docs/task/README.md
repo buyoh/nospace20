@@ -31,6 +31,7 @@
 - ~~[review-nospace-vm.md](../done-task/review-nospace-vm.md) / [review-nospace-vm-plan.md](../done-task/review-nospace-vm-plan.md)~~ - NospaceVM コードレビュー改善（vm.rs モジュール分割、ドキュメントコメント追加、カプセル化修正）→ done-task に移動
 - [separate-inline-tests.md](separate-inline-tests.md) - インラインテスト分離（19ファイルの `#[cfg(test)] mod tests` を別ファイルに分離、Step 1-3 段階実施）
 - [temporary-array-literals.md](temporary-array-literals.md) - 一時配列リテラル（文字列・配列を式として直接記述、候補1: 文スコープ一時 vs 候補2: 無名static変数、設計比較・推奨）
+- [20260311-array-and-parse-error-failures.md](20260311-array-and-parse-error-failures.md) - 配列系7件とparse_error 1件の失敗調査と修正設計（原因分離・最小修正方針・検証計画）
 - [api-cleanup/](api-cleanup/) - API クリーンアップ（deprecated関数移行・WS共有型配置改善・エラー型統一の3タスク）
 - [interpreter-allocator/](interpreter-allocator/) - インタプリタ メモリアロケータ（`__alloc`/`__free` 対応、グローバル・ローカル・static 変数の統一メモリモデル、解放済みアドレス検出）
 - [template-self-recursion.md](template-self-recursion.md) - テンプレート関数の自己再帰サポート（ボディ内でテンプレート名の再帰呼び出しを許可、自己参照alias自動挿入）
