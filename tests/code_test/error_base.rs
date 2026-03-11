@@ -32,7 +32,8 @@ pub fn test_syntax_error_base(test_name: &str) -> Result {
                 let result = parse_to_tokens(&ns_cnt);
                 assert!(result.is_err(), "Expected tokenize error but succeeded");
             }
-            "tree" => {
+            "tree" | "parse" => {
+                // "parse" は "tree" 相当のフェーズ（旧名称）として扱う
                 let t = parse_to_tokens(&ns_cnt).ok().unwrap();
                 let result = parse_to_tree(&t);
                 assert!(result.is_err(), "Expected tree parse error but succeeded");

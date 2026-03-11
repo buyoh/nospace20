@@ -102,3 +102,15 @@
 - 結果: 配列系 7 テストがすべてパス（`test_array_basic_ws` は wsc 未インストールのため ignored のまま）。
 - 回帰なし: `code_test` 全体 1599 passed / 1 failed / 192 ignored。
   - 残り 1 失敗 (`test_parse_error_struct_invalid_name_001`) は方針B（方針2）対象で本タスク対象外のため未修正。
+
+#### 方針B（方針2: parse phase エイリアスの追加）実施
+
+- `tests/code_test/error_base.rs` の `test_syntax_error_base` を修正。
+  - phase match に `"tree" | "parse"` として `"parse"` を `"tree"` 相当として扱う。
+  - 既存の `tokenize` / `tree` 挙動は変わらない。
+- 結果: `test_parse_error_struct_invalid_name_001` がパス。
+- 全テスト結果: `code_test` 全体 1600 passed / 0 failed / 192 ignored（すべての対象テストが成功）。
+
+## 完了
+
+すべての失敗テスト 8 件が修正済み。
