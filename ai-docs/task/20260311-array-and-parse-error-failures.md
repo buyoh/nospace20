@@ -93,3 +93,12 @@
 - 失敗 8 テストを再現。
 - 配列系と parse phase 系に原因を分離。
 - 修正方針と検証手順を確定。
+
+#### 方針A（方針1: 配列値利用の修正）実施
+
+- `src/semantic_analyzer/expression.rs` の `require_int_type` を修正。
+  - `ValueType::Array(_, _)` を許容するよう条件を変更（`ValueType::Void` は引き続き拒否）。
+  - 「配列変数はその先頭アドレス（整数値）として値コンテキストで使用可能」のコメントを追加。
+- 結果: 配列系 7 テストがすべてパス（`test_array_basic_ws` は wsc 未インストールのため ignored のまま）。
+- 回帰なし: `code_test` 全体 1599 passed / 1 failed / 192 ignored。
+  - 残り 1 失敗 (`test_parse_error_struct_invalid_name_001`) は方針B（方針2）対象で本タスク対象外のため未修正。

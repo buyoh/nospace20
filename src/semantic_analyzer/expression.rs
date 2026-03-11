@@ -17,12 +17,17 @@ use super::{
 };
 
 /// void 型の式が値として使われている場合にエラーを返す
+///
+/// 配列変数はアドレス（整数値）として扱えるため `ValueType::Array` も許容する。
+/// `ValueType::Void` は従来通り拒否する。
 pub(super) fn require_int_type(
     expr: &LocatedExecExpression,
     func_return_types: &[ValueType],
 ) -> Result<(), Vec<CodeParseError>> {
     let inferred = expr.infer_type(func_return_types);
-    if inferred != ValueType::Int {
+    // 配列変数はその先頭アドレス（整数値）として値コンテキストで使用可能
+    let is_valid = matches!(inferred, ValueType::Int | ValueType::Array(_, _));
+    if !is_valid {
         let message = if inferred == ValueType::Void {
             "semantic error: cannot use void expression as a value"
         } else {
