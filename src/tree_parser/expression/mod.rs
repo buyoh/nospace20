@@ -363,11 +363,8 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                 match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
                 let end = self.current_pos();
                 // (expr)[i] → *(&(expr) + i) に脱糖
-                let ref_expr = self.located(
-                    Expression::Operation1(Operator1::Ref, result),
-                    start,
-                    end,
-                );
+                let ref_expr =
+                    self.located(Expression::Operation1(Operator1::Ref, result), start, end);
                 let plus_expr = self.located(
                     Expression::Operation2(Operator2::Plus, ref_expr, index_expr),
                     start,

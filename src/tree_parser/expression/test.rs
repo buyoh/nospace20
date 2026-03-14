@@ -778,7 +778,8 @@ fn test_parse_postfix_subscript_deref_paren() {
         Expression::Operation1(Operator1::Deref, inner) => match inner.expression {
             Expression::Operation2(Operator2::Plus, left, right) => {
                 match left.expression {
-                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression {
+                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression
+                    {
                         Expression::Operation1(Operator1::Deref, p) => match p.expression {
                             Expression::Variable(name) => assert_eq!(name, "p"),
                             _ => panic!("Expected Variable(p)"),
@@ -817,7 +818,8 @@ fn test_parse_postfix_subscript_deref_paren_index_1() {
         Expression::Operation1(Operator1::Deref, inner) => match inner.expression {
             Expression::Operation2(Operator2::Plus, left, right) => {
                 match left.expression {
-                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression {
+                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression
+                    {
                         Expression::Operation1(Operator1::Deref, p) => match p.expression {
                             Expression::Variable(name) => assert_eq!(name, "p"),
                             _ => panic!("Expected Variable(p)"),
@@ -857,7 +859,8 @@ fn test_parse_postfix_subscript_expr_paren() {
         Expression::Operation1(Operator1::Deref, inner) => match inner.expression {
             Expression::Operation2(Operator2::Plus, left, right) => {
                 match left.expression {
-                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression {
+                    Expression::Operation1(Operator1::Ref, ref_inner) => match ref_inner.expression
+                    {
                         Expression::Operation2(Operator2::Plus, ll, lr) => {
                             match ll.expression {
                                 Expression::Variable(name) => assert_eq!(name, "x"),
