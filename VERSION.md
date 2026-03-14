@@ -1,5 +1,12 @@
 # Version
 
+## 2.0.0
+
+tag: v2.0.0
+
+- Lang: Fix array postfix-subscript desugaring rule to `*(&expr + i)`
+  - Previous version desugared `expr[i]` to `*(expr + i)`, which assumed `expr` was a pointer. The new rule `*(&expr + i)` correctly handles both array names and pointer expressions.
+
 ## 1.2.0
 
 tag: v1.2.0
