@@ -128,7 +128,7 @@ func: add(a@int, b@int)@int {
 - `struct: MyStruct (number: int, data: int[9]);` のような構文で構造体を定義する。
 - `let: s@MyStruct (10, [1,2,3,4,5,6,7,8,9]);` のように構造体変数を宣言・初期化する。一部や全部を省略すると、未初期化となる。
 - `s.number` や `s.data[0]` のように、ドットでフィールドアクセスする。
-  - 要調査: ai-docs/task/namespace の名前空間参照と構文が被るかも
+  - 要調査: docs-ai/task/namespace の名前空間参照と構文が被るかも
 - `let: data[10]; (data @ MyStruct).number = 10;` のように、式の型注釈を利用できる
 
 ## 多次元配列
