@@ -50,6 +50,31 @@ stdin が必要な場合:
 - `CallStackUnderflow`
 - `ProgramCounterOutOfBounds`
 
+#### ws_parse_error テスト
+
+```json
+{
+  "type": "ws_parse_error",
+  "error": "ErrorVariantName"
+}
+```
+
+エラーの種類:
+- `DuplicateLabel`
+- `NumberOverflow` : 数値が 64 ビット符号付き整数の範囲外
+- `InvalidImp`
+- `InvalidCommand`
+- `UnexpectedEof`
+- `InvalidNumber`（現在は未使用）
+- `InvalidLabel`
+
+`ws_parse_error` テストには wsc クロスバリデーションテストは生成されない。
+
+### 整数の範囲
+
+whitespace20 は数値を 64 ビット符号付き整数として扱い、範囲外の数値リテラルはパースエラー（`NumberOverflow`）、範囲外となる算術演算は 2 の補数で折り返す。
+wsc は多倍長整数のため、範囲外の値を扱うテストは wsc と結果が一致しない。
+
 ## ディレクトリ構造
 
 - `passes/` : 正常系テスト
@@ -60,6 +85,7 @@ stdin が必要な場合:
   - `io/` : I/O 操作
 - `fails/` : 異常系テスト
   - `runtime/` : 実行時エラー
+  - `parse/` : パースエラー
 
 ## テスト実行
 

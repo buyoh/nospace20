@@ -291,3 +291,94 @@ fn test_non_interactive_stdin_unaffected() {
     assert_eq!(result, StepResult::Complete);
     assert_eq!(*vm.heap().get(&5).unwrap(), 88); // 'X' = 88
 }
+
+#[test]
+fn test_from_source_distinct_labels_not_duplicate() {
+    // ラベル [S,T] と [T,T] を定義して exit。数値として解釈すると両方 1 になり、
+    // 従来は DuplicateLabel になっていた
+    let mut vm = WhitespaceVM::from_source("\n   \t\n\n  \t\t\n\n\n\n").unwrap();
+    assert_eq!(vm.run(100), StepResult::Complete);
+}
+
+#[test]
+fn test_from_source_jump_to_distinct_labels() {
+    // jmp [T,T] → label [S,T]: push 1, pnum, exit → label [T,T]: push 2, pnum, exit
+    // 衝突していると [S,T] 側へジャンプして 1 を出力する
+    let src = concat!(
+        "\n \n\t\t\n", // jmp TT
+        "\n   \t\n",   // label ST
+        "   \t\n",     // push 1
+        "\t\n \t",     // pnum
+        "\n\n\n",      // exit
+        "\n  \t\t\n",  // label TT
+        "   \t \n",    // push 2
+        "\t\n \t",     // pnum
+        "\n\n\n",      // exit
+    );
+    let mut vm = WhitespaceVM::from_source(src).unwrap();
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(vm.get_stdout_string(), "2");
+}
+
+// ===== 算術オーバーフロー（wrapping） =====
+
+/// a, b を push して op を実行し、結果のスタックを返す
+fn run_binary(a: i64, b: i64, op: Instruction) -> (StepResult, Vec<i64>) {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(a)),
+        Instruction::Push(WsNumber(b)),
+        op,
+        Instruction::Exit,
+    ])
+    .unwrap();
+    let result = vm.run(100);
+    (result, vm.data_stack().to_vec())
+}
+
+#[test]
+fn test_add_overflow_wraps() {
+    assert_eq!(
+        run_binary(i64::MAX, 1, Instruction::Add),
+        (StepResult::Complete, vec![i64::MIN])
+    );
+}
+
+#[test]
+fn test_sub_overflow_wraps() {
+    assert_eq!(
+        run_binary(i64::MIN, 1, Instruction::Sub),
+        (StepResult::Complete, vec![i64::MAX])
+    );
+}
+
+#[test]
+fn test_mul_overflow_wraps() {
+    assert_eq!(
+        run_binary(i64::MAX, 2, Instruction::Mul),
+        (StepResult::Complete, vec![-2])
+    );
+}
+
+#[test]
+fn test_div_min_by_minus_one_wraps() {
+    assert_eq!(
+        run_binary(i64::MIN, -1, Instruction::Div),
+        (StepResult::Complete, vec![i64::MIN])
+    );
+}
+
+#[test]
+fn test_mod_min_by_minus_one_is_zero() {
+    assert_eq!(
+        run_binary(i64::MIN, -1, Instruction::Mod),
+        (StepResult::Complete, vec![0])
+    );
+}
+
+#[test]
+fn test_div_by_zero_still_error() {
+    let (result, _) = run_binary(1, 0, Instruction::Div);
+    assert_eq!(result, StepResult::Error(RuntimeError::DivisionByZero));
+    let (result, _) = run_binary(1, 0, Instruction::Mod);
+    assert_eq!(result, StepResult::Error(RuntimeError::DivisionByZero));
+}

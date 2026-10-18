@@ -1,0 +1,3 @@
+# struct リテラルの引数位置に ; （無限ループの回帰テスト） #
+struct: S(a);
+func: __main() { let: x(struct: S(;)); }

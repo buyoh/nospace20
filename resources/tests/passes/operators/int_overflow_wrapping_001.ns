@@ -1,0 +1,21 @@
+# 整数オーバーフロー時の本処理系の挙動（64 ビット 2 の補数 wrapping）を固定するテスト。 #
+# 言語仕様上は実装依存（docs/spec.md の Appendix 参照）。多倍長の wsc では結果が異なるため whitespace ターゲットは除外。 #
+func: __main() {
+  let: max(9223372036854775807);
+  let: min(-9223372036854775807 - 1);
+  let: m1(0 - 1);
+  let: two(2);
+  let: one(1);
+  __puti(max + one);
+  __putc(10);
+  __puti(min - one);
+  __putc(10);
+  __puti(max * two);
+  __putc(10);
+  __puti(min / m1);
+  __putc(10);
+  __puti(min % m1);
+  __putc(10);
+  __puti(-min);
+  __putc(10);
+}

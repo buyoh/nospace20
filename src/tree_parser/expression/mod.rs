@@ -132,6 +132,26 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
             .unwrap_or(0)
     }
 
+    /// 残りトークン数（peek 済みのトークンを含む）。式解析で入力が前進したかの判定に使う
+    fn remaining_tokens(&self) -> usize {
+        self.iter.len()
+    }
+
+    /// 引数の式解析で入力が前進しなかったときに、引数リスト全体を表す Invalid のエラーインデックスを返す
+    ///
+    /// 前進しなかった場合、factor のフォールバック分岐で既にエラーが記録されているため、
+    /// その（引数の解析中に記録された最後の）エラーを再利用する。
+    /// 引数の解析中にエラーが記録されていなければ新たに記録する。
+    ///
+    /// `errs_before`: 引数の式解析を始める前のエラー件数
+    fn error_index_for_stalled_arg(&mut self, token_info: &TokenInfo, errs_before: usize) -> usize {
+        if self.code_parse_error.len() > errs_before {
+            self.code_parse_error.len() - 1
+        } else {
+            self.add_parse_error(token_info, "expected expression")
+        }
+    }
+
     /// Expression を LocatedExpression に包む
     fn located(&self, expr: Expression, start: usize, end: usize) -> Box<LocatedExpression> {
         Box::new(LocatedExpression {
@@ -182,7 +202,19 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                         // weak syntax error and proceed parsing
                         self.add_parse_error(token_info, "missing comma");
                     }
+                    // バグ修正: 引数の式が不正トークン（`;` `}` `]` など）で始まると、factor はエラーを
+                    // 記録するだけでトークンを消費しない。そのため同じ位置で root を呼び続け、
+                    // 無限ループとメモリ無制限消費が起きていた。
+                    // 解決策: root 呼び出しで入力が前進しなかった場合は引数リストを打ち切り、
+                    // 不正トークンは呼び出し元（文パーサ）の回復処理に任せる。
+                    let before = self.remaining_tokens();
+                    let errs_before = self.code_parse_error.len();
                     let e = self.parse_to_expression_tree_root();
+                    if self.remaining_tokens() == before {
+                        let err = self.error_index_for_stalled_arg(token_info, errs_before);
+                        let end = self.current_pos();
+                        return self.located(Expression::Invalid(err), start, end);
+                    }
                     args.push(e);
                     state = State::Eval;
                 }
@@ -267,7 +299,19 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
                             if let State::Eval = state {
                                 self.add_parse_error(token_info, "missing comma");
                             }
+                            // バグ修正: 引数の式が不正トークン（`;` `}` `]` など）で始まると、factor はエラーを
+                            // 記録するだけでトークンを消費しない。そのため同じ位置で root を呼び続け、
+                            // 無限ループとメモリ無制限消費が起きていた。
+                            // 解決策: root 呼び出しで入力が前進しなかった場合は引数リストを打ち切り、
+                            // 不正トークンは呼び出し元（文パーサ）の回復処理に任せる。
+                            let before = self.remaining_tokens();
+                            let errs_before = self.code_parse_error.len();
                             let e = self.parse_to_expression_tree_root();
+                            if self.remaining_tokens() == before {
+                                let err = self.error_index_for_stalled_arg(token_info, errs_before);
+                                let end = self.current_pos();
+                                return self.located(Expression::Invalid(err), start, end);
+                            }
                             args.push((*e).clone());
                             state = State::Eval;
                         }

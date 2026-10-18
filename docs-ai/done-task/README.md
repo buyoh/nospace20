@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [fix-parser-loop-ws-number-overflow/](fix-parser-loop-ws-number-overflow/) | コードレビュー 2026-10 の 01/03/04 修正（引数リストの不正トークンによるパーサ無限ループ、WS パーサの数値 checked 化・`i64::MIN` 往復・ラベルのビット列による区別、WS VM 算術の wrapping 統一、spec.md に int 範囲の実装依存と Appendix を追記） | 2026-10-19 |
 | [postfix-subscript-operator.md](postfix-subscript-operator.md) | 汎用後置添字演算子 `(expr)[i]` のパース対応（`parse_to_expression_tree_factor` に後置ループ追加、`*(expr + i)` に脱糖、ユニット4件・統合3件テスト追加、全テストPASS） | 2026-03-05 |
 | [review-nospace-vm.md](review-nospace-vm.md) / [review-nospace-vm-plan.md](review-nospace-vm-plan.md) | NospaceVM コードレビュー改善（vm.rs 1854行→vm/ ディレクトリモジュール分割、enum ドキュメントコメント追加、pub traced→private、#[allow(dead_code)] 削除、全41テストPASS） | 2026-07-11 |
 | [suspendable-interpreter/](suspendable-interpreter/) | インタプリタ中断・再開機能（明示的スタックマシン `NospaceVM` 実装、Phase 1-4 全完了：型・API骨格、スタックマシン実装、テスト統合190件、WASM API `WasmNospaceVM`、`serde_wasm_bindgen` バグ修正） | 2025-07-10 |

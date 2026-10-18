@@ -168,6 +168,18 @@ tests:
     path: operators/logical_short_circuit_or_io
     comment: "Logical OR short-circuit evaluation with side effect in stdout"
 
+  # 整数境界値: WS パーサの i64::MIN 往復、WS VM のオーバーフロー時 wrapping
+  - name: test_operators_int_min_literal_fold_001
+    type: success_io
+    path: operators/int_min_literal_fold_001
+    comment: "i64::MIN via constant folding must be readable by the WS parser"
+
+  - name: test_operators_int_overflow_wrapping_001
+    type: success_io
+    path: operators/int_overflow_wrapping_001
+    comment: "Integer overflow wraps (implementation behavior). wsc is multi-precision, so whitespace target is excluded"
+    exclude_targets: [whitespace]
+
   # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_logical_precedence_001
     type: success
@@ -691,6 +703,36 @@ tests:
     type: syntax_error
     path: extra_closing_braces_001
     comment: "Extra closing braces detection"
+
+  - name: test_syntax_error_call_arg_invalid_token_001
+    type: syntax_error
+    path: call_arg_invalid_token_001
+    comment: "Regression: invalid token ';' in argument list must not loop forever"
+
+  - name: test_syntax_error_call_arg_invalid_token_002
+    type: syntax_error
+    path: call_arg_invalid_token_002
+    comment: "Regression: invalid token ']' in argument list must not loop forever"
+
+  - name: test_syntax_error_call_arg_invalid_token_003
+    type: syntax_error
+    path: call_arg_invalid_token_003
+    comment: "Regression: invalid token '}' in argument list must not loop forever"
+
+  - name: test_syntax_error_call_arg_invalid_token_004
+    type: syntax_error
+    path: call_arg_invalid_token_004
+    comment: "Regression: invalid token '[' in argument list must not loop forever"
+
+  - name: test_syntax_error_call_arg_invalid_token_005
+    type: syntax_error
+    path: call_arg_invalid_token_005
+    comment: "Regression: invalid token ':' in argument list must not loop forever"
+
+  - name: test_syntax_error_struct_literal_arg_invalid_token_001
+    type: syntax_error
+    path: struct_literal_arg_invalid_token_001
+    comment: "Regression: invalid token ';' in struct literal in argument list must not loop forever"
 
   - name: test_syntax_error_extra_code_plus_001
     type: syntax_error

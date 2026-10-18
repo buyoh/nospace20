@@ -908,3 +908,132 @@ fn test_parse_array_access_still_produces_array_access() {
         _ => panic!("Expected ArrayAccess (not Deref), got: {:?}", expr),
     }
 }
+
+// ===== 引数リスト中の不正トークン（無限ループの回帰テスト） =====
+
+fn token_semicolon() -> PrettyToken {
+    (Token::Semicolon, TokenInfo { code_pointer: 0 })
+}
+
+fn token_brace_r() -> PrettyToken {
+    (Token::BraceR, TokenInfo { code_pointer: 0 })
+}
+
+fn token_keyword_struct() -> PrettyToken {
+    (
+        Token::Keyword(Keyword::Struct),
+        TokenInfo { code_pointer: 0 },
+    )
+}
+
+/// 式を解析し、解析後に iterator 先頭に残っているトークンの説明も返す
+fn parse_expr_with_rest(
+    tokens: &[PrettyToken],
+) -> (Box<LocatedExpression>, Vec<CodeParseError>, Option<String>) {
+    let mut iter = tokens.iter().peekable();
+    let (e, errs) = parse_to_expression_tree_root(&mut iter);
+    let rest = iter.peek().map(|(t, _)| t.describe());
+    (e, errs, rest)
+}
+
+fn assert_stalled_arg_list(tokens: &[PrettyToken], expected_rest: &Token) {
+    let (expr, errs, rest) = parse_expr_with_rest(tokens);
+    assert!(
+        matches!(expr.expression, Expression::Invalid(_)),
+        "Expected Expression::Invalid, got {:?}",
+        expr.expression
+    );
+    assert_eq!(errs.len(), 1, "Expected exactly one error: {:?}", errs);
+    assert!(
+        errs[0].message.contains("unexpected token"),
+        "Unexpected message: {}",
+        errs[0].message
+    );
+    assert_eq!(rest, Some(expected_rest.describe()));
+}
+
+#[test]
+fn test_call_arg_invalid_semicolon_terminates() {
+    let tokens = vec![token_ident("f"), token_paren_l(), token_semicolon()];
+    assert_stalled_arg_list(&tokens, &Token::Semicolon);
+}
+
+#[test]
+fn test_call_arg_invalid_bracket_terminates() {
+    let tokens = vec![
+        token_ident("f"),
+        token_paren_l(),
+        token_bracket_r(),
+        token_paren_r(),
+        token_semicolon(),
+    ];
+    assert_stalled_arg_list(&tokens, &Token::BracketR);
+}
+
+#[test]
+fn test_call_arg_invalid_brace_terminates() {
+    let tokens = vec![token_ident("f"), token_paren_l(), token_brace_r()];
+    assert_stalled_arg_list(&tokens, &Token::BraceR);
+}
+
+#[test]
+fn test_struct_literal_arg_invalid_semicolon_terminates() {
+    let tokens = vec![
+        token_keyword_struct(),
+        token_ident("S"),
+        token_paren_l(),
+        token_semicolon(),
+    ];
+    assert_stalled_arg_list(&tokens, &Token::Semicolon);
+}
+
+#[test]
+fn test_call_arg_invalid_after_valid_arg_terminates() {
+    let tokens = vec![
+        token_ident("f"),
+        token_paren_l(),
+        token_number(1),
+        token_comma(),
+        token_semicolon(),
+    ];
+    assert_stalled_arg_list(&tokens, &Token::Semicolon);
+}
+
+#[test]
+fn test_call_arg_missing_comma_keeps_existing_behavior() {
+    let tokens = vec![
+        token_ident("f"),
+        token_paren_l(),
+        token_number(1),
+        token_number(2),
+        token_paren_r(),
+    ];
+    let (expr, errs, rest) = parse_expr_with_rest(&tokens);
+    match expr.expression {
+        Expression::Function(name, args) => {
+            assert_eq!(name, "f");
+            assert_eq!(args.len(), 2);
+        }
+        other => panic!("Expected Expression::Function, got {:?}", other),
+    }
+    assert_eq!(errs.len(), 1);
+    assert!(errs[0].message.contains("missing comma"));
+    assert_eq!(rest, None);
+}
+
+#[test]
+fn test_call_arg_missing_comma_then_invalid_token_terminates() {
+    // f(1 ; → "missing comma" と "unexpected token" の 2 件、Invalid を返し ; が残る
+    let tokens = vec![
+        token_ident("f"),
+        token_paren_l(),
+        token_number(1),
+        token_semicolon(),
+    ];
+    let (expr, errs, rest) = parse_expr_with_rest(&tokens);
+    assert!(matches!(expr.expression, Expression::Invalid(_)));
+    assert_eq!(errs.len(), 2, "{:?}", errs);
+    assert!(errs[0].message.contains("missing comma"));
+    assert!(errs[1].message.contains("unexpected token"));
+    assert_eq!(rest, Some(Token::Semicolon.describe()));
+}

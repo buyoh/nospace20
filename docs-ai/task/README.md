@@ -14,6 +14,7 @@
 
 ### アクティブなタスク
 
+- ~~[fix-parser-loop-ws-number-overflow/](../done-task/fix-parser-loop-ws-number-overflow/) - コードレビュー 2026-10 の 01/03/04 修正（引数ループの前進保証、WS パーサの数値 checked 化・ラベルのビット列写像、WS VM 算術の wrapping 統一と spec.md 記載）~~ → done-task に移動 (2026-10-19)
 - [code-review-2026-10/](code-review-2026-10/) - コードレビュー 2026-10（high 7件: パーサ無限ループ、ブロック内関数の誤解決、WS VM/パーサのオーバーフロー panic、実行時エラーの panic、スコープ領域リーク、再帰深度無制限 / medium 7件 / low 6件）
 - [code-review-2026-04.md](code-review-2026-04.md) - コードレビュー 2026-04（CI/CD信頼性、サプライチェーンリスク、unsafeコメント不足、WASM入力検証、ディレクトリ不一致、ワークフロー設計）
 - [cleanup-phase-comments.md](cleanup-phase-comments.md) - Phase コメント整理（完了済みタスクの `Phase N:` 開発メモを削除・整理、カテゴリ A: 6件完全削除 / カテゴリ B: 32件プレフィックス削除）

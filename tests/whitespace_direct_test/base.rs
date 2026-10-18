@@ -139,6 +139,7 @@ pub fn test_ws_parse_error_base(test_name: &str) {
                 ParseError::InvalidCommand { .. } => "InvalidCommand",
                 ParseError::UnexpectedEof { .. } => "UnexpectedEof",
                 ParseError::InvalidNumber { .. } => "InvalidNumber",
+                ParseError::NumberOverflow { .. } => "NumberOverflow",
                 ParseError::InvalidLabel { .. } => "InvalidLabel",
             };
             assert_eq!(

@@ -1,0 +1,7 @@
+# Push a 65-bit number (out of the 64-bit signed integer range)
+# NOTE: wsc (multi-precision) accepts this; whitespace20 rejects it by design
+SSSTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTN
+# OutputNumber
+TNST
+# Exit
+NNN

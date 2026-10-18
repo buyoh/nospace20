@@ -2,6 +2,7 @@
 //!
 //! Whitespace テキスト（Space / Tab / LF のシーケンス）を `Vec<Instruction>` にパースする
 
+use super::label_interner::LabelInterner;
 use crate::base::ws_types::{Instruction, LabelId, WsChar, WsNumber};
 
 /// パースエラー
@@ -25,9 +26,10 @@ pub fn parse(source: &str) -> Result<Vec<Instruction>, ParseError> {
 
     let mut pos = 0;
     let mut instructions = Vec::new();
+    let mut labels = LabelInterner::new();
 
     while pos < chars.len() {
-        let (inst, new_pos) = parse_instruction(&chars, pos)?;
+        let (inst, new_pos) = parse_instruction(&chars, pos, &mut labels)?;
         instructions.push(inst);
         pos = new_pos;
     }
@@ -36,7 +38,11 @@ pub fn parse(source: &str) -> Result<Vec<Instruction>, ParseError> {
 }
 
 /// 1命令をパース
-fn parse_instruction(chars: &[WsChar], pos: usize) -> Result<(Instruction, usize), ParseError> {
+fn parse_instruction<'a>(
+    chars: &'a [WsChar],
+    pos: usize,
+    labels: &mut LabelInterner<'a>,
+) -> Result<(Instruction, usize), ParseError> {
     match chars.get(pos) {
         Some(WsChar::Space) => parse_stack_op(chars, pos + 1),
         Some(WsChar::Tab) => match chars.get(pos + 1) {
@@ -47,7 +53,7 @@ fn parse_instruction(chars: &[WsChar], pos: usize) -> Result<(Instruction, usize
                 context: "after Tab IMP".into(),
             }),
         },
-        Some(WsChar::Lf) => parse_flow(chars, pos + 1),
+        Some(WsChar::Lf) => parse_flow(chars, pos + 1, labels),
         None => Err(ParseError::UnexpectedEof {
             context: "instruction start".into(),
         }),
@@ -161,31 +167,35 @@ fn parse_io(chars: &[WsChar], pos: usize) -> Result<(Instruction, usize), ParseE
 }
 
 /// フロー制御命令をパース (IMP: [LF])
-fn parse_flow(chars: &[WsChar], pos: usize) -> Result<(Instruction, usize), ParseError> {
+fn parse_flow<'a>(
+    chars: &'a [WsChar],
+    pos: usize,
+    labels: &mut LabelInterner<'a>,
+) -> Result<(Instruction, usize), ParseError> {
     match (chars.get(pos), chars.get(pos + 1)) {
         (Some(WsChar::Space), Some(WsChar::Space)) => {
             // Label <label>
-            let (id, new_pos) = parse_label(chars, pos + 2)?;
+            let (id, new_pos) = parse_label(chars, pos + 2, labels)?;
             Ok((Instruction::Label(id), new_pos))
         }
         (Some(WsChar::Space), Some(WsChar::Tab)) => {
             // Call <label>
-            let (id, new_pos) = parse_label(chars, pos + 2)?;
+            let (id, new_pos) = parse_label(chars, pos + 2, labels)?;
             Ok((Instruction::Call(id), new_pos))
         }
         (Some(WsChar::Space), Some(WsChar::Lf)) => {
             // Jump <label>
-            let (id, new_pos) = parse_label(chars, pos + 2)?;
+            let (id, new_pos) = parse_label(chars, pos + 2, labels)?;
             Ok((Instruction::Jump(id), new_pos))
         }
         (Some(WsChar::Tab), Some(WsChar::Space)) => {
             // JumpIfZero <label>
-            let (id, new_pos) = parse_label(chars, pos + 2)?;
+            let (id, new_pos) = parse_label(chars, pos + 2, labels)?;
             Ok((Instruction::JumpIfZero(id), new_pos))
         }
         (Some(WsChar::Tab), Some(WsChar::Tab)) => {
             // JumpIfNegative <label>
-            let (id, new_pos) = parse_label(chars, pos + 2)?;
+            let (id, new_pos) = parse_label(chars, pos + 2, labels)?;
             Ok((Instruction::JumpIfNegative(id), new_pos))
         }
         (Some(WsChar::Tab), Some(WsChar::Lf)) => {
@@ -209,6 +219,8 @@ fn parse_flow(chars: &[WsChar], pos: usize) -> Result<(Instruction, usize), Pars
 /// 符号: Space = 正, Tab = 負
 /// ビット: Space = 0, Tab = 1 (MSB first)
 /// 終端: LF
+///
+/// 64 ビット符号付き整数の範囲外の値は `NumberOverflow` を返す。
 fn parse_number(chars: &[WsChar], pos: usize) -> Result<(WsNumber, usize), ParseError> {
     // 1. 符号を読む
     let (negative, mut current) = match chars.get(pos) {
@@ -223,17 +235,15 @@ fn parse_number(chars: &[WsChar], pos: usize) -> Result<(WsNumber, usize), Parse
     };
 
     // 2. ビット列を読む（LF まで）
-    let mut value: i64 = 0;
+    // バグ修正: 従来は正方向に未チェックで累積していたため、64 ビットを超えるビット列で
+    // panic（debug）/ wrap（release）し、絶対値 2^63 の i64::MIN も読めなかった。
+    // 解決策: 負方向に checked 演算で累積し、正の数のときだけ最後に checked_neg する。
+    let overflow = || ParseError::NumberOverflow { position: pos };
+    let mut value: i64 = 0; // 常に 0 以下（絶対値の符号反転）
     loop {
-        match chars.get(current) {
-            Some(WsChar::Space) => {
-                value = value * 2;
-                current += 1;
-            }
-            Some(WsChar::Tab) => {
-                value = value * 2 + 1;
-                current += 1;
-            }
+        let bit = match chars.get(current) {
+            Some(WsChar::Space) => 0,
+            Some(WsChar::Tab) => 1,
             Some(WsChar::Lf) => {
                 current += 1;
                 break;
@@ -243,22 +253,47 @@ fn parse_number(chars: &[WsChar], pos: usize) -> Result<(WsNumber, usize), Parse
                     context: "number bits".into(),
                 })
             }
-        }
+        };
+        value = value
+            .checked_mul(2)
+            .and_then(|v| v.checked_sub(bit))
+            .ok_or_else(overflow)?;
+        current += 1;
     }
 
-    if negative {
-        value = -value;
-    }
+    let value = if negative {
+        value
+    } else {
+        value.checked_neg().ok_or_else(overflow)?
+    };
     Ok((WsNumber(value), current))
 }
 
 /// ラベルリテラルをパース
 ///
-/// フォーマット: [Space/Tab のシーケンス][LF]
-/// ラベルの値は数値と同じエンコーディングだが、符号なし
-fn parse_label(chars: &[WsChar], pos: usize) -> Result<(LabelId, usize), ParseError> {
-    let (number, new_pos) = parse_number(chars, pos)?;
-    Ok((LabelId(number.0.unsigned_abs() as u32), new_pos))
+/// フォーマット: [Space/Tab のシーケンス][LF]（符号なし、長さ任意、空列も可）
+// バグ修正: 従来は数値としてパースして unsigned_abs() as u32 に変換していたため、
+// 先頭文字が符号として捨てられ [S,T] と [T,T] が同じラベルになり、
+// 32 ビット超のラベルも衝突していた。
+// 解決策: ビット列そのものを LabelInterner で連番 ID に写像する。
+fn parse_label<'a>(
+    chars: &'a [WsChar],
+    pos: usize,
+    labels: &mut LabelInterner<'a>,
+) -> Result<(LabelId, usize), ParseError> {
+    let len = chars
+        .get(pos..)
+        .unwrap_or_default()
+        .iter()
+        .position(|c| *c == WsChar::Lf)
+        .ok_or_else(|| ParseError::UnexpectedEof {
+            context: "label".into(),
+        })?;
+    let bits = &chars[pos..pos + len];
+    let id = labels
+        .intern(bits)
+        .ok_or(ParseError::InvalidLabel { position: pos })?;
+    Ok((id, pos + len + 1))
 }
 
 #[cfg(test)]

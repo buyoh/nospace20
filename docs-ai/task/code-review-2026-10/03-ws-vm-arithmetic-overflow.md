@@ -1,12 +1,12 @@
 # WhitespaceVM: 算術オーバーフローで panic（`i64::MIN / -1` は常に abort）
 
 - 重要度: **high**
-- 状態: 未着手
+- 状態: 完了 (2026-10-19) → [fix-parser-loop-ws-number-overflow/03-ws-vm-wrapping-arithmetic.md](../../done-task/fix-parser-loop-ws-number-overflow/03-ws-vm-wrapping-arithmetic.md)
 
 ## 進捗
 
-- [ ] オーバーフロー時の仕様決定
-- [ ] 修正・境界値テスト追加
+- [x] オーバーフロー時の仕様決定（案 A: wrapping 統一。言語仕様上は実装依存とし、処理系の挙動を spec.md の Appendix に記載）
+- [x] 修正・境界値テスト追加
 
 ## 問題点
 
@@ -41,6 +41,8 @@ a = 9223372036854775807; __puti(a + 1);
 - バックエンド間の意味の一貫性
 
 ## 解決策
+
+A を採用する（2026-10-18 決定。言語仕様上は範囲・オーバーフローを実装依存とし、本処理系の wrapping 挙動は spec.md の Appendix に記載。境界値テストも同タスクで実施）
 
 | 案 | 内容 | 影響範囲 |
 |---|---|---|

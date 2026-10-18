@@ -11,6 +11,8 @@
 
 ## 問題点
 
+- （2026-10-19 追記）`src/bin/whitespace20.rs` はパースエラーを `Parse error: {:?}` で表示するため、`WsParseError::NumberOverflow` などの `Display` メッセージが使われない。`{}` に変更すること。なお `position` はソースのバイト位置ではなく Space/Tab/LF のみを数えた位置である旨もメッセージかドキュメントで示すとよい（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md) のレビューで指摘）
+
 - `src/bin/nospace20.rs:81-123`: `handle_parse_error` が `println!`（stdout）を使う。他のエラーは `eprintln!`。
   - `nospace20 --mode compile x.ns > out.ws` でエラー本文が out.ws に書き込まれる
   - stdout がパイプで閉じられると `println!` が panic し終了コード 101

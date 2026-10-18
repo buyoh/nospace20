@@ -4,6 +4,7 @@
 //! 明示的スタックマシンとして実装されており、中断・再開が可能。
 
 mod interpreter;
+mod label_interner;
 mod parser;
 
 // base::ws_types から命令型を re-export（whitespace は compiler_ws に非依存）

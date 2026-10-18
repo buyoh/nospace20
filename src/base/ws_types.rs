@@ -6,7 +6,7 @@
 // ===== WsChar =====
 
 /// Whitespace の基本文字
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WsChar {
     Space, // SP (0x20)
     Tab,   // TB (0x09)

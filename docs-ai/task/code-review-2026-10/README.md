@@ -10,10 +10,10 @@
 
 | # | 重要度 | ドキュメント | 概要 |
 |---|---|---|---|
-| 01 | high | [01-parser-infinite-loop.md](01-parser-infinite-loop.md) | 引数リスト中の不正トークンで構文解析が無限ループ・メモリ無制限消費（`f(;` で再現、WASM でタブがフリーズ） |
+| 01 | high | [01-parser-infinite-loop.md](01-parser-infinite-loop.md) | **完了**（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md)） 引数リスト中の不正トークンで構文解析が無限ループ・メモリ無制限消費（`f(;` で再現、WASM でタブがフリーズ） |
 | 02 | high | [02-block-nested-function-misresolution.md](02-block-nested-function-misresolution.md) | ブロック内で宣言した関数の呼び出しが `__main` 等の別関数に解決される（誤コード生成） |
-| 03 | high | [03-ws-vm-arithmetic-overflow.md](03-ws-vm-arithmetic-overflow.md) | WhitespaceVM の算術オーバーフローで panic、バックエンド間で挙動不一致 |
-| 04 | high | [04-ws-parser-number-label.md](04-ws-parser-number-label.md) | WS パーサの数値オーバーフロー panic、`i64::MIN` 非往復、ラベル衝突 |
+| 03 | high | [03-ws-vm-arithmetic-overflow.md](03-ws-vm-arithmetic-overflow.md) | **完了**（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md)） WhitespaceVM の算術オーバーフローで panic、バックエンド間で挙動不一致 |
+| 04 | high | [04-ws-parser-number-label.md](04-ws-parser-number-label.md) | **完了**（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md)） WS パーサの数値オーバーフロー panic、`i64::MIN` 非往復、ラベル衝突 |
 | 05 | high | [05-runtime-error-panic.md](05-runtime-error-panic.md) | インタプリタの実行時エラー（0 除算・assert・不正アクセス・I/O）を panic で表現 |
 | 06 | high | [06-interpreter-scope-memory-leak.md](06-interpreter-scope-memory-leak.md) | インタプリタの内部スコープ領域が解放されずメモリ線形増加 |
 | 07 | high | [07-recursion-depth-limit.md](07-recursion-depth-limit.md) | パーサ・インタプリタに再帰深度上限がなくスタックオーバーフロー abort |

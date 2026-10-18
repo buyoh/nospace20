@@ -72,6 +72,10 @@ fn test_ws_parse_error_display() {
         "invalid number at position 7"
     );
     assert_eq!(
+        format!("{}", WsParseError::NumberOverflow { position: 3 }),
+        "number at position 3 is out of the 64-bit signed integer range"
+    );
+    assert_eq!(
         format!("{}", WsParseError::InvalidLabel { position: 2 }),
         "invalid label at position 2"
     );

@@ -57,7 +57,11 @@ pub enum WsParseError {
     UnexpectedEof { context: String },
     /// 数値リテラルのパースエラー
     InvalidNumber { position: usize },
+    /// 数値リテラルが 64 ビット符号付き整数の範囲外
+    NumberOverflow { position: usize },
     /// ラベルリテラルのパースエラー
+    ///
+    /// `LabelInterner` でラベル数が u32 を超えた場合に返す（実際には到達しないが panic 回避のため使用中。削除しないこと）
     InvalidLabel { position: usize },
     /// 重複したラベル定義
     DuplicateLabel {
@@ -82,6 +86,11 @@ impl std::fmt::Display for WsParseError {
             Self::InvalidNumber { position } => {
                 write!(f, "invalid number at position {}", position)
             }
+            Self::NumberOverflow { position } => write!(
+                f,
+                "number at position {} is out of the 64-bit signed integer range",
+                position
+            ),
             Self::InvalidLabel { position } => write!(f, "invalid label at position {}", position),
             Self::DuplicateLabel {
                 label_id,

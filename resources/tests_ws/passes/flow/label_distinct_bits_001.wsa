@@ -1,0 +1,18 @@
+# 数値として解釈すると同じ値 (1) になるラベル ST / TT / SST が別ラベルとして扱われること
+# Jump to label TT
+NSN TTN
+# Label ST: output 'A' and exit
+NSS STN
+SSSTSSSSSTN
+TNSS
+NNN
+# Label TT: output 'B', then jump to label SST
+NSS TTN
+SSSTSSSSTSN
+TNSS
+NSN SSTN
+# Label SST: output 'C' and exit
+NSS SSTN
+SSSTSSSSTTN
+TNSS
+NNN

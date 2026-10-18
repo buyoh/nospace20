@@ -11,6 +11,16 @@ tests:
     path: stack/push_negative_001
     comment: "Push negative number (-3) and output"
 
+  - name: test_ws_stack_push_i64_min_001
+    type: ws_io
+    path: stack/push_i64_min_001
+    comment: "Push i64::MIN and output"
+
+  - name: test_ws_stack_push_i64_max_001
+    type: ws_io
+    path: stack/push_i64_max_001
+    comment: "Push i64::MAX and output"
+
   - name: test_ws_stack_push_negative_002
     type: ws_io
     path: stack/push_negative_002
@@ -129,6 +139,11 @@ tests:
     path: flow/jump_001
     comment: "Unconditional jump"
 
+  - name: test_ws_flow_label_distinct_bits_001
+    type: ws_io
+    path: flow/label_distinct_bits_001
+    comment: "Labels ST / TT / SST are distinct (not compared as numbers)"
+
   - name: test_ws_flow_jump_if_zero_true_001
     type: ws_io
     path: flow/jump_if_zero_true_001
@@ -204,3 +219,7 @@ tests:
     type: ws_parse_error
     path: duplicate_label_001
     comment: "Duplicate label definition (should be parse error)"
+  - name: test_ws_errors_number_overflow_001
+    type: ws_parse_error
+    path: number_overflow_001
+    comment: "Number outside the 64-bit signed range (wsc accepts it; whitespace20 rejects by design)"

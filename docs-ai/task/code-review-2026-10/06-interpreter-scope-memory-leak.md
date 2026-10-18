@@ -34,6 +34,6 @@
 | 案 | 内容 | 影響範囲 |
 |---|---|---|
 | A | `free_internal` で `blocks.remove(&addr)` し、末尾ブロックなら `next_addr` を巻き戻す（LIFO なのでスタックとして回収可能） | `allocator.rs`、`allocator_tests.rs`。解放済みローカル変数へのダングリング参照が「freed access」ではなく「invalid access」として報告されるようになる |
-| B | 内部領域を汎用ヒープから切り離し、`Vec<i64>` のスタック（フレームポインタ方式）で管理する。WS コンパイラのローカルヒープと同じモデル | `allocator.rs`、`exec.rs`、`vm/scope.rs`、`vm/mod.rs` |
+| B | ~~内部領域を汎用ヒープから切り離し、`Vec<i64>` のスタック（フレームポインタ方式）で管理する。WS コンパイラのローカルヒープと同じモデル~~ | `allocator.rs`、`exec.rs`、`vm/scope.rs`、`vm/mod.rs` |
 
 推奨: A（解放済み検出を残したいならブロックを tombstone 化して上限件数で回収）。

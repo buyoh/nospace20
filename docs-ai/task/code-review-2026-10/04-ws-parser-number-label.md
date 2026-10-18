@@ -1,13 +1,13 @@
 # WS パーサ: 数値リテラルのオーバーフローで panic、`i64::MIN` が往復しない、ラベル同一性の誤り
 
 - 重要度: **high**
-- 状態: 未着手
+- 状態: 完了 (2026-10-19) → [fix-parser-loop-ws-number-overflow/02-ws-parser-number-and-label.md](../../done-task/fix-parser-loop-ws-number-overflow/02-ws-parser-number-and-label.md)
 
 ## 進捗
 
-- [ ] 数値パースの checked 化
-- [ ] ラベル表現の見直し
-- [ ] 境界値テスト追加
+- [x] 数値パースの checked 化
+- [x] ラベル表現の見直し
+- [x] 境界値テスト追加
 
 ## 問題点
 
@@ -26,6 +26,8 @@
 - encode / parse の往復性
 
 ## 解決策
+
+A + B + C を採用する（2026-10-18 決定）
 
 | 案 | 内容 | 影響範囲 |
 |---|---|---|

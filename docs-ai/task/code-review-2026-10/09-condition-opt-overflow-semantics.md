@@ -5,7 +5,7 @@
 
 ## 進捗
 
-- [ ] 方針決定（[03](03-ws-vm-arithmetic-overflow.md) の仕様決定と連動）
+- [x] 方針決定（[03](03-ws-vm-arithmetic-overflow.md) の仕様決定と連動）: 言語仕様上は実装依存、本処理系は wrapping に確定（[fix-parser-loop-ws-number-overflow/03](../../done-task/fix-parser-loop-ws-number-overflow/03-ws-vm-wrapping-arithmetic.md)）。修正後は docs/spec.md の Appendix「既知の制限」を削除すること
 - [ ] 修正・境界値テスト追加
 
 ## 問題点

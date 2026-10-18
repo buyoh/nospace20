@@ -1,12 +1,12 @@
 # 構文解析: 引数リスト中の不正トークンで無限ループ・メモリ無制限消費
 
 - 重要度: **high**
-- 状態: 未着手
+- 状態: 完了 (2026-10-19) → [fix-parser-loop-ws-number-overflow/01-parser-arg-loop-progress.md](../../done-task/fix-parser-loop-ws-number-overflow/01-parser-arg-loop-progress.md)
 
 ## 進捗
 
-- [ ] 修正方針の決定
-- [ ] 修正・fails/syntax テスト追加
+- [x] 修正方針の決定（案 B）
+- [x] 修正・fails/syntax テスト追加
 
 ## 問題点
 
@@ -31,6 +31,8 @@ WASM の `parse()` / `compile()` / `WasmNospaceVM::new` は同期処理のため
 - DRY: 同じループが 2 箇所にあり、同じバグも 2 箇所にある（[17-tree-parser-duplication.md](17-tree-parser-duplication.md)）
 
 ## 解決策
+
+B を採用する
 
 | 案 | 内容 | 影響範囲 |
 |---|---|---|

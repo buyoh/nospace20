@@ -623,18 +623,24 @@ impl WhitespaceVM {
             }
 
             // === 算術演算 ===
+            // バグ修正: 従来は素の演算子を使っていたため、オーバーフロー時に debug ビルドでは panic、
+            // release ビルドでは wrap とビルド設定で挙動が変わり、i64::MIN / -1 と i64::MIN % -1 は
+            // 常に panic（panic = "abort" のため CLI は abort、WASM は trap）していた。
+            // 解決策: 本処理系の挙動（docs/spec.md「Appendix」）として定めたとおり、
+            // base::pure_eval と同じ 64 ビット 2 の補数の wrapping 演算に統一する。
+            // （言語仕様上、オーバーフロー時の挙動は実装依存）
             Instruction::Add => {
-                if let Err(e) = self.binary_op(|a, b| Ok(a + b)) {
+                if let Err(e) = self.binary_op(|a, b| Ok(a.wrapping_add(b))) {
                     return ExecuteResult::Error(e);
                 }
             }
             Instruction::Sub => {
-                if let Err(e) = self.binary_op(|a, b| Ok(a - b)) {
+                if let Err(e) = self.binary_op(|a, b| Ok(a.wrapping_sub(b))) {
                     return ExecuteResult::Error(e);
                 }
             }
             Instruction::Mul => {
-                if let Err(e) = self.binary_op(|a, b| Ok(a * b)) {
+                if let Err(e) = self.binary_op(|a, b| Ok(a.wrapping_mul(b))) {
                     return ExecuteResult::Error(e);
                 }
             }
@@ -643,7 +649,7 @@ impl WhitespaceVM {
                     if b == 0 {
                         Err(RuntimeError::DivisionByZero)
                     } else {
-                        Ok(a / b)
+                        Ok(a.wrapping_div(b))
                     }
                 }) {
                     return ExecuteResult::Error(e);
@@ -654,7 +660,7 @@ impl WhitespaceVM {
                     if b == 0 {
                         Err(RuntimeError::DivisionByZero)
                     } else {
-                        Ok(a % b)
+                        Ok(a.wrapping_rem(b))
                     }
                 }) {
                     return ExecuteResult::Error(e);

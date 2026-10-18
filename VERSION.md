@@ -1,5 +1,13 @@
 # Version
 
+## 2.0.1 (WIP)
+
+- Parser: Fix infinite loop and unbounded memory use on an invalid token in a function call / struct literal argument list (e.g. `f(;`)
+- whitespace20: Distinguish labels by their exact Space/Tab sequence (labels such as `ST` and `TT` no longer collide)
+- whitespace20: Reject numbers outside the 64-bit signed range as a parse error instead of panicking, and parse `i64::MIN` correctly
+- whitespace20: Arithmetic overflow now wraps (64-bit two's complement) instead of panicking or depending on the build profile
+- Spec: State that the integer range and overflow behavior are implementation-dependent; describe this implementation's behavior in a new Appendix
+
 ## 2.0.0
 
 tag: v2.0.0
