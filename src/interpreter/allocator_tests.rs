@@ -272,3 +272,27 @@ fn test_access_unallocated_message() {
         "expected 'invalid memory access' in error, got: {msg}"
     );
 }
+
+#[test]
+fn test_free_internal_reclaims_memory() {
+    let mut a = new_alloc();
+    let first = a.alloc_internal(4);
+    a.free_internal(first);
+    // 末尾ブロックの解放でアドレスが巻き戻され、同じアドレスが再利用される
+    for _ in 0..1000 {
+        let addr = a.alloc_internal(4);
+        assert_eq!(addr, first);
+        a.free_internal(addr);
+    }
+    assert!(a.blocks.is_empty());
+}
+
+#[test]
+fn test_free_internal_nested_lifo() {
+    let mut a = new_alloc();
+    let outer = a.alloc_internal(2);
+    let inner = a.alloc_internal(3);
+    a.free_internal(inner);
+    a.free_internal(outer);
+    assert_eq!(a.alloc_internal(1), outer);
+}

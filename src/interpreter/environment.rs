@@ -140,8 +140,11 @@ impl Environment {
     }
 
     pub fn write_char(&mut self, val: i64) {
-        let byte = (val as u8) as char;
-        write!(self.stdout, "{}", byte).unwrap();
+        // バグ修正: 以前は `(val as u8) as char` を write! しており、128..=255 が
+        // Latin-1 文字として UTF-8 2 バイトで出力されていた。encode_putc で生バイト/UTF-8 を出し分ける。
+        let bytes = crate::base::putc::encode_putc(val)
+            .unwrap_or_else(|| panic!("runtime error: __putc: invalid character code {}", val));
+        self.stdout.write_all(&bytes).unwrap();
     }
 
     pub fn flush(&mut self) {

@@ -206,12 +206,23 @@ impl InterpreterAllocator {
 
     /// 内部アロケータで確保したブロックを解放する。
     ///
-    /// `is_freed = true` にするのみ（フリーリストに返さない）。
+    /// ブロックを `blocks` から削除する。末尾ブロックなら `next_addr` を巻き戻す。
+    /// 解放後のアクセスは "invalid memory access" として報告される。
     pub(crate) fn free_internal(&mut self, addr: i64) {
-        if let Some(block) = self.blocks.get_mut(&addr) {
-            block.is_freed = true;
+        // バグ修正: 以前は is_freed = true にするだけで blocks に残り、next_addr も単調増加したため
+        // 関数呼び出しごとにメモリが増え続けた。LIFO 解放なので削除＋巻き戻しで回収する。
+        if let Some(block) = self.blocks.remove(&addr) {
+            if addr + block.data.len() as i64 == self.next_addr {
+                self.next_addr = addr;
+            }
         }
         // 存在しないアドレスは静かに無視（スコープ管理の都合上）
+    }
+
+    /// 保持しているブロック数（リーク検出のテスト用）。
+    #[cfg(test)]
+    pub(crate) fn internal_block_count(&self) -> usize {
+        self.blocks.len()
     }
 
     // ===== プライベートヘルパー =====

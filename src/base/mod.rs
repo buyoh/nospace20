@@ -1,4 +1,5 @@
 pub mod error;
+pub mod putc;
 pub mod shared_writer;
 pub mod ws_types;
 

@@ -757,7 +757,17 @@ impl WhitespaceVM {
                     Ok(v) => v,
                     Err(e) => return ExecuteResult::Error(e),
                 };
-                if let Err(e) = write!(self.stdout, "{}", (val as u8) as char) {
+                // バグ修正: `(val as u8) as char` は 128..=255 を UTF-8 2 バイトにしていた
+                let bytes = match crate::base::putc::encode_putc(val) {
+                    Some(b) => b,
+                    None => {
+                        return ExecuteResult::Error(RuntimeError::IoError(format!(
+                            "outchar: invalid character code {}",
+                            val
+                        )))
+                    }
+                };
+                if let Err(e) = self.stdout.write_all(&bytes) {
                     return ExecuteResult::Error(RuntimeError::IoError(e.to_string()));
                 }
                 self.pc += 1;

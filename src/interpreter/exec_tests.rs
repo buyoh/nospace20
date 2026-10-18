@@ -516,3 +516,38 @@ func: __main() {
     let result = crate::interpreter::interpret_all(&mut env, &scope);
     assert_eq!(result, Ok(Some(9)), "sum of odd numbers 1+3+5 = 9");
 }
+
+#[test]
+fn test_builtin_putc_raw_byte_and_utf8() {
+    // 200 は生バイト 0xc8、12354 (U+3042) は UTF-8 の e3 81 82
+    let code = r#"
+func: __main() {
+    __putc(200);
+    __putc(12354);
+    return: 0;
+}
+"#;
+    let scope = parse_and_analyze(code);
+    let (mut env, capture) = create_test_env_with_stdout_capture();
+    crate::interpreter::interpret_all(&mut env, &scope).unwrap();
+    env.flush();
+    assert_eq!(*capture.borrow(), vec![0xc8, 0xe3, 0x81, 0x82]);
+}
+
+#[test]
+fn test_function_call_loop_does_not_leak_scope_memory() {
+    let code = r#"
+func: f(x) {
+    return: x;
+}
+func: __main() {
+    let: i(0);
+    while: i < 1000 { f(i); i = i + 1; };
+    return: 0;
+}
+"#;
+    let scope = parse_and_analyze(code);
+    let (mut env, _) = create_test_env_with_stdout_capture();
+    crate::interpreter::interpret_all(&mut env, &scope).unwrap();
+    assert!(env.allocator.internal_block_count() <= 2);
+}
