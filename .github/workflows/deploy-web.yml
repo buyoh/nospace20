@@ -10,6 +10,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          # checkout のトークンを .git/config に残さない（ビルド中の外部コードから読ませない）
+          persist-credentials: false
       - name: Version
         run: rustup --version ; rustc --version ; cargo --version
       - name: Cache
@@ -21,7 +24,9 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Build
+        run: bash tools/ci/deploy-webstatic-to-git.sh build
+      - name: Push
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPOSITORY: ${{ github.repository }}
-        run: bash tools/ci/deploy-webstatic-to-git.sh
+        run: bash tools/ci/deploy-webstatic-to-git.sh push

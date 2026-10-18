@@ -8,6 +8,7 @@
 - whitespace20: Arithmetic overflow now wraps (64-bit two's complement) instead of panicking or depending on the build profile
 - Interpreter: Free scope memory on leaving a function/block so long loops no longer grow memory without bound
 - `__putc` / OutputChar: Output 0-255 as a raw byte (was UTF-8 encoded Latin-1) and 256+ as a UTF-8 code point; invalid values are runtime errors
+- CI: Deploy script is split into build/push phases; GH_TOKEN is only passed to the push step, checkout credentials are not persisted, `npm ci --ignore-scripts`, and the webui ref can be pinned via GIT_REPO_WEBUI_REF
 - Spec: State that the integer range and overflow behavior are implementation-dependent; describe this implementation's behavior in a new Appendix
 
 ## 2.0.0

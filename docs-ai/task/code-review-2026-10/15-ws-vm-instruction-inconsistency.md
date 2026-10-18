@@ -25,6 +25,6 @@
 
 | 案 | 内容 | 影響範囲 |
 |---|---|---|
-| A | Copy の負の n をエラーにし、`usize::try_from` で変換 | `interpreter.rs` |
+| A | ~~Copy の負の n をエラーにし、`usize::try_from` で変換~~ | `interpreter.rs` |
 | B | Slide を `base::ws_types::Instruction` に追加 | `ws_types.rs`、`parser.rs`、`interpreter.rs`、プロファイラの `InstructionCounts` と YAML 構造体 |
 | C | 入力命令の書き込みを `heap_store` に通す | `interpreter.rs` のみ |
