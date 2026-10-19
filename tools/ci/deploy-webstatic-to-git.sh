@@ -56,10 +56,7 @@ VITE_NOSPACE_VERSION=$nospace_version
 VITE_WEBUI_VERSION=$webui_version
 EOL
 
-  # install script から外部コードが走るため無効化する
-  npm ci --ignore-scripts
-  npm run test  ||: # Check regression with new wasm
-  npm run build-vite
+  bash tools/build-webui.sh
 
   if [ ! -d "dist" ]; then
     echo "Error: Vite build failed, dist/ directory not found"
