@@ -1,7 +1,7 @@
 # CLI: エラー出力先が不統一、stdin 読み取りエラーを握りつぶす、バージョン表示の不一致
 
 - 重要度: **low**
-- 状態: 未着手
+- 状態: 計画 docs-ai/task/cli-errors-and-doccomments/README.md
 
 ## 進捗
 

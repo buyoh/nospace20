@@ -5,6 +5,27 @@
 - CRLF / LF 混在
   - workflow で修正
 
+## docs-ai, my-docs 等をコミットに含めない
+
+- main に含めないが、developには含める？
+- 移行手順
+  - mainから対象を消す。
+- rebase 手順
+  - develop のコミットには docs-ai や my-docs が含まれているため、cherry-pick できない。
+  - 手軽な案: `git am` を使う？
+
+## インタプリタを deprecated にする: docs-ai/task/retire-direct-interpreter
+
+- 作られたきっかけは「コンパイラが面倒なので先にインタプリタを作る」「テスト用のAPIの提供」
+- コンパイラ＋whitespaceインタプリタがある上で、まだインタプリタが必要なケースとしては、実行速度程度？
+- インタプリタにも相当のバグがある
+
+## docs-ai/task/code-review-2026-10/08-array-size-overflow.md
+
+usizeがオーバーフローする計算を行う可能性がある。
+再発防止策を考える。
+型を用意する？
+
 ## アプリケーションの課題
 
 - 無限ループが発生した場合、テストが終了しなくなる。

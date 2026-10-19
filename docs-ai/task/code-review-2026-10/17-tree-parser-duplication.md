@@ -1,7 +1,7 @@
 # tree_parser の重複コードと巨大モジュール
 
 - 重要度: **low**
-- 状態: 未着手
+- 状態: 設計完了（未実装）。設計: [tree-parser-dedup](../tree-parser-dedup/README.md)
 
 ## 進捗
 

@@ -11,7 +11,7 @@
 | # | 重要度 | ドキュメント | 概要 |
 |---|---|---|---|
 | 01 | high | [01-parser-infinite-loop.md](01-parser-infinite-loop.md) | **完了**（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md)） 引数リスト中の不正トークンで構文解析が無限ループ・メモリ無制限消費（`f(;` で再現、WASM でタブがフリーズ） |
-| 02 | high | [02-block-nested-function-misresolution.md](02-block-nested-function-misresolution.md) | ブロック内で宣言した関数の呼び出しが `__main` 等の別関数に解決される（誤コード生成） |
+| 02 | high | [02-block-nested-function-misresolution.md](02-block-nested-function-misresolution.md) | 設計済み（[block-nested-function](../block-nested-function/README.md)） ブロック内で宣言した関数の呼び出しが `__main` 等の別関数に解決される（誤コード生成） |
 | 03 | high | [03-ws-vm-arithmetic-overflow.md](03-ws-vm-arithmetic-overflow.md) | **完了**（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md)） WhitespaceVM の算術オーバーフローで panic、バックエンド間で挙動不一致 |
 | 04 | high | [04-ws-parser-number-label.md](04-ws-parser-number-label.md) | **完了**（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md)） WS パーサの数値オーバーフロー panic、`i64::MIN` 非往復、ラベル衝突 |
 | 05 | high | [05-runtime-error-panic.md](../../done-task/code-review-2026-10/05-runtime-error-panic.md) | **完了**（[runtime-robustness-2026-10](../../done-task/runtime-robustness-2026-10/README.md)） インタプリタの実行時エラー（0 除算・assert・不正アクセス・I/O）を panic で表現 |

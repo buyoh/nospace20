@@ -1,7 +1,7 @@
 # 位置情報の単位の誤記とドキュメントコメント不足
 
 - 重要度: **low**
-- 状態: 未着手
+- 状態: 計画 docs-ai/task/cli-errors-and-doccomments/README.md
 
 ## 進捗
 

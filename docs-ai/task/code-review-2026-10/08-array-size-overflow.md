@@ -1,7 +1,7 @@
 # 意味解析: 配列・struct サイズ計算の usize 演算が未チェック、上限検証なし
 
 - 重要度: **medium**
-- 状態: 未着手
+- 状態: 設計完了（未実装）。設計: [array-size-overflow](../array-size-overflow/README.md)。案 A のみ実施、案 B は不採用
 
 ## 進捗
 

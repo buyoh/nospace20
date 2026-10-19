@@ -14,6 +14,7 @@
 ### 1. インタプリタのヒープ総量に上限がない（minor）
 
 - `__alloc` は 1 回あたり `MAX_ALLOC_WORDS`（16M ワード）までだが、総量は無制限。`while: 1 { __alloc(16777216); }` で 128MiB ずつ確保し、最終的にホストのメモリ確保失敗で abort（WASM は trap）する
+- 注（2026-10-19）: 製品の実行経路は [retire-direct-interpreter](retire-direct-interpreter/README.md) で WhitespaceVM に置き換わり、上限は [ws-vm-run-mode-support 01](ws-vm-run-mode-support/01-memory-limit.md) のメモリ上限が担う。retire の完了後は本項目は不要になる
 - 案: `InterpreterAllocator` に生存ワード数の上限（例: 64M ワード）を持たせ、超過時は `InterpretError::OutOfMemory`（新設）を返す。上限値は `EnvironmentConfig` で設定可能にし、spec.md の Appendix に記載
 
 ### 2. ネスト深度の管理が 2 つの builder に重複（minor）
@@ -38,6 +39,8 @@
 - 案: テストのツリー走査インタプリタ用ターゲットを NospaceVM に寄せ、`exec.rs` と `interpret_*` API を廃止する（組み込み関数等の意味論の二重実装も解消）
 
 ### 6. `WasmWhitespaceVM::new` が最適化パスを受け取らない（12 の問題点の残り）
+
+- 注（2026-10-19）: [ws-vm-run-mode-support 03](ws-vm-run-mode-support/03-wasm-whitespace-vm.md) で解消する予定
 
 ### 7. 代入できない左辺が意味解析を通過する（major、本タスク以前からの不具合）
 

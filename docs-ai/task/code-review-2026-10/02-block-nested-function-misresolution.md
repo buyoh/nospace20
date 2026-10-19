@@ -1,7 +1,7 @@
 # 意味解析: ブロック式内で宣言した関数の呼び出しが別のグローバル関数に解決される
 
 - 重要度: **high**
-- 状態: 未着手
+- 状態: 設計済み（[block-nested-function](../block-nested-function/README.md)。A: 禁止 → B: 許可の 2 段階）
 
 ## 進捗
 
