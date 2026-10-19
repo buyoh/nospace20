@@ -8,6 +8,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Setup
         run: |
           git config --global user.email "15198247+buyoh@users.noreply.github.com"

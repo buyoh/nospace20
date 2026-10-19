@@ -2,10 +2,11 @@
 
 set -eu
 
-# Usage: deploy-webstatic-to-git.sh [build|push|all]
-#   build: webui を clone してビルドする（外部コードを実行するため GH_TOKEN を渡してはならない）
-#   push : ビルド済みの dist を deploy ブランチへ push する（GH_TOKEN を使うのはここだけ）
-#   all  : build -> push（ローカル実行用。既定）
+# Usage: deploy-webstatic-to-git.sh [--workflow]
+#   webui を clone してビルドし、dist を deploy ブランチへ commit して push する。
+#   --workflow: CI 用。commit までで push しない（push は workflow 側の ad-m/github-push-action が行う）。
+#               ローカル手動実行では指定しない。
+# このスクリプトは認証情報を扱わない（外部コードを実行するため、トークンを環境に渡してはならない）。
 # GIT_REPO_WEBUI_REF: webui の clone 対象（ブランチ/タグ）。再現性のためタグの指定を推奨。
 
 # -------------------------------------
@@ -16,7 +17,12 @@ GIT_REPO_WEBUI_BRANCH="${GIT_REPO_WEBUI_REF:-main}"
 
 GIT_REPO_NOSPACE20_DEPLOY_BRANCH="deploy-webui"
 
-PHASE="${1:-all}"
+SKIP_PUSH=0
+case "${1:-}" in
+  "") ;;
+  --workflow) SKIP_PUSH=1 ;;
+  *) echo "Usage: $0 [--workflow]" >&2; exit 1 ;;
+esac
 
 SCRIPT_DIR="$(realpath "$(dirname "$0")")"
 REPO_ROOT_DIR="$(realpath "$SCRIPT_DIR/../..")"
@@ -26,12 +32,6 @@ TMP_DIR="$REPO_ROOT_DIR/target/tmp_webui_deploy"
 # -------------------------------------
 
 do_build() {
-  # 外部コード（webui の更新スクリプト・npm）を実行するため、トークンが環境にあれば拒否する
-  if [ -n "${GH_TOKEN:-}" ]; then
-    echo "Error: GH_TOKEN must not be set in the build phase" >&2
-    exit 1
-  fi
-
   rm -rf "$TMP_DIR"
   mkdir -p "$TMP_DIR"
 
@@ -64,26 +64,15 @@ EOL
   fi
 }
 
-do_push() {
-  if [ ! -d "$TMP_DIR/webui/dist" ]; then
-    echo "Error: build output not found, run the build phase first" >&2
-    exit 1
-  fi
-
-  # トークンがあれば認証付き URL、なければ（ローカル実行）origin の URL を使う
-  local repo_url
-  if [ -n "${GH_TOKEN:-}" ]; then
-    repo_url="https://x-access-token:${GH_TOKEN}@github.com/${GH_REPOSITORY}.git"
-  else
-    repo_url=$(git -C "$REPO_ROOT_DIR" config --get remote.origin.url)
-  fi
-
+do_commit_and_push() {
   cd "$TMP_DIR"
   rm -rf deploy
   mkdir deploy
   cd deploy
   git init
-  git remote add origin "$repo_url"
+  if [ "$SKIP_PUSH" -eq 0 ]; then
+    git remote add origin "$(git -C "$REPO_ROOT_DIR" config --get remote.origin.url)"
+  fi
   git branch -m "$GIT_REPO_NOSPACE20_DEPLOY_BRANCH"
 
   cp -r "$TMP_DIR/webui/dist/"* .
@@ -91,13 +80,14 @@ do_push() {
   git add .
   git commit -m "Deploy webui with updated wasm"
 
+  if [ "$SKIP_PUSH" -eq 1 ]; then
+    echo "--workflow: skip push (pushed by the CI action)"
+    return 0
+  fi
+
   # Force push to deploy branch (overwrite history)
   git push -f origin "$GIT_REPO_NOSPACE20_DEPLOY_BRANCH"
 }
 
-case "$PHASE" in
-  build) do_build ;;
-  push) do_push ;;
-  all) (unset GH_TOKEN; do_build); do_push ;;
-  *) echo "Usage: $0 [build|push|all]" >&2; exit 1 ;;
-esac
+do_build
+do_commit_and_push
