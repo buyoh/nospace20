@@ -44,7 +44,7 @@ fn write_success_tests(f: &mut fs::File, test: &TestCase) {
         writeln!(
             f,
             r#"{}#[test]
-fn {}() -> std::fmt::Result {{
+fn {}() {{
     test_ok_coding_base("{}")
 }}
 "#,
@@ -57,7 +57,7 @@ fn {}() -> std::fmt::Result {{
         writeln!(
             f,
             r#"{}#[test]
-fn {}_vm() -> std::fmt::Result {{
+fn {}_vm() {{
     test_ok_coding_base_vm("{}")
 }}
 "#,
@@ -136,7 +136,7 @@ fn {}_ws_self_strict() {{
         writeln!(
             f,
             r#"{}#[test]
-fn {}_opt_all() -> std::fmt::Result {{
+fn {}_opt_all() {{
     test_ok_coding_base_opt_all("{}")
 }}
 "#,
@@ -149,7 +149,7 @@ fn {}_opt_all() -> std::fmt::Result {{
         writeln!(
             f,
             r#"{}#[test]
-fn {}_randomize() -> std::fmt::Result {{
+fn {}_randomize() {{
     test_ok_coding_base_randomize("{}")
 }}
 "#,
@@ -207,7 +207,7 @@ fn write_success_io_tests(f: &mut fs::File, test: &TestCase) {
         writeln!(
             f,
             r#"{}#[test]
-fn {}() -> std::fmt::Result {{
+fn {}() {{
     test_ok_coding_io_base("{}")
 }}
 "#,
@@ -220,7 +220,7 @@ fn {}() -> std::fmt::Result {{
         writeln!(
             f,
             r#"{}#[test]
-fn {}_vm() -> std::fmt::Result {{
+fn {}_vm() {{
     test_ok_coding_io_base_vm("{}")
 }}
 "#,
@@ -233,7 +233,7 @@ fn {}_vm() -> std::fmt::Result {{
         writeln!(
             f,
             r#"{}#[test]
-fn {}_opt_all() -> std::fmt::Result {{
+fn {}_opt_all() {{
     test_ok_coding_io_base_opt_all("{}")
 }}
 "#,
@@ -357,7 +357,7 @@ fn write_error_test(f: &mut fs::File, test: &TestCase, base_fn: &str) {
         writeln!(
             f,
             r#"{}#[test]
-fn {}() -> std::fmt::Result {{
+fn {}() {{
     {}("{}")
 }}
 "#,
@@ -371,7 +371,7 @@ fn {}() -> std::fmt::Result {{
         writeln!(
             f,
             r#"{}#[test]
-fn {}_vm() -> std::fmt::Result {{
+fn {}_vm() {{
     test_runtime_error_base_vm("{}")
 }}
 "#,

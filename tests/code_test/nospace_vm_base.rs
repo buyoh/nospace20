@@ -1,4 +1,4 @@
-use std::{fmt::Result, fs, io};
+use std::{fs, io};
 
 use nospace20::{parse_to_tokens, parse_to_tree, semantic_analyze, NospaceVM, StepResult};
 
@@ -8,7 +8,7 @@ use super::test_config::{load_check_json, TestConfig};
 ///
 /// 既存の再帰インタプリタ (`test_ok_coding_base`) と同等のテストを
 /// NospaceVM のステップ実行で行う。trace の結果が一致することを確認する。
-pub fn test_ok_coding_base_vm(test_name: &str) -> Result {
+pub fn test_ok_coding_base_vm(test_name: &str) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -44,14 +44,13 @@ pub fn test_ok_coding_base_vm(test_name: &str) -> Result {
         }
         _ => panic!("Expected success test config"),
     }
-    Ok(())
 }
 
 /// NospaceVM を使って success_io テストを実行する
 ///
 /// 既存の再帰インタプリタ (`test_ok_coding_io_base`) と同等のテストを
 /// NospaceVM のステップ実行で行う。stdout の結果が一致することを確認する。
-pub fn test_ok_coding_io_base_vm(test_name: &str) -> Result {
+pub fn test_ok_coding_io_base_vm(test_name: &str) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -131,15 +130,13 @@ pub fn test_ok_coding_io_base_vm(test_name: &str) -> Result {
             test_name, case_name, expected_stdout, actual_stdout
         );
     }
-
-    Ok(())
 }
 
 /// NospaceVM を使って runtime_error テストを実行する
 ///
 /// NospaceVM は実行時エラーを `StepResult::Error` で返す（panic しない）。
 /// エラーが返ること、および check.json の `contains` がエラーメッセージに含まれることを確認する。
-pub fn test_runtime_error_base_vm(test_name: &str) -> Result {
+pub fn test_runtime_error_base_vm(test_name: &str) {
     let path_base = "resources/tests/fails/runtime/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -170,5 +167,4 @@ pub fn test_runtime_error_base_vm(test_name: &str) -> Result {
             other, test_name
         ),
     }
-    Ok(())
 }

@@ -158,9 +158,8 @@ pub fn test_ws_parse_error_base(test_name: &str) {
 /// ws_io テスト (wsc クロスバリデーション): 正常系の I/O 検証
 pub fn test_ws_io_wsc_base(test_name: &str) {
     if !crate::common::wsc_available() {
-        eprintln!("Skipping test: wsc not available");
-        eprintln!("Run: ./tools/setup-wsc.sh");
-        return;
+        // 成功扱いにすると wsc 不在の CI で全件が偽の成功になるため、明示的に失敗させる
+        panic!("wsc not available. Run: ./tools/setup-wsc.sh");
     }
 
     let path_base = format!("resources/tests_ws/passes/{}", test_name);
@@ -197,9 +196,8 @@ pub fn test_ws_io_wsc_base(test_name: &str) {
 /// ws_runtime_error テスト (wsc クロスバリデーション): 実行時エラー検証
 pub fn test_ws_runtime_error_wsc_base(test_name: &str) {
     if !crate::common::wsc_available() {
-        eprintln!("Skipping test: wsc not available");
-        eprintln!("Run: ./tools/setup-wsc.sh");
-        return;
+        // 成功扱いにすると wsc 不在の CI で全件が偽の成功になるため、明示的に失敗させる
+        panic!("wsc not available. Run: ./tools/setup-wsc.sh");
     }
 
     let path_base = format!("resources/tests_ws/fails/runtime/{}", test_name);

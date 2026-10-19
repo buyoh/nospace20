@@ -1,13 +1,13 @@
 # テストハーネス・CI の品質（wsc 不在時の偽の成功、wasm feature 未テスト等）
 
 - 重要度: **low**
-- 状態: 未着手
+- 状態: **完了**
 
 ## 進捗
 
-- [ ] wsc 不在時の扱い
-- [ ] 生成テストの戻り値型修正
-- [ ] CI に wasm feature のテスト・ビルド追加
+- [x] wsc 不在時の扱い
+- [x] 生成テストの戻り値型修正
+- [x] CI に wasm feature のテスト・ビルド追加
 
 ## 問題点
 
@@ -25,6 +25,14 @@
 | 案 | 内容 | 影響範囲 |
 |---|---|---|
 | A | wsc 不在時は `panic!("wsc not available")` で明示的に失敗（`#[ignore]` は維持） | `tests/code_test/whitespace_base.rs`、`tests/whitespace_direct_test/base.rs` |
-| B | wsc 連携テストを AGENTS.md で例外として明記、または wsc の stdin 実行でファイル作成を回避できるか検討 | `AGENTS.md`、`tests/common/mod.rs` |
+| B | ~~wsc 連携テストを AGENTS.md で例外として明記、または wsc の stdin 実行でファイル作成を回避できるか検討~~ | `AGENTS.md`、`tests/common/mod.rs` |
 | C | 生成テストの戻り値を `()` にする | `src_build/*.rs`、`tests/code_test/*_base.rs` |
 | D | test.yml に `cargo test --features wasm --lib wasm_api` と `cargo build --target wasm32-unknown-unknown --no-default-features --features wasm` を追加 | `.github/workflows/test.yml` のみ |
+
+## 実施結果
+
+- A: `whitespace_base.rs` / `whitespace_direct_test/base.rs` の wsc 不在時を panic に変更
+- B: AGENTS.md に wsc 連携テストでの tempfile 使用を例外として明記
+- C: 生成テスト・`*_base.rs` の戻り値を `()` に変更
+- D: test.yml に wasm feature のテストと wasm32 ビルドを追加
+- 見送り（low）: `require_wsc()` への panic 集約（4 箇所の重複）

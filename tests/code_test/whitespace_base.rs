@@ -9,11 +9,10 @@ use super::test_config::TestConfig;
 pub fn test_whitespace_base(test_name: &str) {
     use crate::common::{run_whitespace, wsc_available};
 
-    // wsc が利用できない場合はスキップ
+    // wsc が利用できない場合は失敗（#[ignore] で通常実行からは除外済み）
     if !wsc_available() {
-        eprintln!("Skipping test: wsc not available");
-        eprintln!("Run: ./tools/setup-wsc.sh");
-        return;
+        // 成功扱いにすると wsc 不在の CI で全件が偽の成功になるため、明示的に失敗させる
+        panic!("wsc not available. Run: ./tools/setup-wsc.sh");
     }
 
     let path_base = "resources/tests/passes/".to_owned() + test_name;
@@ -46,11 +45,10 @@ pub fn test_whitespace_base(test_name: &str) {
 pub fn test_whitespace_io_base(test_name: &str) {
     use crate::common::{run_whitespace, wsc_available};
 
-    // wsc が利用できない場合はスキップ
+    // wsc が利用できない場合は失敗（#[ignore] で通常実行からは除外済み）
     if !wsc_available() {
-        eprintln!("Skipping test: wsc not available");
-        eprintln!("Run: ./tools/setup-wsc.sh");
-        return;
+        // 成功扱いにすると wsc 不在の CI で全件が偽の成功になるため、明示的に失敗させる
+        panic!("wsc not available. Run: ./tools/setup-wsc.sh");
     }
 
     let path_base = "resources/tests/passes/".to_owned() + test_name;

@@ -1,4 +1,4 @@
-use std::{fmt::Result, fs, io};
+use std::{fs, io};
 
 use nospace20::{
     compile_to_ws, interpret_func_with_io, parse_to_tokens, parse_to_tree, semantic_analyze,
@@ -7,7 +7,7 @@ use nospace20::{
 
 use super::test_config::TestConfig;
 
-pub fn test_syntax_error_base(test_name: &str) -> Result {
+pub fn test_syntax_error_base(test_name: &str) {
     let path_base = "resources/tests/fails/syntax/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -42,10 +42,9 @@ pub fn test_syntax_error_base(test_name: &str) -> Result {
         },
         _ => panic!("Expected parse_error test config"),
     }
-    Ok(())
 }
 
-pub fn test_compile_error_base(test_name: &str) -> Result {
+pub fn test_compile_error_base(test_name: &str) {
     let path_base = "resources/tests/fails/compile/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -86,7 +85,7 @@ pub fn test_compile_error_base(test_name: &str) -> Result {
                             );
                         }
                     }
-                    return Ok(());
+                    return;
                 }
             };
 
@@ -110,10 +109,9 @@ pub fn test_compile_error_base(test_name: &str) -> Result {
         }
         _ => panic!("Expected compile_error test config"),
     }
-    Ok(())
 }
 
-pub fn test_runtime_error_base(test_name: &str) -> Result {
+pub fn test_runtime_error_base(test_name: &str) {
     let path_base = "resources/tests/fails/runtime/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -167,5 +165,4 @@ pub fn test_runtime_error_base(test_name: &str) -> Result {
         }
         _ => panic!("Expected runtime_error test config"),
     }
-    Ok(())
 }

@@ -1,4 +1,4 @@
-use std::{fmt::Result, fs, io};
+use std::{fs, io};
 
 use nospace20::{
     interpret_func_testing, interpret_func_testing_randomize, interpret_func_with_io,
@@ -8,7 +8,7 @@ use nospace20::{
 use super::test_config::{load_check_json, TestConfig};
 
 /// `--opt all` 相当の最適化を適用した上でインタプリタ実行する
-pub fn test_ok_coding_base_opt_all(test_name: &str) -> Result {
+pub fn test_ok_coding_base_opt_all(test_name: &str) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -37,11 +37,10 @@ pub fn test_ok_coding_base_opt_all(test_name: &str) -> Result {
         }
         _ => panic!("Expected success test config"),
     }
-    Ok(())
 }
 
 /// `--opt all` 相当の最適化を適用した上で IO テストをインタプリタ実行する
-pub fn test_ok_coding_io_base_opt_all(test_name: &str) -> Result {
+pub fn test_ok_coding_io_base_opt_all(test_name: &str) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -100,11 +99,9 @@ Actual: {:?}",
             test_name, case_name, expected_stdout, actual_stdout
         );
     }
-
-    Ok(())
 }
 
-pub fn test_ok_coding_base(test_name: &str) -> Result {
+pub fn test_ok_coding_base(test_name: &str) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -132,14 +129,13 @@ pub fn test_ok_coding_base(test_name: &str) -> Result {
         }
         _ => panic!("Expected success test config"),
     }
-    Ok(())
 }
 
 /// インタプリタのランダム初期化モードで success テストを実行する
 ///
 /// 未初期化変数にランダム値を設定して実行し、trace の結果が一致するか確認する。
 /// 初期値 0 に依存したコードの場合は失敗する。
-pub fn test_ok_coding_base_randomize(test_name: &str) -> Result {
+pub fn test_ok_coding_base_randomize(test_name: &str) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -168,10 +164,9 @@ pub fn test_ok_coding_base_randomize(test_name: &str) -> Result {
         }
         _ => panic!("Expected success test config"),
     }
-    Ok(())
 }
 
-pub fn test_ok_coding_io_base(test_name: &str) -> Result {
+pub fn test_ok_coding_io_base(test_name: &str) {
     let path_base = "resources/tests/passes/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
@@ -230,6 +225,4 @@ pub fn test_ok_coding_io_base(test_name: &str) -> Result {
             test_name, case_name, expected_stdout, actual_stdout
         );
     }
-
-    Ok(())
 }

@@ -24,12 +24,12 @@
 | 12 | medium | [12-wasm-compile-opt-mismatch.md](../../done-task/code-review-2026-10/12-wasm-compile-opt-mismatch.md) | **完了**（[runtime-robustness-2026-10](../../done-task/runtime-robustness-2026-10/README.md)） WASM compile が peephole を適用しない、パス表の 3 重管理 |
 | 13 | medium | [13-deploy-token-exposure.md](13-deploy-token-exposure.md) | デプロイで書き込みトークンを外部コード実行に晒す |
 | 14 | medium | [14-unregistered-tests.md](14-unregistered-tests.md) | どこからも実行されないテストリソース |
-| 15 | low | [15-ws-vm-instruction-inconsistency.md](15-ws-vm-instruction-inconsistency.md) | WS VM の Copy / Slide / 入力命令の不整合 |
-| 16 | low | [16-cli-error-output.md](16-cli-error-output.md) | CLI のエラー出力先不統一・stdin エラー握りつぶし・バージョン不一致 |
-| 17 | low | [17-tree-parser-duplication.md](17-tree-parser-duplication.md) | tree_parser の重複コード・巨大モジュール |
-| 18 | low | [18-location-doc-and-missing-doccomments.md](18-location-doc-and-missing-doccomments.md) | 位置情報の単位誤記・ドキュメントコメント不足 |
+| 15 | low | [15-ws-vm-instruction-inconsistency.md](15-ws-vm-instruction-inconsistency.md) | 設計済み（[ws-vm-copy-index-conversion](../ws-vm-copy-index-conversion.md) / [ws-slide-instruction](../ws-slide-instruction/README.md) / [ws-vm-input-via-heap-store](../ws-vm-input-via-heap-store.md)） WS VM の Copy / Slide / 入力命令の不整合 |
+| 16 | low | [16-cli-error-output.md](16-cli-error-output.md) | 設計済み（[cli-errors-and-doccomments](../cli-errors-and-doccomments/README.md)） CLI のエラー出力先不統一・stdin エラー握りつぶし・バージョン不一致 |
+| 17 | low | [17-tree-parser-duplication.md](17-tree-parser-duplication.md) | 設計済み（[tree-parser-dedup](../tree-parser-dedup/README.md)） tree_parser の重複コード・巨大モジュール |
+| 18 | low | [18-location-doc-and-missing-doccomments.md](18-location-doc-and-missing-doccomments.md) | 設計済み（[cli-errors-and-doccomments](../cli-errors-and-doccomments/README.md)。EOF 位置は [tree-parser-dedup](../tree-parser-dedup/README.md)） 位置情報の単位誤記・ドキュメントコメント不足 |
 | 19 | low | [19-dead-code.md](19-dead-code.md) | 死にコード・誤解を招く実装 |
-| 20 | low | [20-test-harness-and-ci.md](20-test-harness-and-ci.md) | テストハーネス・CI の品質 |
+| 20 | low | [20-test-harness-and-ci.md](../../done-task/code-review-2026-10/20-test-harness-and-ci.md) | **完了** テストハーネス・CI の品質 |
 
 ## 推奨対応順
 
