@@ -1,0 +1,18 @@
+# ブロック内でも、関数を生成しない宣言は許可される #
+# - インスタンス化しないテンプレート関数の定義 #
+# - 展開しないブロックエイリアス（本体に関数宣言を含む） #
+alias: unused_alias {
+  func: g() {
+    return: 1;
+  }
+};
+
+func: __main() {
+  {
+    func: tmpl(x), alias: constexpr: step {
+      return: x + step;
+    }
+    __puti(3);
+  };
+  __putc('\n');
+}

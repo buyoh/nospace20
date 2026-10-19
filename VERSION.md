@@ -30,6 +30,7 @@ PATCH
 - Interpreter: NospaceVM returns no value (`main exited`) when `__main` ends without `return`, matching the tree-walking interpreter
 - Parser: Limit syntax nesting depth to 128 (parentheses, unary/binary/postfix operator chains, type specs, blocks, `else: if:` chains, `repeat:`, ...) and report `nesting too deep` instead of overflowing the stack
 - WS compiler: Fix variables in root-level blocks and in function static initializers being placed at the same addresses as global/static variables or the allocator area; fix static variables accessed from nested blocks in a function resolving to a wrong address
+- Semantic analyzer: Reject function declarations in block scopes (`{}`, `if` / `while` / `for` / `repeat` bodies, block aliases) as a compile error. They were previously accepted and calls resolved to an unrelated function (inside a namespaced function, they caused an internal panic)
 
 ## 2.0.0
 

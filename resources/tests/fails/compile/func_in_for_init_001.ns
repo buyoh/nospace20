@@ -1,0 +1,6 @@
+# エラーケース: for の init ブロックで関数を宣言 #
+func: __main() {
+  for: { let: i(0); func: g() { return: 7; } } { i < 1; } { i += 1; } {
+    __puti(g());
+  };
+}

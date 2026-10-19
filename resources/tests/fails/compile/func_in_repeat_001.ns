@@ -1,0 +1,9 @@
+# エラーケース: repeat の本体で関数を宣言（パーサで for に脱糖される） #
+func: __main() {
+  repeat: i(0), 3, {
+    func: g() {
+      return: 1;
+    }
+    __puti(g());
+  };
+}

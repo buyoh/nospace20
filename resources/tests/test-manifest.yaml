@@ -728,6 +728,67 @@ tests:
     path: scope_nested_func_child_access_error_001
     comment: "Error: child scope function access"
 
+  # Block-scope function declaration is forbidden
+  - name: test_compile_error_func_in_block_expr_001
+    type: compile_error
+    path: func_in_block_expr_001
+    comment: "Error: function declaration in block expression"
+
+  - name: test_compile_error_func_in_root_block_001
+    type: compile_error
+    path: func_in_root_block_001
+    comment: "Error: function declaration in root expression-statement block"
+
+  - name: test_compile_error_func_in_if_001
+    type: compile_error
+    path: func_in_if_001
+    comment: "Error: function declaration in if body"
+
+  - name: test_compile_error_func_in_while_001
+    type: compile_error
+    path: func_in_while_001
+    comment: "Error: function declaration in while body"
+
+  - name: test_compile_error_func_in_for_init_001
+    type: compile_error
+    path: func_in_for_init_001
+    comment: "Error: function declaration in for init block"
+
+  - name: test_compile_error_func_in_block_alias_001
+    type: compile_error
+    path: func_in_block_alias_001
+    comment: "Error: function declaration in expanded block alias"
+
+  - name: test_compile_error_func_in_block_namespace_001
+    type: compile_error
+    path: func_in_block_namespace_001
+    comment: "Error: function declaration in namespace inside block"
+
+  - name: test_compile_error_func_in_block_template_001
+    type: compile_error
+    path: func_in_block_template_001
+    comment: "Error: template instantiation (alias:) inside block"
+
+  - name: test_compile_error_func_in_namespaced_func_block_001
+    type: compile_error
+    path: func_in_namespaced_func_block_001
+    comment: "Error: function declaration in block of namespaced function (mangled name in message)"
+
+  - name: test_compile_error_func_in_repeat_001
+    type: compile_error
+    path: func_in_repeat_001
+    comment: "Error: function declaration in repeat body (desugared to for)"
+
+  - name: test_compile_error_func_in_for_body_001
+    type: compile_error
+    path: func_in_for_body_001
+    comment: "Error: function declaration in for body"
+
+  - name: test_scope_block_unused_func_decl_001
+    type: success_io
+    path: scope/block_unused_func_decl_001
+    comment: "Uninstantiated template definition in a block and unexpanded block alias with func are accepted"
+
   - name: test_scope_scope_static_init_001
     type: success
     path: scope/scope_static_init_001

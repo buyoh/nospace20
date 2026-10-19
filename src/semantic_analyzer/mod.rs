@@ -55,8 +55,9 @@ pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
 /// 式 (Expression) の中でブロックスコープが出現する場合（If/Block/ブロックエイリアス呼び出し等）
 /// に `analyze_internal_with_parent` を呼び出すための簡易ラッパー。
 ///
-/// ブロック式の中では新しい関数宣言は許可されないため、
-/// グローバル関数リストへの参照として一時的な空 Vec を使用する。
+/// ブロックスコープでの関数宣言は `analyze_internal_with_parent` でエラーにしているため、
+/// この関数表には何も登録されない。一時的な空 Vec を渡しているのはそのため
+/// （ブロック内の関数宣言を許可する際に、親の関数表を共有する予定）。
 fn analyze_block_for_expression(
     statements: &Vec<LocatedStatement>,
     parent_resolver: &ScopeResolver,
@@ -105,6 +106,17 @@ fn analyze_internal_with_parent(
     // TemplateFunctionDefinition と AliasInstantiation を FunctionDeclaration に変換する
     let expanded_statements = expand_template_instantiations(statements)?;
     let statements: &Vec<LocatedStatement> = &expanded_statements;
+
+    // バグ: ブロックスコープの関数宣言は一時的な空の関数表に登録され、解析後に捨てられていた。
+    // 呼び出しのインデックスが本来の関数表の別の関数（多くは __main）を指し、誤ったコードを生成していた。
+    // 解決策: ブロックスコープでの関数宣言を意味解析エラーにする。
+    // テンプレートのインスタンス化（alias:）も検出するため、テンプレート展開の後で検査する。
+    if matches!(scope_type, ScopeType::Block) {
+        let ns_prefix = parent_resolver
+            .map(|p| p.current_ns_prefix())
+            .unwrap_or_default();
+        reject_function_declarations_in_block(statements, &ns_prefix)?;
+    }
 
     let mut scope = ScopeBuilder::new();
 
@@ -662,6 +674,35 @@ fn scan_function_declarations(
             Statement::NamespaceDeclaration(ns_name, body) => {
                 let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
                 scan_function_declarations(body, &sub_prefix, scope, ctx)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// ブロックスコープ内の関数宣言をエラーにする（名前空間の中も調べる）
+///
+/// `ns_prefix` はエラーメッセージに出す関数名のマングル用（親の名前空間プレフィックスから始める）。
+/// 文の中の式（`if` の本体など）には入らない。子のブロックは自身の解析時に検査される。
+fn reject_function_declarations_in_block(
+    statements: &[LocatedStatement],
+    ns_prefix: &str,
+) -> Result<(), Vec<CodeParseError>> {
+    for located_stat in statements {
+        match &located_stat.statement {
+            Statement::FunctionDeclaration(name, ..) => {
+                return Err(vec![code_parse_error!(
+                    located_stat.location.start,
+                    format!(
+                        "semantic error: function '{}{}' cannot be declared in a block scope (only at global or function scope)",
+                        ns_prefix, name
+                    )
+                )]);
+            }
+            Statement::NamespaceDeclaration(ns_name, body) => {
+                let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
+                reject_function_declarations_in_block(body, &sub_prefix)?;
             }
             _ => {}
         }
