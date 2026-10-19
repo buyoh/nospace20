@@ -1,10 +1,10 @@
 //! 文のコード生成
 
 use crate::compiler_ws::{
-    context::CodeGenContext, expression, instruction::Instruction, program::WsProgram,
-    types::WsNumber, CompileError, CompileErrorKind,
+    block_var_count::calculate_total_variable_count, context::CodeGenContext, expression,
+    instruction::Instruction, program::WsProgram, types::WsNumber, CompileError, CompileErrorKind,
 };
-use crate::semantic_analyzer::{Block, ConditionMode, ExecStatement, LocatedExecStatement, Scope};
+use crate::semantic_analyzer::{Block, ConditionMode, ExecStatement, Scope};
 
 /// スコープ全体のコードを生成
 pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgram, CompileError> {
@@ -23,20 +23,25 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
             continue;
         }
         if !func.block.scope.static_init_statements.is_empty() {
-            let func_scope_var_count = func.block.scope.variable_count;
-            let total_var_count = calculate_total_variable_count(&func.block);
-            let mut static_ctx = ctx.enter_function_for_static_init(
-                total_var_count,
-                func_scope_var_count,
-                func_idx,
-                &func.block.scope,
-            );
+            let mut static_ctx = ctx.enter_function_for_static_init(func_idx, &func.block.scope);
             for located_stmt in &func.block.scope.static_init_statements {
                 static_ctx.set_location(&located_stmt.location);
                 prog.append(generate_statement(
                     &mut static_ctx,
                     &located_stmt.statement,
                 )?);
+            }
+            // 予約したフレーム相当領域を超えていないこと（数え上げとコード生成の不一致の検出）
+            #[cfg(debug_assertions)]
+            {
+                let frame = ctx
+                    .layout()
+                    .static_init_frame(func_idx)
+                    .expect("static init frame must be reserved");
+                debug_assert!(
+                    static_ctx.next_var_offset() <= frame.end,
+                    "static init block variables exceed the reserved region"
+                );
             }
             ctx.sync_labels_from(&static_ctx);
         }
@@ -47,6 +52,12 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
         ctx.set_location(&located_stmt.location);
         prog.append(generate_statement(ctx, &located_stmt.statement)?);
     }
+
+    // ルート初期化文（①③）のブロック変数が予約領域を超えていないこと
+    debug_assert!(
+        ctx.next_var_offset() <= ctx.layout().root_init_block_range().end,
+        "root block variables exceed the reserved region"
+    );
 
     // ⑤ 全ての関数定義を生成
     // 関数は symbol_table.function_names と functions が対応している
@@ -405,6 +416,12 @@ fn generate_function_definition(
     prog.push(Instruction::Push(WsNumber(0)));
     prog.push(Instruction::Return);
 
+    // 関数内のブロック変数がフレームを超えていないこと
+    debug_assert!(
+        local_ctx.next_var_offset() <= local_ctx.local_heap_size(),
+        "block variables exceed the function frame"
+    );
+
     // 子コンテキストのラベルカウンタを親に同期
     ctx.sync_labels_from(&local_ctx);
 
@@ -412,69 +429,4 @@ fn generate_function_definition(
     prog.push(Instruction::Label(label.offset(1)));
 
     Ok(prog)
-}
-
-/// 関数内の全ブロック（ネスト含む）の変数合計数を計算
-fn calculate_total_variable_count(block: &Block) -> usize {
-    block.scope.variable_count + count_nested_vars_in_statements(&block.statements)
-}
-
-fn count_nested_vars_in_statements(stmts: &[LocatedExecStatement]) -> usize {
-    stmts
-        .iter()
-        .map(|located| count_nested_vars_in_statement(&located.statement))
-        .sum()
-}
-
-fn count_nested_vars_in_statement(stmt: &ExecStatement) -> usize {
-    match stmt {
-        ExecStatement::Expression(located_expr) | ExecStatement::Return(Some(located_expr)) => {
-            count_nested_vars_in_expression(located_expr)
-        }
-        ExecStatement::While(_mode, cond, body) => {
-            count_nested_vars_in_expression(cond) + calculate_total_variable_count(body)
-        }
-        ExecStatement::For(init, _mode, cond, step, body) => {
-            // init は for スコープ自体（変数は init.scope.variable_count に含まれる）
-            // init.statements の中に更にネストされた変数がある場合を処理
-            calculate_total_variable_count(init)
-                + calculate_total_variable_count(cond)
-                + calculate_total_variable_count(step)
-                + calculate_total_variable_count(body)
-        }
-        ExecStatement::Return(None) | ExecStatement::Break | ExecStatement::Continue => 0,
-    }
-}
-
-fn count_nested_vars_in_expression(
-    located_expr: &crate::semantic_analyzer::LocatedExecExpression,
-) -> usize {
-    use crate::semantic_analyzer::ExecExpression;
-    match &located_expr.expression {
-        ExecExpression::If(_mode, cond, then_block, else_block) => {
-            count_nested_vars_in_expression(cond)
-                + calculate_total_variable_count(then_block)
-                + calculate_total_variable_count(else_block)
-        }
-        ExecExpression::Block(block) => calculate_total_variable_count(block),
-        ExecExpression::Operation1(_, inner) => count_nested_vars_in_expression(inner),
-        ExecExpression::Operation2(_, l, r) => {
-            count_nested_vars_in_expression(l) + count_nested_vars_in_expression(r)
-        }
-        ExecExpression::BuiltinFunction(_, args) | ExecExpression::UserFunction(_, args) => args
-            .iter()
-            .map(|arg| count_nested_vars_in_expression(arg))
-            .sum(),
-        ExecExpression::ArrayAccess(_, index_expr, _) => {
-            count_nested_vars_in_expression(index_expr)
-        }
-        ExecExpression::Variable(_, _) | ExecExpression::Factor(_) => 0,
-        ExecExpression::InternalBuiltinFunction(_) => 0,
-        ExecExpression::TypeAssertion(inner, _) => count_nested_vars_in_expression(inner),
-        ExecExpression::VoidCast(inner) => count_nested_vars_in_expression(inner),
-        ExecExpression::StructFieldAccess(base, _, _, _) => count_nested_vars_in_expression(base),
-        ExecExpression::StructFieldArrayAccess(base, _, index_expr, _) => {
-            count_nested_vars_in_expression(base) + count_nested_vars_in_expression(index_expr)
-        }
-    }
 }

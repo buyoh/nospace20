@@ -1,0 +1,13 @@
+# ネストした関数のブロック内から親関数の static 変数を参照できる #
+let: g(1);
+func: f() {
+  static: s(3);
+  func: inner() { { s += 1; }; if: 1 { s += 10; }; return: s; }
+  return: inner();
+}
+func: __main() {
+  __puti(g); __putc(32);
+  __puti(f()); __putc(32);
+  __puti(f()); __putc('\n');
+  return: 0;
+}

@@ -572,6 +572,43 @@ tests:
     path: scope/block_var_no_collision_001
     comment: "Block scope variable must not collide with parent scope variable (Bug D)"
 
+  - name: test_scope_root_block_var_no_collision_001
+    type: success_io
+    path: scope/root_block_var_no_collision_001
+    comment: "Root-level block variables must not collide with global variables (WS)"
+
+  - name: test_scope_root_static_init_block_var_001
+    type: success_io
+    path: scope/root_static_init_block_var_001
+    comment: "Block variables in root static/let initializers must not collide with globals (WS)"
+
+  - name: test_scope_func_static_init_block_var_001
+    type: success_io
+    path: scope/func_static_init_block_var_001
+    comment: "Variables used by function static initializers must not collide with globals/statics (WS)"
+
+  - name: test_scope_func_static_init_block_var_alloc_001
+    type: success_io
+    path: scope/func_static_init_block_var_alloc_001
+    comment: "Block variables in function static initializers must not corrupt the allocator area (WS)"
+    std_ext: ["alloc"]
+    exclude_targets: [whitespace]
+
+  - name: test_scope_template_static_init_block_var_001
+    type: success_io
+    path: scope/template_static_init_block_var_001
+    comment: "Block variables in static initializers of template instances must not collide (WS)"
+
+  - name: test_scope_static_in_block_001
+    type: success_io
+    path: scope/static_in_block_001
+    comment: "Static variable access from nested blocks in the same function (WS)"
+
+  - name: test_scope_static_in_block_nested_func_001
+    type: success_io
+    path: scope/static_in_block_nested_func_001
+    comment: "Parent function static variable access from blocks in a nested function (regression guard for owning_func_index path; passes on old code)"
+
   - name: test_scope_disabled_scope_block_var_001
     type: success
     path: scope/disabled_scope_block_var_001

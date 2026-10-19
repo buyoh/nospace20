@@ -1,0 +1,23 @@
+# 関数内のブロックから同じ関数の static 変数を読み書きできる・ブロック変数を static と誤認しない #
+let: g(1);
+func: f() {
+  static: s(3);
+  { s += 1; };
+  if: 1 { s += 10; };
+  let: i(0);
+  while: i < 2 { s += 100; i += 1; };
+  for: { let: j(0); } { j < 2; } { j += 1; } { s += 1000; };
+  return: s;
+}
+func: c() {
+  static: s(3);
+  { let: t; t = 5; };
+  return: s;
+}
+func: __main() {
+  __puti(g); __putc(32);
+  __puti(f()); __putc(32);
+  __puti(f()); __putc(32);
+  __puti(c()); __putc('\n');
+  return: 0;
+}

@@ -11,15 +11,19 @@
 //! - `memory` - メモリレイアウト管理
 //! - `label` - ラベル管理
 //! - `builtin` - 組み込みルーチン生成
+//! - `block_var_count` - ブロック変数の数え上げ
+//! - `global_layout` - グローバル領域の配置
 //! - `context` - コード生成コンテキスト
 //! - `expression` - 式のコード生成
 //! - `statement` - 文のコード生成
 
 pub mod alloc_runtime;
+mod block_var_count;
 mod builtin;
 mod context;
 mod encoder;
 mod expression;
+mod global_layout;
 pub mod instruction;
 pub mod label;
 pub mod memory;
@@ -34,6 +38,7 @@ pub use program::WsProgram;
 pub use crate::base::ws_types::{HeapAddress, Instruction, LabelId, WsChar, WsNumber};
 use crate::semantic_analyzer::Scope;
 use context::CodeGenContext;
+use global_layout::GlobalLayout;
 
 // CompileError, CompileErrorKind を base::error から re-export（後方互換）
 pub use crate::base::error::compile_error::{CompileError, CompileErrorKind};
@@ -52,7 +57,9 @@ pub fn compile_with_options(
     } else {
         &bump_runtime
     };
-    let mut ctx = CodeGenContext::new_with_options(scope, debug_ext, alloc_ext, alloc_runtime);
+    let layout = GlobalLayout::compute(scope);
+    let mut ctx =
+        CodeGenContext::new_with_options(scope, &layout, debug_ext, alloc_ext, alloc_runtime);
     let mut program = WsProgram::new();
 
     // 1. ヘッダー（初期化・組み込みルーチン）を生成

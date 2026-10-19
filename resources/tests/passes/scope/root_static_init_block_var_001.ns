@@ -1,0 +1,10 @@
+# ルートの static / let 初期化子のブロック変数がグローバル変数と重ならない #
+let: g(1);
+static: h({ let: t; t = 9; t; });
+let: k({ let: u; u = 4; u; });
+func: __main() {
+  __puti(g); __putc(32);
+  __puti(h); __putc(32);
+  __puti(k); __putc('\n');
+  return: 0;
+}

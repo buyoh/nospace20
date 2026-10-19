@@ -1,0 +1,27 @@
+# 関数内 static 初期化子のブロック変数がアロケータの管理領域（グローバル領域の直後）を壊さない #
+let: g(1);
+let: h(2);
+func: f() {
+  let: a; let: b;
+  static: s1(4);
+  static: s2({ let: t; t = s1 + 1; t; });
+  static: s3({ a = 7; b = 8; a + b; });
+  return: s1 * 100 + s2 * 10 + s3;
+}
+func: q() {
+  static: s4({ let: t[2]; t[0] = 30; t[1] = 6; t[0] + t[1]; });
+  return: s4;
+}
+func: __main() {
+  let: p(__alloc(4));
+  *p = 11;
+  *(p + 3) = 22;
+  __puti(g); __putc(32);
+  __puti(h); __putc(32);
+  __puti(f()); __putc(32);
+  __puti(q()); __putc(32);
+  __puti(*p); __putc(32);
+  __puti(*(p + 3)); __putc('\n');
+  __free(p);
+  return: 0;
+}

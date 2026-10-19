@@ -18,6 +18,7 @@
 - Interpreter: NospaceVM reports assignment to a non-assignable left value as a runtime error instead of panicking
 - Interpreter: NospaceVM returns no value (`main exited`) when `__main` ends without `return`, matching the tree-walking interpreter
 - Parser: Limit syntax nesting depth to 128 (parentheses, unary/binary/postfix operator chains, type specs, blocks, `else: if:` chains, `repeat:`, ...) and report `nesting too deep` instead of overflowing the stack
+- WS compiler: Fix variables in root-level blocks and in function static initializers being placed at the same addresses as global/static variables or the allocator area; fix static variables accessed from nested blocks in a function resolving to a wrong address
 - WASM: `compile()` now applies the peephole optimization for `["all"]` / `["peephole"]` (same output as the CLI); `getOptions().optPasses` includes `peephole`
 - Optimizer: Pass names are defined once (`optimizer::PASS_NAMES` / `OptimizationOptions::from_pass_names`) and shared by the CLI and WASM
 

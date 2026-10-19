@@ -1,0 +1,18 @@
+# ルートレベルのブロック変数がグローバル変数と重ならない（WS で同じアドレスに配置されていた） #
+let: g(1);
+let: arr[3];
+arr[0] = 10; arr[1] = 20; arr[2] = 30;
+func: twice(x) { let: y; y = x * 2; return: y; }
+{ let: b; b = 5; };
+if: 1 { let: t[2]; t[0] = 100; t[1] = 200; };
+let: r({ let: u(3); twice(4); u; });
+namespace: N { let: x(5); { let: y; y = 9; }; }
+func: __main() {
+  __puti(g); __putc(32);
+  __puti(arr[0]); __putc(32);
+  __puti(arr[1]); __putc(32);
+  __puti(arr[2]); __putc(32);
+  __puti(r); __putc(32);
+  __puti(N$x); __putc('\n');
+  return: 0;
+}

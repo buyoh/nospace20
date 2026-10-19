@@ -25,7 +25,7 @@ pub trait AllocRuntime {
     /// ヘッダー部分のメモリ初期化コードを生成。
     ///
     /// ヒープの予約アドレスを初期化する。
-    /// `global_heap_size`: グローバル変数 + static 変数の合計サイズ
+    /// `global_heap_size`: グローバル領域（グローバル変数・static 変数・初期化文が使う変数）の合計サイズ
     fn generate_memory_init(&self, global_heap_size: i64) -> WsProgram;
 
     /// フッター部分のサブルーチン定義コードを生成。

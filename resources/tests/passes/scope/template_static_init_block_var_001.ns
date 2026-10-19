@@ -1,0 +1,13 @@
+# テンプレート関数のインスタンスごとの static 初期化子のブロック変数が重ならない #
+let: g(1);
+let: h(2);
+func: tmpl(x), alias: constexpr: step { static: s({ let: t; t = step; t; }); s += x; return: s; }
+alias: a2(tmpl, 2);
+alias: a3(tmpl, 3);
+func: __main() {
+  __puti(g); __putc(32);
+  __puti(h); __putc(32);
+  __puti(a2(1)); __putc(32);
+  __puti(a3(1)); __putc('\n');
+  return: 0;
+}

@@ -18,6 +18,9 @@
 - [runtime-robustness-followups.md](runtime-robustness-followups.md) - 実行時エラー・ネスト深度対策の残課題（ヒープ総量上限、NestingTracker 抽出、1MiB スタックの自動確認、意味解析関数の分割、exec.rs 廃止、左辺値の意味解析検査ほか）
 - ~~[runtime-robustness-2026-10/](../done-task/runtime-robustness-2026-10/)~~ - 実行時エラーの Result 化・ネスト深度上限・CLI の NospaceVM 移行・WASM 最適化パス統一（コードレビュー 2026-10 の 05/07/12）→ done-task に移動 (2026-10-19)
 - [code-review-2026-10/](code-review-2026-10/) - コードレビュー 2026-10（high 7件: パーサ無限ループ、ブロック内関数の誤解決、WS VM/パーサのオーバーフロー panic、実行時エラーの panic、スコープ領域リーク、再帰深度無制限 / medium 7件 / low 6件）
+- [nested-block-function-and-static.md](nested-block-function-and-static.md) - ネストしたブロック内の関数定義・static 宣言の不具合（run・WS 両方で stack overflow / 初期化子消失。ルートブロック内の関数からのブロック変数参照も未確認。ws-root-block-variable-address の設計レビューで発見。未設計）
+- [ws-static-init-frame-compaction.md](ws-static-init-frame-compaction.md) - WS コンパイラの static 初期化子用フレーム相当領域を、実際に参照される非 static 変数の分だけに縮小（正しさには影響しない改善。ws-root-block-variable-address のコードレビューで指摘）
+- [nospace-vm-recursive-static.md](nospace-vm-recursive-static.md) - NospaceVM（`--mode run`）で再帰中の static 変数の更新が失われるバグ（正解器側の誤り。ws-root-block-variable-address のコードレビューで発見。未調査）
 - [code-review-2026-04.md](code-review-2026-04.md) - コードレビュー 2026-04（CI/CD信頼性、サプライチェーンリスク、unsafeコメント不足、WASM入力検証、ディレクトリ不一致、ワークフロー設計）
 - [cleanup-phase-comments.md](cleanup-phase-comments.md) - Phase コメント整理（完了済みタスクの `Phase N:` 開発メモを削除・整理、カテゴリ A: 6件完全削除 / カテゴリ B: 32件プレフィックス削除）
 - [template-functions.md](template-functions.md) - テンプレート関数（関数ポインタ代替、alias パラメータによるコンパイル時関数生成）

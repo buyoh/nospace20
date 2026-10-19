@@ -2,7 +2,7 @@
 
 use crate::base::SourceLocation;
 use crate::compiler_ws::alloc_runtime::AllocRuntime;
-use crate::compiler_ws::{label::LabelAllocator, types::LabelId};
+use crate::compiler_ws::{global_layout::GlobalLayout, label::LabelAllocator, types::LabelId};
 use crate::semantic_analyzer::{IdentifierRef, Scope};
 use std::collections::HashMap;
 
@@ -18,27 +18,6 @@ pub enum VarScope {
 pub struct VarInfo {
     pub scope: VarScope,
     pub offset: i64,
-}
-
-/// static 変数のグローバルオフセットを計算する
-///
-/// 戻り値: (オフセットマップ, 合計サイズ)
-fn compute_static_var_offsets(scope: &Scope) -> (HashMap<(usize, usize), i64>, i64) {
-    let mut offsets = HashMap::new();
-    let mut next_offset = scope.variable_count as i64; // グローバル変数の直後
-
-    for (func_idx, func) in scope.functions.iter().enumerate() {
-        for var in &func.block.scope.variables {
-            if var.is_static {
-                let slot_count = var.array_size.unwrap_or(1);
-                offsets.insert((func_idx, var.slot_index), next_offset);
-                next_offset += slot_count as i64;
-            }
-        }
-    }
-
-    let total_size = next_offset - scope.variable_count as i64;
-    (offsets, total_size)
 }
 
 /// コード生成コンテキスト
@@ -83,13 +62,8 @@ pub struct CodeGenContext<'a> {
     /// 次のブロックスコープに割り当てる開始オフセット
     next_var_offset: i64,
 
-    /// 関数内 static 変数のグローバルオフセット
-    /// キー: (関数インデックス, ローカル変数スロットインデックス)
-    /// 値: グローバルヒープ上のオフセット（GLOBAL_PTR からの相対）
-    static_var_global_offsets: HashMap<(usize, usize), i64>,
-
-    /// static 変数領域の合計サイズ
-    static_var_total_size: i64,
+    /// グローバル領域の配置（static 変数・初期化文が使う変数のオフセット）
+    layout: &'a GlobalLayout,
 
     /// 現在処理中の関数インデックス (関数内でのみ Some)
     current_func_index: Option<usize>,
@@ -106,11 +80,11 @@ pub struct CodeGenContext<'a> {
 impl<'a> CodeGenContext<'a> {
     pub fn new_with_options(
         scope: &'a Scope,
+        layout: &'a GlobalLayout,
         debug_ext: bool,
         alloc_ext: bool,
         alloc_runtime: &'a dyn AllocRuntime,
     ) -> Self {
-        let (static_var_global_offsets, static_var_total_size) = compute_static_var_offsets(scope);
         Self {
             scope,
             labels: LabelAllocator::new(),
@@ -122,9 +96,10 @@ impl<'a> CodeGenContext<'a> {
             alloc_ext,
             alloc_runtime,
             scope_offsets: vec![0],
-            next_var_offset: 0,
-            static_var_global_offsets,
-            static_var_total_size,
+            // バグ: ルートレベルのブロック変数が 0 から積まれ、グローバル変数と重なっていた。
+            // 解決策: GlobalLayout が予約したルート初期化文用の領域から積む。
+            next_var_offset: layout.root_init_block_range().start,
+            layout,
             current_func_index: None,
             current_func_scope: None,
             current_location: None,
@@ -153,8 +128,7 @@ impl<'a> CodeGenContext<'a> {
             alloc_runtime: self.alloc_runtime,
             scope_offsets: vec![0],
             next_var_offset: func_scope_var_count as i64,
-            static_var_global_offsets: self.static_var_global_offsets.clone(),
-            static_var_total_size: self.static_var_total_size,
+            layout: self.layout,
             current_func_index: Some(func_index),
             current_func_scope: Some(func_scope),
             current_location: None,
@@ -164,15 +138,23 @@ impl<'a> CodeGenContext<'a> {
     /// static 変数初期化用のコンテキストを作成
     ///
     /// static 初期化では、変数への書き込みはグローバルヒープ上で行われるため、
-    /// ローカルヒープの allocate/deallocate は不要。
+    /// ローカルヒープの allocate/deallocate は不要（`heap[LOCAL_HEAP_BEGIN]` は GLOBAL_PTR のまま）。
+    /// 関数スコープ直下の非 static 変数・初期化子内のブロック変数は、
+    /// GlobalLayout が予約したフレーム相当領域に配置する。
     /// それ以外は enter_function と同じ動作でアドレス解決を行う。
     pub fn enter_function_for_static_init(
         &self,
-        _total_var_count: usize,
-        func_scope_var_count: usize,
         func_index: usize,
         func_scope: &'a Scope,
     ) -> CodeGenContext<'a> {
+        // バグ: scope_offsets = [0]、next_var_offset = 関数スコープ直下の変数数 から積んでいたため、
+        // 非 static 変数・ブロック変数が GLOBAL_PTR + slot に置かれ、グローバル変数・static 変数・
+        // アロケータの管理領域と重なっていた。
+        // 解決策: GlobalLayout が関数ごとに予約した領域を、関数フレームと同じ並びで使う。
+        let frame = self
+            .layout
+            .static_init_frame(func_index)
+            .expect("static init frame must be reserved for a function with static initializers");
         CodeGenContext {
             scope: self.scope,
             labels: self.labels.clone(),
@@ -183,19 +165,28 @@ impl<'a> CodeGenContext<'a> {
             debug_ext: self.debug_ext,
             alloc_ext: self.alloc_ext,
             alloc_runtime: self.alloc_runtime,
-            scope_offsets: vec![0],
-            next_var_offset: func_scope_var_count as i64,
-            static_var_global_offsets: self.static_var_global_offsets.clone(),
-            static_var_total_size: self.static_var_total_size,
+            scope_offsets: vec![frame.frame_base],
+            next_var_offset: frame.block_base,
+            layout: self.layout,
             current_func_index: Some(func_index),
             current_func_scope: Some(func_scope),
             current_location: None,
         }
     }
 
+    /// グローバル領域の配置を取得
+    pub fn layout(&self) -> &'a GlobalLayout {
+        self.layout
+    }
+
+    /// 次のブロックスコープに割り当てる開始オフセットを取得（予約領域の検査用）
+    pub fn next_var_offset(&self) -> i64 {
+        self.next_var_offset
+    }
+
     /// グローバルヒープサイズを取得
     pub fn global_heap_size(&self) -> i64 {
-        self.scope.variable_count as i64 + self.static_var_total_size
+        self.layout.total_size()
     }
 
     /// 現在処理中の文の位置をセットする
@@ -243,27 +234,30 @@ impl<'a> CodeGenContext<'a> {
             }
         } else {
             // static 変数チェック（関数スコープ直下の変数のみ）
-            // owning_func_index がある場合は親関数の static 変数へのアクセス
-            // （ネストされた関数から親関数の static 変数にアクセスする場合）
-            // owning_func_index がない場合は current_func_index を使用
+            //
+            // バグ: `scope_depth == 0` を「関数スコープ直下」として static を検索していた。
+            // scope_depth は現在のスコープからの段数なので、ブロック内から static を参照すると
+            // static 領域でなくフレーム上のアドレスになり、ブロック変数のスロット番号が
+            // static と一致すると static と誤認していた。
+            // 解決策: 関数スコープ（scope_offsets[0]）の段 `scope_depth == len - 1` で検索する。
             if let (Some(func_idx), Some(_func_scope)) =
                 (self.current_func_index, self.current_func_scope)
             {
-                let lookup_func_idx = var_ref.owning_func_index.unwrap_or(func_idx);
-                // scope_depth == 0 で関数スコープ直下の変数を参照している場合、
-                // または scope_depth >= scope_offsets.len() で親関数の変数を参照している場合
-                if var_ref.scope_depth == 0 || var_ref.scope_depth >= self.scope_offsets.len() {
-                    // var_ref.local_index はスロットインデックスなので、
-                    // static_var_global_offsets で検索
-                    if let Some(global_offset) = self
-                        .static_var_global_offsets
-                        .get(&(lookup_func_idx, var_ref.local_index))
-                    {
-                        return VarInfo {
-                            scope: VarScope::Global,
-                            offset: *global_offset,
-                        };
-                    }
+                let lookup_func_idx = match var_ref.owning_func_index {
+                    // 関数境界を越えた参照（ネストされた関数から親関数の static 変数）
+                    Some(owner) => Some(owner),
+                    // 自関数の関数スコープ直下の変数
+                    None if var_ref.scope_depth + 1 == self.scope_offsets.len() => Some(func_idx),
+                    None => None,
+                };
+                // var_ref.local_index はスロットインデックス
+                if let Some(global_offset) = lookup_func_idx
+                    .and_then(|idx| self.layout.static_var_offset(idx, var_ref.local_index))
+                {
+                    return VarInfo {
+                        scope: VarScope::Global,
+                        offset: global_offset,
+                    };
                 }
             }
 
