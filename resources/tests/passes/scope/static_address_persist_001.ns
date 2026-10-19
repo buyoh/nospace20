@@ -1,0 +1,11 @@
+# static 変数のアドレスは呼び出しをまたいで同じ領域を指す #
+func: p() {
+  static: c(3);
+  return: &c;
+}
+func: __main() {
+  let: x(p());
+  *x = 5;
+  __puti(*p()); __putc('\n');
+  return: 0;
+}

@@ -16,6 +16,8 @@ MINOR
 PATCH
 
 - Parser: Fix infinite loop and unbounded memory use on an invalid token in a function call / struct literal argument list (e.g. `f(;`)
+- Interpreter: Static variables are accessed directly in their static storage instead of being copied into each call frame. Updates made during recursion are no longer lost, pointers to static variables stay valid across calls, recursive nested functions update the parent's statics correctly, and `__main` statics keep their initializer value (tree-walking interpreter)
+- Interpreter: NospaceVM no longer corrupts variable resolution after `return` from inside a `for` loop
 - whitespace20: Distinguish labels by their exact Space/Tab sequence (labels such as `ST` and `TT` no longer collide)
 - whitespace20: Reject numbers outside the 64-bit signed range as a parse error instead of panicking, and parse `i64::MIN` correctly
 - whitespace20: Arithmetic overflow now wraps (64-bit two's complement) instead of panicking or depending on the build profile

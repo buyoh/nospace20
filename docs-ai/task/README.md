@@ -13,7 +13,6 @@
 - [array-size-overflow/](array-size-overflow/) - 配列・struct サイズ計算のオーバーフロー対策（コードレビュー 2026-10 #08。案 A のみ: パーサの `usize::try_from`、意味解析のスロット累積・struct サイズの checked 化、compiler_ws のフレーム・グローバル領域サイズの `i64` 検査。案 B（サイズ上限）は不採用とし、実施する場合の検査箇所を記録）
 - [nested-block-function-and-static.md](nested-block-function-and-static.md) - ネストしたブロック内の関数定義・static 宣言の不具合（run・WS 両方で stack overflow / 初期化子消失。ルートブロック内の関数からのブロック変数参照も未確認。ws-root-block-variable-address の設計レビューで発見。未設計）
 - [ws-static-init-frame-compaction.md](ws-static-init-frame-compaction.md) - WS コンパイラの static 初期化子用フレーム相当領域を、実際に参照される非 static 変数の分だけに縮小（正しさには影響しない改善。ws-root-block-variable-address のコードレビューで指摘）
-- [nospace-vm-recursive-static.md](nospace-vm-recursive-static.md) - NospaceVM（`--mode run`）で再帰中の static 変数の更新が失われるバグ（正解器側の誤り。ws-root-block-variable-address のコードレビューで発見。未調査）
 - [ws-vm-copy-index-conversion.md](ws-vm-copy-index-conversion.md) - WhitespaceVM Copy のインデックス変換修正（wasm32 での `as usize` 切り詰めを `usize::try_from` + `checked_add` に、負の n は `|n|` のまま予約扱いとして spec に明記。コードレビュー 2026-10 #15-1）
 - [ws-slide-instruction/](ws-slide-instruction/) - Whitespace Slide 命令（v0.3）対応（`Instruction::Slide` 追加、パーサ・VM・プロファイラ対応、負の n はエラー予約（要ユーザー確認）、コンパイラでの利用は調査のみ。コードレビュー 2026-10 #15-2）
 - [ws-vm-input-via-heap-store.md](ws-vm-input-via-heap-store.md) - WhitespaceVM 入力命令のヒープ書き込みを `heap_store` に一元化（`--std-ext debug` フックとプロファイラ統計を Store と揃える。コードレビュー 2026-10 #15-3）

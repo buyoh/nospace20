@@ -1,0 +1,16 @@
+# static 初期化子から、後ろで定義した static を持つ関数を 2 回呼ぶ #
+# g の static 領域は h の初期化子の実行前に確保されている必要がある #
+func: h() {
+  static: k(g(0) + g(1) * 10);
+  return: k;
+}
+func: g(v) {
+  static: m;
+  if: v == 0 { m = 5; } else: { m += v; };
+  return: m;
+}
+func: __main() {
+  __puti(h()); __putc(32);
+  __puti(g(2)); __putc('\n');
+  return: 0;
+}

@@ -609,6 +609,51 @@ tests:
     path: scope/static_in_block_nested_func_001
     comment: "Parent function static variable access from blocks in a nested function (regression guard for owning_func_index path; passes on old code)"
 
+  - name: test_scope_static_recursive_update_001
+    type: success_io
+    path: scope/static_recursive_update_001
+    comment: "Static variable updates made inside recursive calls are not lost on return"
+
+  - name: test_scope_static_recursive_nested_func_001
+    type: success_io
+    path: scope/static_recursive_nested_func_001
+    comment: "Recursive nested function updates the parent function's static variable"
+
+  - name: test_scope_static_recursive_nested_func_002
+    type: success_io
+    path: scope/static_recursive_nested_func_002
+    comment: "Recursive doubly nested function updates the grandparent function's static variable"
+
+  - name: test_scope_static_recursive_array_pointer_001
+    type: success_io
+    path: scope/static_recursive_array_pointer_001
+    comment: "Static array element updated through a pointer taken before recursion"
+
+  - name: test_scope_static_main_init_001
+    type: success_io
+    path: scope/static_main_init_001
+    comment: "Static variable in __main has its initializer value"
+
+  - name: test_scope_static_address_persist_001
+    type: success_io
+    path: scope/static_address_persist_001
+    comment: "Address of a static variable points to the same storage across calls"
+
+  - name: test_scope_static_init_calls_later_func_001
+    type: success_io
+    path: scope/static_init_calls_later_func_001
+    comment: "Static initializer calls a later-defined function that has static variables"
+
+  - name: test_scope_for_return_scope_001
+    type: success_io
+    path: scope/for_return_scope_001
+    comment: "Return from inside a for loop keeps caller variables and statics intact"
+
+  - name: test_scope_for_return_scope_002
+    type: success_io
+    path: scope/for_return_scope_002
+    comment: "Return from a for loop inside a block frees the loop's init scope (no frame address drift)"
+
   - name: test_scope_disabled_scope_block_var_001
     type: success
     path: scope/disabled_scope_block_var_001

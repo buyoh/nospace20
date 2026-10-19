@@ -1,0 +1,21 @@
+# for ループの中から return した後も、呼び出し元の変数と static 変数を正しく参照できる #
+func: f() {
+  for: { let: j(0); } { j < 5; } { j += 1; } {
+    if: j == 2 { return: j; };
+  };
+  return: 99;
+}
+func: g() {
+  static: s(40);
+  let: a(7);
+  let: b(f());
+  s += b;
+  return: a * 100 + s;
+}
+func: __main() {
+  let: x(1);
+  __puti(g()); __putc(32);
+  __puti(g()); __putc(32);
+  __puti(x); __putc('\n');
+  return: 0;
+}

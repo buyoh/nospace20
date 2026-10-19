@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, Read, Write};
 
 use super::allocator::InterpreterAllocator;
+use super::static_storage::FunctionStaticStorage;
 use crate::base::error::interpret_error::InterpretError;
 
 /// NospaceVM のフレーム数上限の既定値
@@ -80,9 +81,8 @@ pub struct Environment {
     pub(crate) allocator: InterpreterAllocator,
     /// グローバル変数のベースアドレス（アロケータ上）
     pub(crate) global_base_addr: i64,
-    /// 関数内 static 変数のベースアドレス
-    /// 関数インデックス → アロケータ上のベースアドレス
-    pub(crate) function_static_addrs: BTreeMap<usize, i64>,
+    /// 関数内 static 変数の領域
+    pub(crate) function_statics: FunctionStaticStorage,
 }
 
 impl Environment {
@@ -95,7 +95,7 @@ impl Environment {
             metrics: EnvironmentMetrics::new(),
             allocator: InterpreterAllocator::new(),
             global_base_addr: 0,
-            function_static_addrs: BTreeMap::new(),
+            function_statics: FunctionStaticStorage::new(),
         }
     }
 
@@ -108,7 +108,7 @@ impl Environment {
             metrics: EnvironmentMetrics::new(),
             allocator: InterpreterAllocator::new(),
             global_base_addr: 0,
-            function_static_addrs: BTreeMap::new(),
+            function_statics: FunctionStaticStorage::new(),
         }
     }
 
@@ -125,7 +125,7 @@ impl Environment {
             metrics: EnvironmentMetrics::new(),
             allocator: InterpreterAllocator::new(),
             global_base_addr: 0,
-            function_static_addrs: BTreeMap::new(),
+            function_statics: FunctionStaticStorage::new(),
         }
     }
 

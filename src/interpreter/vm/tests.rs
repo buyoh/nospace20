@@ -213,6 +213,33 @@ fn test_step_one_at_a_time() {
 }
 
 #[test]
+fn test_step_one_at_a_time_recursive_static() {
+    // 再帰中の static 変数の更新が、step(1) で中断・再開しても失われない（func_frames が中断をまたぐ）
+    let src = "func: rec(n) { static: c(100); let: z(0); if: n > 0 { z = rec(n - 1); }; c += z; return: c; }
+func: __main() { __puti(rec(2)); return: rec(0); }";
+    let mut vm = NospaceVM::from_source(src).unwrap();
+    let mut step_calls = 0;
+    loop {
+        match vm.step(1) {
+            StepResult::Complete { return_value } => {
+                // rec(0) は c += 0 なので 2 回目の呼び出しでは 400 のまま
+                assert_eq!(return_value, Some(400));
+                break;
+            }
+            StepResult::Suspended => {
+                step_calls += 1;
+                assert!(
+                    step_calls < 100_000,
+                    "step(1) loop exceeded 100000 iterations"
+                );
+            }
+            StepResult::Error(e) => panic!("unexpected error: {:?}", e),
+        }
+    }
+    assert_eq!(vm.get_stdout_string(), "400");
+}
+
+#[test]
 fn test_step_one_with_function_call() {
     // 関数呼び出しを含む場合も step(1) で正しく実行できること
     let src = r#"

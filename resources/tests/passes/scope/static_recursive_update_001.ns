@@ -1,0 +1,12 @@
+# 再帰呼び出しの中で更新した static 変数が、外側の呼び出しから戻るときに失われない #
+func: rec(n) {
+  static: c(100);
+  let: z(0);
+  if: n > 0 { z = rec(n - 1); };
+  c += z;
+  return: c;
+}
+func: __main() {
+  __puti(rec(2)); __putc('\n');
+  return: 0;
+}

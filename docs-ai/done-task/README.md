@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [nospace-vm-recursive-static/](nospace-vm-recursive-static/) | NospaceVM・ツリー走査インタプリタで再帰中の static 変数の更新が失われるバグの修正（static のコピーイン・コピーアウトを廃止し、`FunctionStaticStorage` で static 領域へ直接解決。ネスト関数の再帰・static のポインタ・`__main` の static・static 初期化子からの後方関数呼び出し、NospaceVM の for 内 return による scope_stack のずれも修正） | 2026-10-20 |
 | [ws-root-block-variable-address/](ws-root-block-variable-address/) | WS コンパイラのブロック変数アドレスのバグ修正（ルートレベル・関数内 static 初期化子のブロック変数／非 static 変数がグローバル変数・static 変数・FSBA 表と重なる問題を `GlobalLayout` によるグローバル領域末尾への予約で解消、関数内ブロックから static 変数を参照すると誤アドレスになる問題を修正） | 2026-10-19 |
 | [runtime-robustness-2026-10/](runtime-robustness-2026-10/) | コードレビュー 2026-10 の 05/07/12（NospaceVM の実行時エラーを戻り値化、`__alloc` サイズ検証、構文のネスト深度上限 128（構文木の高さで計測）、NospaceVM フレーム数上限、CLI run の NospaceVM 移行、WASM/CLI の最適化パス名統一） | 2026-10-19 |
 | [fix-parser-loop-ws-number-overflow/](fix-parser-loop-ws-number-overflow/) | コードレビュー 2026-10 の 01/03/04 修正（引数リストの不正トークンによるパーサ無限ループ、WS パーサの数値 checked 化・`i64::MIN` 往復・ラベルのビット列による区別、WS VM 算術の wrapping 統一、spec.md に int 範囲の実装依存と Appendix を追記） | 2026-10-19 |

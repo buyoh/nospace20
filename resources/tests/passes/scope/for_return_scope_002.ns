@@ -1,0 +1,31 @@
+# ブロック内の for ループの中から return しても、呼び出し元の変数・static 変数が正しく、 #
+# 関数の領域が解放される（同じ深さで呼んだ関数のローカル変数のアドレスが変わらない） #
+func: f(k) {
+  {
+    let: q(3);
+    for: { let: j(0); } { j < 5; } { j += 1; } {
+      if: j == k { return: j + q; };
+    };
+  };
+  return: 99;
+}
+func: addr() {
+  let: v;
+  return: &v;
+}
+func: g() {
+  static: s(0);
+  let: a(7);
+  s += f(2);
+  return: a * 100 + s;
+}
+func: __main() {
+  let: before(addr());
+  let: i(0);
+  while: i < 20 { f(1); i += 1; };
+  let: after(addr());
+  __puti(g()); __putc(32);
+  __puti(g()); __putc(32);
+  __puti(before == after); __putc('\n');
+  return: 0;
+}

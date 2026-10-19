@@ -1,0 +1,14 @@
+# static 配列の要素を、再帰の前に取ったポインタ経由で再帰の後に更新する #
+func: arr(n) {
+  static: a[2];
+  if: n == 0 { a[0] = 0; a[1] = 0; };
+  let: p(&a[1]);
+  if: n < 3 { arr(n + 1); };
+  *p = *p + n;
+  a[0] += 1;
+  return: a[0] * 100 + a[1];
+}
+func: __main() {
+  __puti(arr(0)); __putc('\n');
+  return: 0;
+}

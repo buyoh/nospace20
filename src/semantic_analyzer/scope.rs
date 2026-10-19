@@ -147,9 +147,15 @@ pub struct Scope {
 }
 
 impl Scope {
+    #[cfg(test)]
     pub(crate) fn get_function(&self, id: &str) -> Option<&Function> {
         let idx = self.symbol_table.function_name_to_index.get(id)?;
         Some(&self.functions[*idx])
+    }
+
+    /// 指定した名前の関数のインデックス（`functions` 上の位置）を返す
+    pub(crate) fn get_function_index(&self, id: &str) -> Option<usize> {
+        self.symbol_table.function_name_to_index.get(id).copied()
     }
 
     /// 指定した名前の関数が存在するかチェックする

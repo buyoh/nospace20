@@ -39,6 +39,7 @@ use crate::semantic_analyzer::{
 use crate::tree_parser::{Operator1, Operator2};
 
 use super::environment::{Environment, EnvironmentConfig};
+use super::static_storage::{FuncFrame, FunctionStaticStorage};
 use super::InterpretError;
 
 // ===== Raw pointer 型エイリアス =====
@@ -95,9 +96,18 @@ pub(super) enum GlobalInitPhase {
 
 /// ExecBlock 完了時のアクション（スコープ解放・値 push の制御）
 pub(super) enum BlockCompletion {
-    MainFunc { func_idx: usize, scope_addr: i64 },
-    UserFunc { func_idx: usize, scope_addr: i64 },
-    ScopeBlock { scope_addr: i64, push_value: bool },
+    /// `__main` の本体。`scope_addr` は関数スコープの領域（`leave_func_scope` の検査用）
+    MainFunc {
+        scope_addr: i64,
+    },
+    /// ユーザ関数の本体。`scope_addr` は関数スコープの領域（`leave_func_scope` の検査用）
+    UserFunc {
+        scope_addr: i64,
+    },
+    ScopeBlock {
+        scope_addr: i64,
+        push_value: bool,
+    },
     GlobalStmts,
 }
 
@@ -195,6 +205,23 @@ pub(super) enum ForPhase {
     WaitStep { init_scope_addr: i64 },
 }
 
+impl ForPhase {
+    /// init ブロックの領域（StartInit 以外のフェーズで scope_stack に積まれている）
+    fn init_scope_addr(&self) -> Option<i64> {
+        match *self {
+            ForPhase::StartInit => None,
+            ForPhase::WaitInit { init_scope_addr }
+            | ForPhase::StartCond { init_scope_addr }
+            | ForPhase::WaitCond { init_scope_addr }
+            | ForPhase::CheckCond { init_scope_addr }
+            | ForPhase::StartBody { init_scope_addr }
+            | ForPhase::WaitBody { init_scope_addr }
+            | ForPhase::StartStep { init_scope_addr }
+            | ForPhase::WaitStep { init_scope_addr } => Some(init_scope_addr),
+        }
+    }
+}
+
 /// 実行フレーム
 ///
 /// フレームスタックの末尾が現在実行中のフレーム。
@@ -248,6 +275,8 @@ pub struct NospaceVM {
     pub(super) frames: Vec<Frame>,
     pub(super) value_stack: Vec<i64>,
     pub(super) scope_stack: Vec<i64>,
+    /// 実行中の関数呼び出し（末尾が現在の関数）。static 変数の解決に使う
+    pub(super) func_frames: Vec<FuncFrame>,
     pub(super) flow: Option<FlowControl>,
     pub(super) env: Environment,
     pub(super) stdout_capture: Option<Rc<RefCell<Vec<u8>>>>,
@@ -291,6 +320,7 @@ impl NospaceVM {
             }],
             value_stack: Vec::new(),
             scope_stack: Vec::new(),
+            func_frames: Vec::new(),
             flow: None,
             env,
             stdout_capture: Some(stdout_buf),
@@ -488,47 +518,42 @@ impl NospaceVM {
                     let frame = self.frames.pop().unwrap();
                     match frame {
                         Frame::ExecBlock {
-                            completion:
-                                BlockCompletion::MainFunc {
-                                    func_idx,
-                                    scope_addr,
-                                },
+                            completion: BlockCompletion::MainFunc { scope_addr },
                             ..
                         } => {
+                            self.leave_func_scope(scope_addr);
                             if let FlowControl::Return(val) = &flow {
                                 let v = *val;
-                                vm_try!(self.save_static_vars(func_idx, scope_addr));
-                                self.leave_scope(scope_addr);
                                 self.flow = None;
                                 return ExecuteResult::Complete(Some(v));
                             }
-                            vm_try!(self.save_static_vars(func_idx, scope_addr));
-                            self.leave_scope(scope_addr);
                         }
                         Frame::ExecBlock {
-                            completion:
-                                BlockCompletion::UserFunc {
-                                    func_idx,
-                                    scope_addr,
-                                },
+                            completion: BlockCompletion::UserFunc { scope_addr },
                             ..
                         } => {
+                            self.leave_func_scope(scope_addr);
                             if let FlowControl::Return(val) = &flow {
                                 let v = *val;
-                                vm_try!(self.save_static_vars(func_idx, scope_addr));
-                                self.leave_scope(scope_addr);
                                 self.value_stack.push(v);
                                 self.flow = None;
                                 return ExecuteResult::Continue;
                             }
-                            vm_try!(self.save_static_vars(func_idx, scope_addr));
-                            self.leave_scope(scope_addr);
                         }
                         Frame::ExecBlock {
                             completion: BlockCompletion::ScopeBlock { scope_addr, .. },
                             ..
                         } => {
                             self.leave_scope(scope_addr);
+                        }
+                        // バグ修正: 従来は ForLoop フレームを pop するだけで、init ブロックの領域を
+                        // scope_stack に残していた（for の中から return したとき）。外側のブロックや関数の
+                        // leave_scope で末尾が一致せず、領域が scope_stack に残り変数解決がずれていた。
+                        // 解決策: break と同様に init ブロックの領域を外して解放する。
+                        Frame::ForLoop { phase, .. } => {
+                            if let Some(init_scope_addr) = phase.init_scope_addr() {
+                                self.leave_scope(init_scope_addr);
+                            }
                         }
                         _ => {}
                     }
@@ -552,21 +577,11 @@ impl NospaceVM {
                     self.scope.variable_count,
                     self.env.config.randomize_uninit,
                 );
-                for func_idx in 0..self.scope.functions.len() {
-                    let has_static = self.scope.functions[func_idx]
-                        .block
-                        .scope
-                        .variables
-                        .iter()
-                        .any(|v| v.is_static);
-                    if has_static {
-                        let sa = self.env.allocator.alloc_internal_uninit(
-                            self.scope.functions[func_idx].block.scope.variable_count,
-                            self.env.config.randomize_uninit,
-                        );
-                        self.env.function_static_addrs.insert(func_idx, sa);
-                    }
-                }
+                self.env.function_statics = FunctionStaticStorage::allocate(
+                    &self.scope,
+                    &mut self.env.allocator,
+                    self.env.config.randomize_uninit,
+                );
                 // 静的初期化ステートメントなければスキップ
                 if self.scope.static_init_statements.is_empty() {
                     self.set_global_phase(GlobalInitPhase::ExecFuncStaticInits { func_idx: 0 });
@@ -612,7 +627,12 @@ impl NospaceVM {
                     }
                     return ExecuteResult::Continue;
                 }
-                let static_addr = *self.env.function_static_addrs.get(&fi).unwrap();
+                // static 変数を持つ関数は AllocGlobals で領域を確保済み（内部の不変条件）
+                let static_addr = self
+                    .env
+                    .function_statics
+                    .base_addr(fi)
+                    .expect("internal error: static storage is not allocated");
                 self.set_global_phase(GlobalInitPhase::ExecFuncStaticStmt {
                     func_idx: fi,
                     static_addr,
@@ -695,19 +715,11 @@ impl NospaceVM {
         args: &[i64],
         is_main: bool,
     ) -> Result<(), InterpretError> {
-        let has_static = self.scope.functions[func_idx]
-            .block
-            .scope
-            .variables
-            .iter()
-            .any(|v| v.is_static);
+        // static 変数はフレームにコピーせず、static 領域へ直接解決する（FunctionStaticStorage）
         let scope_addr = self.env.allocator.alloc_internal_uninit(
             self.scope.functions[func_idx].block.scope.variable_count,
             self.env.config.randomize_uninit,
         );
-        if has_static {
-            self.load_static_vars(func_idx, scope_addr)?;
-        }
         let arg_indices: Vec<usize> = self.scope.functions[func_idx].arg_indices.clone();
         for (i, &v) in args.iter().enumerate() {
             if i < arg_indices.len() {
@@ -716,18 +728,16 @@ impl NospaceVM {
                     .set(scope_addr + arg_indices[i] as i64, v)?;
             }
         }
+        self.func_frames.push(FuncFrame {
+            func_idx,
+            scope_index: self.scope_stack.len(),
+        });
         self.scope_stack.push(scope_addr);
         let stmts: StmtsPtr = &self.scope.functions[func_idx].block.statements as *const _;
         let completion = if is_main {
-            BlockCompletion::MainFunc {
-                func_idx,
-                scope_addr,
-            }
+            BlockCompletion::MainFunc { scope_addr }
         } else {
-            BlockCompletion::UserFunc {
-                func_idx,
-                scope_addr,
-            }
+            BlockCompletion::UserFunc { scope_addr }
         };
         self.frames.push(Frame::ExecBlock {
             stmts,

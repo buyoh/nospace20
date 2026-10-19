@@ -1,0 +1,19 @@
+# 2 段にネストした関数の再帰から、祖父関数の static 変数を更新する #
+func: outer() {
+  static: s(0);
+  func: mid() {
+    func: deep(n) {
+      s += 1;
+      if: n > 0 { deep(n - 1); };
+      s += 100;
+      return: s;
+    }
+    return: deep(1) + s;
+  }
+  return: mid();
+}
+func: __main() {
+  __puti(outer()); __putc(32);
+  __puti(outer()); __putc('\n');
+  return: 0;
+}

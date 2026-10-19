@@ -1,0 +1,16 @@
+# 再帰するネスト関数から親関数の static 変数を更新する #
+func: outer() {
+  static: s(0);
+  func: inner(n) {
+    s += 1;
+    if: n > 0 { inner(n - 1); };
+    s += 10;
+    return: s;
+  }
+  return: inner(2);
+}
+func: __main() {
+  __puti(outer()); __putc(32);
+  __puti(outer()); __putc('\n');
+  return: 0;
+}

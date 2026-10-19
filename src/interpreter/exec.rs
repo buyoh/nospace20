@@ -1,12 +1,13 @@
 use crate::{
     semantic_analyzer::{
-        Block, ConditionMode, ExecExpression, ExecStatement, Function, IdentifierRef,
+        Block, ConditionMode, ExecExpression, ExecStatement, IdentifierRef,
         InternalBuiltinFunctionKind, LocatedExecExpression, LocatedExecStatement, Scope,
     },
     tree_parser::{Operator1, Operator2},
 };
 
 use super::environment::Environment;
+use super::static_storage::FuncFrame;
 use super::types::{try_expr, ExpressionFlow, Flow};
 use crate::base::error::interpret_error::InterpretError;
 use crate::base::pure_eval;
@@ -61,15 +62,18 @@ pub(super) struct LocalEnvironment<'a, 'aenv> {
     pub(super) root_scope: &'a Scope,
     /// スコープスタック: 末尾が現在のスコープアドレス（アロケータ上のベースアドレス）
     pub(super) scope_stack: Vec<i64>,
+    /// 実行中の関数呼び出し（末尾が現在の関数）。static 変数の解決に使う
+    pub(super) func_frames: Vec<FuncFrame>,
 }
 
 impl LocalEnvironment<'_, '_> {
     pub(super) fn new_func<'a, 'aenv>(
         env: &'aenv mut Environment,
         root_scope: &'a Scope,
-        func: &'a Function,
+        func_idx: usize,
         args: &Vec<i64>,
     ) -> LocalEnvironment<'a, 'aenv> {
+        let func = &root_scope.functions[func_idx];
         // アロケータ上に関数スコープ分の領域を確保
         let base_addr = env
             .allocator
@@ -89,6 +93,10 @@ impl LocalEnvironment<'_, '_> {
             env,
             root_scope,
             scope_stack: vec![base_addr],
+            func_frames: vec![FuncFrame {
+                func_idx,
+                scope_index: 0,
+            }],
         }
     }
 
@@ -111,32 +119,29 @@ impl LocalEnvironment<'_, '_> {
     /// 識別子参照から値を取得
     /// グローバル変数対応（is_global フラグチェック）
     fn get_variable(&self, id: &IdentifierRef) -> i64 {
-        let addr = if id.is_global {
-            self.env.global_base_addr + id.local_index as i64
-        } else {
-            let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
-            self.scope_stack[scope_idx] + id.local_index as i64
-        };
+        let addr = self.resolve_address(id);
         runtime_panic(self.env.allocator.get(addr))
     }
 
     /// 識別子参照に値を設定
     /// グローバル変数対応（is_global フラグチェック）
     fn set_variable(&mut self, id: &IdentifierRef, value: i64) {
-        let addr = if id.is_global {
-            self.env.global_base_addr + id.local_index as i64
-        } else {
-            let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
-            self.scope_stack[scope_idx] + id.local_index as i64
-        };
+        let addr = self.resolve_address(id);
         runtime_panic(self.env.allocator.set(addr, value));
     }
 
     /// IdentifierRef から絶対アドレスを計算
     /// Phase 2+3: アロケータアドレスをそのまま返す (O(1))
+    /// static 変数は static 領域のアドレスへ解決する（`FunctionStaticStorage::resolve`）
     fn resolve_address(&self, id: &IdentifierRef) -> i64 {
         if id.is_global {
             self.env.global_base_addr + id.local_index as i64
+        } else if let Some(addr) = self.env.function_statics.resolve(
+            id,
+            self.func_frames.last().copied(),
+            self.scope_stack.len(),
+        ) {
+            addr
         } else {
             let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
             self.scope_stack[scope_idx] + id.local_index as i64
@@ -242,38 +247,12 @@ impl LocalEnvironment<'_, '_> {
         // 常に root_scope.functions から取得する
         let func = &self.root_scope.functions[func_ref.local_index];
 
-        // Phase 4: static 変数の永続化対応
-        let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
-
         // アロケータ上に新しいスコープ分の領域を確保（randomize_uninit モードではランダム値で初期化）
+        // static 変数はフレームにコピーせず、static 領域へ直接解決する（FunctionStaticStorage）
         let base_addr = self.env.allocator.alloc_internal_uninit(
             func.block.scope.variable_count,
             self.env.config.randomize_uninit,
         );
-
-        // static 変数があり、永続ストレージが存在する場合は値を復元
-        // 関数インデックスをキーとして使用
-        let func_key = func_ref.local_index;
-        if has_static {
-            if let Some(&static_addr) = self.env.function_static_addrs.get(&func_key) {
-                for var in &func.block.scope.variables {
-                    if var.is_static {
-                        let slot_idx = var.slot_index;
-                        let slot_count = var.array_size.unwrap_or(1);
-                        for i in 0..slot_count {
-                            let val = runtime_panic(
-                                self.env.allocator.get(static_addr + (slot_idx + i) as i64),
-                            );
-                            runtime_panic(
-                                self.env
-                                    .allocator
-                                    .set(base_addr + (slot_idx + i) as i64, val),
-                            );
-                        }
-                    }
-                }
-            }
-        }
 
         for (i, arg_val) in arg_values.iter().enumerate() {
             if i < func.arg_indices.len() {
@@ -284,6 +263,10 @@ impl LocalEnvironment<'_, '_> {
                 );
             }
         }
+        self.func_frames.push(FuncFrame {
+            func_idx: func_ref.local_index,
+            scope_index: self.scope_stack.len(),
+        });
         self.scope_stack.push(base_addr);
 
         // 既存の LocalEnvironment 上で関数本体を実行
@@ -294,30 +277,8 @@ impl LocalEnvironment<'_, '_> {
             Flow::Break => panic!("internal error: unexpected break"),
         };
 
-        // Phase 4: static 変数の値を永続ストレージに保存
-        if has_static {
-            if let Some(&static_addr) = self.env.function_static_addrs.get(&func_key) {
-                let base_addr = *self.scope_stack.last().unwrap();
-                for var in &func.block.scope.variables {
-                    if var.is_static {
-                        let slot_idx = var.slot_index;
-                        let slot_count = var.array_size.unwrap_or(1);
-                        for i in 0..slot_count {
-                            let val = runtime_panic(
-                                self.env.allocator.get(base_addr + (slot_idx + i) as i64),
-                            );
-                            runtime_panic(
-                                self.env
-                                    .allocator
-                                    .set(static_addr + (slot_idx + i) as i64, val),
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
         // 関数スコープを pop して解放
+        self.func_frames.pop();
         let base_addr = self.scope_stack.pop().unwrap();
         self.env.allocator.free_internal(base_addr);
         result

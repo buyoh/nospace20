@@ -1,0 +1,6 @@
+# __main の static 変数が初期化子の値を持つ #
+func: __main() {
+  static: s(7);
+  __puti(s); __putc('\n');
+  return: 0;
+}

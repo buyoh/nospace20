@@ -45,8 +45,8 @@ func: __main() {
     // Phase 2+3: global_base_addr はアロケータ経由で設定（interpret_global で初期化）
     // ここでは直接 new_func を呼び出すためアロケータは空の状態
 
-    let func = scope.get_function("__main").unwrap();
-    let local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
+    let func_idx = scope.get_function_index("__main").unwrap();
+    let local_env = LocalEnvironment::new_func(&mut env, &scope, func_idx, &vec![]);
 
     // main 関数のローカル変数 x (local_index=0), p (local_index=1)
     let id_x = IdentifierRef {
@@ -82,8 +82,8 @@ func: __main() {
     // Phase 2+3: global_base_addr はアロケータ経由で設定（interpret_global で初期化）
     // ここでは直接 new_func を呼び出すためアロケータは空の状態
 
-    let func = scope.get_function("__main").unwrap();
-    let mut local_env = LocalEnvironment::new_func(&mut env, &scope, &func, &vec![]);
+    let func_idx = scope.get_function_index("__main").unwrap();
+    let mut local_env = LocalEnvironment::new_func(&mut env, &scope, func_idx, &vec![]);
 
     // Phase 2+3: アロケータ経由のため固定アドレスではなく resolve_address を使用
     let id_x = IdentifierRef {

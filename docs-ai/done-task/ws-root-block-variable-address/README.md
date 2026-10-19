@@ -78,4 +78,4 @@ C は A・B と原因箇所が違うが、「関数フレーム外・ブロッ�
 
 - 2026-10-19: 設計・設計レビュー（1 回）完了。レビュー指摘で、static 初期化子から非 static 変数を参照するケース（B2）・テンプレート（B3）・namespace（A4）を範囲に追加し、`GlobalLayout` は `&'a` で注入する形に変更
 - 2026-10-19: 実装。`cargo test` 全件成功（`--ignored` の wsc 系も新テスト分は成功）。実装中の設計変更は 01 に記録（static 初期化子のフレーム相当領域を非 static 変数の末尾までに縮小）
-- 2026-10-19: コードレビュー（1 回）。正しさの指摘なし。minor 指摘のうち、debug_assert の `map_or` の除去・`count_nested_vars_in_statements` の doc 追加・回帰ガードテストの manifest コメント・フレーム相当領域が未参照の非 static 変数の分も確保することの doc 訂正と unit テスト追加を対応。領域の縮小は [ws-static-init-frame-compaction](../../task/ws-static-init-frame-compaction.md)、レビューで見つかった NospaceVM の再帰 static のバグは [nospace-vm-recursive-static](../../task/nospace-vm-recursive-static.md) に分離
+- 2026-10-19: コードレビュー（1 回）。正しさの指摘なし。minor 指摘のうち、debug_assert の `map_or` の除去・`count_nested_vars_in_statements` の doc 追加・回帰ガードテストの manifest コメント・フレーム相当領域が未参照の非 static 変数の分も確保することの doc 訂正と unit テスト追加を対応。領域の縮小は [ws-static-init-frame-compaction](../../task/ws-static-init-frame-compaction.md)、レビューで見つかった NospaceVM の再帰 static のバグは [nospace-vm-recursive-static](../nospace-vm-recursive-static/README.md) に分離

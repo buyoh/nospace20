@@ -8,6 +8,7 @@
 mod allocator;
 mod environment;
 mod exec;
+mod static_storage;
 mod types;
 pub mod vm;
 
@@ -28,13 +29,14 @@ pub fn interpret_func(
     scope: &Scope,
     func_name: &str,
 ) -> Result<Option<i64>, InterpretError> {
-    let func = match scope.get_function(func_name) {
-        Some(f) => f,
+    let func_idx = match scope.get_function_index(func_name) {
+        Some(i) => i,
         None => {
             return Err(InterpretError::FunctionNotFound(func_name.to_string()));
         }
     };
-    let mut e = LocalEnvironment::new_func(env, scope, &func, &Vec::<i64>::new());
+    let func = &scope.functions[func_idx];
+    let mut e = LocalEnvironment::new_func(env, scope, func_idx, &Vec::<i64>::new());
     let res = e.interpret_statements(&func.block.statements);
     if let Flow::Return(x) = res {
         Ok(Some(x))
@@ -55,12 +57,23 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) -> Result<(), Inte
         .allocator
         .alloc_internal_uninit(scope.variable_count, env.config.randomize_uninit);
 
+    // 全関数の static 領域を、どの初期化式よりも先に確保する（NospaceVM の AllocGlobals と同じ順序）
+    // バグ修正: 従来は関数ごとに「static 領域の確保 → 初期化式の実行」を行っていたため、
+    // ルートや先に初期化される関数の初期化式から後ろの関数を呼ぶと、その関数の static 領域が無かった。
+    // 解決策: 初期化式の実行前に全関数の領域を確保する。
+    env.function_statics = static_storage::FunctionStaticStorage::allocate(
+        scope,
+        &mut env.allocator,
+        env.config.randomize_uninit,
+    );
+
     // ルートレベル static 変数の初期化式を先に実行
     if !scope.static_init_statements.is_empty() {
         let mut local_env = LocalEnvironment {
             env,
             root_scope: scope,
             scope_stack: Vec::new(),
+            func_frames: Vec::new(),
         };
         for located_stmt in &scope.static_init_statements {
             match local_env.interpret_statement(&located_stmt.statement) {
@@ -84,6 +97,7 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) -> Result<(), Inte
             env,
             root_scope: scope,
             scope_stack: Vec::new(),
+            func_frames: Vec::new(),
         };
         for located_stmt in &scope.root_statements {
             match local_env.interpret_statement(&located_stmt.statement) {
@@ -103,42 +117,36 @@ pub fn interpret_global(env: &mut Environment, scope: &Scope) -> Result<(), Inte
 
 /// 関数内 static 変数の初期化
 ///
-/// 全関数をスキャンし、static 変数を持つ関数について永続ストレージを作成する。
-/// static 変数の初期化式がある場合は、一時的なスコープで実行して初期値を設定する。
+/// static 領域（`interpret_global` で確保済み）の上で、各関数の static 変数の初期化式を実行する。
 fn initialize_function_statics(env: &mut Environment, scope: &Scope) -> Result<(), InterpretError> {
     for (func_idx, func) in scope.functions.iter().enumerate() {
-        let has_static = func.block.scope.variables.iter().any(|v| v.is_static);
-        if !has_static {
+        if func.block.scope.static_init_statements.is_empty() {
             continue;
         }
-
-        // static 変数用の永続ストレージをアロケータで確保
+        // static 初期化式を持つ関数は static 変数を持つので、allocate で領域を確保済み（内部の不変条件）
         let static_addr = env
-            .allocator
-            .alloc_internal_uninit(func.block.scope.variable_count, env.config.randomize_uninit);
+            .function_statics
+            .base_addr(func_idx)
+            .expect("internal error: static storage is not allocated");
 
-        if !func.block.scope.static_init_statements.is_empty() {
-            // static_addr ブロック上で直接初期化式を実行
-            // （初期化後そのまま永続ストレージとして使うため、別途コピー不要）
-            let mut local_env = LocalEnvironment {
-                env: &mut *env,
-                root_scope: scope,
-                scope_stack: vec![static_addr],
-            };
-            for stmt in &func.block.scope.static_init_statements {
-                match local_env.interpret_statement(&stmt.statement) {
-                    Flow::Proceed => (),
-                    other => {
-                        return Err(InterpretError::UnexpectedFlow(format!(
-                            "in function static initialization: {:?}",
-                            other
-                        )));
-                    }
+        // static_addr ブロック上で直接初期化式を実行
+        let mut local_env = LocalEnvironment {
+            env: &mut *env,
+            root_scope: scope,
+            scope_stack: vec![static_addr],
+            func_frames: Vec::new(),
+        };
+        for stmt in &func.block.scope.static_init_statements {
+            match local_env.interpret_statement(&stmt.statement) {
+                Flow::Proceed => (),
+                other => {
+                    return Err(InterpretError::UnexpectedFlow(format!(
+                        "in function static initialization: {:?}",
+                        other
+                    )));
                 }
             }
         }
-
-        env.function_static_addrs.insert(func_idx, static_addr);
     }
 
     Ok(())
@@ -150,7 +158,7 @@ pub fn interpret_all(env: &mut Environment, scope: &Scope) -> Result<Option<i64>
     // Phase 6: main_function_index を使用してインデックスベースでアクセス
     if let Some(main_idx) = scope.main_function_index {
         let func = &scope.functions[main_idx];
-        let mut e = LocalEnvironment::new_func(env, scope, func, &Vec::<i64>::new());
+        let mut e = LocalEnvironment::new_func(env, scope, main_idx, &Vec::<i64>::new());
         let res = e.interpret_statements(&func.block.statements);
         if let Flow::Return(x) = res {
             Ok(Some(x))

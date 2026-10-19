@@ -25,6 +25,8 @@ src/semantic_test/
     allocator.rs      # ← interpreter/allocator.rs
     allocator_tests.rs
     types.rs          # ← interpreter/types.rs
+    static_storage.rs # ← interpreter/static_storage.rs（関数内 static 変数の領域と解決。nospace-vm-recursive-static で追加）
+    static_storage_tests.rs
     error.rs          # ← base/error/interpret_error.rs（VM 専用・I/O のバリアントを除く）
     error_tests.rs    # ← base/error/interpret_error_tests.rs
   large/
@@ -32,6 +34,7 @@ src/semantic_test/
     base.rs           # ← tests/code_test/interpreter_base.rs と error_base.rs の test_runtime_error_base
 ```
 
+- `static_storage.rs` は [nospace-vm-recursive-static](../../done-task/nospace-vm-recursive-static/README.md) で追加した。移設時に揃える: `exec.rs` の `resolve_address` のフォールバック（`scope_stack.len() - 1 - scope_depth`）は素の減算で範囲外時に panic する。`FunctionStaticStorage::resolve` と同じく `checked_sub` にし、範囲外の扱いを決める（同タスクのコードレビュー指摘）
 - 名前 `semantic_test`: 「意味解析の検証用」であり、製品のインタプリタではないことを名前で示す。`interpreter` という語は、サブモジュール名（評価器そのもの）としてだけ残す
 - `run_main` は、`Environment` のフィールドに直接触れるため `interpreter/mod.rs` に置き、`semantic_test/mod.rs` から再エクスポートする（`Environment` のフィールドは `pub(super)` のままでよい）
 - `src/interpreter/` は削除する。`algorithm/alloc_spec.rs` のコメントにある `interpreter::allocator` の参照も更新する
