@@ -140,7 +140,7 @@ pub fn interpret_func_with_io(
     // グローバル変数を初期化してから関数を実行
     interpreter::interpret_global(&mut env, scope).expect("global initialization failed");
     let _ = interpreter::interpret_func(&mut env, scope, func_name);
-    env.flush();
+    env.flush().expect("failed to flush stdout buffer");
 
     let stdout_vec = stdout_buf.borrow().clone();
     let stdout_string = String::from_utf8(stdout_vec).unwrap();

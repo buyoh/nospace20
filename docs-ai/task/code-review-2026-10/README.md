@@ -14,14 +14,14 @@
 | 02 | high | [02-block-nested-function-misresolution.md](02-block-nested-function-misresolution.md) | ブロック内で宣言した関数の呼び出しが `__main` 等の別関数に解決される（誤コード生成） |
 | 03 | high | [03-ws-vm-arithmetic-overflow.md](03-ws-vm-arithmetic-overflow.md) | **完了**（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md)） WhitespaceVM の算術オーバーフローで panic、バックエンド間で挙動不一致 |
 | 04 | high | [04-ws-parser-number-label.md](04-ws-parser-number-label.md) | **完了**（[fix-parser-loop-ws-number-overflow](../../done-task/fix-parser-loop-ws-number-overflow/README.md)） WS パーサの数値オーバーフロー panic、`i64::MIN` 非往復、ラベル衝突 |
-| 05 | high | [05-runtime-error-panic.md](05-runtime-error-panic.md) | インタプリタの実行時エラー（0 除算・assert・不正アクセス・I/O）を panic で表現 |
+| 05 | high | [05-runtime-error-panic.md](../../done-task/code-review-2026-10/05-runtime-error-panic.md) | **完了**（[runtime-robustness-2026-10](../../done-task/runtime-robustness-2026-10/README.md)） インタプリタの実行時エラー（0 除算・assert・不正アクセス・I/O）を panic で表現 |
 | 06 | high | [06-interpreter-scope-memory-leak.md](06-interpreter-scope-memory-leak.md) | インタプリタの内部スコープ領域が解放されずメモリ線形増加 |
-| 07 | high | [07-recursion-depth-limit.md](07-recursion-depth-limit.md) | パーサ・インタプリタに再帰深度上限がなくスタックオーバーフロー abort |
+| 07 | high | [07-recursion-depth-limit.md](../../done-task/code-review-2026-10/07-recursion-depth-limit.md) | **完了**（[runtime-robustness-2026-10](../../done-task/runtime-robustness-2026-10/README.md)） パーサ・インタプリタに再帰深度上限がなくスタックオーバーフロー abort |
 | 08 | medium | [08-array-size-overflow.md](08-array-size-overflow.md) | 配列・struct サイズ計算の未チェック演算 |
 | 09 | medium | [09-condition-opt-overflow-semantics.md](09-condition-opt-overflow-semantics.md) | condition_opt がオーバーフロー時に意味を変える |
 | 10 | medium | [10-geti-input-inconsistency.md](10-geti-input-inconsistency.md) | `__geti` の入力解釈が三者で食い違う |
 | 11 | medium | [11-putc-utf8-output.md](11-putc-utf8-output.md) | `__putc` が 128〜255 を UTF-8 2 バイトで出力 |
-| 12 | medium | [12-wasm-compile-opt-mismatch.md](12-wasm-compile-opt-mismatch.md) | WASM compile が peephole を適用しない、パス表の 3 重管理 |
+| 12 | medium | [12-wasm-compile-opt-mismatch.md](../../done-task/code-review-2026-10/12-wasm-compile-opt-mismatch.md) | **完了**（[runtime-robustness-2026-10](../../done-task/runtime-robustness-2026-10/README.md)） WASM compile が peephole を適用しない、パス表の 3 重管理 |
 | 13 | medium | [13-deploy-token-exposure.md](13-deploy-token-exposure.md) | デプロイで書き込みトークンを外部コード実行に晒す |
 | 14 | medium | [14-unregistered-tests.md](14-unregistered-tests.md) | どこからも実行されないテストリソース |
 | 15 | low | [15-ws-vm-instruction-inconsistency.md](15-ws-vm-instruction-inconsistency.md) | WS VM の Copy / Slide / 入力命令の不整合 |

@@ -7,6 +7,7 @@ use crate::{
 };
 
 use super::expression::*;
+use super::{MAX_NESTING_DEPTH, NESTING_TOO_DEEP_MESSAGE};
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
@@ -124,21 +125,61 @@ pub struct LocatedStatement {
 
 //
 
+/// 文の構文解析器
 struct StatementBuilder<'b: 'a, 'a> {
     iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
     code_parse_error: Vec<CodeParseError>,
+    /// 現在のネスト深度（式パーサとの相互呼び出しでも引き継ぐ。`MAX_NESTING_DEPTH` 参照）
+    depth: usize,
+    /// 解析中に到達したネスト深度の最大値（式パーサへ部分木の高さを伝える）
+    peak: usize,
 }
 
 impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
+    /// 戻り値の 3 番目は解析中に到達したネスト深度の最大値
     fn parse(
         iter: &'a mut iter::Peekable<std::slice::Iter<'b, PrettyToken>>,
-    ) -> (Vec<LocatedStatement>, Vec<CodeParseError>) {
+        depth: usize,
+    ) -> (Vec<LocatedStatement>, Vec<CodeParseError>, usize) {
         let mut b = Self {
             iter,
             code_parse_error: vec![],
+            depth,
+            peak: depth,
         };
         let e = b.parse_to_statements();
-        (e, b.code_parse_error)
+        (e, b.code_parse_error, b.peak)
+    }
+
+    fn add_nesting_error(&mut self) -> usize {
+        match self.iter.peek() {
+            Some((_, token_info)) => self.add_parse_error(token_info, NESTING_TOO_DEEP_MESSAGE),
+            None => self.add_end_error(NESTING_TOO_DEEP_MESSAGE),
+        }
+    }
+
+    /// 現在の深さで式を解析する。式の中で到達した深さを引き継ぐ
+    fn parse_sub_expression(&mut self) -> (Box<LocatedExpression>, Vec<CodeParseError>) {
+        let (expr, errs, peak) = parse_to_expression_tree_at(self.iter, self.depth);
+        self.peak = self.peak.max(peak);
+        (expr, errs)
+    }
+
+    /// ブロック本体（`{` `}` の内側）の文の列を解析する（ネスト 1 段）
+    ///
+    /// 上限超過時はエラーを記録して中身を解析しない（トークンは消費しない）。
+    // バグ修正: 従来はネスト深度に上限がなく、深いブロックのネストで再帰が Rust のスタックを
+    // 使い切って abort していた。解決策: ネスト深度を数え、上限を超える入力はパースエラーにする。
+    fn parse_nested_statements(&mut self) -> Vec<LocatedStatement> {
+        if self.depth + 1 > MAX_NESTING_DEPTH {
+            self.add_nesting_error();
+            return vec![];
+        }
+        self.depth += 1;
+        self.peak = self.peak.max(self.depth);
+        let ss = self.parse_to_statements();
+        self.depth -= 1;
+        ss
     }
 
     fn add_parse_error(
@@ -179,7 +220,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
     fn parse_to_statements_block(&mut self) -> Vec<LocatedStatement> {
         match_expect_token_unused!(self, self.iter.next(), Token::BraceL);
-        let ss = self.parse_to_statements();
+        let ss = self.parse_nested_statements();
         match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
         ss
     }
@@ -250,7 +291,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     self.iter.next(); // '(' を消費
 
                     // 定数式をパース（')' の直前まで）
-                    let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+                    let (expr, mut errs) = self.parse_sub_expression();
                     self.code_parse_error.append(&mut errs);
 
                     // ')' を消費
@@ -571,6 +612,12 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 _ => break,
             }
         }
+        // 型指定も参照・配列の段数だけ深い構文木になるため、ネスト深度の上限に含める。
+        // 深い構文木を作ってから破棄すると drop の再帰でスタックを使い切るため、構築前に確認する
+        if self.depth + ref_depth > MAX_NESTING_DEPTH {
+            return Err(self.add_nesting_error());
+        }
+        let mut array_dims = 0usize;
 
         let mut base = match self.iter.peek() {
             Some((Token::Identifier(id), _)) if id == "int" => {
@@ -619,6 +666,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
             };
             match_expect_token_unused!(self, self.iter.next(), Token::BracketR);
+            array_dims += 1;
+            if self.depth + ref_depth + array_dims > MAX_NESTING_DEPTH {
+                return Err(self.add_nesting_error());
+            }
             base = TypeSpec::Array(Box::new(base), size);
         }
 
@@ -780,7 +831,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 break;
             }
 
-            let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+            let (expr, mut errs) = self.parse_sub_expression();
             self.code_parse_error.append(&mut errs);
             init_values.push(expr);
 
@@ -907,7 +958,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     self.iter.next();
                     break;
                 }
-                let (val, mut errs) = parse_to_expression_tree_root(self.iter);
+                let (val, mut errs) = self.parse_sub_expression();
                 self.code_parse_error.append(&mut errs);
                 values.push((*val).clone());
 
@@ -948,7 +999,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 location: loc,
             })
         } else {
-            let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+            let (expr, mut errs) = self.parse_sub_expression();
             self.code_parse_error.append(&mut errs);
             match_expect_token_unused!(self, self.iter.next(), Token::ParenthesisR);
             expr
@@ -1616,7 +1667,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 };
             }
         }
-        let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+        let (expr, mut errs) = self.parse_sub_expression();
         self.code_parse_error.append(&mut errs);
         let end_pos = self.current_pos_or(start_pos);
         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
@@ -1642,11 +1693,32 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     }
 
     /// `repeat:` キーワードを消費して repeat 文をパースし、Statement::For に脱糖する。
+    /// `repeat:` 文を解析する
+    ///
+    /// `repeat:` は `for:` とブロック式に脱糖され、本体が構文木の 2 段下に置かれるため、
+    /// 本体などの部分式をネスト 2 段深い位置として解析する。
     fn parse_to_statements_repeat(&mut self, start_pos: usize) -> LocatedStatement {
+        const REPEAT_DESUGAR_LEVELS: usize = 2;
+        if self.depth + REPEAT_DESUGAR_LEVELS > MAX_NESTING_DEPTH {
+            let e = self.add_nesting_error();
+            self.skip_to_semicolon();
+            return LocatedStatement {
+                statement: Statement::Invalid(e),
+                location: SourceLocation::from_single(start_pos),
+            };
+        }
+        self.depth += REPEAT_DESUGAR_LEVELS;
+        self.peak = self.peak.max(self.depth);
+        let stmt = self.parse_to_statements_repeat_body(start_pos);
+        self.depth -= REPEAT_DESUGAR_LEVELS;
+        stmt
+    }
+
+    fn parse_to_statements_repeat_body(&mut self, start_pos: usize) -> LocatedStatement {
         self.iter.next(); // 'repeat' キーワードを消費（コロンも内包済み）
 
         // 最初の式をパース
-        let (first_expr, mut first_errors) = parse_to_expression_tree_root(self.iter);
+        let (first_expr, mut first_errors) = self.parse_sub_expression();
         self.code_parse_error.append(&mut first_errors);
 
         // 次のトークンによって形式を判定
@@ -1669,7 +1741,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 Expression::Function(name, mut args) if args.len() == 1 => {
                     let init_val = args.remove(0);
                     // 2番目の式をパース
-                    let (second_expr, mut second_errors) = parse_to_expression_tree_root(self.iter);
+                    let (second_expr, mut second_errors) = self.parse_sub_expression();
                     self.code_parse_error.append(&mut second_errors);
 
                     let next2_is_semi = matches!(self.iter.peek(), Some((Token::Semicolon, _)));
@@ -1686,7 +1758,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     } else if next2_is_comma {
                         // Form 1: repeat: i(init), N, body;
                         self.iter.next(); // ',' を消費
-                        let (body_expr, mut body_errors) = parse_to_expression_tree_root(self.iter);
+                        let (body_expr, mut body_errors) = self.parse_sub_expression();
                         self.code_parse_error.append(&mut body_errors);
                         match_expect_token_unused!(self, self.iter.next(), Token::Semicolon);
                         let end_pos = self.current_pos_or(start_pos);
@@ -1792,17 +1864,14 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                     self.iter.next(); // while キーワードを消費（コロンも内包済み）
 
                     // 条件式をパース
-                    let (cond, mut cond_errors) = parse_to_expression_tree_root(self.iter);
+                    let (cond, mut cond_errors) = self.parse_sub_expression();
                     if !cond_errors.is_empty() {
                         self.code_parse_error.append(&mut cond_errors);
                     }
 
                     // '{' を期待
                     match_expect_token_unused!(self, self.iter.next(), Token::BraceL);
-                    let (body, mut body_errors) = parse_to_statements(self.iter);
-                    if !body_errors.is_empty() {
-                        self.code_parse_error.append(&mut body_errors);
-                    }
+                    let body = self.parse_nested_statements();
                     match_expect_token_unused!(self, self.iter.next(), Token::BraceR);
 
                     // ';' を消費
@@ -1845,7 +1914,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
                 }
                 _ => {}
             }
-            let (expr, mut errs) = parse_to_expression_tree_root(self.iter);
+            let (expr, mut errs) = self.parse_sub_expression();
             self.code_parse_error.append(&mut errs);
             let end_pos = self.current_pos_or(start_pos);
             statements.push(LocatedStatement {
@@ -1858,10 +1927,21 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
     }
 }
 
+/// ネスト深度 `depth` の位置にある文の列を解析する（式パーサのブロック・if 本体から呼ばれる）
+///
+/// 戻り値の 3 番目は解析中に到達したネスト深度の最大値
+pub(super) fn parse_to_statements_at(
+    iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
+    depth: usize,
+) -> (Vec<LocatedStatement>, Vec<CodeParseError>, usize) {
+    StatementBuilder::parse(iter, depth)
+}
+
 pub(super) fn parse_to_statements(
     iter: &mut iter::Peekable<std::slice::Iter<PrettyToken>>,
 ) -> (Vec<LocatedStatement>, Vec<CodeParseError>) {
-    StatementBuilder::parse(iter)
+    let (stats, errs, _) = StatementBuilder::parse(iter, 0);
+    (stats, errs)
 }
 
 // ============================================================

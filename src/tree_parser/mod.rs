@@ -41,6 +41,19 @@ pub(super) fn describe_expected_token(pat: &str) -> &str {
     }
 }
 
+/// 構文木のネスト深度の上限
+///
+/// 括弧・単項演算子・二項演算子の連鎖・ブロック・`else: if:` の連鎖などのネストを数える。
+/// 意味解析・コンパイラ・最適化は構文木を再帰で処理するため、深すぎる入力で
+/// Rust のスタックがオーバーフローして abort するのを防ぐ。
+///
+/// 値は WASM（wasm32 の既定スタック 1MiB）で、上限付近の入力（`if` のネスト 64 段・
+/// 演算子の連鎖 128 項など）を release ビルドの意味解析・コンパイルが処理できることを実測して決めた。
+pub(crate) const MAX_NESTING_DEPTH: usize = 128;
+
+/// ネスト深度の上限を超えたときのエラーメッセージ
+pub(crate) const NESTING_TOO_DEEP_MESSAGE: &str = "nesting too deep (limit: 128)";
+
 // convert token sequence to tree structure.
 
 pub fn parse_to_tree(
@@ -66,3 +79,7 @@ pub fn parse_to_tree(
         Err(err)
     }
 }
+
+#[cfg(test)]
+#[path = "nesting_tests.rs"]
+mod nesting_tests;

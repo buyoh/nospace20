@@ -734,6 +734,41 @@ tests:
     path: struct_literal_arg_invalid_token_001
     comment: "Regression: invalid token ';' in struct literal in argument list must not loop forever"
 
+  - name: test_syntax_error_nesting_too_deep_paren_001
+    type: syntax_error
+    path: nesting_too_deep_paren_001
+    comment: "Regression: 深い括弧のネスト（従来はスタックオーバーフローで abort） must be a parse error, not a stack overflow abort"
+
+  - name: test_syntax_error_nesting_too_deep_unary_001
+    type: syntax_error
+    path: nesting_too_deep_unary_001
+    comment: "Regression: 単項演算子の長い連続 must be a parse error, not a stack overflow abort"
+
+  - name: test_syntax_error_nesting_too_deep_binary_001
+    type: syntax_error
+    path: nesting_too_deep_binary_001
+    comment: "Regression: 二項演算子の長い連鎖（左深の構文木） must be a parse error, not a stack overflow abort"
+
+  - name: test_syntax_error_nesting_too_deep_block_001
+    type: syntax_error
+    path: nesting_too_deep_block_001
+    comment: "Regression: 深いブロックのネスト must be a parse error, not a stack overflow abort"
+
+  - name: test_syntax_error_nesting_too_deep_while_001
+    type: syntax_error
+    path: nesting_too_deep_while_001
+    comment: "Regression: 深い while のネスト must be a parse error, not a stack overflow abort"
+
+  - name: test_syntax_error_nesting_too_deep_postfix_001
+    type: syntax_error
+    path: nesting_too_deep_postfix_001
+    comment: "Regression: 後置演算子（添字）の長い連鎖 must be a parse error, not a stack overflow abort"
+
+  - name: test_syntax_error_nesting_too_deep_type_001
+    type: syntax_error
+    path: nesting_too_deep_type_001
+    comment: "Regression: 参照型の深いネスト must be a parse error, not a stack overflow abort"
+
   - name: test_syntax_error_extra_code_plus_001
     type: syntax_error
     path: extra_code_plus_001
@@ -1362,6 +1397,26 @@ tests:
     type: runtime_error
     path: alloc_free_invalid_ptr_001
     comment: "__free に未割当アドレスを渡すとランタイムエラー"
+
+  - name: test_builtin_alloc_invalid_size_001
+    type: runtime_error
+    path: alloc_invalid_size_001
+    comment: "__alloc に負のサイズを渡すとランタイムエラー"
+
+  - name: test_builtin_alloc_huge_size_001
+    type: runtime_error
+    path: alloc_huge_size_001
+    comment: "__alloc に上限超過のサイズを渡すとランタイムエラー（panic / abort しない）"
+
+  - name: test_runtime_error_div_zero_001
+    type: runtime_error
+    path: div_zero_001
+    comment: "0 除算はランタイムエラー"
+
+  - name: test_runtime_error_mod_zero_001
+    type: runtime_error
+    path: mod_zero_001
+    comment: "0 剰余はランタイムエラー"
 
   # ========================================
   # Type system: void型エラー

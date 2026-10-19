@@ -2,7 +2,7 @@
 #![allow(deprecated)]
 
 use crate::optimizer::noop_test_pass;
-use crate::optimizer::{self, OptimizationOptions};
+use crate::optimizer::{self, OptimizationOptions, PASS_NAMES};
 use crate::semantic_analyzer::{Block, ExecStatement, LocatedExecStatement};
 use crate::semantic_analyzer::{
     ConditionMode, ExecExpression, IdentifierRef, InternalBuiltinFunctionKind,
@@ -117,7 +117,9 @@ fn test_noop_pass_magic_number_initialized() {
         .get(noop_test_pass::MARKER_VAR_NAME)
         .unwrap();
     assert_eq!(
-        env.allocator.get(env.global_base_addr + marker_slot as i64),
+        env.allocator
+            .get(env.global_base_addr + marker_slot as i64)
+            .unwrap(),
         noop_test_pass::MAGIC_NUMBER,
         "marker variable should be initialized to magic number"
     );
@@ -1949,4 +1951,49 @@ fn test_constant_folding_combined_with_condition_opt() {
     );
     assert_eq!(crate::interpret(&scope_orig), crate::interpret(&scope_opt));
     assert_eq!(crate::interpret(&scope_opt), Ok(Some(1)));
+}
+
+// ===== パス名からの構築 =====
+
+#[test]
+fn test_from_pass_names_each_pass() {
+    let o = OptimizationOptions::from_pass_names(&["condition-opt"]).unwrap();
+    assert!(o.condition_opt && !o.geti_opt && !o.constant_folding && !o.dead_code && !o.peephole);
+    let o = OptimizationOptions::from_pass_names(&["geti-opt"]).unwrap();
+    assert!(o.geti_opt && !o.condition_opt);
+    let o = OptimizationOptions::from_pass_names(&["constant-folding"]).unwrap();
+    assert!(o.constant_folding && !o.dead_code);
+    let o = OptimizationOptions::from_pass_names(&["dead-code"]).unwrap();
+    assert!(o.dead_code && !o.peephole);
+    let o = OptimizationOptions::from_pass_names(&["peephole"]).unwrap();
+    assert!(o.peephole && !o.any_enabled());
+}
+
+#[test]
+fn test_from_pass_names_all_and_empty() {
+    let all = OptimizationOptions::from_pass_names(&["dead-code", "all"]).unwrap();
+    assert!(
+        all.condition_opt && all.geti_opt && all.constant_folding && all.dead_code && all.peephole
+    );
+    let none = OptimizationOptions::from_pass_names::<&str>(&[]).unwrap();
+    assert!(!none.any_enabled() && !none.peephole);
+}
+
+#[test]
+fn test_from_pass_names_unknown() {
+    assert_eq!(
+        OptimizationOptions::from_pass_names(&["peephole", "unknown-pass"]).err(),
+        Some("unknown-pass".to_string())
+    );
+}
+
+#[test]
+fn test_every_pass_name_is_accepted() {
+    for name in PASS_NAMES {
+        assert!(
+            OptimizationOptions::from_pass_names(&[*name]).is_ok(),
+            "{} rejected",
+            name
+        );
+    }
 }

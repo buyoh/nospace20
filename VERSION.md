@@ -10,6 +10,16 @@
 - `__putc` / OutputChar: Output 0-255 as a raw byte (was UTF-8 encoded Latin-1) and 256+ as a UTF-8 code point; invalid values are runtime errors
 - CI: Deploy script is split into build/push phases; GH_TOKEN is only passed to the push step, checkout credentials are not persisted, `npm ci --ignore-scripts`, and the webui ref can be pinned via GIT_REPO_WEBUI_REF
 - Spec: State that the integer range and overflow behavior are implementation-dependent; describe this implementation's behavior in a new Appendix
+- CLI: `--mode run` now executes on NospaceVM (explicit stack machine). Deep recursion no longer aborts with a stack overflow; runtime errors are reported as `error: ...` with exit code 1 instead of a panic
+- Interpreter: NospaceVM reports runtime errors (division by zero, assertion failure, invalid memory access, invalid free, output errors such as broken pipe) as `StepResult::Error` instead of panicking; WASM no longer traps on them
+- Interpreter: `__alloc` rejects negative sizes and sizes over 16777216 words as a runtime error instead of panicking / aborting on allocation failure
+- Interpreter: NospaceVM limits the number of frames (default 1,000,000) and reports `stack overflow` for runaway recursion
+- Interpreter: NospaceVM stays stopped after a runtime error (later `step()` calls return the same error) and honors `max_expression_count`; WASM `WasmNospaceVM.isFailed()` added
+- Interpreter: NospaceVM reports assignment to a non-assignable left value as a runtime error instead of panicking
+- Interpreter: NospaceVM returns no value (`main exited`) when `__main` ends without `return`, matching the tree-walking interpreter
+- Parser: Limit syntax nesting depth to 128 (parentheses, unary/binary/postfix operator chains, type specs, blocks, `else: if:` chains, `repeat:`, ...) and report `nesting too deep` instead of overflowing the stack
+- WASM: `compile()` now applies the peephole optimization for `["all"]` / `["peephole"]` (same output as the CLI); `getOptions().optPasses` includes `peephole`
+- Optimizer: Pass names are defined once (`optimizer::PASS_NAMES` / `OptimizationOptions::from_pass_names`) and shared by the CLI and WASM
 
 ## 2.0.0
 

@@ -122,7 +122,7 @@ pub fn test_ok_coding_io_base_vm(test_name: &str) -> Result {
                 test_name, case_name, e
             ),
         }
-        vm.flush();
+        vm.flush().expect("failed to flush stdout");
         let actual_stdout = vm.get_stdout_string();
 
         assert_eq!(
@@ -137,38 +137,38 @@ pub fn test_ok_coding_io_base_vm(test_name: &str) -> Result {
 
 /// NospaceVM を使って runtime_error テストを実行する
 ///
-/// 実行時エラーが発生すること（panic またはエラー返り値）を確認する。
-/// 再帰インタプリタと同様に `catch_unwind` でパニックをキャッチする。
+/// NospaceVM は実行時エラーを `StepResult::Error` で返す（panic しない）。
+/// エラーが返ること、および check.json の `contains` がエラーメッセージに含まれることを確認する。
 pub fn test_runtime_error_base_vm(test_name: &str) -> Result {
     let path_base = "resources/tests/fails/runtime/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
+    let contains = match load_check_json(&path_base) {
+        TestConfig::RuntimeError { contains } => contains.unwrap_or_default(),
+        _ => panic!("Expected runtime_error test config"),
+    };
 
     let t = parse_to_tokens(&ns_cnt).ok().unwrap();
     let s = parse_to_tree(&t).ok().unwrap();
     let a = semantic_analyze(&s).ok().unwrap();
 
-    // NospaceVM ではパニック（assert 等）もランタイムエラーとして扱う
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let mut vm = NospaceVM::from_scope(a).expect("failed to create NospaceVM");
-        let result = vm.run(1_000_000);
-        match result {
-            StepResult::Error(_) => true,         // 期待通りのエラー
-            StepResult::Complete { .. } => false, // エラーが発生しなかった
-            StepResult::Suspended => false,       // 完了しなかった
+    let mut vm = NospaceVM::from_scope(a).expect("failed to create NospaceVM");
+    match vm.run(1_000_000) {
+        StepResult::Error(e) => {
+            let msg = e.to_string();
+            for keyword in &contains {
+                assert!(
+                    msg.contains(keyword.as_str()),
+                    "Error message does not contain '{}': {}",
+                    keyword,
+                    msg
+                );
+            }
         }
-    }));
-
-    match result {
-        Err(_) => {
-            // パニックが発生: ランタイムエラーとして正常
-        }
-        Ok(true) => {
-            // StepResult::Error が返された: ランタイムエラーとして正常
-        }
-        Ok(false) => {
-            panic!("NospaceVM: expected runtime error but completed or suspended",);
-        }
+        other => panic!(
+            "NospaceVM: expected runtime error but got {:?} (test: {})",
+            other, test_name
+        ),
     }
     Ok(())
 }

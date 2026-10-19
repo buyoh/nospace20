@@ -14,6 +14,13 @@
 use std::collections::BTreeMap;
 
 use crate::algorithm::alloc_spec;
+use crate::base::error::interpret_error::InterpretError;
+
+/// `alloc()` で 1 回に確保できるユーザーサイズの上限（ワード数）
+///
+/// インタプリタ固有の上限。これを超える要求や負のサイズは `InvalidAllocSize` とする
+/// （巨大なサイズでホストのメモリ確保が失敗・abort するのを防ぐ）。
+pub(crate) const MAX_ALLOC_WORDS: i64 = 1 << 24;
 
 // ===== データ構造 =====
 
@@ -70,14 +77,23 @@ impl InterpreterAllocator {
     /// FSBA → 汎用 First-Fit → バンプ の順でフォールバック。
     /// 返したアドレスは `free(ptr)` で解放できる。
     /// 返すアドレスは常に 0 以外であることが保証される（アドレス 0 は予約済み）。
-    pub(crate) fn alloc(&mut self, user_size: i64) -> i64 {
+    ///
+    /// - 負のサイズ・`MAX_ALLOC_WORDS` 超過・アドレス空間の枯渇: `InvalidAllocSize`
+    // バグ修正: 従来はサイズを検証せず、巨大なサイズで Vec の確保が capacity overflow / OOM で
+    // panic・abort し、バンプポインタの加算もオーバーフローで panic していた。
+    // 解決策: サイズの範囲を検証し、バンプポインタは checked_add で更新する。
+    pub(crate) fn alloc(&mut self, user_size: i64) -> Result<i64, InterpretError> {
+        if !(0..=MAX_ALLOC_WORDS).contains(&user_size) {
+            return Err(InterpretError::InvalidAllocSize(user_size));
+        }
         let total = alloc_spec::total_from_user_size(user_size);
         let ptr = match alloc_spec::fsba_class_for(total) {
             Some(class) => self.fsba_alloc(class),
             None => self.general_alloc(total),
-        };
+        }
+        .ok_or(InterpretError::InvalidAllocSize(user_size))?;
         debug_assert!(ptr != 0, "alloc() returned address 0, which is reserved");
-        ptr
+        Ok(ptr)
     }
 
     /// 0 または ランダム値で初期化してメモリを確保する。
@@ -86,7 +102,7 @@ impl InterpreterAllocator {
     /// `randomize=true`: 擬似ランダム値で初期化（未初期化変数バグ検出用）
     #[cfg(test)]
     pub(crate) fn alloc_uninit(&mut self, user_size: i64, randomize: bool) -> i64 {
-        let ptr = self.alloc(user_size);
+        let ptr = self.alloc(user_size).expect("alloc_uninit: invalid size");
         if randomize {
             let block_addr = ptr - 1;
             let block = self.blocks.get_mut(&block_addr).unwrap();
@@ -101,28 +117,27 @@ impl InterpreterAllocator {
 
     /// 指定ポインタが指すメモリブロックを解放する。
     ///
-    /// - 存在しないアドレス: `panic!`
-    /// - 二重 free: `panic!`
-    /// - ブロック先頭以外の free: `panic!`
-    pub(crate) fn free(&mut self, ptr: i64) {
-        let block_addr = ptr - 1;
+    /// - 存在しないアドレス: `InvalidFree`
+    /// - 二重 free: `DoubleFree`
+    /// - ブロック先頭以外の free: `FreeNotBlockStart`
+    pub(crate) fn free(&mut self, ptr: i64) -> Result<(), InterpretError> {
+        let block_addr = ptr.wrapping_sub(1);
 
         // ブロック先頭かチェック（ptr-1 がブロック開始でない場合）
         if !self.blocks.contains_key(&block_addr) {
             // ptr-1 がブロック開始でない場合、より詳しいエラーメッセージを出す
             if let Some((block_start, _)) = self.find_block_containing(block_addr) {
-                panic!(
-                    "runtime error: free: address {} is not a block start (block starts at {})",
-                    ptr,
-                    block_start + 1
-                );
+                return Err(InterpretError::FreeNotBlockStart {
+                    addr: ptr,
+                    block_start: block_start + 1,
+                });
             }
-            panic!("runtime error: free: invalid address {}", ptr);
+            return Err(InterpretError::InvalidFree(ptr));
         }
 
         let block = self.blocks.get_mut(&block_addr).unwrap();
         if block.is_freed {
-            panic!("runtime error: double free at address {}", ptr);
+            return Err(InterpretError::DoubleFree(ptr));
         }
 
         let block_size = block.data[0];
@@ -132,36 +147,38 @@ impl InterpreterAllocator {
             Some(class) => self.fsba_free(block_addr, class),
             None => self.general_free(block_addr),
         }
+        Ok(())
     }
 
     /// 指定アドレスの値を読み取る。
     ///
-    /// - 未割当アドレス: `panic!`
-    /// - 解放済みアドレス: `panic!`
-    pub(crate) fn get(&self, addr: i64) -> i64 {
+    /// - 未割当アドレス: `InvalidMemoryAccess`
+    /// - 解放済みアドレス: `FreedMemoryAccess`
+    pub(crate) fn get(&self, addr: i64) -> Result<i64, InterpretError> {
         let (block_start, block) = self
             .find_block_containing(addr)
-            .unwrap_or_else(|| panic!("runtime error: invalid memory access at address {}", addr));
+            .ok_or(InterpretError::InvalidMemoryAccess(addr))?;
         if block.is_freed {
-            panic!("runtime error: access to freed memory at address {}", addr);
+            return Err(InterpretError::FreedMemoryAccess(addr));
         }
         let offset = (addr - block_start) as usize;
-        block.data[offset]
+        Ok(block.data[offset])
     }
 
     /// 指定アドレスに値を書き込む。
     ///
-    /// - 未割当アドレス: `panic!`
-    /// - 解放済みアドレス: `panic!`
-    pub(crate) fn set(&mut self, addr: i64, value: i64) {
+    /// - 未割当アドレス: `InvalidMemoryAccess`
+    /// - 解放済みアドレス: `FreedMemoryAccess`
+    pub(crate) fn set(&mut self, addr: i64, value: i64) -> Result<(), InterpretError> {
         let (block_start, block) = self
             .find_block_containing_mut(addr)
-            .unwrap_or_else(|| panic!("runtime error: invalid memory access at address {}", addr));
+            .ok_or(InterpretError::InvalidMemoryAccess(addr))?;
         if block.is_freed {
-            panic!("runtime error: access to freed memory at address {}", addr);
+            return Err(InterpretError::FreedMemoryAccess(addr));
         }
         let offset = (addr - block_start) as usize;
         block.data[offset] = value;
+        Ok(())
     }
 
     // ===== 公開 API: 内部アロケータ（スコープ・グローバル変数用） =====
@@ -228,7 +245,8 @@ impl InterpreterAllocator {
     // ===== プライベートヘルパー =====
 
     /// FSBA からメモリを確保する（フリーリスト → バンプ）。
-    fn fsba_alloc(&mut self, class: usize) -> i64 {
+    /// バンプ割り当てでアドレス空間が枯渇した場合は None
+    fn fsba_alloc(&mut self, class: usize) -> Option<i64> {
         let class_size = alloc_spec::FSBA_BLOCK_SIZES[class];
         let free_head = self.fsba_free_lists[class];
 
@@ -238,7 +256,7 @@ impl InterpreterAllocator {
             let block = self.blocks.get_mut(&free_head).unwrap();
             block.is_freed = false;
             self.fsba_free_lists[class] = next;
-            return free_head + 1;
+            return Some(free_head + 1);
         }
 
         // フリーリスト空 → バンプ割り当て
@@ -246,7 +264,8 @@ impl InterpreterAllocator {
     }
 
     /// 汎用 First-Fit アロケータ（フリーリスト探索 → バンプ）。
-    fn general_alloc(&mut self, total: i64) -> i64 {
+    /// バンプ割り当てでアドレス空間が枯渇した場合は None
+    fn general_alloc(&mut self, total: i64) -> Option<i64> {
         let mut prev_block_addr: Option<i64> = None; // None = head 自体
         let mut curr = self.general_free_head;
 
@@ -285,7 +304,7 @@ impl InterpreterAllocator {
 
                     // prev の next を remainder に更新
                     self.set_prev_next(prev_block_addr, remainder_addr);
-                    return curr + 1;
+                    return Some(curr + 1);
                 } else {
                     // 分割不可: ブロック全体を使用
                     {
@@ -293,7 +312,7 @@ impl InterpreterAllocator {
                         block.is_freed = false;
                     }
                     self.set_prev_next(prev_block_addr, next);
-                    return curr + 1;
+                    return Some(curr + 1);
                 }
             }
 
@@ -306,10 +325,10 @@ impl InterpreterAllocator {
         self.bump_alloc(total)
     }
 
-    /// バンプポインタで新しいブロックを割り当てる。
-    fn bump_alloc(&mut self, total: i64) -> i64 {
+    /// バンプポインタで新しいブロックを割り当てる。アドレス空間が枯渇した場合は None
+    fn bump_alloc(&mut self, total: i64) -> Option<i64> {
         let addr = self.next_addr;
-        self.next_addr += total;
+        self.next_addr = addr.checked_add(total)?;
 
         let mut data = vec![0i64; total as usize];
         data[0] = total; // ヘッダー: ブロック合計サイズ
@@ -321,7 +340,7 @@ impl InterpreterAllocator {
             },
         );
 
-        addr + 1 // ptr = block + 1
+        Some(addr + 1) // ptr = block + 1
     }
 
     /// FSBA フリーリストにブロックを返却する。

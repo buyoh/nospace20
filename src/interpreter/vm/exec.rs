@@ -145,9 +145,13 @@ impl NospaceVM {
                     },
                 ..
             } => {
-                self.save_static_vars(func_idx, scope_addr);
+                vm_try!(self.save_static_vars(func_idx, scope_addr));
                 self.leave_scope(scope_addr);
-                ExecuteResult::Complete(Some(last_value))
+                // バグ修正: 従来は return せずに終わった __main の戻り値として最後の文の値を返しており、
+                // ツリー走査インタプリタ（None を返す）と結果が異なっていた。
+                // 解決策: 明示的な return が無い場合は None とする（CLI では "main exited" と表示）。
+                // （last_value は UserFunc / ScopeBlock でのみ使う）
+                ExecuteResult::Complete(None)
             }
             Frame::ExecBlock {
                 completion:
@@ -157,7 +161,7 @@ impl NospaceVM {
                     },
                 ..
             } => {
-                self.save_static_vars(func_idx, scope_addr);
+                vm_try!(self.save_static_vars(func_idx, scope_addr));
                 self.leave_scope(scope_addr);
                 self.value_stack.push(last_value);
                 ExecuteResult::Continue

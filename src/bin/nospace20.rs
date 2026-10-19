@@ -1,10 +1,14 @@
-use std::{io::Read, iter::repeat, process};
+use std::{
+    io::{Read, Write},
+    iter::repeat,
+    process,
+};
 
 use clap::{Parser, ValueEnum};
 use nospace20::cli_utils::CliCompileArgs;
 use nospace20::{
-    compile_to_ws, interpret_with_env, optimize, parse_to_tokens, parse_to_tree, semantic_analyze,
-    CodeParseError, CompileProperty, CompileTarget, Environment, ExecutionMode, TargetExtension,
+    compile_to_ws, optimize, parse_to_tokens, parse_to_tree, semantic_analyze, CodeParseError,
+    CompileProperty, CompileTarget, ExecutionMode, NospaceVM, Scope, StepResult, TargetExtension,
     TextCode, WsCompileOptions, WsOutputFormat,
 };
 use unicode_width::UnicodeWidthStr;
@@ -123,6 +127,60 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
     process::exit(1);
 }
 
+/// NospaceVM の 1 回の `step()` で実行する式評価数
+///
+/// 完了まで繰り返し呼ぶため値は実行結果に影響しない（中断・再開のオーバーヘッドとの兼ね合い）。
+const RUN_STEP_BUDGET: usize = 1_000_000;
+
+/// `--mode run`: NospaceVM（明示的スタックマシン）で `__main` を実行する
+///
+/// 深い再帰でも Rust のスタックを消費せず、実行時エラーは戻り値として受け取る。
+fn run_with_vm(scope: Scope, property: &CompileProperty) -> Result<(), nospace20::InterpretError> {
+    let config = nospace20::EnvironmentConfig {
+        ignore_debug: property.ignore_debug,
+        ..Default::default()
+    };
+    let mut vm = NospaceVM::from_scope(scope)?.with_config(config).with_io(
+        Box::new(std::io::BufReader::new(std::io::stdin())),
+        Box::new(std::io::stdout()),
+    );
+
+    let result = loop {
+        match vm.step(RUN_STEP_BUDGET) {
+            StepResult::Suspended => continue,
+            other => break other,
+        }
+    };
+
+    let return_value = match result {
+        StepResult::Complete { return_value } => return_value,
+        StepResult::Error(err) => {
+            // 実行時エラーを優先して報告する（出力済み分の flush 失敗は無視）
+            let _ = vm.flush();
+            return Err(err);
+        }
+        StepResult::Suspended => unreachable!("loop exits only on non-suspended results"),
+    };
+    vm.flush()?;
+
+    // 出力先が閉じられている場合（`| head` など）も panic せずエラーとして返す
+    let io_error = |e: std::io::Error| nospace20::InterpretError::Io(e.to_string());
+    let mut stdout = std::io::stdout();
+    match return_value {
+        Some(val) => writeln!(stdout, "main returns: {}", val).map_err(io_error)?,
+        None => writeln!(stdout, "main exited").map_err(io_error)?,
+    }
+
+    // デバッグフラグが有効なら、trace結果を表示
+    if property.debug && !vm.traced().is_empty() {
+        writeln!(stdout, "\n=== Trace Results ===").map_err(io_error)?;
+        for (key, value) in vm.traced() {
+            writeln!(stdout, "trace[{}]: {}", key, value).map_err(io_error)?;
+        }
+    }
+    stdout.flush().map_err(io_error)
+}
+
 fn main() {
     let args = Args::parse();
 
@@ -183,36 +241,9 @@ fn main() {
             }
 
             // Interpreter mode
-            let config = nospace20::EnvironmentConfig {
-                ignore_debug: property.ignore_debug,
-                ..Default::default()
-            };
-            let mut env = Environment::new_with_config(
-                Box::new(std::io::BufReader::new(std::io::stdin())),
-                Box::new(std::io::stdout()),
-                config,
-            );
-            let result = interpret_with_env(&mut env, &a);
-
-            match result {
-                Ok(Some(val)) => {
-                    println!("main returns: {}", val);
-                }
-                Ok(None) => {
-                    println!("main exited");
-                }
-                Err(err) => {
-                    eprintln!("error: {}", err);
-                    process::exit(1);
-                }
-            }
-
-            // デバッグフラグが有効なら、trace結果を表示
-            if property.debug && !env.traced.is_empty() {
-                println!("\n=== Trace Results ===");
-                for (key, value) in &env.traced {
-                    println!("trace[{}]: {}", key, value);
-                }
+            if let Err(err) = run_with_vm(a, &property) {
+                eprintln!("error: {}", err);
+                process::exit(1);
             }
         }
         ExecutionMode::Compile => {

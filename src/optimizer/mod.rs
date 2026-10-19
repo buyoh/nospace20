@@ -49,7 +49,41 @@ pub struct OptimizationOptions {
     pub peephole: bool,
 }
 
+/// 最適化パス名の一覧（CLI の `--opt`・WASM の `opt_passes` で共通の単一定義）
+///
+/// `"all"` は全パス（`OptimizationOptions::all()`）を表す。
+/// テスト用パス（`noop_test_pass`）は名前を持たない。
+pub const PASS_NAMES: &[&str] = &[
+    "all",
+    "condition-opt",
+    "geti-opt",
+    "constant-folding",
+    "dead-code",
+    "peephole",
+];
+
 impl OptimizationOptions {
+    /// パス名の列から構築する
+    ///
+    /// `"all"` を含む場合は `all()`、空の場合は `none()`。
+    /// `PASS_NAMES` に無い名前を含む場合はその名前を `Err` で返す。
+    pub fn from_pass_names<S: AsRef<str>>(names: &[S]) -> Result<Self, String> {
+        let mut opts = Self::none();
+        let mut all = false;
+        for name in names {
+            match name.as_ref() {
+                "all" => all = true,
+                "condition-opt" => opts.condition_opt = true,
+                "geti-opt" => opts.geti_opt = true,
+                "constant-folding" => opts.constant_folding = true,
+                "dead-code" => opts.dead_code = true,
+                "peephole" => opts.peephole = true,
+                other => return Err(other.to_string()),
+            }
+        }
+        Ok(if all { Self::all() } else { opts })
+    }
+
     /// 最適化なし
     pub fn none() -> Self {
         Self {

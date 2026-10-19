@@ -1,0 +1,6 @@
+# 0 による除算は実行時エラー（NospaceVM は panic せず StepResult::Error を返す） #
+func: __main() {
+  let: a(1);
+  let: b(0);
+  __puti(a / b);
+}

@@ -627,3 +627,191 @@ fn test_trace_with_io() {
     assert!(matches!(result, StepResult::Complete { .. }));
     assert_eq!(vm.traced().get(&10), Some(&1), "trace should record x=10");
 }
+
+// ===== 実行時エラーは panic せず StepResult::Error で返る =====
+
+fn run_expect_error(src: &str) -> InterpretError {
+    let mut vm = NospaceVM::from_source(src).expect("parse/analyze failed");
+    match vm.run(1_000_000) {
+        StepResult::Error(e) => e,
+        other => panic!("expected runtime error, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_error_division_by_zero() {
+    let e = run_expect_error("func: __main() { let: a(1); let: b(0); return: a / b; }");
+    assert_eq!(e, InterpretError::DivisionByZero);
+    let e = run_expect_error("func: __main() { let: a(1); let: b(0); return: a % b; }");
+    assert_eq!(e, InterpretError::DivisionByZero);
+}
+
+#[test]
+fn test_error_division_by_zero_in_global_init() {
+    let e = run_expect_error("let: x(1 / 0); func: __main() { return: x; }");
+    assert_eq!(e, InterpretError::DivisionByZero);
+}
+
+#[test]
+fn test_error_assert() {
+    let e = run_expect_error("func: __main() { __assert(0); }");
+    assert_eq!(e, InterpretError::AssertionFailed(None));
+    let e = run_expect_error("func: __main() { __assert_not(5); }");
+    assert_eq!(e, InterpretError::AssertionFailed(Some(5)));
+}
+
+#[test]
+fn test_error_memory() {
+    let e = run_expect_error("func: __main() { __free(12345); }");
+    assert_eq!(e, InterpretError::InvalidFree(12345));
+    let e = run_expect_error("func: __main() { let: p; p = __alloc(2); __free(p); __free(p); }");
+    assert!(matches!(e, InterpretError::DoubleFree(_)), "{:?}", e);
+    let e = run_expect_error("func: __main() { let: p; p = __alloc(2); __free(p); return: *p; }");
+    assert!(matches!(e, InterpretError::FreedMemoryAccess(_)), "{:?}", e);
+    let e = run_expect_error("func: __main() { let: p; p = __alloc(0 - 1); }");
+    assert_eq!(e, InterpretError::InvalidAllocSize(-1));
+}
+
+#[test]
+fn test_error_invalid_putc() {
+    let e = run_expect_error("func: __main() { __putc(0 - 1); }");
+    assert_eq!(e, InterpretError::InvalidCharCode(-1));
+}
+
+/// 書き込みが常に失敗する stdout のスタブ（出力先が閉じられた状態を模擬）
+struct FailingWriter;
+
+impl Write for FailingWriter {
+    fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "broken pipe",
+        ))
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "broken pipe",
+        ))
+    }
+}
+
+#[test]
+fn test_error_output_failure() {
+    let stdin: Box<dyn BufRead> = Box::new(BufReader::new(Cursor::new(Vec::<u8>::new())));
+    let mut vm = NospaceVM::from_source("func: __main() { __puti(1); }")
+        .unwrap()
+        .with_io(stdin, Box::new(FailingWriter));
+    match vm.run(1_000) {
+        StepResult::Error(InterpretError::Io(msg)) => assert!(msg.contains("broken pipe")),
+        other => panic!("expected I/O error, got {:?}", other),
+    }
+    assert!(matches!(vm.flush(), Err(InterpretError::Io(_))));
+}
+
+#[test]
+fn test_main_without_return_matches_interpreter() {
+    // return の無い __main はツリー走査インタプリタと同じく None
+    let (rv, out) = run_src("func: __main() { __puti(7); }");
+    assert_eq!(rv, None);
+    assert_eq!(out, "7");
+    assert_vm_matches_interpreter("func: __main() { __puti(7); }");
+}
+
+// ===== フレーム数上限 =====
+
+const RECURSIVE_SRC: &str = "func: f(x) { if: x == 0 { return: 0; }; return: f(x - 1) + 1; }
+func: __main() { let: n; n = __geti(); return: f(n); }";
+
+fn run_recursive(depth: i64, max_vm_frames: Option<usize>) -> StepResult {
+    let stdin: Box<dyn BufRead> =
+        Box::new(BufReader::new(Cursor::new(depth.to_string().into_bytes())));
+    let config = EnvironmentConfig {
+        max_vm_frames,
+        ..Default::default()
+    };
+    let mut vm = NospaceVM::from_source(RECURSIVE_SRC)
+        .unwrap()
+        .with_stdin(stdin)
+        .with_config(config);
+    vm.run(usize::MAX)
+}
+
+#[test]
+fn test_deep_recursion_completes() {
+    // ツリー走査インタプリタでは Rust のスタックオーバーフローで abort する深さ
+    match run_recursive(
+        100_000,
+        Some(crate::interpreter::environment::DEFAULT_MAX_VM_FRAMES),
+    ) {
+        StepResult::Complete { return_value } => assert_eq!(return_value, Some(100_000)),
+        other => panic!("expected completion, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_frame_limit_stack_overflow() {
+    match run_recursive(10_000, Some(1_000)) {
+        StepResult::Error(e) => assert_eq!(e, InterpretError::StackOverflow(1_000)),
+        other => panic!("expected stack overflow, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_infinite_recursion_stack_overflow_with_default_limit() {
+    let mut vm =
+        NospaceVM::from_source("func: f() { return: f(); } func: __main() { return: f(); }")
+            .unwrap();
+    match vm.run(usize::MAX) {
+        StepResult::Error(e) => assert!(matches!(e, InterpretError::StackOverflow(_))),
+        other => panic!("expected stack overflow, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_step_after_error_returns_same_error() {
+    let mut vm =
+        NospaceVM::from_source("func: __main() { __assert(0); __puti(1); return: 6; }").unwrap();
+    assert!(matches!(
+        vm.run(1_000),
+        StepResult::Error(InterpretError::AssertionFailed(None))
+    ));
+    // 再度実行しても続きから再開せず、同じエラーを返す
+    assert!(matches!(
+        vm.run(1_000),
+        StepResult::Error(InterpretError::AssertionFailed(None))
+    ));
+    assert_eq!(vm.error(), Some(&InterpretError::AssertionFailed(None)));
+    assert!(!vm.is_complete());
+    assert_eq!(vm.get_stdout_string(), "");
+}
+
+#[test]
+fn test_max_expression_count_is_error() {
+    let config = EnvironmentConfig::with_max_expression_count(100);
+    let mut vm = NospaceVM::from_source("func: __main() { let: i(0); while: 1 { i += 1; }; }")
+        .unwrap()
+        .with_config(config);
+    match vm.run(usize::MAX) {
+        StepResult::Error(e) => assert_eq!(e, InterpretError::ExpressionLimitExceeded(100)),
+        other => panic!("expected limit error, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_huge_index_is_invalid_memory_access() {
+    let e = run_expect_error(
+        "func: __main() { let: a[2]; let: i(9223372036854775807); return: a[i]; }",
+    );
+    assert!(
+        matches!(e, InterpretError::InvalidMemoryAccess(_)),
+        "{:?}",
+        e
+    );
+}
+
+#[test]
+fn test_not_assignable_is_error() {
+    let e = run_expect_error("func: __main() { let: x(0); x + 1 = 1; }");
+    assert_eq!(e, InterpretError::NotAssignable);
+}

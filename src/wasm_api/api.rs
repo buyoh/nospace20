@@ -63,7 +63,7 @@ pub fn compile(
     };
 
     // Parse + optimize
-    let (scope, text_code, _) = match pipeline::analyze_and_optimize(source, opt_passes) {
+    let (scope, text_code, opt_options) = match pipeline::analyze_and_optimize(source, opt_passes) {
         Ok(v) => v,
         Err(e) => return serde_wasm_bindgen::to_value(&e).unwrap().into(),
     };
@@ -78,7 +78,10 @@ pub fn compile(
         debug_ext,
         alloc_ext,
         output_format,
-        ..Default::default()
+        // バグ修正: 従来は `..Default::default()` で最適化オプションを捨てていたため、
+        // peephole（WsProgram レベルの最適化）が適用されず CLI と出力が異なっていた。
+        // 解決策: 解析時に構築した最適化オプションをそのまま渡す。
+        optimization: opt_options,
     };
     let compiled = compile_to_ws(&scope, &ws_options);
 
@@ -141,13 +144,7 @@ pub fn get_options() -> JsOptionsDefinition {
         compile_targets: vec!["ws", "mnemonic"],
         language_stds: vec!["standard"],
         std_extensions: vec!["debug", "alloc"],
-        opt_passes: vec![
-            "all",
-            "condition-opt",
-            "geti-opt",
-            "constant-folding",
-            "dead-code",
-        ],
+        opt_passes: crate::optimizer::PASS_NAMES.to_vec(),
     };
     let js: JsValue = serde_wasm_bindgen::to_value(&options).unwrap();
     js.into()

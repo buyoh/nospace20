@@ -1,0 +1,5 @@
+# __alloc に処理系の上限を超えるサイズを渡すと実行時エラー（従来は capacity overflow で panic / OOM abort） #
+func: __main() {
+  let: p;
+  p = __alloc(4611686018427387904);
+}

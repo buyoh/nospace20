@@ -8,9 +8,19 @@ use crate::{
 
 use super::environment::Environment;
 use super::types::{try_expr, ExpressionFlow, Flow};
+use crate::base::error::interpret_error::InterpretError;
 use crate::base::pure_eval;
 
 use std::cell::RefCell;
+
+/// 実行時エラーを panic として報告する
+///
+/// ツリー走査インタプリタは実行時エラーを panic で表現する（NospaceVM は戻り値で返す）。
+/// CLI は NospaceVM を使うため、このインタプリタは `lib.rs` の `interpret_*` API と
+/// テスト（`interpreter` ターゲット）からのみ使われる。
+fn runtime_panic<T>(result: Result<T, InterpretError>) -> T {
+    result.unwrap_or_else(|e| panic!("runtime error: {}", e))
+}
 
 thread_local! {
     static UNINIT_COUNTER: RefCell<u64> = RefCell::new(0);
@@ -68,8 +78,10 @@ impl LocalEnvironment<'_, '_> {
         // 引数を対応する変数にセット（最適化: 事前計算されたインデックスを使用）
         for (i, arg_val) in args.iter().enumerate() {
             if i < func.arg_indices.len() {
-                env.allocator
-                    .set(base_addr + func.arg_indices[i] as i64, *arg_val);
+                runtime_panic(
+                    env.allocator
+                        .set(base_addr + func.arg_indices[i] as i64, *arg_val),
+                );
             }
         }
 
@@ -105,7 +117,7 @@ impl LocalEnvironment<'_, '_> {
             let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
             self.scope_stack[scope_idx] + id.local_index as i64
         };
-        self.env.allocator.get(addr)
+        runtime_panic(self.env.allocator.get(addr))
     }
 
     /// 識別子参照に値を設定
@@ -117,7 +129,7 @@ impl LocalEnvironment<'_, '_> {
             let scope_idx = self.scope_stack.len() - 1 - id.scope_depth;
             self.scope_stack[scope_idx] + id.local_index as i64
         };
-        self.env.allocator.set(addr, value);
+        runtime_panic(self.env.allocator.set(addr, value));
     }
 
     /// IdentifierRef から絶対アドレスを計算
@@ -133,12 +145,12 @@ impl LocalEnvironment<'_, '_> {
 
     /// 絶対アドレスから値を取得
     fn get_by_address(&self, addr: i64) -> i64 {
-        self.env.allocator.get(addr)
+        runtime_panic(self.env.allocator.get(addr))
     }
 
     /// 絶対アドレスに値を設定
     fn set_by_address(&mut self, addr: i64, value: i64) {
-        self.env.allocator.set(addr, value);
+        runtime_panic(self.env.allocator.set(addr, value));
     }
 
     fn interpret_call_function(
@@ -184,12 +196,12 @@ impl LocalEnvironment<'_, '_> {
             }
             BuiltinFunctionKind::Puti => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
-                self.env.write_int(a);
+                runtime_panic(self.env.write_int(a));
                 ExpressionFlow::Value(a)
             }
             BuiltinFunctionKind::Putc => {
                 let a = try_expr!(self.interpret_expression(args.first().unwrap()));
-                self.env.write_char(a);
+                runtime_panic(self.env.write_char(a));
                 ExpressionFlow::Value(a)
             }
             BuiltinFunctionKind::Geti => {
@@ -202,12 +214,12 @@ impl LocalEnvironment<'_, '_> {
             }
             BuiltinFunctionKind::Alloc => {
                 let size = try_expr!(self.interpret_expression(args.first().unwrap()));
-                let ptr = self.env.allocator.alloc(size);
+                let ptr = runtime_panic(self.env.allocator.alloc(size));
                 ExpressionFlow::Value(ptr)
             }
             BuiltinFunctionKind::Free => {
                 let ptr = try_expr!(self.interpret_expression(args.first().unwrap()));
-                self.env.allocator.free(ptr);
+                runtime_panic(self.env.allocator.free(ptr));
                 ExpressionFlow::Value(0)
             }
         }
@@ -249,10 +261,14 @@ impl LocalEnvironment<'_, '_> {
                         let slot_idx = var.slot_index;
                         let slot_count = var.array_size.unwrap_or(1);
                         for i in 0..slot_count {
-                            let val = self.env.allocator.get(static_addr + (slot_idx + i) as i64);
-                            self.env
-                                .allocator
-                                .set(base_addr + (slot_idx + i) as i64, val);
+                            let val = runtime_panic(
+                                self.env.allocator.get(static_addr + (slot_idx + i) as i64),
+                            );
+                            runtime_panic(
+                                self.env
+                                    .allocator
+                                    .set(base_addr + (slot_idx + i) as i64, val),
+                            );
                         }
                     }
                 }
@@ -261,9 +277,11 @@ impl LocalEnvironment<'_, '_> {
 
         for (i, arg_val) in arg_values.iter().enumerate() {
             if i < func.arg_indices.len() {
-                self.env
-                    .allocator
-                    .set(base_addr + func.arg_indices[i] as i64, *arg_val);
+                runtime_panic(
+                    self.env
+                        .allocator
+                        .set(base_addr + func.arg_indices[i] as i64, *arg_val),
+                );
             }
         }
         self.scope_stack.push(base_addr);
@@ -285,10 +303,14 @@ impl LocalEnvironment<'_, '_> {
                         let slot_idx = var.slot_index;
                         let slot_count = var.array_size.unwrap_or(1);
                         for i in 0..slot_count {
-                            let val = self.env.allocator.get(base_addr + (slot_idx + i) as i64);
-                            self.env
-                                .allocator
-                                .set(static_addr + (slot_idx + i) as i64, val);
+                            let val = runtime_panic(
+                                self.env.allocator.get(base_addr + (slot_idx + i) as i64),
+                            );
+                            runtime_panic(
+                                self.env
+                                    .allocator
+                                    .set(static_addr + (slot_idx + i) as i64, val),
+                            );
                         }
                     }
                 }
@@ -607,7 +629,7 @@ impl LocalEnvironment<'_, '_> {
         &mut self,
         located_expr: &Box<LocatedExecExpression>,
     ) -> ExpressionFlow {
-        self.env.increment_expression_count();
+        runtime_panic(self.env.increment_expression_count());
         match &located_expr.expression {
             ExecExpression::Operation1(op, expr1) => self.interpret_operation1(op, expr1),
             ExecExpression::Operation2(op, expr1, expr2) => {

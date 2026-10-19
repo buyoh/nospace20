@@ -9,6 +9,18 @@
 //! - `scope` は構築後に move されないため、raw pointer の有効性は `NospaceVM` 生存期間中保証される
 //! - 既存の再帰インタプリタ (`exec.rs`) は変更せず維持
 
+/// `Result<T, InterpretError>` を評価し、`Err` なら `ExecuteResult::Error` を返す
+///
+/// `ExecuteResult` を返す関数内で使用する。
+macro_rules! vm_try {
+    ($e:expr) => {
+        match $e {
+            Ok(v) => v,
+            Err(e) => return ExecuteResult::Error(e),
+        }
+    };
+}
+
 mod eval;
 mod exec;
 mod scope;
@@ -243,6 +255,8 @@ pub struct NospaceVM {
     traced: BTreeMap<i64, i64>,
     pub(super) completed: bool,
     pub(super) return_value: Option<i64>,
+    /// 実行時エラーで停止した場合のエラー（以降の `step()` は常にこのエラーを返す）
+    failed: Option<InterpretError>,
 }
 
 impl NospaceVM {
@@ -284,6 +298,7 @@ impl NospaceVM {
             traced: BTreeMap::new(),
             completed: false,
             return_value: None,
+            failed: None,
         })
     }
 
@@ -325,6 +340,12 @@ impl NospaceVM {
                 return_value: self.return_value,
             };
         }
+        // バグ修正: 従来はエラー後に再度 step() を呼ぶと、途中まで巻き戻ったフレームから実行を
+        // 再開してしまっていた（実行時エラーを panic から戻り値に変えたことで到達可能になった）。
+        // 解決策: エラーを停止状態として保持し、以降は同じエラーを返す。
+        if let Some(e) = &self.failed {
+            return StepResult::Error(e.clone());
+        }
 
         for _ in 0..budget {
             match self.execute_one_step() {
@@ -337,6 +358,7 @@ impl NospaceVM {
                     };
                 }
                 ExecuteResult::Error(e) => {
+                    self.failed = Some(e.clone());
                     return StepResult::Error(e);
                 }
             }
@@ -357,6 +379,11 @@ impl NospaceVM {
     /// 実行完了済みか
     pub fn is_complete(&self) -> bool {
         self.completed
+    }
+
+    /// 実行時エラーで停止していればそのエラーを返す
+    pub fn error(&self) -> Option<&InterpretError> {
+        self.failed.as_ref()
     }
 
     /// 総式評価回数
@@ -385,8 +412,8 @@ impl NospaceVM {
     }
 
     /// stdout をフラッシュする
-    pub fn flush(&mut self) {
-        self.env.flush();
+    pub fn flush(&mut self) -> Result<(), InterpretError> {
+        self.env.flush()
     }
 
     // ===== プライベートメソッド =====
@@ -411,14 +438,22 @@ impl NospaceVM {
         if self.frames.is_empty() {
             return ExecuteResult::Complete(None);
         }
-        match self.frames.last() {
+        let result = match self.frames.last() {
             Some(Frame::GlobalInit { .. }) => self.step_global_init(),
             Some(Frame::ExecBlock { .. }) => self.step_exec_block(),
             Some(Frame::EvalExpr { .. }) => self.step_eval_expr(),
             Some(Frame::WhileLoop { .. }) => self.step_while(),
             Some(Frame::ForLoop { .. }) => self.step_for(),
             None => ExecuteResult::Complete(None),
+        };
+        // 深い再帰・無限再帰でフレームがヒープを使い尽くさないよう上限を設ける
+        // （1 ステップで積まれるフレームは高々数個のため、ステップ後の確認で十分）
+        if let (ExecuteResult::Continue, Some(limit)) = (&result, self.env.config.max_vm_frames) {
+            if self.frames.len() > limit {
+                return ExecuteResult::Error(InterpretError::StackOverflow(limit));
+            }
         }
+        result
     }
 
     fn propagate_flow(&mut self) -> ExecuteResult {
@@ -462,12 +497,12 @@ impl NospaceVM {
                         } => {
                             if let FlowControl::Return(val) = &flow {
                                 let v = *val;
-                                self.save_static_vars(func_idx, scope_addr);
+                                vm_try!(self.save_static_vars(func_idx, scope_addr));
                                 self.leave_scope(scope_addr);
                                 self.flow = None;
                                 return ExecuteResult::Complete(Some(v));
                             }
-                            self.save_static_vars(func_idx, scope_addr);
+                            vm_try!(self.save_static_vars(func_idx, scope_addr));
                             self.leave_scope(scope_addr);
                         }
                         Frame::ExecBlock {
@@ -480,13 +515,13 @@ impl NospaceVM {
                         } => {
                             if let FlowControl::Return(val) = &flow {
                                 let v = *val;
-                                self.save_static_vars(func_idx, scope_addr);
+                                vm_try!(self.save_static_vars(func_idx, scope_addr));
                                 self.leave_scope(scope_addr);
                                 self.value_stack.push(v);
                                 self.flow = None;
                                 return ExecuteResult::Continue;
                             }
-                            self.save_static_vars(func_idx, scope_addr);
+                            vm_try!(self.save_static_vars(func_idx, scope_addr));
                             self.leave_scope(scope_addr);
                         }
                         Frame::ExecBlock {
@@ -642,7 +677,7 @@ impl NospaceVM {
                     }
                 };
                 self.frames.pop(); // GlobalInit pop
-                self.push_func_frame(main_idx, &[], true);
+                vm_try!(self.push_func_frame(main_idx, &[], true));
                 ExecuteResult::Continue
             }
         }
@@ -654,7 +689,12 @@ impl NospaceVM {
         }
     }
 
-    fn push_func_frame(&mut self, func_idx: usize, args: &[i64], is_main: bool) {
+    fn push_func_frame(
+        &mut self,
+        func_idx: usize,
+        args: &[i64],
+        is_main: bool,
+    ) -> Result<(), InterpretError> {
         let has_static = self.scope.functions[func_idx]
             .block
             .scope
@@ -666,14 +706,14 @@ impl NospaceVM {
             self.env.config.randomize_uninit,
         );
         if has_static {
-            self.load_static_vars(func_idx, scope_addr);
+            self.load_static_vars(func_idx, scope_addr)?;
         }
         let arg_indices: Vec<usize> = self.scope.functions[func_idx].arg_indices.clone();
         for (i, &v) in args.iter().enumerate() {
             if i < arg_indices.len() {
                 self.env
                     .allocator
-                    .set(scope_addr + arg_indices[i] as i64, v);
+                    .set(scope_addr + arg_indices[i] as i64, v)?;
             }
         }
         self.scope_stack.push(scope_addr);
@@ -696,19 +736,24 @@ impl NospaceVM {
             waiting: ExecBlockWait::None,
             completion,
         });
+        Ok(())
     }
 
     // ─── 組み込み関数 ───
 
-    fn exec_builtin(&mut self, kind: BuiltinFunctionKind, args: &[i64]) -> i64 {
+    fn exec_builtin(
+        &mut self,
+        kind: BuiltinFunctionKind,
+        args: &[i64],
+    ) -> Result<i64, InterpretError> {
         let a0 = args.first().copied().unwrap_or(0);
-        match kind {
+        Ok(match kind {
             BuiltinFunctionKind::Puti => {
-                self.env.write_int(a0);
+                self.env.write_int(a0)?;
                 a0
             }
             BuiltinFunctionKind::Putc => {
-                self.env.write_char(a0);
+                self.env.write_char(a0)?;
                 a0
             }
             BuiltinFunctionKind::Geti => self.env.read_int(),
@@ -720,14 +765,17 @@ impl NospaceVM {
                 a0
             }
             BuiltinFunctionKind::Assert => {
+                // バグ修正: 従来は panic! しており、release（panic = "abort"）では CLI が abort、
+                // WASM が trap してエラー内容が呼び出し元に届かなかった。
+                // 解決策: InterpretError として返し、StepResult::Error で通知する。
                 if !self.env.config.ignore_debug && a0 == 0 {
-                    panic!("assertion failed");
+                    return Err(InterpretError::AssertionFailed(None));
                 }
                 a0
             }
             BuiltinFunctionKind::AssertNot => {
                 if !self.env.config.ignore_debug && a0 != 0 {
-                    panic!("assertion failed: {} != 0", a0);
+                    return Err(InterpretError::AssertionFailed(Some(a0)));
                 }
                 a0
             }
@@ -737,27 +785,30 @@ impl NospaceVM {
                 }
                 0
             }
-            BuiltinFunctionKind::Alloc => self.env.allocator.alloc(a0),
+            BuiltinFunctionKind::Alloc => self.env.allocator.alloc(a0)?,
             BuiltinFunctionKind::Free => {
-                self.env.allocator.free(a0);
+                self.env.allocator.free(a0)?;
                 0
             }
-        }
+        })
     }
 
-    fn exec_internal_builtin(&mut self, kind: &InternalBuiltinFunctionKind) -> i64 {
-        match kind {
+    fn exec_internal_builtin(
+        &mut self,
+        kind: &InternalBuiltinFunctionKind,
+    ) -> Result<i64, InterpretError> {
+        Ok(match kind {
             InternalBuiltinFunctionKind::Getiv(v) => {
                 let val = self.env.read_int();
-                self.set_variable(v, val);
+                self.set_variable(v, val)?;
                 val
             }
             InternalBuiltinFunctionKind::Getcv(v) => {
                 let val = self.env.read_char();
-                self.set_variable(v, val);
+                self.set_variable(v, val)?;
                 val
             }
-        }
+        })
     }
 }
 

@@ -2,6 +2,13 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, Read, Write};
 
 use super::allocator::InterpreterAllocator;
+use crate::base::error::interpret_error::InterpretError;
+
+/// NospaceVM のフレーム数上限の既定値
+///
+/// フレームはヒープ上に確保される（1 フレーム 88 バイト）。関数呼び出し 1 段あたり数フレームを使う。
+/// 深い再帰や無限再帰でホスト（特に WASM）のメモリを使い尽くすのを防ぐ。
+pub const DEFAULT_MAX_VM_FRAMES: usize = 1_000_000;
 
 /// インタプリタの実行制限設定
 pub struct EnvironmentConfig {
@@ -11,6 +18,9 @@ pub struct EnvironmentConfig {
     pub ignore_debug: bool,
     /// 未初期化変数をランダム値で埋める（初期値依存のバグ検出用）
     pub randomize_uninit: bool,
+    /// NospaceVM のフレーム数上限（None の場合は無制限）。超過すると `InterpretError::StackOverflow`
+    /// （ツリー走査インタプリタでは使用しない）
+    pub max_vm_frames: Option<usize>,
 }
 
 impl EnvironmentConfig {
@@ -19,14 +29,14 @@ impl EnvironmentConfig {
             max_expression_count: None,
             ignore_debug: false,
             randomize_uninit: false,
+            max_vm_frames: Some(DEFAULT_MAX_VM_FRAMES),
         }
     }
 
     pub fn with_max_expression_count(max_count: usize) -> Self {
         EnvironmentConfig {
             max_expression_count: Some(max_count),
-            ignore_debug: false,
-            randomize_uninit: false,
+            ..Self::new()
         }
     }
 }
@@ -119,15 +129,14 @@ impl Environment {
         }
     }
 
-    pub(super) fn increment_expression_count(&mut self) {
+    /// 式評価回数を加算し、`max_expression_count` を超えたら `ExpressionLimitExceeded`
+    pub(super) fn increment_expression_count(&mut self) -> Result<(), InterpretError> {
         self.metrics.expression_count += 1;
-        if let Some(max) = self.config.max_expression_count {
-            if self.metrics.expression_count > max {
-                panic!(
-                    "Expression evaluation limit exceeded: {} > {}",
-                    self.metrics.expression_count, max
-                );
+        match self.config.max_expression_count {
+            Some(max) if self.metrics.expression_count > max => {
+                Err(InterpretError::ExpressionLimitExceeded(max))
             }
+            _ => Ok(()),
         }
     }
 
@@ -135,20 +144,23 @@ impl Environment {
         &self.metrics
     }
 
-    pub fn write_int(&mut self, val: i64) {
-        write!(self.stdout, "{}", val).unwrap();
+    // バグ修正: 従来は書き込み・flush の失敗を unwrap しており、出力先が閉じられると
+    // （例: `nospace20 prog.ns | head`）BrokenPipe で panic していた。
+    // 解決策: 失敗を InterpretError::Io として返す。
+    pub fn write_int(&mut self, val: i64) -> Result<(), InterpretError> {
+        write!(self.stdout, "{}", val).map_err(io_error)
     }
 
-    pub fn write_char(&mut self, val: i64) {
+    pub fn write_char(&mut self, val: i64) -> Result<(), InterpretError> {
         // バグ修正: 以前は `(val as u8) as char` を write! しており、128..=255 が
         // Latin-1 文字として UTF-8 2 バイトで出力されていた。encode_putc で生バイト/UTF-8 を出し分ける。
-        let bytes = crate::base::putc::encode_putc(val)
-            .unwrap_or_else(|| panic!("runtime error: __putc: invalid character code {}", val));
-        self.stdout.write_all(&bytes).unwrap();
+        let bytes =
+            crate::base::putc::encode_putc(val).ok_or(InterpretError::InvalidCharCode(val))?;
+        self.stdout.write_all(&bytes).map_err(io_error)
     }
 
-    pub fn flush(&mut self) {
-        self.stdout.flush().unwrap();
+    pub fn flush(&mut self) -> Result<(), InterpretError> {
+        self.stdout.flush().map_err(io_error)
     }
 
     pub fn read_int(&mut self) -> i64 {
@@ -204,4 +216,8 @@ impl Environment {
             _ => 0, // EOF
         }
     }
+}
+
+fn io_error(e: std::io::Error) -> InterpretError {
+    InterpretError::Io(e.to_string())
 }

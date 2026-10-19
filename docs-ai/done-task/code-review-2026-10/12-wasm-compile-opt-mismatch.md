@@ -1,12 +1,12 @@
 # WASM `compile()` が peephole 最適化を適用せず、最適化パス表が 3 箇所に重複
 
 - 重要度: **medium**
-- 状態: 未着手
+- 状態: 完了 (2026-10-19) → [runtime-robustness-2026-10](../runtime-robustness-2026-10/README.md)
 
 ## 進捗
 
-- [ ] 最小修正（optimization を渡す）
-- [ ] パス名定義の一元化
+- [x] 最小修正（optimization を渡す）
+- [x] パス名定義の一元化
 
 ## 問題点
 

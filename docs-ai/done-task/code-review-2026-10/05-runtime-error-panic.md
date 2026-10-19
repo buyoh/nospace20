@@ -1,14 +1,14 @@
 # インタプリタ: ユーザープログラムの実行時エラーを panic! で表現している
 
 - 重要度: **high**
-- 状態: 未着手
+- 状態: 完了 (2026-10-19。C + B を実施。ツリー走査インタプリタ部分（A）は CLI から外れたため [retire-direct-interpreter](../../task/retire-direct-interpreter/README.md) で扱う) → [runtime-robustness-2026-10](../runtime-robustness-2026-10/README.md)
 
 ## 進捗
 
-- [ ] NospaceVM（WASM 経路）の Result 化
-- [ ] ツリー走査インタプリタの Result 化
-- [ ] `__alloc` サイズ検証
-- [ ] テストを catch_unwind から戻り値判定へ移行
+- [x] NospaceVM（WASM 経路）の Result 化
+- [x] ツリー走査インタプリタの Result 化
+- [x] `__alloc` サイズ検証
+- [x] テストを catch_unwind から戻り値判定へ移行
 
 ## 問題点
 

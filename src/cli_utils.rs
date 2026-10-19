@@ -57,6 +57,15 @@ pub enum CliOptPass {
     Peephole,
 }
 
+impl CliOptPass {
+    /// `--opt` で指定する名前（`optimizer::PASS_NAMES` の要素）
+    pub fn pass_name(&self) -> String {
+        self.to_possible_value()
+            .map(|v| v.get_name().to_string())
+            .unwrap_or_default()
+    }
+}
+
 /// コンパイル共通引数（`nospace20` と `ws_profiler` で共有）
 ///
 /// `#[command(flatten)]` でそれぞれの `Args` 構造体に埋め込んで使う。
@@ -94,20 +103,16 @@ impl CliCompileArgs {
     }
 
     /// CLI 引数から `OptimizationOptions` を構築する
+    ///
+    /// パス名の解釈は `OptimizationOptions::from_pass_names`（WASM API と共通）に委ねる。
     pub fn build_optimization_options(&self) -> OptimizationOptions {
-        if self.opt.is_empty() {
-            return OptimizationOptions::none();
-        }
-        if self.opt.contains(&CliOptPass::All) {
-            return OptimizationOptions::all();
-        }
-        OptimizationOptions {
-            noop_test_pass: false,
-            condition_opt: self.opt.contains(&CliOptPass::ConditionOpt),
-            geti_opt: self.opt.contains(&CliOptPass::GetiOpt),
-            constant_folding: self.opt.contains(&CliOptPass::ConstantFolding),
-            dead_code: self.opt.contains(&CliOptPass::DeadCode),
-            peephole: self.opt.contains(&CliOptPass::Peephole),
-        }
+        let names: Vec<String> = self.opt.iter().map(|p| p.pass_name()).collect();
+        // CliOptPass の名前集合は PASS_NAMES と一致することをテストで保証している
+        OptimizationOptions::from_pass_names(&names)
+            .unwrap_or_else(|name| unreachable!("CliOptPass has unknown pass name '{}'", name))
     }
 }
+
+#[cfg(test)]
+#[path = "cli_utils_tests.rs"]
+mod tests;

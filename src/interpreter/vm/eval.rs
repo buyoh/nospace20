@@ -19,6 +19,7 @@ impl NospaceVM {
         match cont {
             EvalCont::Start => {
                 self.total_steps += 1;
+                vm_try!(self.env.increment_expression_count());
                 self.eval_start(expr)
             }
             EvalCont::AfterUnary(op) => {
@@ -29,13 +30,15 @@ impl NospaceVM {
             }
             EvalCont::DerefAfter => {
                 let addr = self.value_stack.pop().unwrap_or(0);
-                let v = self.env.allocator.get(addr);
+                let v = vm_try!(self.env.allocator.get(addr));
                 self.finish_eval(v)
             }
             EvalCont::AfterArrayIndex { id_ref } => {
                 let index = self.value_stack.pop().unwrap_or(0);
-                let addr = self.resolve_addr(&id_ref) + index;
-                let v = self.env.allocator.get(addr);
+                // バグ修正: 添字が巨大な値のとき `+` が debug ビルドでオーバーフロー panic していた。
+                // 解決策: wrapping 演算でアドレスを計算し、範囲外は InvalidMemoryAccess として返す。
+                let addr = self.resolve_addr(&id_ref).wrapping_add(index);
+                let v = vm_try!(self.env.allocator.get(addr));
                 self.finish_eval(v)
             }
             EvalCont::VoidCastAfter => {
@@ -44,11 +47,11 @@ impl NospaceVM {
             }
             EvalCont::StructField { offset, field_type } => {
                 let base_addr = self.value_stack.pop().unwrap_or(0);
-                let addr = base_addr + offset as i64;
+                let addr = base_addr.wrapping_add(offset as i64);
                 match field_type {
                     ValueType::Struct(_) => self.finish_eval(addr),
                     _ => {
-                        let v = self.env.allocator.get(addr);
+                        let v = vm_try!(self.env.allocator.get(addr));
                         self.finish_eval(v)
                     }
                 }
@@ -64,7 +67,10 @@ impl NospaceVM {
             }
             EvalCont::StructFieldArrayFinish { base_addr, offset } => {
                 let index = self.value_stack.pop().unwrap_or(0);
-                let v = self.env.allocator.get(base_addr + offset as i64 + index);
+                let v = vm_try!(self
+                    .env
+                    .allocator
+                    .get(base_addr.wrapping_add(offset as i64).wrapping_add(index)));
                 self.finish_eval(v)
             }
             EvalCont::BinaryLeft { op, rhs } => {
@@ -94,19 +100,23 @@ impl NospaceVM {
                             0
                         }
                     }
-                    _ => crate::base::pure_eval::eval_binary_pure(&op, left, right)
-                        .unwrap_or_else(|| panic!("runtime error: zero division {:?}", op)),
+                    // バグ修正: 従来は 0 除算を panic! で表現しており、release（panic = "abort"）では
+                    // CLI が abort、WASM が trap していた。
+                    // 解決策: eval_binary_pure が None を返すのは（Assign・論理演算を除くと）0 除算のみなので、
+                    // InterpretError::DivisionByZero として返す。
+                    _ => vm_try!(crate::base::pure_eval::eval_binary_pure(&op, left, right)
+                        .ok_or(InterpretError::DivisionByZero)),
                 };
                 self.finish_eval(r)
             }
             EvalCont::AssignVar(id_ref) => {
                 let v = self.value_stack.pop().unwrap_or(0);
-                self.set_variable(&id_ref, v);
+                vm_try!(self.set_variable(&id_ref, v));
                 self.finish_eval(v)
             }
             EvalCont::AssignArrIndex { id_ref, rhs } => {
                 let index = self.value_stack.pop().unwrap_or(0);
-                let base_addr = self.resolve_addr(&id_ref) + index;
+                let base_addr = self.resolve_addr(&id_ref).wrapping_add(index);
                 self.set_eval_cont(EvalCont::AssignArrRhs { base_addr });
                 self.frames.push(Frame::EvalExpr {
                     expr: rhs,
@@ -116,7 +126,7 @@ impl NospaceVM {
             }
             EvalCont::AssignArrRhs { base_addr } => {
                 let v = self.value_stack.pop().unwrap_or(0);
-                self.env.allocator.set(base_addr, v);
+                vm_try!(self.env.allocator.set(base_addr, v));
                 self.finish_eval(v)
             }
             EvalCont::AssignDerefPtr { rhs } => {
@@ -130,12 +140,12 @@ impl NospaceVM {
             }
             EvalCont::AssignDerefRhs { addr } => {
                 let v = self.value_stack.pop().unwrap_or(0);
-                self.env.allocator.set(addr, v);
+                vm_try!(self.env.allocator.set(addr, v));
                 self.finish_eval(v)
             }
             EvalCont::RefArrIndex(id_ref) => {
                 let index = self.value_stack.pop().unwrap_or(0);
-                let addr = self.resolve_addr(&id_ref) + index;
+                let addr = self.resolve_addr(&id_ref).wrapping_add(index);
                 self.finish_eval(addr)
             }
             EvalCont::LogicalAndRhs(rhs) => {
@@ -195,7 +205,7 @@ impl NospaceVM {
                 } else {
                     let fi = func_ref.local_index;
                     self.frames.pop(); // EvalExpr pop
-                    self.push_func_frame(fi, &evaluated, false);
+                    vm_try!(self.push_func_frame(fi, &evaluated, false));
                     ExecuteResult::Continue
                 }
             }
@@ -223,7 +233,7 @@ impl NospaceVM {
                     ExecuteResult::Continue
                 } else {
                     self.frames.pop();
-                    let r = self.exec_builtin(kind, &evaluated);
+                    let r = vm_try!(self.exec_builtin(kind, &evaluated));
                     self.value_stack.push(r);
                     ExecuteResult::Continue
                 }
@@ -265,7 +275,7 @@ impl NospaceVM {
             ExecExpression::Variable(id, value_type) => {
                 let v = match value_type {
                     crate::semantic_analyzer::ValueType::Struct(_) => self.resolve_addr(id),
-                    _ => self.get_variable(id),
+                    _ => vm_try!(self.get_variable(id)),
                 };
                 self.finish_eval(v)
             }
@@ -355,7 +365,7 @@ impl NospaceVM {
             ExecExpression::BuiltinFunction(kind, args) => {
                 if args.is_empty() {
                     self.frames.pop();
-                    let r = self.exec_builtin(*kind, &[]);
+                    let r = vm_try!(self.exec_builtin(*kind, &[]));
                     self.value_stack.push(r);
                     return ExecuteResult::Continue;
                 }
@@ -377,7 +387,7 @@ impl NospaceVM {
                 let fi = func_ref.local_index;
                 if args.is_empty() {
                     self.frames.pop();
-                    self.push_func_frame(fi, &[], false);
+                    vm_try!(self.push_func_frame(fi, &[], false));
                     return ExecuteResult::Continue;
                 }
                 let ap: ArgsPtr = args as *const _;
@@ -426,7 +436,7 @@ impl NospaceVM {
                 ExecuteResult::Continue
             }
             ExecExpression::InternalBuiltinFunction(kind) => {
-                let r = self.exec_internal_builtin(kind);
+                let r = vm_try!(self.exec_internal_builtin(kind));
                 self.finish_eval(r)
             }
             ExecExpression::TypeAssertion(inner, _) => {
@@ -513,7 +523,10 @@ impl NospaceVM {
                 });
                 ExecuteResult::Continue
             }
-            _ => panic!("runtime error: left value is not assignable"),
+            // バグ修正: 従来は panic! しており、意味解析を通過する `x + 1 = 1` や構造体フィールドへの
+            // 代入で CLI が abort、WASM が trap していた。
+            // 解決策: 実行時エラーとして返す（意味解析での検出は別タスク）。
+            _ => ExecuteResult::Error(InterpretError::NotAssignable),
         }
     }
 

@@ -6,6 +6,7 @@
 
 | ファイル | 概要 | 完了日 |
 |----------|------|--------|
+| [runtime-robustness-2026-10/](runtime-robustness-2026-10/) | コードレビュー 2026-10 の 05/07/12（NospaceVM の実行時エラーを戻り値化、`__alloc` サイズ検証、構文のネスト深度上限 128（構文木の高さで計測）、NospaceVM フレーム数上限、CLI run の NospaceVM 移行、WASM/CLI の最適化パス名統一） | 2026-10-19 |
 | [fix-parser-loop-ws-number-overflow/](fix-parser-loop-ws-number-overflow/) | コードレビュー 2026-10 の 01/03/04 修正（引数リストの不正トークンによるパーサ無限ループ、WS パーサの数値 checked 化・`i64::MIN` 往復・ラベルのビット列による区別、WS VM 算術の wrapping 統一、spec.md に int 範囲の実装依存と Appendix を追記） | 2026-10-19 |
 | [postfix-subscript-operator.md](postfix-subscript-operator.md) | 汎用後置添字演算子 `(expr)[i]` のパース対応（`parse_to_expression_tree_factor` に後置ループ追加、`*(expr + i)` に脱糖、ユニット4件・統合3件テスト追加、全テストPASS） | 2026-03-05 |
 | [review-nospace-vm.md](review-nospace-vm.md) / [review-nospace-vm-plan.md](review-nospace-vm-plan.md) | NospaceVM コードレビュー改善（vm.rs 1854行→vm/ ディレクトリモジュール分割、enum ドキュメントコメント追加、pub traced→private、#[allow(dead_code)] 削除、全41テストPASS） | 2026-07-11 |

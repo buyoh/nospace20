@@ -121,6 +121,12 @@ impl WasmNospaceVM {
         self.vm.is_complete()
     }
 
+    /// Whether execution stopped with a runtime error (later `step()` calls return the same error)
+    #[wasm_bindgen(js_name = "isFailed")]
+    pub fn is_failed(&self) -> bool {
+        self.vm.error().is_some()
+    }
+
     /// Total number of expression evaluations
     pub fn total_steps(&self) -> usize {
         self.vm.total_steps()
@@ -129,7 +135,8 @@ impl WasmNospaceVM {
     /// Get and clear stdout buffer contents
     #[wasm_bindgen(js_name = "flushStdout")]
     pub fn flush_stdout(&mut self) -> String {
-        self.vm.flush();
+        // stdout はメモリ上のバッファ（SharedWriter）のため flush は失敗しない
+        let _ = self.vm.flush();
         let mut buf = self.stdout_buffer.borrow_mut();
         let text = String::from_utf8_lossy(&buf).to_string();
         buf.clear();

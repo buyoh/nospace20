@@ -11,6 +11,8 @@ use crate::{
     OptimizationOptions, Scope, TextCode,
 };
 
+use crate::optimizer::PASS_NAMES;
+
 use super::types::{JsOptPassArray, JsStdExtensionArray, ResultErr, WasmError};
 
 // ========================================
@@ -60,28 +62,17 @@ pub(super) fn parse_opt_passes(
     }
     let pass_list: Vec<String> = serde_wasm_bindgen::from_value(js_val)
         .map_err(|e| ResultErr::single_error(format!("invalid opt_passes: {}", e)))?;
-    if pass_list.is_empty() {
-        return Ok(OptimizationOptions::none());
-    }
-    if pass_list.iter().any(|p| p == "all") {
-        return Ok(OptimizationOptions::all());
-    }
-    let mut opts = OptimizationOptions::none();
-    for pass in &pass_list {
-        match pass.as_str() {
-            "condition-opt" => opts.condition_opt = true,
-            "geti-opt" => opts.geti_opt = true,
-            "constant-folding" => opts.constant_folding = true,
-            "dead-code" => opts.dead_code = true,
-            _ => {
-                return Err(ResultErr::single_error(format!(
-                    "unknown opt pass: '{}' (use 'all', 'condition-opt', 'geti-opt', 'constant-folding', 'dead-code')",
-                    pass
-                )));
-            }
-        }
-    }
-    Ok(opts)
+    OptimizationOptions::from_pass_names(&pass_list).map_err(|pass| {
+        ResultErr::single_error(format!(
+            "unknown opt pass: '{}' (use {})",
+            pass,
+            PASS_NAMES
+                .iter()
+                .map(|n| format!("'{}'", n))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))
+    })
 }
 
 // ========================================

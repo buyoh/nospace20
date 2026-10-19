@@ -15,13 +15,17 @@ impl NospaceVM {
         }
     }
 
-    pub(super) fn get_variable(&self, id: &IdentifierRef) -> i64 {
+    pub(super) fn get_variable(&self, id: &IdentifierRef) -> Result<i64, InterpretError> {
         self.env.allocator.get(self.resolve_addr(id))
     }
 
-    pub(super) fn set_variable(&mut self, id: &IdentifierRef, v: i64) {
+    pub(super) fn set_variable(
+        &mut self,
+        id: &IdentifierRef,
+        v: i64,
+    ) -> Result<(), InterpretError> {
         let addr = self.resolve_addr(id);
-        self.env.allocator.set(addr, v);
+        self.env.allocator.set(addr, v)
     }
 
     pub(super) fn enter_block(&mut self, scope: &crate::semantic_analyzer::Scope) -> i64 {
@@ -42,7 +46,11 @@ impl NospaceVM {
 
     // ─── static 変数 ───
 
-    pub(super) fn save_static_vars(&mut self, func_idx: usize, scope_addr: i64) {
+    pub(super) fn save_static_vars(
+        &mut self,
+        func_idx: usize,
+        scope_addr: i64,
+    ) -> Result<(), InterpretError> {
         if let Some(&static_addr) = self.env.function_static_addrs.get(&func_idx) {
             let vars: Vec<_> = self.scope.functions[func_idx]
                 .block
@@ -54,14 +62,19 @@ impl NospaceVM {
                 .collect();
             for (slot, count) in vars {
                 for i in 0..count {
-                    let v = self.env.allocator.get(scope_addr + (slot + i) as i64);
-                    self.env.allocator.set(static_addr + (slot + i) as i64, v);
+                    let v = self.env.allocator.get(scope_addr + (slot + i) as i64)?;
+                    self.env.allocator.set(static_addr + (slot + i) as i64, v)?;
                 }
             }
         }
+        Ok(())
     }
 
-    pub(super) fn load_static_vars(&mut self, func_idx: usize, scope_addr: i64) {
+    pub(super) fn load_static_vars(
+        &mut self,
+        func_idx: usize,
+        scope_addr: i64,
+    ) -> Result<(), InterpretError> {
         if let Some(&static_addr) = self.env.function_static_addrs.get(&func_idx) {
             let vars: Vec<_> = self.scope.functions[func_idx]
                 .block
@@ -73,10 +86,11 @@ impl NospaceVM {
                 .collect();
             for (slot, count) in vars {
                 for i in 0..count {
-                    let v = self.env.allocator.get(static_addr + (slot + i) as i64);
-                    self.env.allocator.set(scope_addr + (slot + i) as i64, v);
+                    let v = self.env.allocator.get(static_addr + (slot + i) as i64)?;
+                    self.env.allocator.set(scope_addr + (slot + i) as i64, v)?;
                 }
             }
         }
+        Ok(())
     }
 }
