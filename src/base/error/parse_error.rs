@@ -10,6 +10,8 @@ use std::fmt;
 /// 位置情報（文字インデックス）とメッセージを持つ。
 #[derive(Clone, Debug)]
 pub struct CodeParseError {
+    /// エラー位置の文字インデックス（`TokenInfo.code_pointer` と同じ単位）。
+    /// 入力末尾などで位置がない場合は `None`
     pub code_pointer: Option<usize>,
     pub message: Cow<'static, str>,
     /// デバッグビルド時のみ、エラーが発生したソースコードの位置を記録

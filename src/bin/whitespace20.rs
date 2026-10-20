@@ -1,7 +1,7 @@
 //! whitespace20 - A Whitespace language interpreter
 
 use clap::{Parser, ValueEnum};
-use nospace20::whitespace::{RuntimeError, StepResult, WhitespaceVM};
+use nospace20::whitespace::{StepResult, WhitespaceVM};
 use nospace20::TargetExtension;
 use std::fs;
 use std::io::{BufReader, Write};
@@ -24,7 +24,7 @@ impl From<CliTargetExt> for TargetExtension {
 /// whitespace20 - A Whitespace language interpreter
 #[derive(Parser, Debug)]
 #[command(name = "whitespace20")]
-#[command(version = "0.1.0")]
+#[command(version)]
 #[command(about = "A Whitespace language interpreter")]
 struct Args {
     /// Whitespace source file to execute
@@ -82,7 +82,7 @@ fn main() {
             .with_strict_heap(args.strict_heap)
             .with_randomize_heap(args.randomize_heap),
         Err(e) => {
-            eprintln!("Parse error: {:?}", e);
+            eprintln!("Parse error: {}", e);
             process::exit(1);
         }
     };
@@ -145,29 +145,7 @@ fn main() {
             process::exit(1);
         }
         StepResult::Error(e) => {
-            let error_msg = match e {
-                RuntimeError::StackUnderflow => "Stack underflow",
-                RuntimeError::DivisionByZero => "Division by zero",
-                RuntimeError::UndefinedLabel(id) => {
-                    eprintln!("Undefined label: {}", id);
-                    process::exit(1);
-                }
-                RuntimeError::UninitializedHeap(addr) => {
-                    eprintln!("Uninitialized heap access at address: {}", addr);
-                    process::exit(1);
-                }
-                RuntimeError::CallStackUnderflow => "Call stack underflow",
-                RuntimeError::ProgramCounterOutOfBounds => "Program counter out of bounds",
-                RuntimeError::IoError(msg) => {
-                    eprintln!("I/O error: {}", msg);
-                    process::exit(1);
-                }
-                RuntimeError::AssertionFailed(val) => {
-                    eprintln!("Assertion failed with value: {}", val);
-                    process::exit(1);
-                }
-            };
-            eprintln!("Runtime error: {}", error_msg);
+            eprintln!("Runtime error: {}", e);
             process::exit(1);
         }
         StepResult::WaitingForInput(_) => {

@@ -61,6 +61,8 @@ pub enum ValidationError {
     UnimplementedFeature(String),
     /// 拡張が現在のモード/設定では使用不可
     InvalidExtension(String),
+    /// コンパイルモード専用のオプションが他のモードで指定された（値はオプション名）
+    CompileOnlyOption(&'static str),
 }
 
 impl fmt::Display for ValidationError {
@@ -82,6 +84,9 @@ impl fmt::Display for ValidationError {
             ValidationError::InvalidExtension(msg) => {
                 write!(f, "{}", msg)
             }
+            ValidationError::CompileOnlyOption(name) => {
+                write!(f, "{} is only valid with --mode=compile", name)
+            }
         }
     }
 }
@@ -97,8 +102,8 @@ pub struct CompileProperty {
     pub std: LanguageStd,
     /// 実行モード
     pub mode: ExecutionMode,
-    /// コンパイルターゲット（mode=Compile 時のみ使用）
-    pub target: CompileTarget,
+    /// 指定されたコンパイルターゲット（mode=Compile 時のみ有効。None なら既定の Ws）
+    pub target: Option<CompileTarget>,
     /// ターゲット拡張（mode=Compile 時のみ使用、複数指定可能）
     pub target_extensions: Vec<TargetExtension>,
     /// 出力ファイルパス（mode=Compile 時、None なら stdout）
@@ -110,12 +115,28 @@ pub struct CompileProperty {
 }
 
 impl CompileProperty {
+    /// 指定されたコンパイルターゲット。未指定なら既定値（Ws）
+    pub fn target_or_default(&self) -> CompileTarget {
+        self.target.unwrap_or_default()
+    }
+
     /// バリデーション
     pub fn validate(&self) -> Result<(), ValidationError> {
+        // BUG FIX: run モードで指定された --target / --output が黙って無視されていた。
+        // 明示指定かどうかを区別できるよう target を Option にし、ここでエラーにする。
+        if self.mode == ExecutionMode::Run {
+            if self.target.is_some() {
+                return Err(ValidationError::CompileOnlyOption("--target"));
+            }
+            if self.output.is_some() {
+                return Err(ValidationError::CompileOnlyOption("--output"));
+            }
+        }
+
         // コンパイルモードの場合
         if self.mode == ExecutionMode::Compile {
             // 未対応のターゲット
-            match self.target {
+            match self.target_or_default() {
                 CompileTarget::Json => {
                     return Err(ValidationError::UnimplementedFeature(
                         "--target=json".to_string(),
@@ -128,3 +149,7 @@ impl CompileProperty {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "compile_property_tests.rs"]
+mod tests;

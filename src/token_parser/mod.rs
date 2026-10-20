@@ -7,6 +7,7 @@ use std::{iter, str};
 
 use crate::{base::CodeParseError, code_parse_error};
 
+/// 予約語（`func`、`let`、`if` など）を表すトークンの種類
 #[derive(Debug)]
 pub enum Keyword {
     Let,
@@ -30,14 +31,16 @@ pub enum Keyword {
     Struct,
 }
 
+/// トークナイザが出力する字句の種類。値を持つもの（識別子・整数・文字列）は値も保持する
 #[derive(Debug)]
 pub enum Token {
     Number(i64),
     Identifier(String),
     Keyword(Keyword),
-    StringLiteral(Vec<i64>), // 文字列リテラル（各文字のASCII値のベクタ、ヌル終端は含まない）
-    At,                      // @
-    Dot,                     // .
+    /// 文字列リテラル。各要素は文字の Unicode スカラー値、またはエスケープシーケンスで指定された値（ヌル終端は含まない）
+    StringLiteral(Vec<i64>),
+    At,  // @
+    Dot, // .
     Plus,
     Minus,
     Asterisk,
@@ -72,11 +75,14 @@ pub enum Token {
     Invalid,
 }
 
+/// トークンに付随する位置情報
 #[derive(Debug)]
 pub struct TokenInfo {
+    /// トークンの先頭の文字インデックス（元のソース文字列での `char` 単位。空白除去前の位置。バイトオフセットではない）
     pub code_pointer: usize,
 }
 
+/// トークンとその位置情報の組。tree_parser の入力単位
 pub type PrettyToken = (Token, TokenInfo);
 
 impl TokenInfo {
@@ -342,7 +348,8 @@ fn parse_string_literal<I: Iterator<Item = (usize, char)>>(
                 chars.push(value);
             }
             Some((_, c)) => {
-                // 通常の文字（空白文字も含む - nospace では空白は無視されるが、文字列内では保持）
+                // 通常の文字。空白文字は字句解析の前に除去済みのため、文字列リテラル内にも現れない
+                // （空白を出力するにはエスケープシーケンス `\s` `\t` `\n` などを使う）
                 chars.push(*c as i64);
                 iter.next();
             }

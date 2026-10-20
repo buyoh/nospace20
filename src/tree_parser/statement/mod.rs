@@ -38,6 +38,7 @@ pub enum AliasArg {
     Value(i64),
 }
 
+/// 文の AST ノード。位置は `LocatedStatement` が持つ
 #[derive(Clone, Debug)]
 pub enum Statement {
     VariableDeclaration(

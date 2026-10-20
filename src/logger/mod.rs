@@ -1,6 +1,7 @@
+/// エラー表示用にソースを行単位に分割したもの。文字インデックスから行・列を求める。
 pub struct TextCode<'a> {
-    // source: &'a str,
     lines: Vec<&'a str>,
+    /// 各行の先頭の文字インデックス
     line_indices: Vec<usize>,
 }
 impl<'a> TextCode<'a> {
@@ -19,7 +20,6 @@ impl<'a> TextCode<'a> {
             })
             .collect();
         Self {
-            // source,
             lines,
             line_indices,
         }
@@ -35,7 +35,7 @@ impl<'a> TextCode<'a> {
         }
     }
 
-    // (line, column)
+    /// 文字インデックスを 0 始まりの (行, 列) に変換する。列も文字単位
     pub fn char_index_to_line(&self, i: usize) -> (usize, usize) {
         match self.line_indices.binary_search(&i) {
             Ok(li) => (li, 0),

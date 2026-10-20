@@ -309,17 +309,24 @@ pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError
         .map(|(scope, root_stmts)| scope.build(root_stmts, global_functions, global_function_names))
 }
 
+/// 名前空間の解析中に集めた `import` 宣言 1 件
 #[derive(Clone)]
 struct ImportDecl {
+    /// 宣言がある名前空間（区切りは `$`、ルートは空文字列）
     current_ns: String,
+    /// 宣言に書かれた名前空間名（未解決）
     target_ns_name: String,
     is_weak: bool,
     is_export: bool,
+    /// `import` 文の開始文字インデックス（エラー位置に使う）
     location: usize,
 }
 
+/// import 解決の結果
 struct ImportBundle {
+    /// 名前空間 → import された名前 → 完全修飾名（`ScopeResolver.import_table` と同じ形）
     import_table: BTreeMap<String, BTreeMap<String, String>>,
+    /// export された完全修飾名 → import 元の完全修飾名
     export_aliases: BTreeMap<String, String>,
 }
 

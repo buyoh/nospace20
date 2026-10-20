@@ -14,6 +14,7 @@ use super::{LocatedStatement, Statement};
 
 // マクロは macros.rs で定義され、mod.rs で #[macro_use] によりインポートされる
 
+/// 二項演算子
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator2 {
     Plus,
@@ -37,6 +38,7 @@ pub enum Operator2 {
     LogicalOr,
 }
 
+/// 単項演算子
 #[derive(Clone, Debug)]
 pub enum Operator1 {
     Negative,
@@ -62,6 +64,7 @@ pub struct LocatedExpression {
     pub location: SourceLocation,
 }
 
+/// 式の AST ノード。位置は `LocatedExpression` が持つ
 #[derive(Clone, Debug)]
 pub enum Expression {
     Operation1(Operator1, Box<LocatedExpression>),

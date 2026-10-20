@@ -9,13 +9,18 @@ use super::types::{
 };
 use crate::tree_parser::LocatedStatement;
 
+/// 関数の解決結果
+///
+/// `.0`: 関数のグローバルインデックス、`.1`: 引数の数、`.2`: 戻り値の型
 #[derive(Clone)]
-pub(super) struct FunctionIndex(pub usize, pub usize, pub ValueType); // (global_index, arg_count, return_type)
+pub(super) struct FunctionIndex(pub usize, pub usize, pub ValueType);
 
+/// 変数の解決結果（`.0`: 変数のインデックス）
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub(super) struct VariableIndex(pub usize);
 
+/// スコープに登録された識別子の種類（関数・変数）
 #[derive(Clone)]
 pub(super) enum Identifier {
     Function(FunctionIndex),

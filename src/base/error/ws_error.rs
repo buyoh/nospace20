@@ -47,6 +47,9 @@ impl std::error::Error for WsRuntimeError {}
 ///
 /// `ParseError`（旧名称）から `WsParseError` にリネーム。
 /// 元の `whitespace::parser` モジュールでは `type ParseError = WsParseError` として後方互換を維持。
+///
+/// `position` / `first_position` / `second_position` は、ソースから Space / Tab / LF 以外の文字を
+/// 除いた列での添字（命令文字の通し番号）。ソースのバイト位置・文字位置ではない。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WsParseError {
     /// 不正な IMP（命令修飾パラメータ）

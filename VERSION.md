@@ -10,6 +10,11 @@ MAJOR
 
 MINOR
 
+- CLI: Compile errors are printed to stderr (were printed to stdout)
+- CLI: Fail when stdin cannot be read (e.g. invalid UTF-8) instead of treating it as an empty source
+- CLI: `--version` shows the package version (was fixed at 0.1.0)
+- CLI: `--target` / `--output` with `--mode run` is an error (was silently ignored). `CompileProperty.target` is now `Option<CompileTarget>`
+- whitespace20: Print parse and runtime errors with their readable messages
 - CLI: `--mode run` now executes on NospaceVM (explicit stack machine). Deep recursion no longer aborts with a stack overflow; runtime errors are reported as `error: ...` with exit code 1 instead of a panic
 - `__putc` / OutputChar: Output 0-255 as a raw byte (was UTF-8 encoded Latin-1) and 256+ as a UTF-8 code point; invalid values are runtime errors
 

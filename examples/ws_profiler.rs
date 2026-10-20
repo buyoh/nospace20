@@ -297,7 +297,7 @@ fn run_profile(target: &ProfileTarget, opts: &CompileOptions) -> ProfileEntry {
                 source: source_path,
                 compile_success: true,
                 execution: None,
-                error: Some(format!("VM parse error: {:?}", e)),
+                error: Some(format!("VM parse error: {}", e)),
             };
         }
     };

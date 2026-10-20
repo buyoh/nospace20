@@ -52,7 +52,7 @@ impl From<CliTarget> for CompileTarget {
 /// nospace - A nospace language interpreter and compiler
 #[derive(Parser, Debug)]
 #[command(name = "nospace20")]
-#[command(version = "0.1.0")]
+#[command(version)]
 #[command(about = "A nospace language interpreter and compiler", long_about = None)]
 struct Args {
     /// Source file to execute (reads from stdin if not provided)
@@ -65,9 +65,9 @@ struct Args {
     #[arg(long, value_enum, default_value_t = CliMode::Run)]
     mode: CliMode,
 
-    /// Compile target (only with --mode=compile)
-    #[arg(long, value_enum, default_value_t = CliTarget::Ws)]
-    target: CliTarget,
+    /// Compile target (only with --mode=compile, default: ws)
+    #[arg(long, value_enum)]
+    target: Option<CliTarget>,
 
     /// Output file (only with --mode=compile, stdout if not specified)
     #[arg(short, long)]
@@ -82,6 +82,9 @@ struct Args {
     ignore_debug: bool,
 }
 
+// BUG FIX: エラーを `println!`（stdout）で出していたため、`--mode compile > out.ws` の
+// ように compile 結果をリダイレクトすると、エラー文言が出力ファイルに混入していた。
+// エラーは stderr に出すことで、正常出力（stdout）と分離する。
 fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -> T {
     let errors = match res {
         Ok(x) => return x,
@@ -90,12 +93,12 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
 
     let total = errors.len();
     for error in errors.iter().take(3) {
-        println!("error: {}", error.message);
+        eprintln!("error: {}", error.message);
 
         // Display internal location information in debug builds
         #[cfg(debug_assertions)]
         {
-            println!(
+            eprintln!(
                 "  (internal: {}:{})",
                 error.caller.file(),
                 error.caller.line()
@@ -107,9 +110,9 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
             let line_str = text.line(line_no);
             // NOTE: line_no and column are 0-indexed internally.
             // Convert to 1-indexed for user-facing display.
-            println!("line:{} column:{}", line_no + 1, column + 1);
-            println!("{}", line_str);
-            println!(
+            eprintln!("line:{} column:{}", line_no + 1, column + 1);
+            eprintln!("{}", line_str);
+            eprintln!(
                 "{}^",
                 repeat(' ')
                     .take(UnicodeWidthStr::width(
@@ -121,7 +124,7 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
     }
 
     if total > 3 {
-        println!("... and {} more errors", total - 3);
+        eprintln!("... and {} more errors", total - 3);
     }
 
     process::exit(1);
@@ -191,7 +194,7 @@ fn main() {
     let property = CompileProperty {
         std: args.compile.std.into(),
         mode: args.mode.into(),
-        target: args.target.into(),
+        target: args.target.map(Into::into),
         target_extensions: args.compile.build_target_extensions(),
         output: args.output,
         debug: args.debug,
@@ -216,8 +219,13 @@ fn main() {
         }
     } else {
         // Read from stdin
+        // BUG FIX: 読み取りエラー（不正な UTF-8 など）を `.ok()` で握りつぶしており、
+        // 空のソースとして処理が続行されていた。エラーを報告して終了する。
         let mut code_raw = String::new();
-        std::io::stdin().read_to_string(&mut code_raw).ok();
+        if let Err(err) = std::io::stdin().read_to_string(&mut code_raw) {
+            eprintln!("error: failed to read stdin: {}", err);
+            process::exit(1);
+        }
         code_raw
     };
 
@@ -250,7 +258,7 @@ fn main() {
             // コンパイルモード
             let debug_ext = property.target_extensions.contains(&TargetExtension::Debug);
             let alloc_ext = property.target_extensions.contains(&TargetExtension::Alloc);
-            let output_format = match property.target {
+            let output_format = match property.target_or_default() {
                 CompileTarget::Ws => WsOutputFormat::Whitespace,
                 CompileTarget::Mnemonic => WsOutputFormat::Mnemonic,
                 _ => unreachable!("Unsupported target should be caught by validation"),
