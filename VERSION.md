@@ -4,14 +4,13 @@
 
 MAJOR
 
-- **Breaking** WASM `WasmWhitespaceVM`: Runtime errors from `step()` use the display message (e.g. `division by zero` instead of `DivisionByZero`)
-- WASM `WasmWhitespaceVM::new`: A memory limit of 4,194,304 cells is now applied by default (pass `max_memory_cells: 0` for unlimited). `fromWhitespace` / `fromWhitespaceInteractive` stay unlimited
-
 MINOR
 
 - Whitespace VM / whitespace20: Add an optional memory limit counted in cells (heap addresses + data stack + return addresses). whitespace20 `--max-memory-cells` (unlimited by default); stops with `memory limit exceeded: N cells`
 - Whitespace VM / compiler: Add the debug extension API `-13` for `__clog`. With `--std-ext debug`, `__clog(x)` writes `__clog: x` to stderr in whitespace20 (separate from the program's stdout; discarded in WASM). Without the debug extension, `__clog` is still a no-op in Whitespace
 - WASM `WasmWhitespaceVM::new`: Accept `opt_passes` and `max_memory_cells`
+- WASM `WasmWhitespaceVM`: Runtime errors from `step()` use the display message (e.g. `division by zero` instead of `DivisionByZero`)
+- WASM `WasmWhitespaceVM::new`: A memory limit of 4,194,304 cells is now applied by default (pass `max_memory_cells: 0` for unlimited). `fromWhitespace` / `fromWhitespaceInteractive` stay unlimited
 
 PATCH
 
