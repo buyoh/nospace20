@@ -239,7 +239,7 @@ tests:
   - name: test_builtins_debug_clog_001
     type: success_io
     path: builtins/debug_clog_001
-    comment: "Debug builtin __clog (ignored in Whitespace)"
+    comment: "Debug builtin __clog (written to the clog writer, not stdout, in Whitespace with the debug extension)"
 
   - name: test_builtins_debug_assert_001
     type: success_io

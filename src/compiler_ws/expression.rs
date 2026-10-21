@@ -598,7 +598,13 @@ fn generate_function_call(
         BuiltinFunctionKind::Geti => generate_builtin_geti(ctx, args),
         BuiltinFunctionKind::Getc => generate_builtin_getc(ctx, args),
         // デバッグ用組み込み関数: --std-ext debug 時は拡張 API を使用
-        BuiltinFunctionKind::Clog => generate_builtin_debug_noop(ctx, args),
+        BuiltinFunctionKind::Clog => {
+            if ctx.is_debug_ext() {
+                generate_builtin_debug_store(ctx, args, heap_layout::EXT_CLOG_ADDR)
+            } else {
+                generate_builtin_debug_noop(ctx, args)
+            }
+        }
         BuiltinFunctionKind::Trace => {
             if ctx.is_debug_ext() {
                 generate_builtin_debug_store(ctx, args, heap_layout::EXT_TRACE_ADDR)

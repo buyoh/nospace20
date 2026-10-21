@@ -42,11 +42,11 @@ pub struct InstructionCounts {
 /// ヒープアクセス統計（プロファイリング用）
 #[derive(Debug, Clone, Default)]
 pub struct HeapProfileStats {
-    /// Store 命令の実行回数
+    /// ヒープ書き込み（Store 命令、InputChar / InputNumber の格納）の回数
     pub store_count: usize,
     /// Retrieve 命令の実行回数
     pub retrieve_count: usize,
-    /// Store したアドレスの (最小値, 最大値)。Store が0回なら None
+    /// ヒープ書き込み（Store / 入力命令）したアドレスの (最小値, 最大値)。書き込みが0回なら None
     pub store_range: Option<(i64, i64)>,
     /// Retrieve したアドレスの (最小値, 最大値)。Retrieve が0回なら None
     pub retrieve_range: Option<(i64, i64)>,
@@ -57,7 +57,7 @@ pub struct HeapProfileStats {
 }
 
 impl HeapProfileStats {
-    /// Store アドレスを記録する
+    /// ヒープ書き込み（Store / 入力命令）のアドレスを記録する
     fn record_store(&mut self, addr: i64) {
         self.store_count += 1;
         self.store_range = Some(match self.store_range {
@@ -257,6 +257,12 @@ pub struct WhitespaceVM {
     pub traced: BTreeMap<i64, i64>,
     /// デバッグ拡張 API が有効か (--std-ext debug)
     debug_ext: bool,
+    /// __clog 拡張 API (-13) の出力先。None なら出力を捨てる
+    clog_writer: Option<Box<dyn Write>>,
+
+    // === 資源の上限 ===
+    /// VM が使うメモリ（ヒープ・データスタック・戻り先の合計セル数）の上限。None は無制限
+    max_memory_cells: Option<usize>,
 
     // === 実行モード ===
     /// 未初期化ヒープアクセスをエラーにするか（wsc のデフォルト動作と同等）
@@ -305,6 +311,8 @@ impl WhitespaceVM {
             total_steps: 0,
             traced: BTreeMap::new(),
             debug_ext: false,
+            clog_writer: None,
+            max_memory_cells: None,
             strict_heap: false,
             randomize_heap: false,
             completed: false,
@@ -366,6 +374,25 @@ impl WhitespaceVM {
     /// デバッグ拡張を有効にして構築
     pub fn with_debug_ext(mut self, enabled: bool) -> Self {
         self.debug_ext = enabled;
+        self
+    }
+
+    /// __clog 拡張 API (-13) の出力先を設定して構築
+    ///
+    /// プログラムの stdout とは別の writer。未設定なら __clog の出力は捨てられる。
+    /// 書き込みエラーは無視する（デバッグ用の補助出力で実行を止めないため）。
+    pub fn with_clog_writer(mut self, writer: Box<dyn Write>) -> Self {
+        self.clog_writer = Some(writer);
+        self
+    }
+
+    /// VM が使うメモリ（ヒープ・データスタック・戻り先の合計セル数）の上限を設定する。None は無制限
+    ///
+    /// 上限を超える操作（ヒープの新しいアドレスへの書き込み、データスタックへの push、
+    /// Call での戻り先の積み込み）は行わず、`MemoryLimitExceeded` エラーになる。
+    /// `Some(0)` は「上限 0 セル」であり、無制限ではない。
+    pub fn with_max_memory_cells(mut self, limit: Option<usize>) -> Self {
+        self.max_memory_cells = limit;
         self
     }
 
@@ -583,7 +610,9 @@ impl WhitespaceVM {
         match inst {
             // === スタック操作 ===
             Instruction::Push(n) => {
-                self.data_stack.push(n.0);
+                if let Err(e) = self.stack_push_growing(n.0) {
+                    return ExecuteResult::Error(e);
+                }
                 self.pc += 1;
             }
             Instruction::Duplicate => {
@@ -591,7 +620,9 @@ impl WhitespaceVM {
                     Ok(v) => v,
                     Err(e) => return ExecuteResult::Error(e),
                 };
-                self.data_stack.push(val);
+                if let Err(e) = self.stack_push_growing(val) {
+                    return ExecuteResult::Error(e);
+                }
                 self.pc += 1;
             }
             Instruction::Copy(n) => {
@@ -604,7 +635,9 @@ impl WhitespaceVM {
                     None => return ExecuteResult::Error(RuntimeError::StackUnderflow),
                 };
                 let val = self.data_stack[idx];
-                self.data_stack.push(val);
+                if let Err(e) = self.stack_push_growing(val) {
+                    return ExecuteResult::Error(e);
+                }
                 self.pc += 1;
             }
             Instruction::Swap => {
@@ -701,11 +734,16 @@ impl WhitespaceVM {
                 self.pc += 1;
             }
             Instruction::Call(id) => {
-                self.call_stack.push(self.pc + 1);
-                self.pc = match self.resolve_label(&id) {
+                // 未定義ラベルのエラーを優先するため、ラベルを解決してからメモリ上限を確認する
+                let target_pc = match self.resolve_label(&id) {
                     Ok(pc) => pc,
                     Err(e) => return ExecuteResult::Error(e),
                 };
+                if let Err(e) = self.check_memory_growth() {
+                    return ExecuteResult::Error(e);
+                }
+                self.call_stack.push(self.pc + 1);
+                self.pc = target_pc;
             }
             Instruction::Jump(id) => {
                 self.pc = match self.resolve_label(&id) {
@@ -789,7 +827,12 @@ impl WhitespaceVM {
                 };
                 match self.read_char() {
                     Ok(v) => {
-                        self.heap.insert(addr, v);
+                        // バグ修正: 従来は self.heap.insert で直接書き込んでいたため、
+                        // --std-ext debug の負アドレスフックとプロファイラ統計を迂回していた。
+                        // 解決策: Store 命令と同じ heap_store を経由させる（メモリ上限の確認もここで行われる）。
+                        if let Err(e) = self.heap_store(addr, v) {
+                            return ExecuteResult::Error(e);
+                        }
                         self.pc += 1;
                     }
                     Err(ReadResult::WouldBlock) => {
@@ -810,7 +853,10 @@ impl WhitespaceVM {
                 };
                 match self.read_number() {
                     Ok(v) => {
-                        self.heap.insert(addr, v);
+                        // バグ修正: InputChar と同じ（heap_store を経由させる）
+                        if let Err(e) = self.heap_store(addr, v) {
+                            return ExecuteResult::Error(e);
+                        }
                         self.pc += 1;
                     }
                     Err(ReadResult::WouldBlock) => {
@@ -831,6 +877,42 @@ impl WhitespaceVM {
     /// スタックからポップ
     fn stack_pop(&mut self) -> Result<i64, RuntimeError> {
         self.data_stack.pop().ok_or(RuntimeError::StackUnderflow)
+    }
+
+    /// データスタックに正味で 1 要素を積む（Push / Duplicate / Copy 用）
+    ///
+    /// pop した後に push する命令（Retrieve・算術演算など）は使用セル数が増えないため、
+    /// 上限の確認をせずに `data_stack.push` を直接使う。
+    fn stack_push_growing(&mut self, val: i64) -> Result<(), RuntimeError> {
+        self.check_memory_growth()?;
+        self.data_stack.push(val);
+        Ok(())
+    }
+
+    /// 使用セル数を 1 増やしても上限を超えないか確認する
+    ///
+    /// 上限が None のときは分岐 1 つだけで返る。
+    fn check_memory_growth(&self) -> Result<(), RuntimeError> {
+        match self.max_memory_cells {
+            Some(limit) if self.exceeds_memory_limit_by_one(limit) => {
+                Err(RuntimeError::MemoryLimitExceeded(limit))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// 現在の使用セル数 + 1 が上限を超えるか
+    fn exceeds_memory_limit_by_one(&self, limit: usize) -> bool {
+        let used_cells = self
+            .heap
+            .len()
+            .checked_add(self.data_stack.len())
+            .and_then(|n| n.checked_add(self.call_stack.len()))
+            .and_then(|n| n.checked_add(1));
+        match used_cells {
+            Some(n) => n > limit,
+            None => true,
+        }
     }
 
     /// スタックのトップを参照（ポップしない）
@@ -863,7 +945,10 @@ impl WhitespaceVM {
             .ok_or(RuntimeError::UndefinedLabel(key))
     }
 
-    /// ヒープへの書き込み（拡張 API フック付き）
+    /// ヒープへの書き込み（拡張 API フック・メモリ上限の確認付き）
+    ///
+    /// ヒープへの書き込みはすべてここを通す（Store・InputChar・InputNumber）。
+    /// 新しく書き込む経路を追加するときも、`heap.insert` を直接呼ばずにここを使うこと。
     fn heap_store(&mut self, addr: i64, val: i64) -> Result<(), RuntimeError> {
         if self.debug_ext {
             match addr {
@@ -891,7 +976,20 @@ impl WhitespaceVM {
                     }
                     return Ok(());
                 }
+                -13 => {
+                    // __clog(val): clog writer に出力する（未設定なら捨てる）
+                    return self.write_clog(val);
+                }
                 _ => {}
+            }
+        }
+        // メモリ上限: 新しいアドレスへの書き込みだけが使用セル数を増やす。
+        // debug 拡張のフックの後に置く（フックはヒープに入らないため、上限ちょうどでも動作させる）。
+        // NOTE: 現行の命令（Store・入力命令）はオペランドを pop してから書き込むため、使用量は直前の
+        //       push で確認済みの値を超えず、ここでは失敗しない。ヒープに書き込む経路が増えたときのための確認
+        if let Some(limit) = self.max_memory_cells {
+            if self.exceeds_memory_limit_by_one(limit) && !self.heap.contains_key(&addr) {
+                return Err(RuntimeError::MemoryLimitExceeded(limit));
             }
         }
         // プロファイリング: ヒープ Store アドレスを記録
@@ -900,6 +998,21 @@ impl WhitespaceVM {
         }
         // 通常のヒープ書き込み（debug_ext 無効時、または上記にマッチしないアドレス）
         self.heap.insert(addr, val);
+        Ok(())
+    }
+
+    /// __clog の出力
+    ///
+    /// 出力順を保つため、先にプログラムの stdout を flush する（flush の失敗は stdout の I/O エラー）。
+    /// clog writer への書き込みエラーは無視する。
+    fn write_clog(&mut self, val: i64) -> Result<(), RuntimeError> {
+        if let Some(writer) = self.clog_writer.as_mut() {
+            self.stdout
+                .flush()
+                .map_err(|e| RuntimeError::IoError(e.to_string()))?;
+            let _ = writeln!(writer, "__clog: {}", val);
+            let _ = writer.flush();
+        }
         Ok(())
     }
 

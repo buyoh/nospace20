@@ -55,7 +55,7 @@ cargo run --example ws_profiler -- --json path/to/file.ns
 | `execution.result` | 実行結果 (Complete, Suspended, Error, WaitingForInput) |
 | `execution.total_steps` | 実行した総ステップ数 |
 | `execution.instruction_counts` | 命令別の実行回数 |
-| `execution.memory` | ヒープアクセス統計 |
+| `execution.memory` | ヒープアクセス統計（`heap_store_*` は Store 命令と入力命令（InputChar / InputNumber）による書き込みの合計） |
 | `execution.stack` | スタック深さ統計 |
 | `execution.program` | 静的命令数、Whitespace テキストサイズ |
 

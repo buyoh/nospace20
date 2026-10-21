@@ -382,3 +382,408 @@ fn test_div_by_zero_still_error() {
     let (result, _) = run_binary(1, 0, Instruction::Mod);
     assert_eq!(result, StepResult::Error(RuntimeError::DivisionByZero));
 }
+
+// ===== 入力命令のヒープ書き込み（heap_store 経由） =====
+
+/// 入力命令の書き込みがプロファイラのヒープ統計に反映される
+#[test]
+fn test_input_writes_recorded_in_heap_profile() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(3)),
+        Instruction::InputChar,
+        Instruction::Push(WsNumber(9)),
+        Instruction::InputNumber,
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_stdin(Box::new(std::io::Cursor::new(b"A12\n".to_vec())))
+    .with_profiling(true);
+    assert_eq!(vm.run(100), StepResult::Complete);
+    let heap_stats = &vm.profile_stats().heap;
+    assert_eq!(heap_stats.store_count, 2);
+    assert_eq!(heap_stats.store_range, Some((3, 9)));
+    assert_eq!(heap_stats.unique_address_count, 2);
+}
+
+/// debug 拡張ありで -10 に InputNumber すると __trace として記録され、ヒープには書き込まれない
+#[test]
+fn test_input_number_to_trace_addr_with_debug_ext() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(-10)),
+        Instruction::InputNumber,
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_stdin(Box::new(std::io::Cursor::new(b"7\n".to_vec())))
+    .with_debug_ext(true);
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(vm.traced.get(&7), Some(&1));
+    assert!(vm.heap().get(&-10).is_none());
+}
+
+/// debug 拡張ありで -11 に InputChar し、EOF（入力値 0）だと AssertionFailed(0)
+#[test]
+fn test_input_char_eof_to_assert_addr_with_debug_ext() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(-11)),
+        Instruction::InputChar,
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_debug_ext(true);
+    assert_eq!(
+        vm.run(100),
+        StepResult::Error(RuntimeError::AssertionFailed(0))
+    );
+}
+
+/// debug 拡張なしでは -10 への入力は普通のヒープ書き込み
+#[test]
+fn test_input_to_trace_addr_without_debug_ext() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(-10)),
+        Instruction::InputNumber,
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_stdin(Box::new(std::io::Cursor::new(b"7\n".to_vec())));
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert!(vm.traced.is_empty());
+    assert_eq!(vm.heap().get(&-10), Some(&7));
+}
+
+/// interactive stdin で WouldBlock から再実行しても、書き込みは 1 回だけ数えられる
+#[test]
+fn test_input_retry_after_would_block_records_store_once() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(10)),
+        Instruction::InputChar,
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_interactive_stdin()
+    .with_profiling(true);
+    assert_eq!(
+        vm.step(100),
+        StepResult::WaitingForInput(InputWaitType::Char)
+    );
+    vm.provide_stdin("B");
+    assert_eq!(vm.step(100), StepResult::Complete);
+    assert_eq!(vm.profile_stats().heap.store_count, 1);
+}
+
+// ===== __clog 拡張 API (-13) =====
+
+/// `__clog(val)` を -13 への store として実行する命令列
+fn clog_program(val: i64) -> Vec<Instruction> {
+    vec![
+        Instruction::Push(WsNumber(-13)),
+        Instruction::Push(WsNumber(val)),
+        Instruction::Store,
+        Instruction::Exit,
+    ]
+}
+
+/// debug 拡張あり・clog writer ありで、writer に `__clog: n` を書き、stdout とヒープは変わらない
+#[test]
+fn test_clog_writes_to_clog_writer() {
+    let clog_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
+    let mut vm = WhitespaceVM::from_instructions(clog_program(5))
+        .unwrap()
+        .with_debug_ext(true)
+        .with_clog_writer(Box::new(crate::base::shared_writer::SharedWriter(
+            Rc::clone(&clog_buf),
+        )));
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(String::from_utf8_lossy(&clog_buf.borrow()), "__clog: 5\n");
+    assert_eq!(vm.get_stdout_string(), "");
+    assert!(vm.heap().is_empty());
+}
+
+/// clog writer の前にプログラムの stdout を flush する（出力順を保つため）
+#[test]
+fn test_clog_flushes_stdout_before_writing() {
+    /// write はバッファに溜め、flush で共有の出力ログに移す writer
+    struct BufferedLogWriter {
+        pending: Vec<u8>,
+        log: Rc<RefCell<Vec<u8>>>,
+    }
+    impl Write for BufferedLogWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.pending.extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.log.borrow_mut().append(&mut self.pending);
+            Ok(())
+        }
+    }
+
+    let log = Rc::new(RefCell::new(Vec::<u8>::new()));
+    let mut instructions = vec![Instruction::Push(WsNumber(1)), Instruction::OutputNumber];
+    instructions.extend(clog_program(2));
+    let mut vm = WhitespaceVM::from_instructions(instructions)
+        .unwrap()
+        .with_stdout(Box::new(BufferedLogWriter {
+            pending: Vec::new(),
+            log: Rc::clone(&log),
+        }))
+        .with_debug_ext(true)
+        .with_clog_writer(Box::new(crate::base::shared_writer::SharedWriter(
+            Rc::clone(&log),
+        )));
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(String::from_utf8_lossy(&log.borrow()), "1__clog: 2\n");
+}
+
+/// debug 拡張あり・clog writer なしで、何も出力せず、ヒープも変わらない
+#[test]
+fn test_clog_without_writer_discards() {
+    let mut vm = WhitespaceVM::from_instructions(clog_program(5))
+        .unwrap()
+        .with_debug_ext(true);
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(vm.get_stdout_string(), "");
+    assert!(vm.heap().is_empty());
+}
+
+/// debug 拡張なしでは -13 への store は普通のヒープ書き込み
+#[test]
+fn test_clog_addr_without_debug_ext_is_heap_write() {
+    let clog_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
+    let mut vm = WhitespaceVM::from_instructions(clog_program(5))
+        .unwrap()
+        .with_clog_writer(Box::new(crate::base::shared_writer::SharedWriter(
+            Rc::clone(&clog_buf),
+        )));
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert!(clog_buf.borrow().is_empty());
+    assert_eq!(vm.heap().get(&-13), Some(&5));
+}
+
+// ===== メモリ上限 =====
+
+/// 新しいアドレス 0, 1, 2, ... に書き込み続ける命令列（Exit に到達しない）
+fn heap_growing_program() -> Vec<Instruction> {
+    vec![
+        // [addr]
+        Instruction::Push(WsNumber(0)),
+        Instruction::Label(LabelId(1)),
+        // heap[addr] = 0
+        Instruction::Duplicate,
+        Instruction::Push(WsNumber(0)),
+        Instruction::Store,
+        // addr += 1
+        Instruction::Push(WsNumber(1)),
+        Instruction::Add,
+        Instruction::Jump(LabelId(1)),
+    ]
+}
+
+/// ヒープを伸ばし続けるプログラムも上限で止まる
+///
+/// Store はオペランド 2 つを pop してからヒープを 1 セル増やすため、使用量の最大は
+/// 直前の push で決まる。そのため、上限に掛かるのは値の Push（ヒープ 8 + スタック 2 + 1 > 10）である
+#[test]
+fn test_memory_limit_heap_growing_program() {
+    let mut vm = WhitespaceVM::from_instructions(heap_growing_program())
+        .unwrap()
+        .with_max_memory_cells(Some(10));
+    assert_eq!(
+        vm.run(10_000),
+        StepResult::Error(RuntimeError::MemoryLimitExceeded(10))
+    );
+    assert_eq!(vm.heap().len(), 8);
+    assert_eq!(vm.data_stack().len(), 2);
+}
+
+/// ヒープ: 使用量が上限に達している状態での新しいアドレスへの書き込みは MemoryLimitExceeded
+///
+/// 現行の命令列からは到達しない（上記のとおり push が先に上限に掛かる）ため、heap_store を直接呼ぶ
+#[test]
+fn test_memory_limit_heap_store_new_address() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(1)),
+        Instruction::Push(WsNumber(2)),
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_max_memory_cells(Some(3));
+    assert_eq!(vm.step(2), StepResult::Suspended);
+    assert_eq!(vm.heap_store(0, 9), Ok(())); // 使用量 3 セルで上限ちょうど
+    assert_eq!(
+        vm.heap_store(1, 9),
+        Err(RuntimeError::MemoryLimitExceeded(3))
+    );
+    assert_eq!(vm.heap_store(0, 10), Ok(())); // 既存のアドレスへの上書きは増えない
+    assert_eq!(vm.heap().len(), 1);
+    assert_eq!(vm.heap().get(&0), Some(&10));
+}
+
+/// ヒープ: 既存のアドレスへの上書きでは使用セル数が増えないので、上限ちょうどでも成功する
+#[test]
+fn test_memory_limit_heap_overwrite_existing_address() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(0)),
+        Instruction::Push(WsNumber(1)),
+        Instruction::Store,
+        Instruction::Push(WsNumber(5)),
+        Instruction::Push(WsNumber(6)),
+        Instruction::Store, // heap = {0: 1, 5: 6}
+        Instruction::Push(WsNumber(0)),
+        Instruction::Push(WsNumber(2)), // heap 2 + stack 2 = 4 セルで上限ちょうど
+        Instruction::Store,             // 既存アドレスへの上書き
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_max_memory_cells(Some(4));
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(vm.heap().get(&0), Some(&2));
+}
+
+/// ヒープ: 使用量が上限ちょうどでも、debug 拡張のフック（ヒープに入らない）は動作する
+#[test]
+fn test_memory_limit_debug_hook_at_limit() {
+    let clog_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(0)),
+        Instruction::Push(WsNumber(1)),
+        Instruction::Store, // heap 1 セル
+        Instruction::Push(WsNumber(-10)),
+        Instruction::Push(WsNumber(7)),
+        Instruction::Store, // __trace(7): pop 後の使用量は 1 セルで上限ちょうど
+        Instruction::Push(WsNumber(-13)),
+        Instruction::Push(WsNumber(8)),
+        Instruction::Store, // __clog(8)
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_debug_ext(true)
+    .with_clog_writer(Box::new(crate::base::shared_writer::SharedWriter(
+        Rc::clone(&clog_buf),
+    )))
+    .with_max_memory_cells(Some(3));
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(vm.traced.get(&7), Some(&1));
+    assert_eq!(String::from_utf8_lossy(&clog_buf.borrow()), "__clog: 8\n");
+}
+
+/// ヒープ: 入力命令の書き込みにも上限が掛かる（オペランドの pop 後にエラー）
+#[test]
+fn test_memory_limit_input_write() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(0)),
+        Instruction::InputNumber,
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_stdin(Box::new(std::io::Cursor::new(b"7\n".to_vec())))
+    .with_max_memory_cells(Some(1));
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(vm.heap().get(&0), Some(&7));
+
+    let mut vm0 = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(0)),
+        Instruction::InputNumber,
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_stdin(Box::new(std::io::Cursor::new(b"7\n".to_vec())))
+    .with_max_memory_cells(Some(0));
+    // 上限 0 では最初の Push で失敗する
+    assert_eq!(
+        vm0.run(100),
+        StepResult::Error(RuntimeError::MemoryLimitExceeded(0))
+    );
+}
+
+/// データスタック: Push / Duplicate / Copy の繰り返しで MemoryLimitExceeded
+#[test]
+fn test_memory_limit_data_stack_push() {
+    for grow in [
+        Instruction::Push(WsNumber(1)),
+        Instruction::Duplicate,
+        Instruction::Copy(WsNumber(0)),
+    ] {
+        let mut vm = WhitespaceVM::from_instructions(vec![
+            Instruction::Push(WsNumber(1)),
+            Instruction::Label(LabelId(1)),
+            grow.clone(),
+            Instruction::Jump(LabelId(1)),
+        ])
+        .unwrap()
+        .with_max_memory_cells(Some(5));
+        assert_eq!(
+            vm.run(10_000),
+            StepResult::Error(RuntimeError::MemoryLimitExceeded(5)),
+            "{:?}",
+            grow
+        );
+        assert_eq!(vm.data_stack().len(), 5, "{:?}", grow);
+    }
+}
+
+/// データスタック: 正味で増えない命令（算術演算・Retrieve・Swap）は上限ちょうどでも成功する
+#[test]
+fn test_memory_limit_net_zero_instructions_at_limit() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(2)),
+        Instruction::Push(WsNumber(3)), // stack 2 セルで上限ちょうど
+        Instruction::Add,
+        Instruction::Push(WsNumber(5)), // stack 2 セルで上限ちょうど
+        Instruction::Retrieve,          // pop して push（heap[5] は未初期化で 0）
+        Instruction::Swap,
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_max_memory_cells(Some(2));
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(vm.data_stack(), &[0, 5]);
+}
+
+/// 戻り先: 自分自身を Call し続けるプログラムで MemoryLimitExceeded
+#[test]
+fn test_memory_limit_call_stack() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Label(LabelId(1)),
+        Instruction::Call(LabelId(1)),
+    ])
+    .unwrap()
+    .with_max_memory_cells(Some(8));
+    assert_eq!(
+        vm.run(10_000),
+        StepResult::Error(RuntimeError::MemoryLimitExceeded(8))
+    );
+    assert_eq!(vm.call_stack_depth(), 8);
+}
+
+/// None（既定）では同じプログラムが上限なしで進み、ステップ数の上限で Suspended になる
+#[test]
+fn test_memory_limit_none_is_unlimited() {
+    let mut vm = WhitespaceVM::from_instructions(heap_growing_program()).unwrap();
+    assert_eq!(vm.run(10_000), StepResult::Suspended);
+    assert!(vm.heap().len() > 100);
+
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Label(LabelId(1)),
+        Instruction::Call(LabelId(1)),
+    ])
+    .unwrap()
+    .with_max_memory_cells(None);
+    assert_eq!(vm.run(10_000), StepResult::Suspended);
+}
+
+/// Call: 使用量が上限に達していても、未定義ラベルのエラーを優先する
+#[test]
+fn test_memory_limit_call_undefined_label_reported_first() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(1)),
+        Instruction::Call(LabelId(9)),
+    ])
+    .unwrap()
+    .with_max_memory_cells(Some(1));
+    assert!(matches!(
+        vm.run(100),
+        StepResult::Error(RuntimeError::UndefinedLabel(_))
+    ));
+}

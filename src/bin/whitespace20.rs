@@ -1,7 +1,7 @@
 //! whitespace20 - A Whitespace language interpreter
 
 use clap::{Parser, ValueEnum};
-use nospace20::whitespace::{StepResult, WhitespaceVM};
+use nospace20::whitespace::{max_memory_cells_from_setting, StepResult, WhitespaceVM};
 use nospace20::TargetExtension;
 use std::fs;
 use std::io::{BufReader, Write};
@@ -54,6 +54,10 @@ struct Args {
     #[arg(long)]
     randomize_heap: bool,
 
+    /// Maximum memory used by the VM, in cells: heap addresses + data stack + return addresses (0 = unlimited)
+    #[arg(long, default_value_t = 0)]
+    max_memory_cells: usize,
+
     /// Standard extensions (can be specified multiple times, for compatibility with nospace20)
     #[arg(long = "std-ext", value_enum)]
     std_ext: Vec<CliTargetExt>,
@@ -80,7 +84,8 @@ fn main() {
         Ok(vm) => vm
             .with_debug_ext(debug_ext)
             .with_strict_heap(args.strict_heap)
-            .with_randomize_heap(args.randomize_heap),
+            .with_randomize_heap(args.randomize_heap)
+            .with_max_memory_cells(max_memory_cells_from_setting(args.max_memory_cells)),
         Err(e) => {
             eprintln!("Parse error: {}", e);
             process::exit(1);
@@ -114,6 +119,10 @@ fn main() {
     };
 
     vm = vm.with_io(stdin, stdout);
+    if debug_ext {
+        // __clog の出力はプログラムの stdout と分けて stderr に書く
+        vm = vm.with_clog_writer(Box::new(std::io::stderr()));
+    }
 
     // 実行
     let max_steps = if args.max_steps == 0 {

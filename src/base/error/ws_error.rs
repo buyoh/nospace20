@@ -24,6 +24,8 @@ pub enum WsRuntimeError {
     IoError(String),
     /// アサーション失敗（拡張 API）
     AssertionFailed(i64),
+    /// VM が使うメモリが上限を超えた（値は上限のセル数）
+    MemoryLimitExceeded(usize),
 }
 
 impl std::fmt::Display for WsRuntimeError {
@@ -37,6 +39,7 @@ impl std::fmt::Display for WsRuntimeError {
             Self::ProgramCounterOutOfBounds => write!(f, "program counter out of bounds"),
             Self::IoError(msg) => write!(f, "I/O error: {}", msg),
             Self::AssertionFailed(val) => write!(f, "assertion failed: {}", val),
+            Self::MemoryLimitExceeded(cells) => write!(f, "memory limit exceeded: {} cells", cells),
         }
     }
 }

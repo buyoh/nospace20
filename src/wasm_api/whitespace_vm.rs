@@ -8,13 +8,16 @@ use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
 
-use crate::whitespace::{InputWaitType, StepResult, WhitespaceVM};
+use crate::whitespace::{
+    max_memory_cells_from_setting, InputWaitType, StepResult, WhitespaceVM,
+    DEFAULT_MAX_MEMORY_CELLS_WASM,
+};
 use crate::{compile_to_ws, WsCompileOptions};
 
 use super::pipeline;
 use super::types::{
-    JsNumberArray, JsNumberRecord, JsStdExtensionArray, JsStringArray, JsVmStepResult, ResultErr,
-    VmStepResult,
+    JsNumberArray, JsNumberRecord, JsOptPassArray, JsStdExtensionArray, JsStringArray,
+    JsVmStepResult, ResultErr, VmStepResult,
 };
 
 // ========================================
@@ -31,17 +34,26 @@ pub(super) use crate::base::shared_writer::SharedWriter;
 ///
 /// Eliminates duplication between `from_whitespace` and `from_whitespace_interactive`.
 /// Applies `with_interactive_stdin()` when `interactive=true`.
+/// `max_memory_cells`: memory limit passed to the VM as is (`None` = unlimited).
 fn create_from_ws_source(
     ws_source: &str,
     initial_stdin: &str,
     interactive: bool,
+    debug_ext: bool,
+    max_memory_cells: Option<usize>,
 ) -> Result<WasmWhitespaceVM, JsValue> {
     let vm = WhitespaceVM::from_source(ws_source).map_err(|e| {
         let err = ResultErr::single_error(format!("Whitespace parse error: {:?}", e));
         serde_wasm_bindgen::to_value(&err).unwrap()
     })?;
 
-    let vm = vm.with_debug_ext(false);
+    // バグ修正: 従来は with_debug_ext(false) を固定で呼んでいたため、`new()` に `["debug"]` を渡しても
+    // コンパイラだけが debug 拡張付きのコードを出力し、VM は __trace を記録せず __assert も失敗しなかった。
+    // 解決策: 呼び出し側から debug_ext を受け取って VM に反映する（fromWhitespace* は false のまま）。
+    // __clog の出力先（clog writer）は設定しない（出力は捨てる）。
+    let vm = vm
+        .with_debug_ext(debug_ext)
+        .with_max_memory_cells(max_memory_cells);
     let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
     let stdout_clone = Rc::clone(&stdout_buf);
 
@@ -85,36 +97,54 @@ impl WasmWhitespaceVM {
     /// Compile nospace source and construct Whitespace VM
     ///
     /// - `std_extensions`: Array of extensions to enable (e.g., `["debug", "alloc"]`)
+    /// - `opt_passes`: Array of optimization passes (e.g., `["all"]`)
+    /// - `max_memory_cells`: Memory limit of the VM in cells (heap addresses + data stack + return addresses).
+    ///   `undefined` / `null` use `DEFAULT_MAX_MEMORY_CELLS_WASM`; only `0` means unlimited.
+    ///   The value is converted to u32 by wasm-bindgen (e.g. a negative number wraps), so pass a non-negative integer
     #[wasm_bindgen(constructor)]
     pub fn new(
         nospace_source: &str,
         stdin: &str,
         interactive: Option<bool>,
         std_extensions: Option<JsStdExtensionArray>,
+        opt_passes: Option<JsOptPassArray>,
+        max_memory_cells: Option<u32>,
     ) -> Result<WasmWhitespaceVM, JsValue> {
         let (debug_ext, alloc_ext) = pipeline::parse_std_extensions(std_extensions)
             .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
-        let (scope, text_code) = pipeline::analyze_source(nospace_source)
-            .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
+        let (scope, text_code, opt_options) =
+            pipeline::analyze_and_optimize(nospace_source, opt_passes)
+                .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
         // Compile
         let ws_options = WsCompileOptions {
             debug_ext,
             alloc_ext,
+            optimization: opt_options,
             ..Default::default()
         };
         let ws_source = compile_to_ws(&scope, &ws_options).map_err(|e| {
             serde_wasm_bindgen::to_value(&pipeline::convert_compile_error(&e, &text_code)).unwrap()
         })?;
 
-        create_from_ws_source(&ws_source, stdin, interactive.unwrap_or(false))
+        let max_memory_cells = match max_memory_cells {
+            Some(cells) => max_memory_cells_from_setting(cells as usize),
+            None => Some(DEFAULT_MAX_MEMORY_CELLS_WASM),
+        };
+        create_from_ws_source(
+            &ws_source,
+            stdin,
+            interactive.unwrap_or(false),
+            debug_ext,
+            max_memory_cells,
+        )
     }
 
     /// Construct VM directly from Whitespace source code
     #[wasm_bindgen(js_name = "fromWhitespace")]
     pub fn from_whitespace(ws_source: &str, stdin: &str) -> Result<WasmWhitespaceVM, JsValue> {
-        create_from_ws_source(ws_source, stdin, false)
+        create_from_ws_source(ws_source, stdin, false, false, None)
     }
 
     /// Construct VM from Whitespace source in interactive mode
@@ -126,7 +156,7 @@ impl WasmWhitespaceVM {
         ws_source: &str,
         initial_stdin: &str,
     ) -> Result<WasmWhitespaceVM, JsValue> {
-        create_from_ws_source(ws_source, initial_stdin, true)
+        create_from_ws_source(ws_source, initial_stdin, true, false, None)
     }
 
     /// Add data to stdin (for interactive mode)
@@ -165,7 +195,7 @@ impl WasmWhitespaceVM {
             },
             StepResult::Error(e) => VmStepResult {
                 status: "error".to_string(),
-                error: Some(format!("{:?}", e)),
+                error: Some(e.to_string()),
                 input_type: None,
             },
             StepResult::WaitingForInput(input_type) => VmStepResult {

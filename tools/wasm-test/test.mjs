@@ -200,6 +200,81 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   assert.equal(vm2.flush_stdout(), "2\n", "vm2 stdout");
 }
 
+// 5. WasmWhitespaceVM options (std_extensions, opt_passes, max_memory_cells) and error strings
+{
+  // Runs until complete or error and returns the last step result
+  function runUntilStop(vm, budget = 10000, maxIterations = 10000) {
+    for (let i = 0; i < maxIterations; i += 1) {
+      const result = vm.step(budget);
+      if (result.status !== "suspended") {
+        return result;
+      }
+    }
+    throw new Error("vm did not stop within iteration limit");
+  }
+
+  // debug extension is applied to the VM: __trace is recorded
+  const vmTrace = new WasmWhitespaceVM("func: __main() { __trace(10); }", "", false, ["debug"]);
+  assert.equal(runUntilStop(vmTrace).status, "complete", "debug trace status");
+  assert.equal(vmTrace.get_traced()["10"], 1, "debug trace recorded");
+
+  // debug extension is applied to the VM: __assert(0) fails
+  const vmAssert = new WasmWhitespaceVM("func: __main() { __assert(0); }", "", false, ["debug"]);
+  const assertResult = runUntilStop(vmAssert);
+  assert.equal(assertResult.status, "error", "debug assert status");
+  assert.equal(assertResult.error, "assertion failed: 0", "debug assert error");
+
+  // without the debug extension, __trace is not recorded
+  const vmNoDebug = new WasmWhitespaceVM("func: __main() { __trace(10); }", "");
+  assert.equal(runUntilStop(vmNoDebug).status, "complete", "no debug status");
+  assert.equal(vmNoDebug.get_traced()["10"], undefined, "no debug trace");
+
+  // __clog output is discarded (not mixed into stdout)
+  const vmClog = new WasmWhitespaceVM(
+    "func: __main() { __puti(__clog(7)); }",
+    "",
+    false,
+    ["debug"]
+  );
+  assert.equal(runUntilStop(vmClog).status, "complete", "clog status");
+  assert.equal(vmClog.flush_stdout(), "7", "clog stdout");
+
+  // opt_passes gives the same output
+  const optSource =
+    "func: __main() { let: i; i = 0; while: i < 3 { __puti(i * 2 + 1); i = i + 1; }; }";
+  const vmNoOpt = new WasmWhitespaceVM(optSource, "");
+  runUntilStop(vmNoOpt);
+  const vmOpt = new WasmWhitespaceVM(optSource, "", false, undefined, ["all"]);
+  assert.equal(runUntilStop(vmOpt).status, "complete", "opt_passes status");
+  assert.equal(vmOpt.flush_stdout(), vmNoOpt.flush_stdout(), "opt_passes stdout");
+
+  // runtime error string uses the display message
+  const vmDiv = new WasmWhitespaceVM(
+    "func: __main() { let: x; x = __geti(); __puti(1 / x); }",
+    "0\n"
+  );
+  const divResult = runUntilStop(vmDiv);
+  assert.equal(divResult.status, "error", "division by zero status");
+  assert.equal(divResult.error, "division by zero", "division by zero error");
+
+  // a small max_memory_cells stops non-tail infinite recursion
+  const recursionSource = "func: f() { return: f() + 1; } func: __main() { __puti(f()); }";
+  const vmLimit = new WasmWhitespaceVM(recursionSource, "", false, undefined, undefined, 1000);
+  const limitResult = runUntilStop(vmLimit);
+  assert.equal(limitResult.status, "error", "memory limit status");
+  assert.equal(limitResult.error, "memory limit exceeded: 1000 cells", "memory limit error");
+
+  // the default limit also stops it
+  const vmDefaultLimit = new WasmWhitespaceVM(recursionSource, "");
+  const defaultLimitResult = runUntilStop(vmDefaultLimit, 1000000, 10000);
+  assert.equal(defaultLimitResult.status, "error", "default memory limit status");
+  assert.match(defaultLimitResult.error, /^memory limit exceeded: \d+ cells$/, "default memory limit error");
+
+  // max_memory_cells = 0 is unlimited
+  const vmUnlimited = new WasmWhitespaceVM(recursionSource, "", false, undefined, undefined, 0);
+  assert.equal(vmUnlimited.step(100000).status, "suspended", "unlimited status");
+}
+
 // 6. Compile error tests (semantic errors)
 {
   // Undefined variable (use WasmNospaceVM instead of run())

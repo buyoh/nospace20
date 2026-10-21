@@ -86,6 +86,7 @@ pub mod heap_layout {
     pub const EXT_TRACE_ADDR: i64 = -10;
     pub const EXT_ASSERT_ADDR: i64 = -11;
     pub const EXT_ASSERT_NOT_ADDR: i64 = -12;
+    pub const EXT_CLOG_ADDR: i64 = -13;
 
     // メモリアロケータ用アドレス (--std-ext alloc)
     pub const ALLOC_FREE_HEAD: i64 = 5;

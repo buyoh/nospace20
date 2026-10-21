@@ -100,6 +100,7 @@ pub fn test_ws_runtime_error_base(test_name: &str) {
                 RuntimeError::ProgramCounterOutOfBounds => "ProgramCounterOutOfBounds",
                 RuntimeError::IoError(_) => "IoError",
                 RuntimeError::AssertionFailed(_) => "AssertionFailed",
+                RuntimeError::MemoryLimitExceeded(_) => "MemoryLimitExceeded",
             };
             assert_eq!(
                 expected_error, error_name,
