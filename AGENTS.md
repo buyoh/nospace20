@@ -43,7 +43,7 @@ src/
   interpreter/     # Whitespace インタプリタ (実行エンジン)
   whitespace/      # Whitespace パーサ・インタプリタ (低レベル)
   base/            # 共通型・エラー定義・ユーティリティ
-  algorithm/       # アルゴケータ仕様の実装
+  algorithm/       # ドメインデータ構造に依存しないアルゴリズムの実装
   logger/          # ログ出力
   wasm_api/        # WebAssembly API
   lib.rs           # ライブラリルート
