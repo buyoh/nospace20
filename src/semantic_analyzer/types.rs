@@ -117,7 +117,7 @@ impl BuiltinFunctionKind {
 /// スコープ階層とローカルインデックスで管理することで、
 /// 実行時の文字列検索を排除し、O(1) アクセスを実現する。
 ///
-/// is_global フラグも保持。グローバル変数は Environment に保持されるため、
+/// is_global フラグも保持。グローバル変数は関数のフレームとは別の固定領域に置かれるため、
 /// ローカル変数とは別の参照方法が必要。
 #[derive(Debug, Clone, Copy)]
 pub struct IdentifierRef {
@@ -126,8 +126,8 @@ pub struct IdentifierRef {
     /// スコープ内でのインデックス
     pub local_index: usize,
     /// グローバル変数かどうか
-    /// true の場合、Environment.global_variables でアクセス
-    /// false の場合、LocalEnvironment.scope_stack でアクセス
+    /// true の場合、グローバル変数の領域（`local_index` はルートスコープのスロット）を指す
+    /// false の場合、`scope_depth` だけ外側のスコープの、実行中のフレーム上のスロットを指す
     pub is_global: bool,
     /// static 変数を所有する関数のグローバルインデックス
     /// ネストされた関数から親関数の static 変数にアクセスする場合に使用。

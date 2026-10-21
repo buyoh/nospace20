@@ -2,7 +2,7 @@
 //!
 //! コンパイル時定数ブロック `constexpr: NAME { ... };` の評価を行うモジュール。
 //!
-//! `pure_eval.rs` と同様に、コンパイル時評価は semantic_analyzer・optimizer・interpreter
+//! `pure_eval.rs` と同様に、コンパイル時評価は semantic_analyzer・optimizer
 //! いずれにも属さない汎用機能として `base/` に配置する。
 
 use std::collections::BTreeMap;

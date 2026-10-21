@@ -1,6 +1,6 @@
 # 概要
 
-独自のプログラミング言語 `nospace` を解釈・実行するコンパイラ・インタプリタを開発するプロジェクト
+独自のプログラミング言語 `nospace` を Whitespace へコンパイルし、内蔵の Whitespace VM で実行する処理系を開発するプロジェクト
 
 ## ドキュメント
 
@@ -40,7 +40,6 @@ src/
   semantic_analyzer/ # 意味解析 (型チェック、スコープ解決など)
   compiler_ws/     # Whitespace コードへのコンパイラ
   optimizer/       # Whitespace コードの最適化パス
-  interpreter/     # Whitespace インタプリタ (実行エンジン)
   whitespace/      # Whitespace パーサ・インタプリタ (低レベル)
   base/            # 共通型・エラー定義・ユーティリティ
   algorithm/       # ドメインデータ構造に依存しないアルゴリズムの実装

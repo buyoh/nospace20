@@ -2,9 +2,9 @@
 
 ## What is Nospace20?
 
-Nospace is a toy programming language that allows arbitrary spaces, newlines, and tabs anywhere in the code, inspired by the esoteric programming language Whitespace. Nospace20 can interpret Nospace code. It can also compile Nospace code into Whitespace.
+Nospace is a toy programming language that allows arbitrary spaces, newlines, and tabs anywhere in the code, inspired by the esoteric programming language Whitespace. Nospace20 compiles Nospace code into Whitespace, and can also run it directly (run mode compiles to Whitespace and executes it on the built-in Whitespace VM).
 
-Nospace とは、改行、タブ・半角スペース等の空白に影響を受けることなく記述できるプログラミング言語です。esolang である Whitespace と対になる言語を目指しています。Nospace20 は interpreter として動作する他、Whitespace へのコンパイルも可能です。
+Nospace とは、改行、タブ・半角スペース等の空白に影響を受けることなく記述できるプログラミング言語です。esolang である Whitespace と対になる言語を目指しています。Nospace20 は Whitespace へのコンパイラで、run モードではコンパイルした Whitespace を内蔵の Whitespace VM で実行します。
 
 ```
 func: puts(str) {
@@ -36,10 +36,14 @@ Run Nospace20 instantly.
 
 ```bash
 $ echo 10 | cargo run --release --bin nospace20 -- \
-    resources/tests/passes/examples/e0-01-fibonacci.ns --std-ext debug --opt all 
+    resources/tests/passes/examples/e0-01-fibonacci.ns --opt all
 89
-main exited
 ```
+
+`--mode run` (the default) compiles the source to Whitespace and runs it on the built-in Whitespace VM (the same VM as `whitespace20`).
+The debug extension (`__assert`, `__assert_not`, `__trace`, `__clog`) is always enabled in run mode; `--ignore-debug` compiles without it (debug built-ins are ignored, but their arguments are still evaluated). `__clog` writes to stderr.
+The alloc extension is enabled by default; `--no-std-ext` disables it.
+Execution is limited to 16777216 memory cells, so infinite recursion stops with `memory limit exceeded`.
 
 Compile and run:
 

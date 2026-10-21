@@ -23,9 +23,9 @@ pub fn generate_nospace_tests() {
         match test.test_type.as_str() {
             "success" => write_success_tests(&mut f, &test),
             "success_io" => write_success_io_tests(&mut f, &test),
-            "syntax_error" => write_error_test(&mut f, &test, "test_syntax_error_base"),
-            "compile_error" => write_error_test(&mut f, &test, "test_compile_error_base"),
-            "runtime_error" => write_error_test(&mut f, &test, "test_runtime_error_base"),
+            "syntax_error" => write_error_test(&mut f, &test, Some("test_syntax_error_base")),
+            "compile_error" => write_error_test(&mut f, &test, Some("test_compile_error_base")),
+            "runtime_error" => write_error_test(&mut f, &test, None),
             _ => {
                 panic!("Unknown test type: {}", test.test_type);
             }
@@ -39,32 +39,6 @@ pub fn generate_nospace_tests() {
 fn write_success_tests(f: &mut fs::File, test: &TestCase) {
     let comment_line = format_comment_line(&test.comment);
     let flags = TargetFlags::from_test_case(test);
-
-    if flags.has_interpreter {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}() {{
-    test_ok_coding_base("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
-
-    if flags.has_nospace_vm {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}_vm() {{
-    test_ok_coding_base_vm("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
 
     if flags.has_whitespace {
         writeln!(
@@ -80,167 +54,13 @@ fn {}_ws() {{
         .unwrap();
     }
 
-    if flags.has_whitespace_self {
-        if flags.has_alloc_ext {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self() {{
-    test_whitespace_self_base_alloc("{}", {}, true)
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        } else {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self() {{
-    test_whitespace_self_base_debug("{}", {})
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        }
-    }
-
-    if flags.has_whitespace_self_strict {
-        if flags.has_alloc_ext {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self_strict() {{
-    test_whitespace_self_base_alloc("{}", {}, true)
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        } else {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self_strict() {{
-    test_whitespace_self_base_strict("{}", {})
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        }
-    }
-
-    if flags.has_interpreter_opt_all {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}_opt_all() {{
-    test_ok_coding_base_opt_all("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
-
-    if flags.has_interpreter_randomize {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}_randomize() {{
-    test_ok_coding_base_randomize("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
-
-    if flags.has_whitespace_self_opt_all {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}_ws_self_opt_all() {{
-    test_whitespace_self_base_opt_all("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
-
-    if flags.has_whitespace_self_randomize {
-        if flags.has_alloc_ext {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self_randomize() {{
-    test_whitespace_self_base_alloc("{}", {}, true)
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        } else {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self_randomize() {{
-    test_whitespace_self_base_randomize("{}", {})
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        }
-    }
+    write_ws_self_tests(f, test, &flags, "test_whitespace_self_base");
 }
 
 /// "success_io" タイプのテストコードを生成する。
 fn write_success_io_tests(f: &mut fs::File, test: &TestCase) {
     let comment_line = format_comment_line(&test.comment);
     let flags = TargetFlags::from_test_case(test);
-
-    if flags.has_interpreter {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}() {{
-    test_ok_coding_io_base("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
-
-    if flags.has_nospace_vm {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}_vm() {{
-    test_ok_coding_io_base_vm("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
-
-    if flags.has_interpreter_opt_all {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}_opt_all() {{
-    test_ok_coding_io_base_opt_all("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
 
     if flags.has_whitespace {
         writeln!(
@@ -256,104 +76,19 @@ fn {}_ws() {{
         .unwrap();
     }
 
-    if flags.has_whitespace_self {
-        if flags.has_alloc_ext {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self() {{
-    test_whitespace_self_io_base_alloc("{}", {}, true)
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        } else {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self() {{
-    test_whitespace_self_io_base_debug("{}", {})
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        }
-    }
-
-    if flags.has_whitespace_self_strict {
-        if flags.has_alloc_ext {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self_strict() {{
-    test_whitespace_self_io_base_alloc("{}", {}, true)
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        } else {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self_strict() {{
-    test_whitespace_self_io_base_strict("{}", {})
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        }
-    }
-
-    if flags.has_whitespace_self_opt_all {
-        writeln!(
-            f,
-            r#"{}#[test]
-fn {}_ws_self_opt_all() {{
-    test_whitespace_self_io_base_opt_all("{}")
-}}
-"#,
-            comment_line, test.name, test.path
-        )
-        .unwrap();
-    }
-
-    if flags.has_whitespace_self_randomize {
-        if flags.has_alloc_ext {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self_randomize() {{
-    test_whitespace_self_io_base_alloc("{}", {}, true)
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        } else {
-            writeln!(
-                f,
-                r#"{}#[test]
-fn {}_ws_self_randomize() {{
-    test_whitespace_self_io_base_randomize("{}", {})
-}}
-"#,
-                comment_line, test.name, test.path, flags.has_debug_ext
-            )
-            .unwrap();
-        }
-    }
+    write_ws_self_tests(f, test, &flags, "test_whitespace_self_io_base");
 }
 
 /// エラー系テスト（syntax_error, compile_error, runtime_error）のコードを生成する。
-fn write_error_test(f: &mut fs::File, test: &TestCase, base_fn: &str) {
+///
+/// `base_fn` は syntax_error / compile_error の base 関数名。runtime_error は `None` で、
+/// `_ws_self` のテストだけを生成する。
+fn write_error_test(f: &mut fs::File, test: &TestCase, base_fn: Option<&str>) {
     let comment_line = format_comment_line(&test.comment);
     let flags = TargetFlags::from_test_case(test);
 
-    if flags.has_interpreter {
+    // syntax_error / compile_error は実行を伴わないので、ターゲットによらず生成する
+    if let Some(base_fn) = base_fn {
         writeln!(
             f,
             r#"{}#[test]
@@ -364,18 +99,88 @@ fn {}() {{
             comment_line, test.name, base_fn, test.path
         )
         .unwrap();
+        return;
     }
 
-    // runtime_error のみ NospaceVM テストも生成
-    if base_fn == "test_runtime_error_base" && flags.has_nospace_vm {
+    // runtime_error は compile → 独自 WhitespaceVM で実行時エラーで止まることを確かめる
+    if flags.has_whitespace_self {
         writeln!(
             f,
             r#"{}#[test]
-fn {}_vm() {{
-    test_runtime_error_base_vm("{}")
+fn {}_ws_self() {{
+    test_runtime_error_ws_self_base("{}", {})
 }}
 "#,
-            comment_line, test.name, test.path
+            comment_line,
+            test.name,
+            test.path,
+            ws_self_target_literal(&flags, WsSelfVariant::Plain)
+        )
+        .unwrap();
+    }
+}
+
+/// `_ws_self` 系のターゲットの種類（テスト名の接尾辞と VM・最適化の設定を決める）
+#[derive(Clone, Copy)]
+enum WsSelfVariant {
+    Plain,
+    Strict,
+    Randomize,
+    OptAll,
+}
+
+impl WsSelfVariant {
+    fn suffix(self) -> &'static str {
+        match self {
+            WsSelfVariant::Plain => "_ws_self",
+            WsSelfVariant::Strict => "_ws_self_strict",
+            WsSelfVariant::Randomize => "_ws_self_randomize",
+            WsSelfVariant::OptAll => "_ws_self_opt_all",
+        }
+    }
+}
+
+/// 生成するテストコードに埋め込む `WsSelfTarget` の構造体リテラル
+/// （`tests/code_test/whitespace_self_base.rs` で定義）
+fn ws_self_target_literal(flags: &TargetFlags, variant: WsSelfVariant) -> String {
+    format!(
+        "WsSelfTarget {{ debug_ext: {}, alloc_ext: {}, strict_heap: {}, randomize_heap: {}, opt_all: {} }}",
+        flags.has_debug_ext,
+        flags.has_alloc_ext,
+        matches!(variant, WsSelfVariant::Strict),
+        matches!(variant, WsSelfVariant::Randomize),
+        matches!(variant, WsSelfVariant::OptAll),
+    )
+}
+
+/// success / success_io の `_ws_self` 系のテスト（compile → 独自 WhitespaceVM）を生成する。
+///
+/// `base_fn` は `fn(test_name: &str, target: WsSelfTarget)` の形の base 関数名。
+fn write_ws_self_tests(f: &mut fs::File, test: &TestCase, flags: &TargetFlags, base_fn: &str) {
+    let comment_line = format_comment_line(&test.comment);
+    let variants = [
+        (flags.has_whitespace_self, WsSelfVariant::Plain),
+        (flags.has_whitespace_self_strict, WsSelfVariant::Strict),
+        (flags.has_whitespace_self_opt_all, WsSelfVariant::OptAll),
+        (flags.has_whitespace_self_randomize, WsSelfVariant::Randomize),
+    ];
+    for (enabled, variant) in variants {
+        if !enabled {
+            continue;
+        }
+        writeln!(
+            f,
+            r#"{}#[test]
+fn {}{}() {{
+    {}("{}", {})
+}}
+"#,
+            comment_line,
+            test.name,
+            variant.suffix(),
+            base_fn,
+            test.path,
+            ws_self_target_literal(flags, variant)
         )
         .unwrap();
     }

@@ -6,9 +6,10 @@ use std::{
 
 use clap::{Parser, ValueEnum};
 use nospace20::cli_utils::CliCompileArgs;
+use nospace20::whitespace::{StepResult, WhitespaceVM, DEFAULT_MAX_MEMORY_CELLS};
 use nospace20::{
     compile_to_ws, optimize, parse_to_tokens, parse_to_tree, semantic_analyze, CodeParseError,
-    CompileProperty, CompileTarget, ExecutionMode, NospaceVM, Scope, StepResult, TargetExtension,
+    CompileProperty, CompileTarget, ExecutionMode, OptimizationOptions, Scope, TargetExtension,
     TextCode, WsCompileOptions, WsOutputFormat,
 };
 use unicode_width::UnicodeWidthStr;
@@ -49,11 +50,14 @@ impl From<CliTarget> for CompileTarget {
     }
 }
 
-/// nospace - A nospace language interpreter and compiler
+/// nospace - A nospace language compiler (run mode executes the compiled Whitespace on the built-in VM)
 #[derive(Parser, Debug)]
 #[command(name = "nospace20")]
 #[command(version)]
-#[command(about = "A nospace language interpreter and compiler", long_about = None)]
+#[command(
+    about = "A nospace language compiler (run mode executes the compiled Whitespace on the built-in VM)",
+    long_about = None
+)]
 struct Args {
     /// Source file to execute (reads from stdin if not provided)
     file: Option<String>,
@@ -61,7 +65,7 @@ struct Args {
     #[command(flatten)]
     compile: CliCompileArgs,
 
-    /// Execution mode
+    /// Execution mode (run: compile to Whitespace and run it on the built-in VM)
     #[arg(long, value_enum, default_value_t = CliMode::Run)]
     mode: CliMode,
 
@@ -77,7 +81,9 @@ struct Args {
     #[arg(short, long)]
     debug: bool,
 
-    /// Ignore debug built-in functions (__assert, __assert_not, __trace, __clog)
+    /// Ignore debug built-in functions (__assert, __assert_not, __trace, __clog).
+    /// Run mode only: the debug extension is enabled unless this is given
+    /// (takes precedence over --std-ext debug there)
     #[arg(long)]
     ignore_debug: bool,
 }
@@ -130,58 +136,57 @@ fn handle_parse_error<T>(res: Result<T, Vec<CodeParseError>>, text: &TextCode) -
     process::exit(1);
 }
 
-/// NospaceVM の 1 回の `step()` で実行する式評価数
+/// `--mode run`: Whitespace にコンパイルし、内蔵の WhitespaceVM で実行する
 ///
-/// 完了まで繰り返し呼ぶため値は実行結果に影響しない（中断・再開のオーバーヘッドとの兼ね合い）。
-const RUN_STEP_BUDGET: usize = 1_000_000;
+/// `compile` モードと同じ WS の文字列を経由する（`whitespace20` で実行するのと同じ経路）。
+/// debug 拡張は `--ignore-debug` がなければ常に有効（`CompileProperty::run_compile_options`）。
+/// エラーは `error: ` を付けずに文言だけを返す。
+fn run_on_ws_vm(
+    scope: &Scope,
+    property: &CompileProperty,
+    opt_options: OptimizationOptions,
+) -> Result<(), String> {
+    let ws_options = property.run_compile_options(opt_options);
+    let ws = compile_to_ws(scope, &ws_options).map_err(|e| e.to_string())?;
+    let vm = WhitespaceVM::from_source(&ws)
+        .map_err(|e| format!("internal error: failed to parse compiled Whitespace: {}", e))?;
+    let mut vm = vm
+        .with_debug_ext(ws_options.debug_ext)
+        .with_max_memory_cells(Some(DEFAULT_MAX_MEMORY_CELLS))
+        // __clog の出力はプログラムの stdout と分けて stderr に書く
+        .with_clog_writer(Box::new(std::io::stderr()))
+        .with_io(
+            Box::new(std::io::BufReader::new(std::io::stdin())),
+            Box::new(std::io::stdout()),
+        );
 
-/// `--mode run`: NospaceVM（明示的スタックマシン）で `__main` を実行する
-///
-/// 深い再帰でも Rust のスタックを消費せず、実行時エラーは戻り値として受け取る。
-fn run_with_vm(scope: Scope, property: &CompileProperty) -> Result<(), nospace20::InterpretError> {
-    let config = nospace20::EnvironmentConfig {
-        ignore_debug: property.ignore_debug,
-        ..Default::default()
-    };
-    let mut vm = NospaceVM::from_scope(scope)?.with_config(config).with_io(
-        Box::new(std::io::BufReader::new(std::io::stdin())),
-        Box::new(std::io::stdout()),
-    );
-
-    let result = loop {
-        match vm.step(RUN_STEP_BUDGET) {
-            StepResult::Suspended => continue,
-            other => break other,
-        }
-    };
-
-    let return_value = match result {
-        StepResult::Complete { return_value } => return_value,
-        StepResult::Error(err) => {
-            // 実行時エラーを優先して報告する（出力済み分の flush 失敗は無視）
-            let _ = vm.flush();
-            return Err(err);
-        }
-        StepResult::Suspended => unreachable!("loop exits only on non-suspended results"),
-    };
-    vm.flush()?;
-
-    // 出力先が閉じられている場合（`| head` など）も panic せずエラーとして返す
-    let io_error = |e: std::io::Error| nospace20::InterpretError::Io(e.to_string());
-    let mut stdout = std::io::stdout();
-    match return_value {
-        Some(val) => writeln!(stdout, "main returns: {}", val).map_err(io_error)?,
-        None => writeln!(stdout, "main exited").map_err(io_error)?,
+    let result = vm.run(usize::MAX);
+    // エラーの有無にかかわらず、それまでの出力を失わないよう flush する
+    vm.flush();
+    match result {
+        // BUG FIX: WhitespaceVM::flush は flush の失敗を捨てるため、出力先への書き込みが
+        // 失敗しても（`> /dev/full` など）exit 0 になっていた。正常終了時は stdout を
+        // 直接 flush し、失敗を I/O エラーとして返す
+        StepResult::Complete => std::io::stdout()
+            .flush()
+            .map_err(|e| format!("I/O error: {}", e))?,
+        StepResult::Error(err) => return Err(err.to_string()),
+        StepResult::Suspended => return Err("execution step limit exceeded".to_string()),
+        StepResult::WaitingForInput(_) => return Err("unexpected input wait".to_string()),
     }
 
     // デバッグフラグが有効なら、trace結果を表示
-    if property.debug && !vm.traced().is_empty() {
+    // 出力先が閉じられている場合（`| head` など）も panic せずエラーとして返す
+    if property.debug && !vm.traced.is_empty() {
+        let io_error = |e: std::io::Error| format!("I/O error: {}", e);
+        let mut stdout = std::io::stdout();
         writeln!(stdout, "\n=== Trace Results ===").map_err(io_error)?;
-        for (key, value) in vm.traced() {
+        for (key, value) in &vm.traced {
             writeln!(stdout, "trace[{}]: {}", key, value).map_err(io_error)?;
         }
+        stdout.flush().map_err(io_error)?;
     }
-    stdout.flush().map_err(io_error)
+    Ok(())
 }
 
 fn main() {
@@ -248,8 +253,7 @@ fn main() {
                 process::exit(1);
             }
 
-            // Interpreter mode
-            if let Err(err) = run_with_vm(a, &property) {
+            if let Err(err) = run_on_ws_vm(&a, &property, opt_options) {
                 eprintln!("error: {}", err);
                 process::exit(1);
             }

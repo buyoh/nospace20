@@ -49,6 +49,9 @@ pub enum TestConfig {
         contains: Option<Vec<String>>,
     },
     RuntimeError {
+        /// WhitespaceVM のエラー文言（`WsRuntimeError` の Display）に含まれるべき語。
+        /// alloc の誤用の 5 件（whitespace-self を除外中）は旧インタプリタの文言のままで、
+        /// WS 側で検出を追加したとき（ws-alloc-misuse-detection）に文言を合わせ直す
         #[serde(skip_serializing_if = "Option::is_none")]
         contains: Option<Vec<String>>,
     },

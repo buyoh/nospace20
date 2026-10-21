@@ -4,16 +4,13 @@
 //! ベースの決定論的ハッシュ関数を提供する。
 //! デバッグ再現性を重視し、同じ入力に対して常に同じ出力を返す。
 //!
-//! インタプリタ (`interpreter`, `whitespace`) の複数モジュールから参照される。
+//! Whitespace VM (`whitespace`) の randomize heap モードから参照される。
 
 /// LCG 乗数（Knuth の定数）
 const LCG_MULTIPLIER: u64 = 6364136223846793005;
 
 /// LCG 加算定数（Knuth の定数）
 const LCG_INCREMENT: u64 = 1442695040888963407;
-
-/// オフセット混合用の追加乗数
-const OFFSET_MULTIPLIER: u64 = 2891336453;
 
 /// 単一値の決定論的ハッシュ
 ///
@@ -23,16 +20,6 @@ pub fn lcg_hash(value: u64) -> u64 {
     value
         .wrapping_mul(LCG_MULTIPLIER)
         .wrapping_add(LCG_INCREMENT)
-}
-
-/// アドレスとオフセットから決定論的ハッシュを生成する
-///
-/// アドレスとオフセットの両方を混合し、同じ (addr, offset) ペアに対して
-/// 常に同じ値を返す。
-pub fn lcg_hash_with_offset(addr: i64, offset: usize) -> i64 {
-    let seed = (addr as u64).wrapping_mul(LCG_MULTIPLIER)
-        ^ (offset as u64).wrapping_mul(OFFSET_MULTIPLIER);
-    seed.wrapping_add(LCG_INCREMENT) as i64
 }
 
 #[cfg(test)]
@@ -52,18 +39,5 @@ mod tests {
         // (0 を返す入力も理論上存在するが、ほとんどの入力で非ゼロ)
         let nonzero_count = (1..100u64).filter(|&v| lcg_hash(v) != 0).count();
         assert!(nonzero_count > 90);
-    }
-
-    #[test]
-    fn lcg_hash_with_offset_deterministic() {
-        assert_eq!(lcg_hash_with_offset(100, 5), lcg_hash_with_offset(100, 5));
-    }
-
-    #[test]
-    fn lcg_hash_with_offset_varies_by_offset() {
-        // 異なるオフセットで異なる値を返す
-        let v0 = lcg_hash_with_offset(100, 0);
-        let v1 = lcg_hash_with_offset(100, 1);
-        assert_ne!(v0, v1);
     }
 }

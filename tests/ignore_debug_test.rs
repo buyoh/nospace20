@@ -1,15 +1,17 @@
+//! `--ignore-debug`（debug 拡張なしでのコンパイル・実行）の結合テスト
+//!
+//! `--mode run` は compile → WhitespaceVM で実行する。`--ignore-debug` は
+//! `debug_ext: false` に相当し、debug 組み込み関数は副作用だけを残して無視される。
+
 #[path = "ignore_debug_test/helpers.rs"]
 mod helpers;
 
-use helpers::{interpret_func_with_config, parse_and_analyze};
-use nospace20::{Environment, EnvironmentConfig};
-use std::cell::RefCell;
-use std::io::Cursor;
-use std::rc::Rc;
+use helpers::compile_and_run;
+use nospace20::whitespace::{RuntimeError, StepResult};
 
 #[test]
-fn test_ignore_debug_assert_does_not_panic() {
-    // __assert(0) は通常パニックするが、ignore_debug=true では無視される
+fn test_ignore_debug_assert_does_not_fail() {
+    // __assert(0) は通常エラーになるが、debug 拡張なしでは無視される
     let source = r#"
         func: __main() {
             __assert(0);
@@ -17,19 +19,14 @@ fn test_ignore_debug_assert_does_not_panic() {
         }
     "#;
 
-    let scope = parse_and_analyze(source);
-    let config = EnvironmentConfig {
-        ignore_debug: true,
-        ..Default::default()
-    };
-
-    let (_, output) = interpret_func_with_config(&scope, "__main", config);
-    assert_eq!(output, "42");
+    let run = compile_and_run(source, false);
+    assert_eq!(run.result, StepResult::Complete);
+    assert_eq!(run.stdout, "42");
 }
 
 #[test]
-fn test_ignore_debug_assert_not_does_not_panic() {
-    // __assert_not(1) は通常パニックするが、ignore_debug=true では無視される
+fn test_ignore_debug_assert_not_does_not_fail() {
+    // __assert_not(1) は通常エラーになるが、debug 拡張なしでは無視される
     let source = r#"
         func: __main() {
             __assert_not(1);
@@ -37,19 +34,14 @@ fn test_ignore_debug_assert_not_does_not_panic() {
         }
     "#;
 
-    let scope = parse_and_analyze(source);
-    let config = EnvironmentConfig {
-        ignore_debug: true,
-        ..Default::default()
-    };
-
-    let (_, output) = interpret_func_with_config(&scope, "__main", config);
-    assert_eq!(output, "99");
+    let run = compile_and_run(source, false);
+    assert_eq!(run.result, StepResult::Complete);
+    assert_eq!(run.stdout, "99");
 }
 
 #[test]
 fn test_ignore_debug_preserves_side_effects() {
-    // 副作用（代入）は ignore_debug=true でも保持される
+    // 副作用（代入）は debug 拡張なしでも保持される
     let source = r#"
         let: a;
         func: __main() {
@@ -59,42 +51,15 @@ fn test_ignore_debug_preserves_side_effects() {
         }
     "#;
 
-    let scope = parse_and_analyze(source);
-    let config = EnvironmentConfig {
-        ignore_debug: true,
-        ..Default::default()
-    };
-
-    // グローバル変数を使うので interpret_with_env を使う
-    let stdin_cursor = Box::new(std::io::BufReader::new(Cursor::new(Vec::<u8>::new())));
-    let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
-    let stdout_clone = Rc::clone(&stdout_buf);
-
-    struct SharedWriter(Rc<RefCell<Vec<u8>>>);
-    impl std::io::Write for SharedWriter {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            self.0.borrow_mut().write(buf)
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            self.0.borrow_mut().flush()
-        }
-    }
-
-    let stdout_writer: Box<dyn std::io::Write> = Box::new(SharedWriter(stdout_clone));
-    let mut env = Environment::new_with_config(stdin_cursor, stdout_writer, config);
-
-    nospace20::interpret_with_env(&mut env, &scope).unwrap();
-
-    let stdout_vec = stdout_buf.borrow().clone();
-    let output = String::from_utf8(stdout_vec).unwrap();
-
+    let run = compile_and_run(source, false);
+    assert_eq!(run.result, StepResult::Complete);
     // a = 0 + 2 = 2 になっているはず
-    assert_eq!(output, "2");
+    assert_eq!(run.stdout, "2");
 }
 
 #[test]
 fn test_ignore_debug_trace_does_not_record() {
-    // __trace は ignore_debug=true で記録されない
+    // __trace は debug 拡張なしでは記録されない
     let source = r#"
         func: __main() {
             __trace(1);
@@ -103,20 +68,15 @@ fn test_ignore_debug_trace_does_not_record() {
         }
     "#;
 
-    let scope = parse_and_analyze(source);
-    let config = EnvironmentConfig {
-        ignore_debug: true,
-        ..Default::default()
-    };
-
-    let (traced, output) = interpret_func_with_config(&scope, "__main", config);
-    assert_eq!(traced.len(), 0); // traced が記録されない
-    assert_eq!(output, "0");
+    let run = compile_and_run(source, false);
+    assert_eq!(run.result, StepResult::Complete);
+    assert!(run.traced.is_empty());
+    assert_eq!(run.stdout, "0");
 }
 
 #[test]
 fn test_ignore_debug_clog_does_not_print() {
-    // __clog は ignore_debug=true で出力されない（ただし、stdout キャプチャしていないので間接的にテスト）
+    // __clog は debug 拡張なしでは clog writer にも stdout にも出力されない
     let source = r#"
         func: __main() {
             let: x;
@@ -126,54 +86,61 @@ fn test_ignore_debug_clog_does_not_print() {
         }
     "#;
 
-    let scope = parse_and_analyze(source);
-    let config = EnvironmentConfig {
-        ignore_debug: true,
-        ..Default::default()
-    };
-
-    let (_, output) = interpret_func_with_config(&scope, "__main", config);
-    // __clog は無視されるので、stdout には 42 だけが出力される
-    assert_eq!(output, "42");
+    let run = compile_and_run(source, false);
+    assert_eq!(run.result, StepResult::Complete);
+    assert_eq!(run.clog, "");
+    assert_eq!(run.stdout, "42");
 }
 
 #[test]
-#[should_panic(expected = "assertion failed")]
-fn test_normal_assert_panics() {
-    // ignore_debug=false（デフォルト）では __assert(0) でパニックする
+fn test_normal_clog_prints_to_clog_writer() {
+    // debug 拡張ありでは __clog は clog writer に出力され、stdout には混ざらない
+    let source = r#"
+        func: __main() {
+            __clog(42);
+            __puti(1);
+        }
+    "#;
+
+    let run = compile_and_run(source, true);
+    assert_eq!(run.result, StepResult::Complete);
+    assert_eq!(run.clog, "__clog: 42\n");
+    assert_eq!(run.stdout, "1");
+}
+
+#[test]
+fn test_normal_assert_fails() {
+    // debug 拡張ありでは __assert(0) は AssertionFailed で止まる
     let source = r#"
         func: __main() {
             __assert(0);
+            __puti(1);
         }
     "#;
 
-    let scope = parse_and_analyze(source);
-    let config = EnvironmentConfig::new(); // ignore_debug=false
-
-    let _ = interpret_func_with_config(&scope, "__main", config);
-    // ここでパニックするはず
+    let run = compile_and_run(source, true);
+    assert_matches_assertion_failed(&run.result);
+    assert_eq!(run.stdout, "");
 }
 
 #[test]
-#[should_panic(expected = "assertion failed")]
-fn test_normal_assert_not_panics() {
-    // ignore_debug=false（デフォルト）では __assert_not(1) でパニックする
+fn test_normal_assert_not_fails() {
+    // debug 拡張ありでは __assert_not(1) は AssertionFailed で止まる
     let source = r#"
         func: __main() {
             __assert_not(1);
+            __puti(1);
         }
     "#;
 
-    let scope = parse_and_analyze(source);
-    let config = EnvironmentConfig::new(); // ignore_debug=false
-
-    let _ = interpret_func_with_config(&scope, "__main", config);
-    // ここでパニックするはず
+    let run = compile_and_run(source, true);
+    assert_matches_assertion_failed(&run.result);
+    assert_eq!(run.stdout, "");
 }
 
 #[test]
 fn test_normal_trace_records() {
-    // ignore_debug=false（デフォルト）では __trace は記録される
+    // debug 拡張ありでは __trace は記録される
     let source = r#"
         func: __main() {
             __trace(0);
@@ -182,10 +149,16 @@ fn test_normal_trace_records() {
         }
     "#;
 
-    let scope = parse_and_analyze(source);
-    let config = EnvironmentConfig::new(); // ignore_debug=false
+    let run = compile_and_run(source, true);
+    assert_eq!(run.result, StepResult::Complete);
+    assert_eq!(run.traced.get(&0), Some(&2)); // trace(0) が 2 回
+    assert_eq!(run.traced.get(&1), Some(&1)); // trace(1) が 1 回
+}
 
-    let (traced, _) = interpret_func_with_config(&scope, "__main", config);
-    assert_eq!(traced.get(&0), Some(&2)); // trace(0) が 2 回
-    assert_eq!(traced.get(&1), Some(&1)); // trace(1) が 1 回
+fn assert_matches_assertion_failed(result: &StepResult) {
+    assert!(
+        matches!(result, StepResult::Error(RuntimeError::AssertionFailed(_))),
+        "expected AssertionFailed, got {:?}",
+        result
+    );
 }

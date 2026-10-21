@@ -19,12 +19,6 @@ fn test_nospace_error_display_compile() {
 }
 
 #[test]
-fn test_nospace_error_display_interpret() {
-    let err = NospaceError::Interpret(InterpretError::FunctionNotFound("foo".to_string()));
-    assert_eq!(format!("{}", err), "function 'foo' not found");
-}
-
-#[test]
 fn test_nospace_error_display_ws_runtime() {
     let err = NospaceError::WsRuntime(WsRuntimeError::StackUnderflow);
     assert_eq!(format!("{}", err), "stack underflow");
@@ -54,13 +48,6 @@ fn test_nospace_error_from_compile_error() {
     let e = CompileError::new(CompileErrorKind::MainNotFound);
     let err: NospaceError = e.into();
     assert!(matches!(err, NospaceError::Compile(_)));
-}
-
-#[test]
-fn test_nospace_error_from_interpret_error() {
-    let e = InterpretError::FunctionNotFound("x".to_string());
-    let err: NospaceError = e.into();
-    assert!(matches!(err, NospaceError::Interpret(_)));
 }
 
 #[test]

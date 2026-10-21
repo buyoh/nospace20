@@ -1,6 +1,6 @@
 # Documentation
 
-Documentation for the nospace programming language and its compiler/interpreter.
+Documentation for the nospace programming language and its compiler.
 
 ## Files
 

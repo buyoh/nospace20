@@ -2,8 +2,7 @@
 
 /// メモリ上限の推奨値（セル数）
 ///
-/// CLI `nospace20 --mode run` を WhitespaceVM に置き換えるとき（retire-direct-interpreter）に使う。
-/// 現時点では crate 内に利用箇所はない。
+/// CLI `nospace20 --mode run` の実行で使う。
 ///
 /// 1 セルはホスト上でおよそ 16〜48 バイト。ヒープ中心のプログラムで上限に達したとき、
 /// ホストのメモリのピークは約 0.85GB（x86_64 の release ビルドで実測 0.84GB）。

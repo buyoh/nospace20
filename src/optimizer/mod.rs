@@ -6,7 +6,7 @@
 //!
 //! - 各最適化パスはプラグイン形式で、`OptimizationOptions` により個別に有効化・無効化できる
 //! - パスは `&mut Scope` を受け取り、中間表現を直接変換する
-//! - パス適用後は通常通り `&Scope` として Interpreter / Compiler WS に渡される
+//! - パス適用後は通常通り `&Scope` として Compiler WS に渡される
 //!
 //! ## パスの実行順序
 //!
@@ -22,6 +22,8 @@ mod dead_code;
 mod geti_opt;
 mod noop_test_pass;
 
+#[cfg(test)]
+mod test_helpers;
 #[cfg(test)]
 mod tests;
 

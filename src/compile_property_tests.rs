@@ -73,3 +73,60 @@ fn compile_only_option_message() {
         "--target is only valid with --mode=compile"
     );
 }
+
+fn run_property(target_extensions: Vec<TargetExtension>, ignore_debug: bool) -> CompileProperty {
+    CompileProperty {
+        target_extensions,
+        ignore_debug,
+        ..property(ExecutionMode::Run)
+    }
+}
+
+#[test]
+fn run_compile_options_enables_debug_by_default() {
+    // CLI 既定（--std-ext 指定なし、alloc は既定で有効）
+    let opts = run_property(vec![TargetExtension::Alloc], false)
+        .run_compile_options(OptimizationOptions::none());
+    assert!(opts.debug_ext);
+    assert!(opts.alloc_ext);
+    assert_eq!(opts.output_format, WsOutputFormat::Whitespace);
+}
+
+#[test]
+fn run_compile_options_ignore_debug_disables_debug() {
+    let opts = run_property(vec![TargetExtension::Alloc], true)
+        .run_compile_options(OptimizationOptions::none());
+    assert!(!opts.debug_ext);
+    assert!(opts.alloc_ext);
+}
+
+#[test]
+fn run_compile_options_ignore_debug_wins_over_std_ext_debug() {
+    // --ignore-debug と --std-ext debug を同時に指定した場合は --ignore-debug を優先する
+    let opts = run_property(vec![TargetExtension::Debug, TargetExtension::Alloc], true)
+        .run_compile_options(OptimizationOptions::none());
+    assert!(!opts.debug_ext);
+}
+
+#[test]
+fn run_compile_options_std_ext_debug_keeps_debug() {
+    let opts = run_property(vec![TargetExtension::Debug, TargetExtension::Alloc], false)
+        .run_compile_options(OptimizationOptions::none());
+    assert!(opts.debug_ext);
+}
+
+#[test]
+fn run_compile_options_no_std_ext_disables_alloc() {
+    // --no-std-ext: target_extensions が空
+    let opts =
+        run_property(vec![], false).run_compile_options(OptimizationOptions::none());
+    assert!(opts.debug_ext);
+    assert!(!opts.alloc_ext);
+}
+
+#[test]
+fn run_compile_options_passes_optimization() {
+    let opts = run_property(vec![], false).run_compile_options(OptimizationOptions::all());
+    assert!(opts.optimization.peephole);
+    assert!(opts.optimization.any_enabled());
+}

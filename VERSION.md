@@ -1,5 +1,19 @@
 # Version
 
+## x.x.x (WIP)
+
+MAJOR
+
+- CLI: `--mode run` now compiles to Whitespace and runs it on the built-in Whitespace VM (the same VM as whitespace20) instead of the direct interpreter. The debug extension is enabled unless `--ignore-debug` (which takes precedence over `--std-ext debug`), and alloc is enabled unless `--no-std-ext`. `__clog` writes to stderr. Execution is limited to 16,777,216 memory cells (infinite recursion stops with `memory limit exceeded`). The `main returns: N` / `main exited` lines are no longer printed, runtime error messages are those of the Whitespace VM, misuse of `__alloc` / `__free` (freed or out-of-range access, invalid free, invalid size) is no longer detected, and using `__alloc` / `__free` with `--no-std-ext` is now a compile error
+- WASM: Remove `WasmNospaceVM`. Use `WasmWhitespaceVM` (constructed from nospace source) instead; pass `["debug", "alloc"]` as `std_extensions` for the previous default (`["alloc"]` for the previous `ignore_debug`). `getReturnValue()` / `isFailed()` have no replacement, `flushStdout()` / `getTraced()` are `flush_stdout()` / `get_traced()`, and `total_steps()` counts Whitespace instructions
+- Library: Remove the direct interpreter API (`interpret`, `interpret_with_env`, `interpret_func`, `interpret_func_with_env`, `interpret_func_testing`, `interpret_func_testing_randomize`, `interpret_func_with_io`, `Environment`, `EnvironmentConfig`, `InterpretError`, `NospaceVM`, `StepResult`, `NospaceError::Interpret`, `CompileStage::NospaceExecution`) and `algorithm::hash::lcg_hash_with_offset`
+
+MINOR
+
+- Library: Add `CompileProperty::run_compile_options`, which returns the compile options used by `--mode run`
+
+PATCH
+
 ## 3.2.0
 
 MINOR

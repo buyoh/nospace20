@@ -6,7 +6,7 @@
 #   type: success | success_io | syntax_error
 #   path: テストファイルのパス（resources/tests/passes/ または fails/syntax/ からの相対パス）
 #   comment: (オプション) テストの説明
-#   exclude_targets: (オプション) 除外するテスト対象 [interpreter, whitespace, whitespace-self] デフォルトは全ターゲット
+#   exclude_targets: (オプション) 除外するテスト対象 [whitespace, whitespace-self, whitespace-self-strict, whitespace-self-randomize, whitespace-self-opt-all] デフォルトは全ターゲット
 
 tests:
   # ========================================
@@ -23,7 +23,6 @@ tests:
     comment: "Legacy test"
 
   # Phase 7: break/continue をサポートしたため有効化
-  # Note: インタプリタでは無限ループが発生するため、whitespace のみで有効化
   - name: test_ok_coding_c002
     type: success
     path: c002
@@ -276,7 +275,6 @@ tests:
     path: builtins/debug_assert_pass_no_ext_001
     comment: "__assert(0) should be ignored without debug ext"
     exclude_std_ext: [debug]
-    exclude_targets: [interpreter]
 
   # ========================================
   # Variables
@@ -1392,6 +1390,12 @@ tests:
     path: io/putc_basic_001
     comment: "Built-in putc() function"
 
+  - name: test_io_putc_utf8_001
+    type: success_io
+    path: io/putc_utf8_001
+    comment: "putc() writes code points >= 256 as UTF-8 (moved from interpreter exec_tests). wsc cannot print code points > 255"
+    exclude_targets: [whitespace]
+
   - name: test_io_geti_basic_001
     type: success_io
     path: io/geti_basic_001
@@ -1645,27 +1649,37 @@ tests:
   - name: test_builtin_alloc_freed_access_001
     type: runtime_error
     path: alloc_freed_access_001
-    comment: "__free で解放済みアドレスへの書き込みはランタイムエラー"
+    std_ext: ["alloc"]
+    comment: "__free で解放済みアドレスへの書き込みはランタイムエラー。WS の alloc ランタイムは検出しない（ws-alloc-misuse-detection で対応）"
+    exclude_targets: [whitespace-self]
 
   - name: test_builtin_alloc_out_of_range_001
     type: runtime_error
     path: alloc_out_of_range_001
-    comment: "__alloc で確保したサイズを超えるアドレスへのアクセスはランタイムエラー"
+    std_ext: ["alloc"]
+    comment: "__alloc で確保したサイズを超えるアドレスへのアクセスはランタイムエラー。WS の alloc ランタイムは検出しない（ws-alloc-misuse-detection で対応）"
+    exclude_targets: [whitespace-self]
 
   - name: test_builtin_alloc_free_invalid_ptr_001
     type: runtime_error
     path: alloc_free_invalid_ptr_001
-    comment: "__free に未割当アドレスを渡すとランタイムエラー"
+    std_ext: ["alloc"]
+    comment: "__free に未割当アドレスを渡すとランタイムエラー。WS の alloc ランタイムは検出しない（ws-alloc-misuse-detection で対応）"
+    exclude_targets: [whitespace-self]
 
   - name: test_builtin_alloc_invalid_size_001
     type: runtime_error
     path: alloc_invalid_size_001
-    comment: "__alloc に負のサイズを渡すとランタイムエラー"
+    std_ext: ["alloc"]
+    comment: "__alloc に負のサイズを渡すとランタイムエラー。WS の alloc ランタイムは検出しない（ws-alloc-misuse-detection で対応）"
+    exclude_targets: [whitespace-self]
 
   - name: test_builtin_alloc_huge_size_001
     type: runtime_error
     path: alloc_huge_size_001
-    comment: "__alloc に上限超過のサイズを渡すとランタイムエラー（panic / abort しない）"
+    std_ext: ["alloc"]
+    comment: "__alloc に上限超過のサイズを渡すとランタイムエラー（panic / abort しない）。WS の alloc ランタイムは検出しない（ws-alloc-misuse-detection で対応）"
+    exclude_targets: [whitespace-self]
 
   - name: test_runtime_error_div_zero_001
     type: runtime_error

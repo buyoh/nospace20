@@ -4,14 +4,12 @@
 //! `NospaceError` が CLI や WASM API に伝達されるエンベロープ型。
 
 pub mod compile_error;
-pub mod interpret_error;
 pub mod parse_error;
 pub mod validation_error;
 pub mod ws_error;
 
 #[allow(unused_imports)]
 pub use compile_error::{CompileError, CompileErrorKind};
-pub use interpret_error::InterpretError;
 pub use parse_error::CodeParseError;
 pub use validation_error::ValidationError;
 pub use ws_error::{WsParseError, WsRuntimeError};
@@ -24,7 +22,6 @@ pub enum CompileStage {
     SemanticAnalysis,
     Optimization,
     WsCodeGeneration,
-    NospaceExecution,
     WsExecution,
     Validation,
 }
@@ -39,8 +36,6 @@ pub enum NospaceError {
     Parse(Vec<CodeParseError>),
     /// Whitespace コンパイルエラー
     Compile(CompileError),
-    /// nospace インタプリタ実行エラー
-    Interpret(InterpretError),
     /// Whitespace VM パースエラー
     WsParse(WsParseError),
     /// Whitespace VM 実行時エラー
@@ -62,7 +57,6 @@ impl std::fmt::Display for NospaceError {
                 Ok(())
             }
             Self::Compile(e) => write!(f, "{}", e),
-            Self::Interpret(e) => write!(f, "{}", e),
             Self::WsParse(e) => write!(f, "{}", e),
             Self::WsRuntime(e) => write!(f, "{}", e),
             Self::Validation(e) => write!(f, "{}", e),
@@ -74,7 +68,6 @@ impl std::error::Error for NospaceError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Compile(e) => Some(e),
-            Self::Interpret(e) => Some(e),
             Self::WsParse(e) => Some(e),
             Self::WsRuntime(e) => Some(e),
             Self::Validation(e) => Some(e),
@@ -93,12 +86,6 @@ impl From<Vec<CodeParseError>> for NospaceError {
 impl From<CompileError> for NospaceError {
     fn from(e: CompileError) -> Self {
         Self::Compile(e)
-    }
-}
-
-impl From<InterpretError> for NospaceError {
-    fn from(e: InterpretError) -> Self {
-        Self::Interpret(e)
     }
 }
 

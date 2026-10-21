@@ -4,6 +4,8 @@
 
 use std::fmt;
 
+use crate::{OptimizationOptions, WsCompileOptions, WsOutputFormat};
+
 /// 言語サブセット
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LanguageStd {
@@ -17,7 +19,7 @@ pub enum LanguageStd {
 /// 実行モード
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ExecutionMode {
-    /// インタプリタモード（デフォルト）
+    /// Whitespace にコンパイルし、内蔵の Whitespace VM で実行する（デフォルト）
     #[default]
     Run,
     /// コンパイルモード
@@ -104,7 +106,9 @@ pub struct CompileProperty {
     pub mode: ExecutionMode,
     /// 指定されたコンパイルターゲット（mode=Compile 時のみ有効。None なら既定の Ws）
     pub target: Option<CompileTarget>,
-    /// ターゲット拡張（mode=Compile 時のみ使用、複数指定可能）
+    /// ターゲット拡張（複数指定可能）
+    ///
+    /// mode=Run では alloc だけをこの値に従わせ、debug は `ignore_debug` で決める（`run_compile_options`）
     pub target_extensions: Vec<TargetExtension>,
     /// 出力ファイルパス（mode=Compile 時、None なら stdout）
     pub output: Option<String>,
@@ -118,6 +122,20 @@ impl CompileProperty {
     /// 指定されたコンパイルターゲット。未指定なら既定値（Ws）
     pub fn target_or_default(&self) -> CompileTarget {
         self.target.unwrap_or_default()
+    }
+
+    /// `--mode run` で使うコンパイルオプション
+    ///
+    /// debug 拡張は `ignore_debug` がなければ常に有効にする（`target_extensions` に Debug が
+    /// あっても `ignore_debug` を優先する）。alloc 拡張は `target_extensions` に従う。
+    /// 実行する VM の debug 拡張の有無には、返した値の `debug_ext` を使う
+    pub fn run_compile_options(&self, optimization: OptimizationOptions) -> WsCompileOptions {
+        WsCompileOptions {
+            debug_ext: !self.ignore_debug,
+            alloc_ext: self.target_extensions.contains(&TargetExtension::Alloc),
+            output_format: WsOutputFormat::Whitespace,
+            optimization,
+        }
     }
 
     /// バリデーション

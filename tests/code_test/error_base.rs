@@ -1,11 +1,13 @@
 use std::{fs, io};
 
-use nospace20::{
-    compile_to_ws, interpret_func_with_io, parse_to_tokens, parse_to_tree, semantic_analyze,
-    WsCompileOptions,
-};
+use nospace20::{compile_to_ws, parse_to_tokens, parse_to_tree, semantic_analyze, WsCompileOptions};
 
-use super::test_config::TestConfig;
+use nospace20::whitespace::StepResult;
+
+use super::test_config::{load_check_json, TestConfig};
+use super::whitespace_self_base::{
+    compile_for_ws_self, new_ws_self_vm, WsSelfTarget, WS_SELF_MAX_STEPS,
+};
 
 pub fn test_syntax_error_base(test_name: &str) {
     let path_base = "resources/tests/fails/syntax/".to_owned() + test_name;
@@ -111,58 +113,37 @@ pub fn test_compile_error_base(test_name: &str) {
     }
 }
 
-pub fn test_runtime_error_base(test_name: &str) {
+/// runtime_error テストを compile → 独自 WhitespaceVM で実行し、実行時エラーで止まることを確かめる
+///
+/// check.json の `contains` は WhitespaceVM のエラー文言（`WsRuntimeError` の Display）と照合する。
+/// 意図しないエラー（StackUnderflow など、コンパイラの不具合によるもの）で止まった場合に失敗させるため
+pub fn test_runtime_error_ws_self_base(test_name: &str, target: WsSelfTarget) {
     let path_base = "resources/tests/fails/runtime/".to_owned() + test_name;
     let ns_cnt = fs::read_to_string(path_base.to_owned() + ".ns")
         .expect("Something went wrong reading the file");
 
-    let check_json_value: serde_json::Value = serde_json::from_reader(io::BufReader::new(
-        fs::File::open(path_base.to_owned() + ".check.json")
-            .ok()
-            .unwrap(),
-    ))
-    .ok()
-    .unwrap();
-
-    let check_json: TestConfig = serde_json::from_value(check_json_value).ok().unwrap();
-
-    match check_json {
-        TestConfig::RuntimeError { contains } => {
-            // パース
-            let t = parse_to_tokens(&ns_cnt).ok().unwrap();
-            let s = parse_to_tree(&t).ok().unwrap();
-            let a = semantic_analyze(&s).ok().unwrap();
-
-            // 実行してパニックをキャッチ
-            let result = std::panic::catch_unwind(|| {
-                interpret_func_with_io(&a, "__main", "");
-            });
-
-            assert!(result.is_err(), "Expected runtime panic but succeeded");
-
-            // contains が指定されている場合、パニックメッセージに含まれているか確認
-            if let Some(keywords) = contains {
-                if let Err(panic_info) = result {
-                    // パニックメッセージを取得
-                    let panic_msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
-                        s.to_string()
-                    } else if let Some(s) = panic_info.downcast_ref::<String>() {
-                        s.clone()
-                    } else {
-                        String::new()
-                    };
-
-                    for keyword in keywords {
-                        assert!(
-                            panic_msg.contains(&keyword),
-                            "Panic message does not contain '{}': {}",
-                            keyword,
-                            panic_msg
-                        );
-                    }
-                }
-            }
-        }
+    let contains = match load_check_json(&path_base) {
+        TestConfig::RuntimeError { contains } => contains.unwrap_or_default(),
         _ => panic!("Expected runtime_error test config"),
+    };
+
+    let ws_code = compile_for_ws_self(&ns_cnt, target);
+    let mut vm = new_ws_self_vm(&ws_code, target, test_name);
+    let result = vm.run(WS_SELF_MAX_STEPS);
+    let StepResult::Error(err) = result else {
+        panic!(
+            "Expected runtime error but got {:?} (test: {})",
+            result, test_name
+        );
+    };
+    let message = err.to_string();
+    for keyword in contains {
+        assert!(
+            message.contains(&keyword),
+            "Runtime error message does not contain '{}': {} (test: {})",
+            keyword,
+            message,
+            test_name
+        );
     }
 }

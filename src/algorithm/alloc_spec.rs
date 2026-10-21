@@ -1,9 +1,9 @@
 //! アロケータアルゴリズムの共通仕様
 //!
-//! WS コンパイラ (`compiler_ws::alloc_runtime`) と
-//! インタプリタ (`interpreter::allocator`) の両方から参照される。
-//! アルゴリズムのパラメータと分類ロジックを一元管理し、
-//! 実装間の不整合を防ぐ。
+//! WS コンパイラ (`compiler_ws::alloc_runtime`) から参照される。
+//! アルゴリズムのパラメータを一元管理する。関数（`total_from_user_size` など）は、
+//! WS コンパイラが命令列として出力する分類ロジックを Rust で書いた参照定義で、
+//! ユニットテストで仕様を固定する。
 
 /// FSBA サイズクラス数
 pub const FSBA_CLASS_COUNT: usize = 5;
@@ -39,7 +39,6 @@ pub const SPLIT_MIN_REMAINDER: i64 = 2;
 /// - 最小ブロックサイズ (2) 未満にならないよう保証
 ///
 /// WS コンパイラではこのロジックを WS 命令として出力する。
-/// インタプリタではこの関数を直接呼び出す。
 pub const fn total_from_user_size(user_size: i64) -> i64 {
     let total = user_size + HEADER_SIZE;
     if total < MIN_BLOCK_SIZE {

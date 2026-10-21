@@ -2,8 +2,8 @@
 //!
 //! Each API calls processing commonized in the internal pipeline (`pipeline` module).
 //!
-//! `run()` function has been removed as it was replaced by NospaceVM (`WasmNospaceVM`).
-//! For one-shot execution, use the `step()` loop of `WasmNospaceVM`.
+//! There is no one-shot `run()` function. To execute nospace source, construct
+//! `WasmWhitespaceVM` from the source (it compiles to Whitespace) and use its `step()` loop.
 
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
