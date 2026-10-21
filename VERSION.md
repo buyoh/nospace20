@@ -1,8 +1,6 @@
 # Version
 
-## x.x.x (WIP)
-
-MAJOR
+## 3.1.0
 
 MINOR
 
