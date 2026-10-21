@@ -287,7 +287,7 @@ checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 
 [[package]]
 name = "nospace20"
-version = "2.0.0"
+version = "3.2.0"
 dependencies = [
  "assert_matches",
  "clap",
