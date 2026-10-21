@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "return in global array index / global store / assignment value / || / if expression",
+      "stdin": "",
+      "stdout": "91\n13\n92\n11\n93\n12\n94\n6\n95\n11\n96\n17\n97\n12\n42\n"
+    }
+  ]
+}

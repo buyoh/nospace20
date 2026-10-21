@@ -146,7 +146,7 @@ pub fn generate_statement(
                     )),
                 }
             })?;
-            let mut prog = WsProgram::new();
+            let mut prog = discard_values_in_loop(ctx);
             prog.push(Instruction::Jump(loop_end));
             Ok(prog)
         }
@@ -165,7 +165,7 @@ pub fn generate_statement(
                     )),
                 }
             })?;
-            let mut prog = WsProgram::new();
+            let mut prog = discard_values_in_loop(ctx);
             prog.push(Instruction::Jump(loop_start));
             Ok(prog)
         }
@@ -178,6 +178,41 @@ pub fn generate_statement(
             generate_for_statement(ctx, init, mode, cond, step, body)
         }
     }
+}
+
+/// break / continue のジャンプ前に、ループに入ってから積まれた式の中間値を捨てる
+///
+/// バグ: `x = 100 + { if: c { break:; }; 7; };` のように式の途中で break / continue すると、
+/// 積んだ中間値（`x` のアドレス・`100`）を残したままジャンプしていた。ループの外に値が残り、
+/// continue ではループ 1 周ごとに積み上がって、以降の return が `old_LHB` を取り違えていた。
+/// 解決策: コード生成時に中間値の個数を数え（`CodeGenContext::with_pending_values`）、
+/// ループに入った時点からの増分を Discard する。
+fn discard_values_in_loop(ctx: &CodeGenContext) -> WsProgram {
+    let mut prog = WsProgram::new();
+    let count = ctx
+        .pending_stack_values_in_loop()
+        .expect("break / continue is generated only inside a loop");
+    for _ in 0..count {
+        prog.push(Instruction::Discard);
+    }
+    prog
+}
+
+/// スタックトップの戻り値を残したまま、その下に積まれた式の中間値を捨てる（return 用）
+///
+/// バグ: `100 + { if: c { return: 5; }; 7; }` のように式の途中で return すると、スタックが
+/// `[old_LHB, 100, 5]` のまま Swap してエピローグに渡し、`100` を `old_LHB` として
+/// `LOCAL_HEAP_BEGIN` に書き戻していた（以降のローカル変数アクセス・フレーム解放が壊れる）。
+/// 解決策: コード生成時に中間値の個数 d を数え（`CodeGenContext::with_pending_values`）、
+/// 戻り値の評価後に `Swap; Discard` を d 回出して `[old_LHB, rv]` に戻す。
+/// d = 0 の通常のケースでは何も出力しない。
+fn discard_values_below_return_value(ctx: &CodeGenContext) -> WsProgram {
+    let mut prog = WsProgram::new();
+    for _ in 0..ctx.pending_stack_values() {
+        prog.push(Instruction::Swap);
+        prog.push(Instruction::Discard);
+    }
+    prog
 }
 
 /// while 文のコード生成
@@ -334,6 +369,9 @@ fn generate_return(
     // 返り値を評価
     prog.append(expression::generate_expression(ctx, expr)?);
 
+    // 式の途中の return: [old_LHB, v_1..v_d, rv] -> [old_LHB, rv]
+    prog.append(discard_values_below_return_value(ctx));
+
     // Fix B: deallocateの前にswapを挿入
     // stack: [old_LHB, return_value] -> [return_value, old_LHB]
     prog.push(Instruction::Swap);
@@ -353,6 +391,9 @@ fn generate_void_return(ctx: &mut CodeGenContext) -> Result<WsProgram, CompileEr
 
     // デフォルト返却値 0
     prog.push(Instruction::Push(WsNumber(0)));
+
+    // 式の途中の return: [old_LHB, v_1..v_d, 0] -> [old_LHB, 0]
+    prog.append(discard_values_below_return_value(ctx));
 
     // Fix B: deallocateの前にswapを挿入
     // stack: [old_LHB, return_value] -> [return_value, old_LHB]

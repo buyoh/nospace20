@@ -1,0 +1,53 @@
+# 式の途中の return: 代入先のアドレス・添字・組み込み関数の引数の中 #
+struct: Vec3(data[3]);
+
+func: arr_index(c) {
+  let: a[3];
+  a[0] = 1;
+  a[1] = 2;
+  a[2] = 3;
+  return: 10 + a[{ if: c { return: 91; }; 2; }];
+}
+
+func: arr_store(c) {
+  let: a[3];
+  a[1] = 5 + { if: c { return: 92; }; 6; };
+  return: a[1];
+}
+
+func: deref_store(c) {
+  let: x;
+  let: p;
+  p = &x;
+  *p = 5 + { if: c { return: 93; }; 7; };
+  return: x;
+}
+
+func: field_index(c) {
+  let: v@Vec3(1, 2, 3);
+  return: v.data[{ if: c { return: 94; }; 1; }];
+}
+
+func: builtin_arg(c) {
+  __puti({ if: c { return: 95; }; 3; });
+  __putc(10);
+  __puti(5 + { if: c { return: 96; }; 4; });
+  __putc(10);
+  return: 0;
+}
+
+func: __main() {
+  let: keep;
+  keep = 42;
+  __puti(arr_index(1)); __putc(10);
+  __puti(arr_index(0)); __putc(10);
+  __puti(arr_store(1)); __putc(10);
+  __puti(arr_store(0)); __putc(10);
+  __puti(deref_store(1)); __putc(10);
+  __puti(deref_store(0)); __putc(10);
+  __puti(field_index(1)); __putc(10);
+  __puti(field_index(0)); __putc(10);
+  __puti(builtin_arg(1)); __putc(10);
+  __puti(builtin_arg(0)); __putc(10);
+  __puti(keep); __putc(10);
+}

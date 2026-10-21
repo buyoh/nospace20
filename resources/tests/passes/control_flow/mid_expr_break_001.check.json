@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "break / continue in the middle of an expression",
+      "stdin": "",
+      "stdout": "1\n1\n9\n9\n40\n40\n42\n"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "return / continue in loops inside block expressions, deref, struct base, middle argument",
+      "stdin": "",
+      "stdout": "52\n110\n63\n109\n70\n8\n80\n5\n81\n123\n560\n560\n42\n"
+    }
+  ]
+}

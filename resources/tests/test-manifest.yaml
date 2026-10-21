@@ -2038,3 +2038,52 @@ tests:
     type: compile_error
     path: import-self
     comment: "エラー: 自身の名前空間を import"
+
+  # ========================================
+  # 式の途中の return / break / continue
+  # ========================================
+
+  - name: test_control_flow_mid_expr_return_001
+    type: success_io
+    path: control_flow/mid_expr_return_001
+    comment: "式の途中の return: 二項演算の左辺を積んだまま return"
+
+  - name: test_control_flow_mid_expr_return_002
+    type: success_io
+    path: control_flow/mid_expr_return_002
+    comment: "式の途中の return: 深い中間値・単項/比較/論理演算"
+
+  - name: test_control_flow_mid_expr_return_003
+    type: success_io
+    path: control_flow/mid_expr_return_003
+    comment: "式の途中の return: 関数呼び出しの引数の中"
+
+  - name: test_control_flow_mid_expr_return_004
+    type: success_io
+    path: control_flow/mid_expr_return_004
+    comment: "式の途中の値なし return"
+
+  - name: test_control_flow_mid_expr_return_005
+    type: success_io
+    path: control_flow/mid_expr_return_005
+    comment: "式の途中の return: 代入先・添字・組み込み関数の引数"
+
+  - name: test_control_flow_mid_expr_break_001
+    type: success_io
+    path: control_flow/mid_expr_break_001
+    comment: "式の途中の break / continue: 中間値を残さない"
+
+  - name: test_control_flow_mid_expr_break_002
+    type: success_io
+    path: control_flow/mid_expr_break_002
+    comment: "式の途中の break / continue: ループ進入時に中間値がある"
+
+  - name: test_control_flow_mid_expr_return_006
+    type: success_io
+    path: control_flow/mid_expr_return_006
+    comment: "式の途中の return: グローバル配列の添字・グローバル代入・値として使う代入・||・if 式"
+
+  - name: test_control_flow_mid_expr_return_007
+    type: success_io
+    path: control_flow/mid_expr_return_007
+    comment: "式の途中の return / continue: ブロック式内のループ・Deref・struct の base・途中の引数"

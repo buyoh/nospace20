@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "break / continue in a nested loop entered with intermediate values",
+      "stdin": "",
+      "stdout": "3021\n3021\n1016\n1016\n42\n"
+    }
+  ]
+}

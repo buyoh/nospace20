@@ -1,0 +1,14 @@
+# 式の途中の値なし return #
+func: show(c) {
+  __puti(10 + { if: c { return:; }; 1; });
+  __putc(10);
+}
+
+func: __main() {
+  let: keep;
+  keep = 42;
+  show(1);
+  show(0);
+  show(1);
+  __puti(keep); __putc(10);
+}

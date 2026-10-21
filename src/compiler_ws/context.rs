@@ -20,6 +20,17 @@ pub struct VarInfo {
     pub offset: i64,
 }
 
+/// ループのジャンプ先と、ループに入った時点のスタックの状態（break / continue 用）
+#[derive(Debug, Clone, Copy)]
+struct LoopFrame {
+    /// continue のジャンプ先
+    start: LabelId,
+    /// break のジャンプ先
+    end: LabelId,
+    /// ループに入った時点の `pending_stack_values`
+    pending_stack_values: usize,
+}
+
 /// コード生成コンテキスト
 #[derive(Clone)]
 pub struct CodeGenContext<'a> {
@@ -42,8 +53,12 @@ pub struct CodeGenContext<'a> {
     variables: HashMap<String, VarInfo>,
 
     /// ループラベルスタック (break/continue のため)
-    /// (loop_start, loop_end) のペア
-    loop_labels: Vec<(LabelId, LabelId)>,
+    loop_labels: Vec<LoopFrame>,
+
+    /// 式の評価途中でデータスタックに積まれている中間値の個数。
+    /// 関数本体の開始時は 0（プロローグが積む `old_LHB` は数えない）。
+    /// return / break / continue がジャンプ前の後始末に使う。
+    pending_stack_values: usize,
 
     /// デバッグ拡張 API が有効か (--std-ext debug)
     debug_ext: bool,
@@ -92,6 +107,7 @@ impl<'a> CodeGenContext<'a> {
             local_heap_size: 0,
             variables: HashMap::new(),
             loop_labels: Vec::new(),
+            pending_stack_values: 0,
             debug_ext,
             alloc_ext,
             alloc_runtime,
@@ -123,6 +139,7 @@ impl<'a> CodeGenContext<'a> {
             local_heap_size,
             variables: HashMap::new(),
             loop_labels: Vec::new(),
+            pending_stack_values: 0,
             debug_ext: self.debug_ext,
             alloc_ext: self.alloc_ext,
             alloc_runtime: self.alloc_runtime,
@@ -164,6 +181,7 @@ impl<'a> CodeGenContext<'a> {
             local_heap_size: 0, // フレーム不要
             variables: HashMap::new(),
             loop_labels: Vec::new(),
+            pending_stack_values: 0,
             debug_ext: self.debug_ext,
             alloc_ext: self.alloc_ext,
             alloc_runtime: self.alloc_runtime,
@@ -297,8 +315,14 @@ impl<'a> CodeGenContext<'a> {
     }
 
     /// ループラベルをプッシュ (while 式生成時)
+    ///
+    /// その時点の中間値の個数も記録し、break / continue が捨てる個数の基準にする。
     pub fn push_loop_labels(&mut self, loop_start: LabelId, loop_end: LabelId) {
-        self.loop_labels.push((loop_start, loop_end));
+        self.loop_labels.push(LoopFrame {
+            start: loop_start,
+            end: loop_end,
+            pending_stack_values: self.pending_stack_values,
+        });
     }
 
     /// ループラベルをポップ (while 式生成完了時)
@@ -308,12 +332,39 @@ impl<'a> CodeGenContext<'a> {
 
     /// 現在のループの開始ラベルを取得 (continue 用)
     pub fn current_loop_start(&self) -> Option<LabelId> {
-        self.loop_labels.last().map(|(start, _)| *start)
+        self.loop_labels.last().map(|frame| frame.start)
     }
 
     /// 現在のループの終了ラベルを取得 (break 用)
     pub fn current_loop_end(&self) -> Option<LabelId> {
-        self.loop_labels.last().map(|(_, end)| *end)
+        self.loop_labels.last().map(|frame| frame.end)
+    }
+
+    /// 式の評価途中でデータスタックに積まれている中間値の個数を取得
+    pub fn pending_stack_values(&self) -> usize {
+        self.pending_stack_values
+    }
+
+    /// 現在のループに入ってから積まれた中間値の個数を取得 (break / continue の後始末用)
+    ///
+    /// ループの外では None。
+    pub fn pending_stack_values_in_loop(&self) -> Option<usize> {
+        self.loop_labels.last().map(|frame| {
+            self.pending_stack_values
+                .checked_sub(frame.pending_stack_values)
+                .expect("pending stack values must not drop below the loop entry")
+        })
+    }
+
+    /// `n` 個の値をスタックに残したまま `f` でコードを生成する
+    ///
+    /// `f` の中で生成される return / break / continue は、この `n` 個も後始末の対象に数える。
+    /// `f` が `Err` を返した（`?` で抜けた）場合も個数を元に戻す。
+    pub fn with_pending_values<T>(&mut self, n: usize, f: impl FnOnce(&mut Self) -> T) -> T {
+        self.pending_stack_values += n;
+        let result = f(self);
+        self.pending_stack_values -= n;
+        result
     }
 
     /// ブロックスコープに入る
@@ -357,7 +408,6 @@ impl<'a> CodeGenContext<'a> {
     }
 }
 
-// 注: CodeGenContext のテストは、Scope のプライベートフィールドのため、
-// 簡単なダミーインスタンスを作成できない。
-// label.rs の LabelAllocator のテストで十分にカバーされているため、
-// context.rs には統合テストのみに依存する。
+#[cfg(test)]
+#[path = "context_tests.rs"]
+mod tests;

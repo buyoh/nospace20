@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "void return in the middle of an expression",
+      "stdin": "",
+      "stdout": "11\n42\n"
+    }
+  ]
+}

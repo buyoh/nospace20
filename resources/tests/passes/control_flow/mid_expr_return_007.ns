@@ -1,0 +1,28 @@
+# 式の途中の return / continue: ブロック式の中のループ・Deref・struct フィールドの base・引数の途中 #
+struct: P(a, b);
+func: retloop(c) {
+  let: i;
+  return: 100 + 2 * { i = 0; while: i < 5 { if: i == c { return: 50 + i; }; i = i + 1; }; i; };
+}
+func: forret(c) {
+  return: 100 + { for: { let: i(0); } { i < 5; } { i += 1; } { if: i == c { return: 60 + i; }; }; 9; };
+}
+func: deref(c) { let: x; let: p; x = 7; p = &x; return: 1 + *{ if: c { return: 70; }; p; }; }
+func: fld(c) { let: v@P(3, 4); return: 1 + { if: c { return: 80; }; v; }.b; }
+func: args2(c) { return: h(1, { if: c { return: 81; }; 2; }, 3); }
+func: h(a, b, c) { return: a * 100 + b * 10 + c; }
+func: deep_continue() {
+  let: i; let: s; i = 0; s = 0;
+  while: i < 4 { i = i + 1; s = s + h(i, 2 * (3 + { if: i % 2 == 0 { continue:; }; 1; }), 0); };
+  return: s;
+}
+func: __main() {
+  let: keep; keep = 42;
+  __puti(retloop(2)); __putc(10); __puti(retloop(9)); __putc(10);
+  __puti(forret(3)); __putc(10); __puti(forret(9)); __putc(10);
+  __puti(deref(1)); __putc(10); __puti(deref(0)); __putc(10);
+  __puti(fld(1)); __putc(10); __puti(fld(0)); __putc(10);
+  __puti(args2(1)); __putc(10); __puti(args2(0)); __putc(10);
+  __puti(deep_continue()); __putc(10); __puti(deep_continue()); __putc(10);
+  __puti(keep); __putc(10);
+}

@@ -13,6 +13,7 @@ PATCH
 - Semantic analyzer: Fix an internal panic when a function is declared inside a function in a namespace
 - Semantic analyzer: A nested function no longer takes the final flag from a same-named non-static variable of its enclosing function
 - Semantic analyzer / compiler: Report an error instead of panicking or silently wrapping when the size of arrays, structs or variables overflows
+- Compiler: Fix return / break / continue inside an expression (e.g. a block expression) leaving intermediate values on the stack
 
 ## 3.0.0
 

@@ -1,0 +1,44 @@
+# 式の途中の break: ループに入った時点で既に中間値がある（ネストしたループ） #
+func: nested() {
+  let: i; let: j; let: x; let: y; let: s;
+  i = 0;
+  s = 0;
+  while: i < 3 {
+    x = 1000 + {
+      j = 0;
+      while: j < 3 {
+        y = 5 + { if: j == 1 { break:; }; 1; };
+        s = s + y;
+        j = j + 1;
+      };
+      j;
+    };
+    s = s + x;
+    i = i + 1;
+  };
+  return: s;
+}
+
+func: inner_continue() {
+  let: j; let: x; let: s;
+  s = 0;
+  x = 1000 + {
+    j = 0;
+    while: j < 4 {
+      j = j + 1;
+      s = s + 2 * { if: j == 2 { continue:; }; j; };
+    };
+    s;
+  };
+  return: x;
+}
+
+func: __main() {
+  let: keep;
+  keep = 42;
+  __puti(nested()); __putc(10);
+  __puti(nested()); __putc(10);
+  __puti(inner_continue()); __putc(10);
+  __puti(inner_continue()); __putc(10);
+  __puti(keep); __putc(10);
+}

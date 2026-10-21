@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "return inside assignment target / index / builtin argument",
+      "stdin": "",
+      "stdout": "91\n13\n92\n11\n93\n12\n94\n2\n95\n3\n9\n0\n42\n"
+    }
+  ]
+}

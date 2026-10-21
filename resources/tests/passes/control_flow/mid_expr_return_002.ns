@@ -1,0 +1,36 @@
+# 式の途中の return: 中間値が 3 個以上・各種演算子の被演算子 #
+func: deep(c) {
+  return: 1 + (2 * (3 + { if: c { return: 9; }; 4; }));
+}
+
+func: neg(c) {
+  return: 10 - -{ if: c { return: 8; }; 2; };
+}
+
+func: lnot(c) {
+  return: 10 + !{ if: c { return: 7; }; 0; };
+}
+
+func: cmp(c) {
+  return: (5 * 2) < { if: c { return: 6; }; 20; };
+}
+
+func: logic(c) {
+  return: 1 && (3 + { if: c { return: 4; }; 0; });
+}
+
+func: __main() {
+  let: keep;
+  keep = 42;
+  __puti(deep(1)); __putc(10);
+  __puti(deep(0)); __putc(10);
+  __puti(neg(1)); __putc(10);
+  __puti(neg(0)); __putc(10);
+  __puti(lnot(1)); __putc(10);
+  __puti(lnot(0)); __putc(10);
+  __puti(cmp(1)); __putc(10);
+  __puti(cmp(0)); __putc(10);
+  __puti(logic(1)); __putc(10);
+  __puti(logic(0)); __putc(10);
+  __puti(keep); __putc(10);
+}

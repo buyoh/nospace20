@@ -1,0 +1,20 @@
+# 式の途中の return: 二項演算の左辺を積んだまま return する #
+func: f(c) {
+  let: x;
+  x = 100 + { if: c { return: 5; }; 7; };
+  return: x;
+}
+
+func: __main() {
+  let: keep;
+  keep = 42;
+  __puti(f(1));
+  __putc(10);
+  __puti(f(0));
+  __putc(10);
+  __puti(f(1));
+  __putc(10);
+  # 呼び出し元のローカル変数が壊れていない #
+  __puti(keep);
+  __putc(10);
+}

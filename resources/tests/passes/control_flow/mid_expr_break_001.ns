@@ -1,0 +1,43 @@
+# 式の途中の break / continue: ループの外・先頭に中間値を残さない #
+func: g() {
+  let: x; let: i;
+  i = 0;
+  while: i < 3 {
+    x = 100 + { if: i == 1 { break:; }; 7; };
+    i = i + 1;
+  };
+  return: i;
+}
+
+func: k() {
+  let: x; let: i; let: s;
+  i = 0;
+  s = 0;
+  while: i < 5 {
+    i = i + 1;
+    x = 100 + { if: i % 2 == 0 { continue:; }; 7; };
+    s = s + i;
+  };
+  return: s;
+}
+
+func: fk() {
+  let: s;
+  s = 0;
+  for: { let: i(0); } { i < 5; } { i += 1; } {
+    s = s + 10 * { if: i == 2 { continue:; }; if: i == 4 { break:; }; i; };
+  };
+  return: s;
+}
+
+func: __main() {
+  let: keep;
+  keep = 42;
+  __puti(g()); __putc(10);
+  __puti(g()); __putc(10);
+  __puti(k()); __putc(10);
+  __puti(k()); __putc(10);
+  __puti(fk()); __putc(10);
+  __puti(fk()); __putc(10);
+  __puti(keep); __putc(10);
+}

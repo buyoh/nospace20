@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "return in the middle of a binary operation",
+      "stdin": "",
+      "stdout": "5\n107\n5\n42\n"
+    }
+  ]
+}

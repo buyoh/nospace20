@@ -63,8 +63,9 @@ pub fn generate_expression(
 
             // 引数を評価してスタックにプッシュ（順番通り）
             // 関数定義では逆順で取得するため、ここでは普通の順序でプッシュする
-            for arg in args {
-                prog.append(generate_expression(ctx, arg)?);
+            // i 番目の引数の評価中は、評価済みの i 個の引数がスタックに残っている
+            for (i, arg) in args.iter().enumerate() {
+                prog.append(ctx.with_pending_values(i, |ctx| generate_expression(ctx, arg))?);
             }
 
             // 関数ラベルを関数インデックスで取得または作成
@@ -114,7 +115,7 @@ pub fn generate_expression(
             // グローバル領域に置かれた変数か、total_size 以上の配列のキャストからしか得られないため i64 に収まる
             prog.push(Instruction::Push(WsNumber(*offset as i64)));
             prog.push(Instruction::Add);
-            prog.append(generate_expression(ctx, index_expr)?);
+            prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, index_expr))?);
             prog.push(Instruction::Add);
             prog.push(Instruction::Retrieve);
             Ok(prog)
@@ -172,13 +173,13 @@ fn generate_array_element_address(
             // global_addr = GLOBAL_PTR + offset + index
             let base_addr = heap_layout::GLOBAL_PTR + var_info.offset;
             prog.push(Instruction::Push(WsNumber(base_addr)));
-            prog.append(generate_expression(ctx, index_expr)?);
+            prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, index_expr))?);
             prog.push(Instruction::Add);
         }
         VarScope::Local => {
             // local_addr = heap[LOCAL_HEAP_BEGIN] + offset + index
             prog.push(Instruction::Push(WsNumber(var_info.offset)));
-            prog.append(generate_expression(ctx, index_expr)?);
+            prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, index_expr))?);
             prog.push(Instruction::Add);
             prog.push(Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_BEGIN)));
             prog.push(Instruction::Retrieve);
@@ -213,14 +214,14 @@ fn generate_unary_op(
         Operator1::Negative => {
             // 0 - value
             prog.push(Instruction::Push(WsNumber(0)));
-            prog.append(generate_expression(ctx, inner)?);
+            prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, inner))?);
             prog.push(Instruction::Sub);
         }
         Operator1::LogicalNot => {
             // value == 0 ? 1 : 0
             prog.push(Instruction::Push(WsNumber(1))); // zero → true
             prog.push(Instruction::Push(WsNumber(0))); // non-zero → false
-            prog.append(generate_expression(ctx, inner)?);
+            prog.append(ctx.with_pending_values(2, |ctx| generate_expression(ctx, inner))?);
             prog.push(Instruction::Call(reserved_labels::COMPARATOR_ZERO));
         }
         Operator1::Ref => {
@@ -338,8 +339,7 @@ fn generate_comparison(
         ComparisonOperand::Left => (left, right),
         ComparisonOperand::Right => (right, left),
     };
-    prog.append(generate_expression(ctx, first)?);
-    prog.append(generate_expression(ctx, second)?);
+    prog.append(generate_operands(ctx, first, second)?);
     prog.push(Instruction::Sub);
 
     // 条件ジャンプ
@@ -368,6 +368,19 @@ fn generate_comparison(
     Ok(prog)
 }
 
+/// 2 つの式を順に評価し、両方の値をスタックに残す（二項演算の被演算子、デリファレンス代入のアドレスと値）
+///
+/// 2 つ目の評価中は 1 つ目の値がスタックに残っているため、中間値として数える。
+fn generate_operands(
+    ctx: &mut CodeGenContext,
+    first: &LocatedExecExpression,
+    second: &LocatedExecExpression,
+) -> Result<WsProgram, CompileError> {
+    let mut prog = generate_expression(ctx, first)?;
+    prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, second))?);
+    Ok(prog)
+}
+
 /// 二項演算子のコード生成
 fn generate_binary_op(
     ctx: &mut CodeGenContext,
@@ -380,28 +393,23 @@ fn generate_binary_op(
     match op {
         // 算術演算
         Operator2::Plus => {
-            prog.append(generate_expression(ctx, left)?);
-            prog.append(generate_expression(ctx, right)?);
+            prog.append(generate_operands(ctx, left, right)?);
             prog.push(Instruction::Add);
         }
         Operator2::Minus => {
-            prog.append(generate_expression(ctx, left)?);
-            prog.append(generate_expression(ctx, right)?);
+            prog.append(generate_operands(ctx, left, right)?);
             prog.push(Instruction::Sub);
         }
         Operator2::Multiply => {
-            prog.append(generate_expression(ctx, left)?);
-            prog.append(generate_expression(ctx, right)?);
+            prog.append(generate_operands(ctx, left, right)?);
             prog.push(Instruction::Mul);
         }
         Operator2::Divide => {
-            prog.append(generate_expression(ctx, left)?);
-            prog.append(generate_expression(ctx, right)?);
+            prog.append(generate_operands(ctx, left, right)?);
             prog.push(Instruction::Div);
         }
         Operator2::Modulo => {
-            prog.append(generate_expression(ctx, left)?);
-            prog.append(generate_expression(ctx, right)?);
+            prog.append(generate_operands(ctx, left, right)?);
             prog.push(Instruction::Mod);
         }
 
@@ -499,10 +507,8 @@ fn generate_binary_op(
                 }
                 ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
                     // デリファレンス代入: *ptr = value
-                    // アドレスを評価
-                    prog.append(generate_expression(ctx, addr_expr)?);
-                    // 値を評価
-                    prog.append(generate_expression(ctx, right)?);
+                    // アドレスを評価し、アドレスを積んだまま値を評価
+                    prog.append(generate_operands(ctx, addr_expr, right)?);
                     // Store: heap[addr] = value
                     prog.push(Instruction::Store);
                     // 代入式の値として value を残す（再度取得）
@@ -544,7 +550,7 @@ fn generate_store_variable_impl(
     emit_retrieve: bool,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = generate_variable_address(ctx, var_ref)?;
-    prog.append(generate_expression(ctx, value_expr)?);
+    prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, value_expr))?);
     prog.push(Instruction::Store);
     if emit_retrieve {
         // 代入式の値として value を残す（アドレスを再計算して Retrieve）
@@ -568,7 +574,7 @@ fn generate_store_array_impl(
     emit_retrieve: bool,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = generate_array_element_address(ctx, var_ref, index_expr)?;
-    prog.append(generate_expression(ctx, value_expr)?);
+    prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, value_expr))?);
     prog.push(Instruction::Store);
     if emit_retrieve {
         // 代入式の値として value を残す（アドレスを再計算して Retrieve）
@@ -729,7 +735,7 @@ fn generate_builtin_debug_noop(
 
         // 残りの引数を評価（副作用のため）して破棄
         for arg in &args[1..] {
-            prog.append(generate_expression(ctx, arg)?);
+            prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, arg))?);
             prog.push(Instruction::Discard);
         }
     }
@@ -771,7 +777,7 @@ fn generate_builtin_debug_store(
 
         // 残りの引数を評価して破棄（副作用のため）
         for arg in &args[1..] {
-            prog.append(generate_expression(ctx, arg)?);
+            prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, arg))?);
             prog.push(Instruction::Discard);
         }
     }
@@ -969,8 +975,7 @@ fn generate_assign_void(
         }
         ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
             // デリファレンス代入: *ptr = value（Retrieve なし）
-            prog.append(generate_expression(ctx, addr_expr)?);
-            prog.append(generate_expression(ctx, right)?);
+            prog.append(generate_operands(ctx, addr_expr, right)?);
             prog.push(Instruction::Store);
         }
         _ => {

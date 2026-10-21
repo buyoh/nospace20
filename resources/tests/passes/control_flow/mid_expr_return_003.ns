@@ -1,0 +1,17 @@
+# 式の途中の return: 関数呼び出しの引数の中 #
+func: h(a, b, c) {
+  return: a * 100 + b * 10 + c;
+}
+
+func: f(c) {
+  return: h(1, 2, { if: c { return: 9; }; 3; });
+}
+
+func: __main() {
+  let: keep;
+  keep = 42;
+  __puti(f(1)); __putc(10);
+  __puti(f(0)); __putc(10);
+  __puti(f(1)); __putc(10);
+  __puti(keep); __putc(10);
+}

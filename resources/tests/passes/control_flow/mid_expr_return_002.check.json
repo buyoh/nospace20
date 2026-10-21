@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "return with 3+ intermediate values and unary/comparison/logical operands",
+      "stdin": "",
+      "stdout": "9\n15\n8\n12\n7\n11\n6\n1\n4\n1\n42\n"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "return inside a function call argument",
+      "stdin": "",
+      "stdout": "9\n123\n9\n42\n"
+    }
+  ]
+}

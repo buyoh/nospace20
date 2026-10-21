@@ -1,0 +1,21 @@
+# 式の途中の return: グローバル配列の添字・グローバル変数への代入・値として使う代入・|| の右辺・if 式 #
+let: g[3];
+let: gv;
+func: gidx(c) { g[0]=1; g[1]=2; g[2]=3; return: 10 + g[{ if: c { return: 91; }; 2; }]; }
+func: gstore(c) { gv = 5 + { if: c { return: 92; }; 6; }; return: gv; }
+func: valstore(c) { let: y; let: a[3]; y = 1 + (a[1] = 5 + { if: c { return: 93; }; 6; }); return: y; }
+func: valstore_idx(c) { let: y; let: a[3]; y = 1 + (a[{ if: c { return: 94; }; 1; }] = 5); return: y; }
+func: orr(c) { return: 10 + (0 || { if: c { return: 95; }; 3; }); }
+func: ifexpr(c) { return: 10 + if: c { if: 1 { return: 96; }; 0; } else: { 7; }; }
+func: ifcond(c) { return: 10 + if: { if: c { return: 97; }; 1; } { 2; } else: { 3; }; }
+func: __main() {
+  let: keep; keep = 42;
+  __puti(gidx(1)); __putc(10); __puti(gidx(0)); __putc(10);
+  __puti(gstore(1)); __putc(10); __puti(gstore(0)); __putc(10);
+  __puti(valstore(1)); __putc(10); __puti(valstore(0)); __putc(10);
+  __puti(valstore_idx(1)); __putc(10); __puti(valstore_idx(0)); __putc(10);
+  __puti(orr(1)); __putc(10); __puti(orr(0)); __putc(10);
+  __puti(ifexpr(1)); __putc(10); __puti(ifexpr(0)); __putc(10);
+  __puti(ifcond(1)); __putc(10); __puti(ifcond(0)); __putc(10);
+  __puti(keep); __putc(10);
+}
