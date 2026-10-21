@@ -1,6 +1,8 @@
 # Version
 
-## 3.0.0 (WIP)
+## 3.0.0
+
+Various bug fixes and improvements
 
 MAJOR
 
