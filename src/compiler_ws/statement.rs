@@ -370,7 +370,7 @@ fn generate_void_return(ctx: &mut CodeGenContext) -> Result<WsProgram, CompileEr
 /// 関数定義のコード生成
 fn generate_function_definition(
     ctx: &mut CodeGenContext,
-    _func_name: &str,
+    func_name: &str,
     func: &crate::semantic_analyzer::Function,
     func_index: usize,
 ) -> Result<WsProgram, CompileError> {
@@ -385,9 +385,20 @@ fn generate_function_definition(
 
     // ローカル変数領域確保
     let func_scope_var_count = func.block.scope.variable_count;
-    let total_var_count = calculate_total_variable_count(&func.block);
+    // バグ: フレームサイズ（ネストしたブロックを含む変数の合計）を未チェックで合計・`as i64` 変換しており、
+    // debug では panic、release では wrap して小さすぎるフレームのコードを出力していた。
+    // 解決策: checked に合計し、WS のアドレス（i64）に収まらない場合はコンパイルエラーにする。
+    // この検査により、関数内の enter_block_scope のオフセットもフレームサイズ以下に収まる。
+    let local_heap_size = calculate_total_variable_count(&func.block)
+        .and_then(|n| i64::try_from(n).ok())
+        .ok_or_else(|| {
+            CompileError::new(CompileErrorKind::InvalidOperation(format!(
+                "total size of variables in function '{}' exceeds the address space",
+                func_name
+            )))
+        })?;
     let mut local_ctx = ctx.enter_function(
-        total_var_count,
+        local_heap_size,
         func_scope_var_count,
         func_index,
         &func.block.scope,

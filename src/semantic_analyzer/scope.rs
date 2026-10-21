@@ -656,6 +656,16 @@ impl<'a> ScopeResolver<'a> {
     }
 }
 
+/// スコープ内の変数のスロット配置
+pub(super) struct SlotLayout {
+    /// 変数名 → 先頭スロットインデックス
+    pub variable_indices: BTreeMap<String, usize>,
+    /// 変数名 → `variables` のインデックス
+    pub variable_name_to_var_index: BTreeMap<String, usize>,
+    /// スコープ全体のスロット数
+    pub variable_count: usize,
+}
+
 /// スコープビルダー
 ///
 /// スコープ構築時に使用する内部構造
@@ -685,6 +695,30 @@ impl ScopeBuilder {
         }
     }
 
+    /// 変数を宣言順に並べたスロット配置を計算する（配列は要素数分のスロットを使う）
+    ///
+    /// バグ: スロット番号の累積が未チェックの `+=` で、巨大な配列が並ぶと debug では panic、
+    /// release では wrap して誤ったスロット配置のコードを出力していた。
+    /// 解決策: checked_add で累積し、usize に収まらない場合は溢れた変数の名前を Err で返す。
+    pub fn compute_slot_layout(&self) -> Result<SlotLayout, String> {
+        let mut variable_indices = BTreeMap::new();
+        let mut variable_name_to_var_index = BTreeMap::new();
+        let mut slot_index: usize = 0;
+        for (var_idx, var) in self.variables.iter().enumerate() {
+            let var_name = &self.variable_names[var_idx];
+            variable_indices.insert(var_name.clone(), slot_index);
+            variable_name_to_var_index.insert(var_name.clone(), var_idx);
+            slot_index = slot_index
+                .checked_add(var.array_size.unwrap_or(1))
+                .ok_or_else(|| var_name.clone())?;
+        }
+        Ok(SlotLayout {
+            variable_indices,
+            variable_name_to_var_index,
+            variable_count: slot_index,
+        })
+    }
+
     /// スコープをビルドする
     /// functions と function_names を引数として受け取る
     /// ルートスコープの場合のみ有効な値を渡し、それ以外は空の Vec を渡す
@@ -694,20 +728,19 @@ impl ScopeBuilder {
         functions: Vec<Function>,
         function_names: Vec<String>,
     ) -> Scope {
-        // 変数名からスロットインデックスへのマッピングを構築
-        // 配列の場合、変数の開始スロットインデックスを記録
-        // 同時に各 Variable に slot_index を設定
-        let mut variable_indices = BTreeMap::new();
-        let mut variable_name_to_var_index = BTreeMap::new();
-        let mut slot_index = 0;
+        // 変数名からスロットインデックスへのマッピングを構築し、各 Variable に slot_index を設定
+        // スロット数の合計は analyze_internal_with_parent で compute_slot_layout により検査済み
+        // （ScopeBuilder は analyze_internal_with_parent でのみ作られ、その後に変数は追加されない）
+        let SlotLayout {
+            variable_indices,
+            variable_name_to_var_index,
+            variable_count,
+        } = self
+            .compute_slot_layout()
+            .expect("slot count was checked in analyze_internal_with_parent");
         for (var_idx, var) in self.variables.iter_mut().enumerate() {
-            var.slot_index = slot_index;
-            let var_name = &self.variable_names[var_idx];
-            variable_indices.insert(var_name.clone(), slot_index);
-            variable_name_to_var_index.insert(var_name.clone(), var_idx);
-            slot_index += var.array_size.unwrap_or(1);
+            var.slot_index = variable_indices[&self.variable_names[var_idx]];
         }
-        let variable_count = slot_index;
 
         // __main 関数のインデックスを解決
         let main_function_index = function_names.iter().position(|name| name == "__main");

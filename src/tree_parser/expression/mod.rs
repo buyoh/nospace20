@@ -858,7 +858,18 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
         while let Some((Token::BracketL, _)) = self.iter.peek() {
             self.iter.next();
             let size = match self.iter.next() {
-                Some((Token::Number(n), _)) if *n > 0 => *n as usize,
+                Some((Token::Number(n), token_info)) if *n > 0 => {
+                    // バグ: `*n as usize` は usize が 32bit の環境（wasm32）で上位ビットを切り捨て、
+                    // 宣言と異なる配列サイズになっていた。
+                    // 解決策: usize::try_from で変換し、収まらない場合は parse error にする。
+                    match usize::try_from(*n) {
+                        Ok(size) => size,
+                        Err(_) => {
+                            let e = self.add_parse_error(token_info, "array size too large");
+                            return Err(e);
+                        }
+                    }
+                }
                 Some((_, token_info)) => {
                     let e = self.add_parse_error(token_info, "expected array size");
                     return Err(e);

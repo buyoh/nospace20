@@ -14,6 +14,10 @@ use super::{generate_common_epilogue, generate_common_prologue, AllocRuntime};
 pub struct BumpAllocRuntime;
 
 impl AllocRuntime for BumpAllocRuntime {
+    fn reserved_tail_slots(&self) -> i64 {
+        0
+    }
+
     fn generate_memory_init(&self, global_heap_size: i64) -> WsProgram {
         let mut prog = WsProgram::new();
 
@@ -25,6 +29,7 @@ impl AllocRuntime for BumpAllocRuntime {
         ]);
 
         // heap[LOCAL_HEAP_END] = GLOBAL_PTR + global_heap_size
+        // GLOBAL_PTR + global_heap_size（+ reserved_tail_slots）が i64 に収まることは GlobalLayout::compute で検査済み
         prog.extend([
             Instruction::Push(WsNumber(heap_layout::LOCAL_HEAP_END)),
             Instruction::Push(WsNumber(heap_layout::GLOBAL_PTR + global_heap_size)),

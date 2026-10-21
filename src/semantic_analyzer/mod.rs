@@ -194,15 +194,13 @@ fn analyze_internal_with_parent(
 
     // 変数名からインデックスへのマッピングを先に構築（resolver で使用）
     // 配列サイズを考慮したスロットインデックスを使用
-    let mut variable_indices_temp = BTreeMap::new();
-    let mut variable_name_to_var_index_temp = BTreeMap::new();
-    let mut slot_index = 0;
-    for (idx, var) in scope.variables.iter().enumerate() {
-        let var_name = &scope.variable_names[idx];
-        variable_indices_temp.insert(var_name.clone(), slot_index);
-        variable_name_to_var_index_temp.insert(var_name.clone(), idx);
-        slot_index += var.array_size.unwrap_or(1);
-    }
+    // ここで合計が usize に収まることを検査する（ScopeBuilder::build() は同じ計算を検査済みとして扱う）
+    let slot_layout = scope.compute_slot_layout().map_err(|var_name| {
+        vec![code_parse_error!(format!(
+            "semantic error: total size of variables in a scope is too large (at '{}')",
+            var_name
+        ))]
+    })?;
 
     // Variable を Clone するための一時保存（resolver が参照するため）
     // scope.variables をそのまま使用するのではなく、Scope にまとめて後で参照
@@ -210,10 +208,10 @@ fn analyze_internal_with_parent(
     // identifier_map も保持して関数解決に使用
     let temporary_scope = Scope {
         identifier_map: scope.identifier_map.clone(), // 関数解決に必要
-        variable_indices: variable_indices_temp.clone(),
-        variable_name_to_var_index: variable_name_to_var_index_temp.clone(),
+        variable_indices: slot_layout.variable_indices,
+        variable_name_to_var_index: slot_layout.variable_name_to_var_index,
         variables: scope.variables.clone(), // Clone が必要
-        variable_count: slot_index,
+        variable_count: slot_layout.variable_count,
         functions: Vec::new(), // 未使用
         struct_definitions: scope.struct_definitions.clone(),
         struct_name_to_index: scope.struct_name_to_index.clone(),
@@ -657,7 +655,20 @@ fn scan_variable_declarations(
                 let mangled_name = format!("{}{}", ns_prefix, name);
                 // グローバル変数は暗黙的に static、明示的 static も考慮
                 let final_is_static = *is_static_explicit || is_static;
-                let mut effective_array_size = array_size.map(|n| n as usize);
+                // バグ: `n as usize` は usize が 32bit の環境（wasm32）で上位ビットを切り捨てていた。
+                // 解決策: usize::try_from で変換し、収まらない場合は意味解析エラーにする。
+                let mut effective_array_size = match array_size {
+                    Some(n) => Some(usize::try_from(*n).map_err(|_| {
+                        vec![code_parse_error!(
+                            located_stat.location.start,
+                            format!(
+                                "semantic error: array size of '{}' is too large",
+                                mangled_name
+                            )
+                        )]
+                    })?),
+                    None => None,
+                };
                 let value_type = if let Some(spec) = type_annot {
                     resolve_value_type(spec, scope)?
                 } else if let Some(size) = effective_array_size {
@@ -891,7 +902,15 @@ fn resolve_struct_definition(
             return;
         }
 
-        let size = value_type_size(&value_type, scope, field_map, visiting, resolved, errors);
+        let size = value_type_size(
+            &value_type,
+            name,
+            scope,
+            field_map,
+            visiting,
+            resolved,
+            errors,
+        );
         if size == 0 {
             visiting.remove(name);
             return;
@@ -903,7 +922,19 @@ fn resolve_struct_definition(
             offset,
             size,
         });
-        offset += size;
+        // バグ: 未チェックの `+=` で、巨大なフィールドが並ぶと debug では panic、release では wrap していた。
+        // 解決策: checked_add にし、usize に収まらない場合は意味解析エラーにする。
+        offset = match offset.checked_add(size) {
+            Some(next) => next,
+            None => {
+                errors.push(code_parse_error!(format!(
+                    "semantic error: size of struct '{}' is too large",
+                    name
+                )));
+                visiting.remove(name);
+                return;
+            }
+        };
     }
 
     if let Some(idx) = scope.struct_name_to_index.get(name).cloned() {
@@ -953,8 +984,12 @@ fn resolve_type_spec_with_structs(
     }
 }
 
+/// 値の型のサイズ（スロット数）を返す。失敗時（void・未解決の struct・サイズのオーバーフロー）は 0
+///
+/// `struct_name` はエラーメッセージに出す、フィールドを持つ struct の名前。
 fn value_type_size(
     value_type: &ValueType,
+    struct_name: &str,
     scope: &mut ScopeBuilder,
     field_map: &std::collections::BTreeMap<String, Vec<StructFieldDecl>>,
     visiting: &mut std::collections::BTreeSet<String>,
@@ -978,8 +1013,24 @@ fn value_type_size(
                 .unwrap_or(0)
         }
         ValueType::Array(inner, size) => {
-            let inner_size = value_type_size(inner, scope, field_map, visiting, resolved, errors);
-            inner_size * size
+            let inner_size = value_type_size(
+                inner,
+                struct_name,
+                scope,
+                field_map,
+                visiting,
+                resolved,
+                errors,
+            );
+            // バグ: 未チェックの `*` で、debug では panic、release では wrap していた。
+            // 解決策: checked_mul にし、usize に収まらない場合はエラーを積んで失敗（0）を返す。
+            inner_size.checked_mul(*size).unwrap_or_else(|| {
+                errors.push(code_parse_error!(format!(
+                    "semantic error: size of a field in '{}' is too large",
+                    struct_name
+                )));
+                0
+            })
         }
     }
 }

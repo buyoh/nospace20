@@ -643,7 +643,14 @@ impl FsbaFirstFitAllocRuntime {
 }
 
 impl AllocRuntime for FsbaFirstFitAllocRuntime {
+    /// グローバル領域の直後に FSBA テーブル（クラスごとのフリーリスト先頭）を置く
+    fn reserved_tail_slots(&self) -> i64 {
+        heap_layout::FSBA_CLASS_COUNT
+    }
+
     fn generate_memory_init(&self, global_heap_size: i64) -> WsProgram {
+        // GLOBAL_PTR + global_heap_size + FSBA_CLASS_COUNT（reserved_tail_slots）が i64 に収まることは
+        // GlobalLayout::compute で検査済みのため、以下の managed_start + i も溢れない
         let managed_start = heap_layout::GLOBAL_PTR + global_heap_size;
         let mut prog = WsProgram::new();
 

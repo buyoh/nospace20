@@ -27,7 +27,7 @@ fn test_root_block_region_follows_globals_and_statics() {
          func: f() { static: s; return: s; }
          func: __main() { return: f(); }",
     );
-    let layout = GlobalLayout::compute(&scope);
+    let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     assert_eq!(layout.root_init_block_range(), 3..6);
     assert_eq!(layout.total_size(), 6);
     assert_eq!(
@@ -46,7 +46,7 @@ fn test_static_init_frames_do_not_overlap() {
          func: q() { static: s2({ let: u; let: v; u = 1; v = 2; u + v; }); return: s2; }
          func: __main() { return: f() + q(); }",
     );
-    let layout = GlobalLayout::compute(&scope);
+    let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     // [0,1) g, [1,3) s1 s2, ルートのブロック無し
     assert_eq!(layout.root_init_block_range(), 3..3);
     let f = layout.static_init_frame(func_index(&scope, "f")).unwrap();
@@ -69,7 +69,7 @@ fn test_static_init_frame_excludes_static_slots() {
         "func: f() { static: s(1); static: buf[2]; let: x; static: big[100]; x = 1; return: s; }
          func: __main() { return: f(); }",
     );
-    let layout = GlobalLayout::compute(&scope);
+    let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     let frame = layout.static_init_frame(func_index(&scope, "f")).unwrap();
     assert_eq!(frame.block_base - frame.frame_base, 4);
     assert_eq!(frame.end, frame.block_base);
@@ -83,7 +83,7 @@ fn test_unused_function_static_init_is_reserved() {
         "func: unused() { static: s({ let: t; t = 1; t; }); return: s; }
          func: __main() { return: 0; }",
     );
-    let layout = GlobalLayout::compute(&scope);
+    let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     let frame = layout
         .static_init_frame(func_index(&scope, "unused"))
         .unwrap();
@@ -109,7 +109,7 @@ fn test_no_init_blocks_keeps_previous_size() {
          func: h() { let: x; x = 1; return: x; }
          func: __main() { return: f() + h(); }",
     );
-    let layout = GlobalLayout::compute(&scope);
+    let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     assert_eq!(layout.total_size(), 4 + 3);
     assert_eq!(layout.root_init_block_range(), 7..7);
 }
@@ -121,9 +121,62 @@ fn test_static_init_frame_reserves_non_static_vars_even_if_unreferenced() {
         "func: f(a, b) { let: arr[3]; static: s; return: s + a; }
          func: __main() { return: f(1, 2); }",
     );
-    let layout = GlobalLayout::compute(&scope);
+    let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     let frame = layout.static_init_frame(func_index(&scope, "f")).unwrap();
     // a, b, arr[3] の 5 スロット（static s はスロット 5）
     assert_eq!(frame.block_base - frame.frame_base, 5);
     assert_eq!(layout.total_size(), 1 + 5);
+}
+
+#[test]
+fn test_huge_but_representable_array_compiles() {
+    // 巨大でも WS のアドレス（i64）に収まるサイズは受理する（実際のメモリ使用量は実行時に制限される）
+    let scope = parse_and_analyze(
+        "func: __main() { let: a[9223372036854775000]; a[0] = 1; __puti(a[0]); }",
+    );
+    assert!(crate::compiler_ws::compile_with_options(&scope, false, false).is_ok());
+    assert!(crate::compiler_ws::compile_with_options(&scope, false, true).is_ok());
+}
+
+/// GLOBAL_PTR + グローバル領域 + アロケータの管理領域が i64::MAX ちょうどになるグローバル配列のサイズ
+fn max_global_array_size(tail_slots: i64) -> i64 {
+    i64::MAX - crate::compiler_ws::memory::heap_layout::GLOBAL_PTR - tail_slots
+}
+
+#[test]
+fn test_global_area_boundary_without_tail() {
+    let size = max_global_array_size(0);
+    let ok = parse_and_analyze(&format!("let: g[{}]; func: __main() {{}}", size));
+    assert!(GlobalLayout::compute(&ok, 0).is_ok());
+    let over = parse_and_analyze(&format!("let: g[{}]; func: __main() {{}}", size + 1));
+    assert!(GlobalLayout::compute(&over, 0).is_err());
+}
+
+#[test]
+fn test_global_area_boundary_with_allocator_tail() {
+    let tail = crate::compiler_ws::memory::heap_layout::FSBA_CLASS_COUNT;
+    let size = max_global_array_size(tail);
+    let ok = parse_and_analyze(&format!("let: g[{}]; func: __main() {{}}", size));
+    assert!(GlobalLayout::compute(&ok, tail).is_ok());
+    let over = parse_and_analyze(&format!("let: g[{}]; func: __main() {{}}", size + 1));
+    assert!(GlobalLayout::compute(&over, tail).is_err());
+    // 同じサイズでも、管理領域を置かないアロケータなら収まる
+    assert!(GlobalLayout::compute(&over, 0).is_ok());
+}
+
+#[test]
+fn test_global_area_boundary_compiles_with_both_allocators() {
+    // コード生成（FSBA の memory init のアドレス計算を含む）まで panic しないこと
+    let tail = crate::compiler_ws::memory::heap_layout::FSBA_CLASS_COUNT;
+    let fsba_max = parse_and_analyze(&format!(
+        "let: g[{}]; func: __main() {{}}",
+        max_global_array_size(tail)
+    ));
+    assert!(crate::compiler_ws::compile_with_options(&fsba_max, false, true).is_ok());
+    let bump_max = parse_and_analyze(&format!(
+        "let: g[{}]; func: __main() {{}}",
+        max_global_array_size(0)
+    ));
+    assert!(crate::compiler_ws::compile_with_options(&bump_max, false, false).is_ok());
+    assert!(crate::compiler_ws::compile_with_options(&bump_max, false, true).is_err());
 }

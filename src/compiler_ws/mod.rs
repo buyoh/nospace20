@@ -57,7 +57,7 @@ pub fn compile_with_options(
     } else {
         &bump_runtime
     };
-    let layout = GlobalLayout::compute(scope);
+    let layout = GlobalLayout::compute(scope, alloc_runtime.reserved_tail_slots())?;
     let mut ctx =
         CodeGenContext::new_with_options(scope, &layout, debug_ext, alloc_ext, alloc_runtime);
     let mut program = WsProgram::new();

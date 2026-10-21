@@ -656,7 +656,18 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         while let Some((Token::BracketL, _)) = self.iter.peek() {
             self.iter.next();
             let size = match self.iter.next() {
-                Some((Token::Number(n), _)) if *n > 0 => *n as usize,
+                Some((Token::Number(n), token_info)) if *n > 0 => {
+                    // バグ: `*n as usize` は usize が 32bit の環境（wasm32）で上位ビットを切り捨て、
+                    // 宣言と異なる配列サイズになっていた。
+                    // 解決策: usize::try_from で変換し、収まらない場合は parse error にする。
+                    match usize::try_from(*n) {
+                        Ok(size) => size,
+                        Err(_) => {
+                            let e = self.add_parse_error(token_info, "array size too large");
+                            return Err(e);
+                        }
+                    }
+                }
                 Some((_, token_info)) => {
                     let e = self.add_parse_error(token_info, "expected array size");
                     return Err(e);
@@ -865,7 +876,10 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
 
         // サイズチェック or 推論
         let actual_size = if let Some(explicit_size) = array_size {
-            if init_values.len() > explicit_size as usize {
+            // バグ: `explicit_size as usize` は wasm32 で上位ビットが切り捨てられ、
+            // 正しいプログラムが too many initializers になっていた。
+            // 解決策: 要素数を i64 に変換して i64 同士で比較する（i64 に収まらない要素数は常に超過）。
+            if i64::try_from(init_values.len()).map_or(true, |len| len > explicit_size) {
                 let err_idx = self.add_parse_error(
                     &TokenInfo {
                         code_pointer: start_pos,
@@ -1322,7 +1336,18 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         if let Some((Token::BracketL, _)) = self.iter.peek() {
             self.iter.next();
             let size = match self.iter.next() {
-                Some((Token::Number(n), token_info)) if *n > 0 => *n as usize,
+                Some((Token::Number(n), token_info)) if *n > 0 => {
+                    // バグ: `*n as usize` は usize が 32bit の環境（wasm32）で上位ビットを切り捨て、
+                    // 宣言と異なる配列サイズになっていた。
+                    // 解決策: usize::try_from で変換し、収まらない場合は parse error にする。
+                    match usize::try_from(*n) {
+                        Ok(size) => size,
+                        Err(_) => {
+                            let e = self.add_parse_error(token_info, "array size too large");
+                            return Err(e);
+                        }
+                    }
+                }
                 Some((_, token_info)) => {
                     let e = self.add_parse_error(token_info, "expected array size");
                     return Err(e);

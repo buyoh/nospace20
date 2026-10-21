@@ -1,0 +1,6 @@
+{
+  "type": "compile_error",
+  "contains": [
+    "exceeds the address space"
+  ]
+}

@@ -105,13 +105,13 @@ impl<'a> CodeGenContext<'a> {
             current_location: None,
         }
     }
-    /// total_var_count: 関数内の全ブロック（ネスト含む）の変数合計数
-    /// func_scope_var_count: 関数スコープ直下の変数数
+    /// local_heap_size: 関数内の全ブロック（ネスト含む）の変数合計数（i64 に収まることを検査済み）
+    /// func_scope_var_count: 関数スコープ直下の変数数（local_heap_size 以下）
     /// func_index: 関数のインデックス
     /// func_scope: 関数のスコープ（Variable 情報参照用）
     pub fn enter_function(
         &self,
-        total_var_count: usize,
+        local_heap_size: i64,
         func_scope_var_count: usize,
         func_index: usize,
         func_scope: &'a Scope,
@@ -120,14 +120,16 @@ impl<'a> CodeGenContext<'a> {
             scope: self.scope,
             labels: self.labels.clone(),
             is_global: false,
-            local_heap_size: total_var_count as i64,
+            local_heap_size,
             variables: HashMap::new(),
             loop_labels: Vec::new(),
             debug_ext: self.debug_ext,
             alloc_ext: self.alloc_ext,
             alloc_runtime: self.alloc_runtime,
             scope_offsets: vec![0],
-            next_var_offset: func_scope_var_count as i64,
+            // func_scope_var_count ≤ local_heap_size（i64 に収まることを呼び出し元で検査済み）
+            next_var_offset: i64::try_from(func_scope_var_count)
+                .expect("function scope size is bounded by the checked frame size"),
             layout: self.layout,
             current_func_index: Some(func_index),
             current_func_scope: Some(func_scope),
@@ -226,6 +228,9 @@ impl<'a> CodeGenContext<'a> {
     }
 
     /// 変数参照からアドレス情報を取得
+    ///
+    /// `local_index as i64` と `base_offset + local_index` は、変数が置かれる領域（関数フレーム・
+    /// グローバル領域）の大きさが i64 に収まることを検査済みのため、溢れない。
     pub fn get_var_info(&self, var_ref: &IdentifierRef) -> VarInfo {
         if var_ref.is_global {
             VarInfo {
@@ -313,9 +318,16 @@ impl<'a> CodeGenContext<'a> {
 
     /// ブロックスコープに入る
     /// block_var_count: このブロックの variable_count
+    ///
+    /// ブロックの変数は、関数内では関数フレーム（`calculate_total_variable_count`）、
+    /// ルート・static 初期化子では `GlobalLayout` の予約領域に数えられており、
+    /// どちらも i64 に収まることを検査済みのため、ここでは失敗しない。
     pub fn enter_block_scope(&mut self, block_var_count: usize) {
         self.scope_offsets.push(self.next_var_offset);
-        self.next_var_offset += block_var_count as i64;
+        self.next_var_offset = i64::try_from(block_var_count)
+            .ok()
+            .and_then(|count| self.next_var_offset.checked_add(count))
+            .expect("block offsets are bounded by the checked frame / global layout size");
     }
 
     /// ブロックスコープから出る

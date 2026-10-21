@@ -99,6 +99,8 @@ pub fn generate_expression(
         }
         ExecExpression::StructFieldAccess(base, offset, _, field_type) => {
             let mut prog = generate_expression(ctx, base)?;
+            // フィールドのオフセットは struct の total_size 未満。struct 型の値は、検査済みのフレーム・
+            // グローバル領域に置かれた変数か、total_size 以上の配列のキャストからしか得られないため i64 に収まる
             prog.push(Instruction::Push(WsNumber(*offset as i64)));
             prog.push(Instruction::Add);
             if !matches!(field_type, ValueType::Struct(_)) {
@@ -108,6 +110,8 @@ pub fn generate_expression(
         }
         ExecExpression::StructFieldArrayAccess(base, offset, index_expr, _) => {
             let mut prog = generate_expression(ctx, base)?;
+            // フィールドのオフセットは struct の total_size 未満。struct 型の値は、検査済みのフレーム・
+            // グローバル領域に置かれた変数か、total_size 以上の配列のキャストからしか得られないため i64 に収まる
             prog.push(Instruction::Push(WsNumber(*offset as i64)));
             prog.push(Instruction::Add);
             prog.append(generate_expression(ctx, index_expr)?);

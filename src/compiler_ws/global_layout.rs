@@ -1,6 +1,8 @@
 //! グローバル領域の配置
 
+use crate::base::error::compile_error::{CompileError, CompileErrorKind};
 use crate::compiler_ws::block_var_count::count_nested_vars_in_statements;
+use crate::compiler_ws::memory::heap_layout;
 use crate::semantic_analyzer::Scope;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -52,8 +54,19 @@ impl GlobalLayout {
     /// どこにも予約されておらず、オフセット 0 / `func_scope_var_count` から積まれて
     /// グローバル変数・static 変数・アロケータの管理領域と同じアドレスに配置されていた。
     /// 解決策: これらの領域をグローバル領域の末尾に予約し、`total_size`（= global_heap_size）に含める。
-    pub fn compute(scope: &Scope) -> Self {
-        let mut next_offset = scope.variable_count as i64; // グローバル変数の直後
+    ///
+    /// バグ: オフセットの累積が未チェックの `as i64` と `+` で、巨大な配列があると debug では panic、
+    /// release では wrap して、グローバル領域が重なったコードを出力していた。
+    /// 解決策: すべて checked にし、`GLOBAL_PTR + total_size + allocator_tail_slots` が WS のアドレス（i64）に
+    /// 収まらない場合はコンパイルエラーにする。この検査により、領域内の個々のアドレス（`GLOBAL_PTR + offset`）と、
+    /// アロケータがグローバル領域の直後に置く管理領域のアドレスも i64 に収まることが保証される
+    /// （ルート・static 初期化子の `enter_block_scope` もこの範囲内で動く）。
+    ///
+    /// `allocator_tail_slots`: アロケータがグローバル領域の直後に置く管理領域のスロット数
+    /// （`AllocRuntime::reserved_tail_slots`）
+    pub fn compute(scope: &Scope, allocator_tail_slots: i64) -> Result<Self, CompileError> {
+        // グローバル変数の直後
+        let mut next_offset = to_i64(Some(scope.variable_count)).ok_or_else(address_space_error)?;
 
         // 関数内 static 変数
         let mut static_var_offsets = HashMap::new();
@@ -62,7 +75,8 @@ impl GlobalLayout {
                 if var.is_static {
                     let slot_count = var.array_size.unwrap_or(1);
                     static_var_offsets.insert((func_idx, var.slot_index), next_offset);
-                    next_offset += slot_count as i64;
+                    next_offset = checked_offset_add(next_offset, Some(slot_count))
+                        .ok_or_else(address_space_error)?;
                 }
             }
         }
@@ -71,8 +85,10 @@ impl GlobalLayout {
         // ルートの static 初期化とルートの文は同じコンテキストで next_var_offset が通しで増えるため、
         // 1 つの領域にまとめる。ルートスコープ自身の変数はグローバル変数として配置済み。
         let root_block_count = count_nested_vars_in_statements(&scope.static_init_statements)
-            + count_nested_vars_in_statements(&scope.root_statements);
-        let root_init_block_range = next_offset..next_offset + root_block_count as i64;
+            .zip(count_nested_vars_in_statements(&scope.root_statements))
+            .and_then(|(a, b)| a.checked_add(b));
+        let root_init_block_range = next_offset
+            ..checked_offset_add(next_offset, root_block_count).ok_or_else(address_space_error)?;
         next_offset = root_init_block_range.end;
 
         // 関数内 static 初期化子のフレーム相当領域
@@ -88,6 +104,7 @@ impl GlobalLayout {
             // までを確保すればよい（static 配列の分を余分に確保しない）。
             // 初期化子が実際に参照するかは見ないので、初期化子の無い `static: s;` だけの関数でも
             // 引数・非 static 変数の分を確保する（アドレス空間が余るだけ）
+            // slot_index + array_size は関数スコープの variable_count 以下（意味解析で usize に収まることを検査済み）
             let frame_var_count = func_scope
                 .variables
                 .iter()
@@ -96,21 +113,48 @@ impl GlobalLayout {
                 .max()
                 .unwrap_or(0);
             let block_count = count_nested_vars_in_statements(&func_scope.static_init_statements);
+            // 使われない関数でも、非 static 変数の分をグローバル領域に確保するため、
+            // 巨大なローカル配列を持つ関数ではここで溢れうる。原因が分かるよう関数名を出す
+            let frame_error = || {
+                let func_name = scope
+                    .symbol_table
+                    .function_names
+                    .get(func_idx)
+                    .map(String::as_str)
+                    .unwrap_or("?");
+                CompileError::new(CompileErrorKind::InvalidOperation(format!(
+                    "total size of global and static variables exceeds the address space \
+                     (including the region for static initializers of function '{}', \
+                     which reserves its non-static variables)",
+                    func_name
+                )))
+            };
+            let block_base =
+                checked_offset_add(next_offset, Some(frame_var_count)).ok_or_else(frame_error)?;
             let frame = StaticInitFrame {
                 frame_base: next_offset,
-                block_base: next_offset + frame_var_count as i64,
-                end: next_offset + (frame_var_count + block_count) as i64,
+                block_base,
+                end: checked_offset_add(block_base, block_count).ok_or_else(frame_error)?,
             };
             next_offset = frame.end;
             static_init_frames.insert(func_idx, frame);
         }
 
-        Self {
+        // GLOBAL_PTR からの絶対アドレスと、その直後のアロケータの管理領域も i64 に収まること
+        // バグ: 管理領域の分を検査しておらず、FSBA の初期化（managed_start + i）で debug は panic、
+        // release は wrap していた。
+        // 解決策: allocator_tail_slots も含めて checked_add で検査する。
+        heap_layout::GLOBAL_PTR
+            .checked_add(next_offset)
+            .and_then(|end| end.checked_add(allocator_tail_slots))
+            .ok_or_else(address_space_error)?;
+
+        Ok(Self {
             static_var_offsets,
             root_init_block_range,
             static_init_frames,
             total_size: next_offset,
-        }
+        })
     }
 
     /// 関数内 static 変数のオフセットを取得する（static でなければ None）
@@ -134,6 +178,22 @@ impl GlobalLayout {
     pub fn total_size(&self) -> i64 {
         self.total_size
     }
+}
+
+fn address_space_error() -> CompileError {
+    CompileError::new(CompileErrorKind::InvalidOperation(
+        "total size of global and static variables exceeds the address space".to_string(),
+    ))
+}
+
+/// スロット数（None は usize での合計の失敗）を i64 に変換する（収まらない場合は None）
+fn to_i64(count: Option<usize>) -> Option<i64> {
+    count.and_then(|n| i64::try_from(n).ok())
+}
+
+/// オフセットにスロット数を足す（i64 に収まらない場合は None）
+fn checked_offset_add(offset: i64, count: Option<usize>) -> Option<i64> {
+    offset.checked_add(to_i64(count)?)
 }
 
 #[cfg(test)]

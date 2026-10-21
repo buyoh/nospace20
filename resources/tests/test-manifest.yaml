@@ -859,6 +859,47 @@ tests:
     path: func_in_func_block_static_access_001
     comment: "Error: block static in a block-local function body referenced from its nested function"
 
+  # Array / struct size overflow
+  - name: test_compile_error_array_size_overflow_vars_001
+    type: compile_error
+    path: array_size_overflow_vars_001
+    comment: "Error: total slot count of variables in a scope overflows usize"
+
+  - name: test_compile_error_array_size_overflow_struct_001
+    type: compile_error
+    path: array_size_overflow_struct_001
+    comment: "Error: struct field array size (count x element size) overflows usize"
+
+  - name: test_compile_error_array_size_overflow_struct_offset_001
+    type: compile_error
+    path: array_size_overflow_struct_offset_001
+    comment: "Error: struct field offsets overflow usize"
+
+  - name: test_compile_error_array_size_overflow_frame_001
+    type: compile_error
+    path: array_size_overflow_frame_001
+    comment: "Error: function frame size (including nested blocks) exceeds i64"
+
+  - name: test_compile_error_array_size_overflow_global_001
+    type: compile_error
+    path: array_size_overflow_global_001
+    comment: "Error: global area (GLOBAL_PTR + size) exceeds i64"
+
+  - name: test_compile_error_array_size_overflow_root_block_001
+    type: compile_error
+    path: array_size_overflow_root_block_001
+    comment: "Error: root-level block variables exceed i64"
+
+  - name: test_compile_error_array_size_overflow_static_init_001
+    type: compile_error
+    path: array_size_overflow_static_init_001
+    comment: "Error: block variables in static initializers exceed i64"
+
+  - name: test_compile_error_array_size_overflow_static_init_frame_001
+    type: compile_error
+    path: array_size_overflow_static_init_frame_001
+    comment: "Error: static initializer frame of function f (reserving its non-static variables) exceeds i64"
+
   - name: test_scope_block_unused_func_decl_001
     type: success_io
     path: scope/block_unused_func_decl_001

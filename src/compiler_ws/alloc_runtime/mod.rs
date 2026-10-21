@@ -28,6 +28,12 @@ pub trait AllocRuntime {
     /// `global_heap_size`: グローバル領域（グローバル変数・static 変数・初期化文が使う変数）の合計サイズ
     fn generate_memory_init(&self, global_heap_size: i64) -> WsProgram;
 
+    /// グローバル領域の直後にアロケータが置く管理領域のスロット数。
+    ///
+    /// `generate_memory_init` は `GLOBAL_PTR + global_heap_size + この値` までのアドレスを計算するため、
+    /// `GlobalLayout::compute` がこの値も含めて i64 に収まることを検査する。
+    fn reserved_tail_slots(&self) -> i64;
+
     /// フッター部分のサブルーチン定義コードを生成。
     ///
     /// アロケータが使用するサブルーチン（`__rt_alloc`, `__rt_free` 等）を定義する。
