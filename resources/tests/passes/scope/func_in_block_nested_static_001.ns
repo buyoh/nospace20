@@ -1,0 +1,17 @@
+# ブロック内の関数 g の static を、g のネスト関数 h から読み書きする #
+func: __main() {
+  {
+    func: g() {
+      static: s(0);
+      func: h() {
+        s += 5;
+        return: s;
+      }
+      h();
+      return: h();
+    }
+    __puti(g());
+    __puti(g());
+  };
+  __putc('\n');
+}

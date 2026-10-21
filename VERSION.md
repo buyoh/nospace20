@@ -1,5 +1,18 @@
 # Version
 
+## x.x.x (WIP)
+
+MAJOR
+
+MINOR
+
+- Language: Functions can be declared in block scopes (`{}`, `if` / `while` / `for` / `repeat` bodies, block aliases). They are visible only inside the block and cannot read non-static variables of enclosing blocks (block `static` variables are not accessible yet)
+
+PATCH
+
+- Semantic analyzer: Fix an internal panic when a function is declared inside a function in a namespace
+- Semantic analyzer: A nested function no longer takes the final flag from a same-named non-static variable of its enclosing function
+
 ## 3.0.0
 
 Various bug fixes and improvements

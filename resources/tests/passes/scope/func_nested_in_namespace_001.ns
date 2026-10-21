@@ -1,0 +1,43 @@
+# 名前空間内の関数の本体・その中のブロックで関数を宣言する（以前は panic していた） #
+namespace: N {
+  func: f() {
+    func: h() {
+      return: 1;
+    }
+    return: h();
+  }
+
+  func: f2() {
+    {
+      func: g() {
+        return: 2;
+      }
+      return: g();
+    };
+  }
+
+  func: f3() {
+    func: tmpl(x), alias: constexpr: step {
+      return: x + step;
+    }
+    alias: a3(tmpl, 3);
+    return: a3(0);
+  }
+
+  func: f4() {
+    namespace: M {
+      func: k() {
+        return: 4;
+      }
+    }
+    return: M$k();
+  }
+}
+
+func: __main() {
+  __puti(N$f());
+  __puti(N$f2());
+  __puti(N$f3());
+  __puti(N$f4());
+  __putc('\n');
+}

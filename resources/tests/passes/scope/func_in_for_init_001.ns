@@ -1,0 +1,16 @@
+# for の init で宣言した関数を body から呼び、戻り値を使う #
+func: __main() {
+  for: {
+    let: i(0);
+    func: g() {
+      return: 7;
+    }
+  } {
+    i < 2;
+  } {
+    i += 1;
+  } {
+    __puti(g() + i);
+  };
+  __putc('\n');
+}

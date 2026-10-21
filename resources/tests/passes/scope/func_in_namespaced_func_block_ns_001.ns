@@ -1,0 +1,18 @@
+# 名前空間内の関数のブロックで、さらに名前空間の関数を宣言して呼ぶ #
+namespace: N {
+  func: f() {
+    {
+      namespace: M {
+        func: k() {
+          return: 4;
+        }
+      }
+      return: M$k();
+    };
+  }
+}
+
+func: __main() {
+  __puti(N$f());
+  __putc('\n');
+}

@@ -1,0 +1,15 @@
+# ブロック内でテンプレート関数をインスタンス化して呼ぶ #
+# テンプレートの解決は同じ文リスト内の定義に限られるため、定義もブロック内に置く #
+func: __main() {
+  {
+    func: tmpl(x), alias: constexpr: step {
+      return: x + step;
+    }
+    alias: a2(tmpl, 2);
+    alias: a5(tmpl, 5);
+    __puti(a2(1));
+    __putc(32);
+    __puti(a5(1));
+  };
+  __putc('\n');
+}

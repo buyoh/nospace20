@@ -1,0 +1,15 @@
+# エラーケース: for-init のループ変数を、for-init で宣言した関数から参照する #
+func: __main() {
+  for: {
+    let: i(0);
+    func: g() {
+      return: i;
+    }
+  } {
+    i < 2;
+  } {
+    i += 1;
+  } {
+    __puti(g());
+  };
+}

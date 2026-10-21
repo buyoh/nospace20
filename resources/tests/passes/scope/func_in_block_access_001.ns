@@ -1,0 +1,32 @@
+# ブロック内の関数から、グローバル変数・外側の関数の static を読み書きする #
+# 自分自身の再帰呼び出しと、外側の関数の呼び出しも行う #
+let: g(100);
+
+func: twice(x) {
+  return: x * 2;
+}
+
+func: f() {
+  static: s(5);
+  {
+    func: inner(n) {
+      if: n == 0 {
+        return: 0;
+      };
+      g += 1;
+      s += 1;
+      return: n + inner(n - 1);
+    }
+    __puti(twice(inner(3)));
+  };
+  return: s;
+}
+
+func: __main() {
+  __puti(f());
+  __putc(32);
+  __puti(f());
+  __putc(32);
+  __puti(g);
+  __putc('\n');
+}

@@ -174,6 +174,9 @@ impl Scope {
 pub(super) enum ScopeType {
     Root,
     Function,
+    /// ブロックスコープ（`{}`・`if` / `while` / `for` / `repeat` の本体、ブロックエイリアスの展開先）。
+    /// 関数を宣言でき、その関数は親と共有するグローバル関数表に登録される
+    /// （以前は一時的な空の関数表に登録され、呼び出しが別の関数に誤解決されていた）
     Block,
 }
 
@@ -206,6 +209,26 @@ pub(super) struct ScopeInfo<'a> {
     /// この関数スコープのグローバル関数インデックス
     /// ネストされた関数から親の static 変数にアクセスする際に使用
     pub func_global_index: Option<usize>,
+}
+
+/// 関数境界を考慮した変数探索で見つかった変数
+struct FoundVariable<'s, 'a> {
+    /// 現在のスコープからの段数
+    depth: usize,
+    /// 見つけたスコープ内のスロットインデックス
+    local_index: usize,
+    /// 最も内側の関数スコープより外側で見つけたか
+    crossed_function_boundary: bool,
+    scope: &'s ScopeInfo<'a>,
+    var: &'s Variable,
+}
+
+/// 変数探索の結果
+enum VariableLookup<'s, 'a> {
+    Found(FoundVariable<'s, 'a>),
+    NotFound,
+    /// 参照できない変数を見つけた（ブロックの static を内側の関数から参照した）。値はエラーメッセージ
+    Forbidden(String),
 }
 
 /// スコープ解決のためのコンテキスト
@@ -315,41 +338,74 @@ impl<'a> ScopeResolver<'a> {
         candidates
     }
 
-    /// 変数名を解決し、IdentifierRef を返す
+    /// 変数名を解決し、IdentifierRef と変数の型を返す
     ///
     /// スコープスタックを逆順に探索し、最も近いスコープの変数を見つける。
     /// 関数スコープ境界を越えた場合、static 変数のみアクセス可能。
     /// 名前空間プレフィックスが設定されている場合、プレフィックス付きの名前を優先して探索する。
-    /// 見つからない場合は None を返す。
-    pub fn resolve_variable(&self, name: &str) -> Option<IdentifierRef> {
-        let candidates = self.ns_candidate_names(name);
-        for candidate in &candidates {
-            if let Some(result) = self.resolve_variable_exact(candidate) {
-                return Some(result);
+    /// 見つからない場合は `Ok(None)`、参照できない変数を見つけた場合はエラーメッセージを返す。
+    pub fn resolve_variable_with_type(
+        &self,
+        name: &str,
+    ) -> Result<Option<(IdentifierRef, ValueType)>, String> {
+        match self.lookup_variable(name) {
+            VariableLookup::Found(found) => Ok(Some((
+                self.make_variable_ref(&found),
+                found.var.value_type.clone(),
+            ))),
+            VariableLookup::NotFound => Ok(None),
+            VariableLookup::Forbidden(message) => Err(message),
+        }
+    }
+
+    /// 探索結果から IdentifierRef を組み立てる
+    fn make_variable_ref(&self, found: &FoundVariable) -> IdentifierRef {
+        // グローバル変数かどうかを判定
+        // スタックの最下層（depth == scope_stack.len() - 1）がルートスコープ
+        let is_global = found.depth == self.scope_stack.len() - 1
+            && self
+                .scope_stack
+                .first()
+                .map(|s| s.is_function_scope)
+                .unwrap_or(false);
+
+        // 関数境界を越えた static 変数アクセスの場合、
+        // 変数を所有する関数のグローバルインデックスを記録
+        let owning_func_index = if found.crossed_function_boundary {
+            found.scope.func_global_index
+        } else {
+            None
+        };
+
+        IdentifierRef {
+            scope_depth: found.depth,
+            local_index: found.local_index,
+            is_global,
+            owning_func_index,
+        }
+    }
+
+    /// 名前空間の候補（`ns_candidate_names`）と import（`resolve_imported_name`）を含めて変数を探す
+    ///
+    /// 候補 → import の順に探し、最初に見つかった（または参照できないと判明した）結果を返す。
+    fn lookup_variable(&self, name: &str) -> VariableLookup<'_, 'a> {
+        for candidate in &self.ns_candidate_names(name) {
+            match self.find_variable_exact(candidate) {
+                VariableLookup::NotFound => {}
+                result => return result,
             }
         }
         if let Some(imported) = self.resolve_imported_name(name) {
-            return self.resolve_variable_exact(&imported);
+            return self.find_variable_exact(&imported);
         }
-        None
+        VariableLookup::NotFound
     }
 
-    pub fn resolve_variable_with_type(&self, name: &str) -> Option<(IdentifierRef, ValueType)> {
-        let candidates = self.ns_candidate_names(name);
-        for candidate in &candidates {
-            if let Some(result) = self.resolve_variable_with_type_exact(candidate) {
-                return Some(result);
-            }
-        }
-        if let Some(imported) = self.resolve_imported_name(name) {
-            return self.resolve_variable_with_type_exact(&imported);
-        }
-        None
-    }
-
-    /// 変数名を完全一致で解決する（名前空間プレフィックスなし）
-    fn resolve_variable_exact(&self, name: &str) -> Option<IdentifierRef> {
-        // 最初に見つけた関数スコープ（自分の関数）より外側の関数スコープを越えた場合、境界を越えたとする
+    /// 変数名を完全一致で探す（名前空間プレフィックスなし、関数境界を考慮）
+    ///
+    /// 最も内側の関数スコープより外側にある非 static 変数は読み飛ばす。
+    fn find_variable_exact(&self, name: &str) -> VariableLookup<'_, 'a> {
+        // 最初に見つけた関数スコープ（自分の関数）の段数
         let mut first_function_scope_depth: Option<usize> = None;
 
         for (depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
@@ -358,138 +414,69 @@ impl<'a> ScopeResolver<'a> {
                 first_function_scope_depth = Some(depth);
             }
 
-            if let Some(&local_index) = scope_info.var_indices.get(name) {
-                // 変数情報を取得（var_name_to_var_index 経由）
-                let var_idx = scope_info.var_name_to_var_index.get(name)?;
-                let var = &scope_info.variables[*var_idx];
+            let (Some(&local_index), Some(&var_idx)) = (
+                scope_info.var_indices.get(name),
+                scope_info.var_name_to_var_index.get(name),
+            ) else {
+                continue;
+            };
+            let var = &scope_info.variables[var_idx];
 
-                // 関数境界を越えたかチェック
-                // first_function_scope_depth より外側（depth が大きい）の関数スコープに変数がある場合
-                let crossed_function_boundary =
-                    if let Some(first_func_depth) = first_function_scope_depth {
-                        depth > first_func_depth && scope_info.is_function_scope
-                    } else {
-                        // まだ関数スコープに入っていない（グローバルスコープのみ探索中）
-                        false
-                    };
+            // バグ: 関数スコープの段だけを境界とみなしていたため、関数とその外側の関数の間にあるブロックスコープの
+            // 非 static 変数を、内側の関数から参照できてしまっていた。
+            // 解決策: 最も内側の関数スコープより外側の段は、スコープ種別によらず境界の外とする。
+            let crossed_function_boundary =
+                first_function_scope_depth.is_some_and(|first_func_depth| depth > first_func_depth);
 
-                // 関数境界を越えた場合、static 変数のみアクセス可能
-                if crossed_function_boundary && !var.is_static {
+            if crossed_function_boundary {
+                if !var.is_static {
                     // 非 static 変数はスキップして探索継続
                     continue;
                 }
-
-                // グローバル変数かどうかを判定
-                // スタックの最下層（depth == scope_stack.len() - 1）がルートスコープ
-                let is_global = depth == self.scope_stack.len() - 1
-                    && self
-                        .scope_stack
-                        .first()
-                        .map(|s| s.is_function_scope)
-                        .unwrap_or(false);
-
-                // 関数境界を越えた static 変数アクセスの場合、
-                // 変数を所有する関数のグローバルインデックスを記録
-                let owning_func_index = if crossed_function_boundary && var.is_static {
-                    scope_info.func_global_index
-                } else {
-                    None
-                };
-
-                return Some(IdentifierRef {
-                    scope_depth: depth,
-                    local_index,
-                    is_global,
-                    owning_func_index,
-                });
-            }
-        }
-        None
-    }
-
-    fn resolve_variable_with_type_exact(&self, name: &str) -> Option<(IdentifierRef, ValueType)> {
-        let mut first_function_scope_depth: Option<usize> = None;
-
-        for (depth, scope_info) in self.scope_stack.iter().rev().enumerate() {
-            if scope_info.is_function_scope && first_function_scope_depth.is_none() {
-                first_function_scope_depth = Some(depth);
-            }
-
-            if let Some(&local_index) = scope_info.var_indices.get(name) {
-                let var_idx = scope_info.var_name_to_var_index.get(name)?;
-                let var = &scope_info.variables[*var_idx];
-
-                let crossed_function_boundary =
-                    if let Some(first_func_depth) = first_function_scope_depth {
-                        depth > first_func_depth && scope_info.is_function_scope
-                    } else {
-                        false
-                    };
-
-                if crossed_function_boundary && !var.is_static {
-                    continue;
+                if !scope_info.is_function_scope {
+                    // ブロックスコープの static は所有する関数（owning_func_index）を決められない。
+                    // 外側の同名変数に解決すると誤ったコードになるため、探索を打ち切ってエラーにする。
+                    // TODO: ブロック内の static 宣言の配置を直したら許可する（nested-block-function-and-static #2）
+                    return VariableLookup::Forbidden(format!(
+                        "semantic error: static variable '{}' declared in a block scope cannot be referenced from a nested function",
+                        name
+                    ));
                 }
-
-                let is_global = depth == self.scope_stack.len() - 1
-                    && self
-                        .scope_stack
-                        .first()
-                        .map(|s| s.is_function_scope)
-                        .unwrap_or(false);
-
-                let owning_func_index = if crossed_function_boundary && var.is_static {
-                    scope_info.func_global_index
-                } else {
-                    None
-                };
-
-                return Some((
-                    IdentifierRef {
-                        scope_depth: depth,
-                        local_index,
-                        is_global,
-                        owning_func_index,
-                    },
-                    var.value_type.clone(),
-                ));
             }
+
+            return VariableLookup::Found(FoundVariable {
+                depth,
+                local_index,
+                crossed_function_boundary,
+                scope: scope_info,
+                var,
+            });
         }
-        None
+        VariableLookup::NotFound
     }
 
     /// 変数が final かどうかを返す
     ///
-    /// スコープスタックを内側から外側へ探索し、変数の is_final フラグを返す。
-    /// 名前空間プレフィックスを考慮した名前でも探索する。
-    /// 変数が見つからない場合は false を返す。
+    /// `resolve_variable_with_type` と同じ規則で変数を探し、その is_final フラグを返す。
+    /// 変数が見つからない（参照できない）場合は false を返す。
     pub fn is_final_variable(&self, name: &str) -> bool {
-        let candidates = self.ns_candidate_names(name);
-        for candidate in &candidates {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(&var_idx) = scope_info.var_name_to_var_index.get(candidate.as_str()) {
-                    return scope_info.variables[var_idx].is_final;
-                }
-            }
+        match self.lookup_variable(name) {
+            VariableLookup::Found(found) => found.var.is_final,
+            VariableLookup::NotFound | VariableLookup::Forbidden(_) => false,
         }
-        false
     }
 
     /// 変数の配列サイズを取得
     ///
-    /// 名前空間プレフィックスを考慮した名前でも探索する。
-    /// None の場合、変数が見つからない
+    /// `resolve_variable_with_type` と同じ規則で変数を探す。
+    /// None の場合、変数が見つからない（参照できない）
     /// Some(None) の場合、通常変数（配列ではない）
     /// Some(Some(n)) の場合、サイズ n の配列
     pub fn get_array_size(&self, name: &str) -> Option<Option<usize>> {
-        let candidates = self.ns_candidate_names(name);
-        for candidate in &candidates {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(&var_idx) = scope_info.var_name_to_var_index.get(candidate.as_str()) {
-                    return Some(scope_info.variables[var_idx].array_size);
-                }
-            }
+        match self.lookup_variable(name) {
+            VariableLookup::Found(found) => Some(found.var.array_size),
+            VariableLookup::NotFound | VariableLookup::Forbidden(_) => None,
         }
-        None
     }
 
     pub fn resolve_struct_index(&self, name: &str) -> Option<usize> {

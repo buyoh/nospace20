@@ -1,0 +1,14 @@
+# while の条件ブロックで宣言した関数を呼ぶ #
+func: __main() {
+  let: i(0);
+  while: {
+    func: lim() {
+      return: 3;
+    }
+    i < lim();
+  } {
+    __puti(i);
+    i += 1;
+  };
+  __putc('\n');
+}

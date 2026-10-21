@@ -1,0 +1,17 @@
+# 関数と static を含むブロックエイリアスを 2 箇所で展開すると、それぞれ独立した関数になる #
+alias: counter {
+  func: tick() {
+    static: n(0);
+    n += 1;
+    return: n;
+  }
+  tick();
+  __puti(tick());
+};
+
+func: __main() {
+  counter();
+  __putc(32);
+  counter();
+  __putc('\n');
+}

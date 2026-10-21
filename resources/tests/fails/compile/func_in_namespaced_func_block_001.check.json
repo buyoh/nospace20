@@ -1,4 +1,0 @@
-{
-  "type": "compile_error",
-  "contains": ["cannot be declared in a block scope", "N$g"]
-}

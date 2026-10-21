@@ -728,61 +728,136 @@ tests:
     path: scope_nested_func_child_access_error_001
     comment: "Error: child scope function access"
 
-  # Block-scope function declaration is forbidden
-  - name: test_compile_error_func_in_block_expr_001
-    type: compile_error
-    path: func_in_block_expr_001
-    comment: "Error: function declaration in block expression"
+  # Block-scope function declarations
+  - name: test_scope_func_in_block_expr_001
+    type: success_io
+    path: scope/func_in_block_expr_001
+    comment: "Function declared in a block expression is resolved to itself (was misresolved to __main)"
 
-  - name: test_compile_error_func_in_root_block_001
-    type: compile_error
-    path: func_in_root_block_001
-    comment: "Error: function declaration in root expression-statement block"
+  - name: test_scope_func_in_block_value_001
+    type: success_io
+    path: scope/func_in_block_value_001
+    comment: "Return value of a block-local function used as the block value"
 
-  - name: test_compile_error_func_in_if_001
-    type: compile_error
-    path: func_in_if_001
-    comment: "Error: function declaration in if body"
+  - name: test_scope_func_in_if_while_001
+    type: success_io
+    path: scope/func_in_if_while_001
+    comment: "Functions declared in if / else / while bodies"
 
-  - name: test_compile_error_func_in_while_001
-    type: compile_error
-    path: func_in_while_001
-    comment: "Error: function declaration in while body"
+  - name: test_scope_func_in_for_init_001
+    type: success_io
+    path: scope/func_in_for_init_001
+    comment: "Function declared in for init called from the body (return type is visible)"
 
-  - name: test_compile_error_func_in_for_init_001
-    type: compile_error
-    path: func_in_for_init_001
-    comment: "Error: function declaration in for init block"
+  - name: test_scope_func_in_block_access_001
+    type: success_io
+    path: scope/func_in_block_access_001
+    comment: "Block-local function accesses globals and enclosing function statics, recursion and outer calls"
 
-  - name: test_compile_error_func_in_block_alias_001
-    type: compile_error
-    path: func_in_block_alias_001
-    comment: "Error: function declaration in expanded block alias"
+  - name: test_scope_func_in_block_shadowing_001
+    type: success_io
+    path: scope/func_in_block_shadowing_001
+    comment: "Block-local function shadows outer function; sibling blocks are independent"
 
-  - name: test_compile_error_func_in_block_namespace_001
-    type: compile_error
-    path: func_in_block_namespace_001
-    comment: "Error: function declaration in namespace inside block"
+  - name: test_scope_func_in_block_alias_001
+    type: success_io
+    path: scope/func_in_block_alias_001
+    comment: "Block alias with function and static expanded twice creates independent functions"
 
-  - name: test_compile_error_func_in_block_template_001
-    type: compile_error
-    path: func_in_block_template_001
-    comment: "Error: template instantiation (alias:) inside block"
+  - name: test_scope_func_in_root_block_001
+    type: success_io
+    path: scope/func_in_root_block_001
+    comment: "Function declared in a root expression-statement block"
 
-  - name: test_compile_error_func_in_namespaced_func_block_001
-    type: compile_error
-    path: func_in_namespaced_func_block_001
-    comment: "Error: function declaration in block of namespaced function (mangled name in message)"
+  - name: test_scope_func_in_block_hoist_001
+    type: success_io
+    path: scope/func_in_block_hoist_001
+    comment: "Block-local function is hoisted within the block"
 
-  - name: test_compile_error_func_in_repeat_001
-    type: compile_error
-    path: func_in_repeat_001
-    comment: "Error: function declaration in repeat body (desugared to for)"
+  - name: test_scope_func_in_loop_bodies_001
+    type: success_io
+    path: scope/func_in_loop_bodies_001
+    comment: "Functions declared in repeat body, else body, for cond/step blocks"
 
-  - name: test_compile_error_func_in_for_body_001
+  - name: test_scope_func_in_block_namespace_001
+    type: success_io
+    path: scope/func_in_block_namespace_001
+    comment: "Function in a namespace inside a block"
+
+  - name: test_scope_func_in_block_template_001
+    type: success_io
+    path: scope/func_in_block_template_001
+    comment: "Template instantiation inside a block"
+
+  - name: test_scope_func_nested_in_namespace_001
+    type: success_io
+    path: scope/func_nested_in_namespace_001
+    comment: "Nested functions / templates / namespaces inside a namespaced function (was internal panic)"
+
+  - name: test_scope_final_shadow_nested_func_001
+    type: success_io
+    path: scope/final_shadow_nested_func_001
+    comment: "Nested function assigns to global x even when enclosing function has final x"
+
+  - name: test_compile_error_func_in_block_call_outside_001
     type: compile_error
-    path: func_in_for_body_001
-    comment: "Error: function declaration in for body"
+    path: func_in_block_call_outside_001
+    comment: "Error: block-local function called outside the block"
+
+  - name: test_compile_error_func_in_block_nonstatic_access_001
+    type: compile_error
+    path: func_in_block_nonstatic_access_001
+    comment: "Error: block-local function reads non-static variable of enclosing block in a function"
+
+  - name: test_compile_error_func_in_root_block_nonstatic_access_001
+    type: compile_error
+    path: func_in_root_block_nonstatic_access_001
+    comment: "Error: block-local function reads non-static variable of enclosing root block"
+
+  - name: test_compile_error_func_in_for_init_counter_access_001
+    type: compile_error
+    path: func_in_for_init_counter_access_001
+    comment: "Error: function in for init reads the loop variable"
+
+  - name: test_compile_error_func_in_block_static_access_001
+    type: compile_error
+    path: func_in_block_static_access_001
+    comment: "Error: block-local function reads block static (not resolved to same-named global)"
+
+  - name: test_compile_error_func_in_block_static_access_002
+    type: compile_error
+    path: func_in_block_static_access_002
+    comment: "Error: block-local function writes block static"
+
+  - name: test_scope_func_in_while_cond_001
+    type: success_io
+    path: scope/func_in_while_cond_001
+    comment: "Function declared in a while condition block"
+
+  - name: test_scope_func_in_loop_static_001
+    type: success_io
+    path: scope/func_in_loop_static_001
+    comment: "Static of a function declared in a loop body is shared across iterations"
+
+  - name: test_scope_func_in_block_nested_static_001
+    type: success_io
+    path: scope/func_in_block_nested_static_001
+    comment: "Nested function reads static of a block-local function (owning_func_index of block-local function)"
+
+  - name: test_scope_func_in_block_static_vs_nonstatic_001
+    type: success_io
+    path: scope/func_in_block_static_vs_nonstatic_001
+    comment: "Block-local function skips enclosing block non-static and resolves to function static"
+
+  - name: test_scope_func_in_namespaced_func_block_ns_001
+    type: success_io
+    path: scope/func_in_namespaced_func_block_ns_001
+    comment: "Namespace function inside a block of a namespaced function"
+
+  - name: test_compile_error_func_in_func_block_static_access_001
+    type: compile_error
+    path: func_in_func_block_static_access_001
+    comment: "Error: block static in a block-local function body referenced from its nested function"
 
   - name: test_scope_block_unused_func_decl_001
     type: success_io

@@ -1,0 +1,12 @@
+# ループ本体で宣言した関数の static は、反復をまたいで 1 つ #
+func: __main() {
+  repeat: i(0), 3, {
+    func: t() {
+      static: n(0);
+      n += 1;
+      return: n;
+    }
+    __puti(t());
+  };
+  __putc('\n');
+}

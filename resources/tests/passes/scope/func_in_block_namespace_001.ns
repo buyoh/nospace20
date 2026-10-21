@@ -1,0 +1,12 @@
+# ブロック内の名前空間で宣言した関数を NS$g() で呼ぶ #
+func: __main() {
+  {
+    namespace: NS {
+      func: g() {
+        return: 6;
+      }
+    }
+    __puti(NS$g());
+  };
+  __putc('\n');
+}

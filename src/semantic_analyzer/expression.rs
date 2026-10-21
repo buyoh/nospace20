@@ -13,7 +13,8 @@ use super::{
     function_table::FunctionTable,
     scope::ScopeResolver,
     types::{
-        Block, BuiltinFunctionKind, ConditionMode, ExecExpression, LocatedExecExpression, ValueType,
+        Block, BuiltinFunctionKind, ConditionMode, ExecExpression, IdentifierRef,
+        LocatedExecExpression, ValueType,
     },
 };
 
@@ -37,6 +38,26 @@ pub(super) fn require_int_type(
         Err(vec![code_parse_error!(message)])
     } else {
         Ok(())
+    }
+}
+
+/// 変数を解決し、参照と型を返す
+///
+/// 見つからない場合は `undefined variable`、参照できない変数（ブロックの static を内側の関数から参照した）
+/// の場合はそのエラーを返す。`display_name` はエラーメッセージに出す名前（ソースに書かれた名前）。
+pub(super) fn resolve_variable_or_error(
+    resolver: &ScopeResolver,
+    name: &str,
+    display_name: &str,
+    location_start: usize,
+) -> Result<(IdentifierRef, ValueType), Vec<CodeParseError>> {
+    match resolver.resolve_variable_with_type(name) {
+        Ok(Some(resolved)) => Ok(resolved),
+        Ok(None) => Err(vec![code_parse_error!(
+            location_start,
+            format!("undefined variable: {}", display_name)
+        )]),
+        Err(message) => Err(vec![code_parse_error!(location_start, message)]),
     }
 }
 
@@ -92,14 +113,8 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             // &(*x) = x となるため、Deref の場合は内側の式をそのまま返す。
             match &inner.expression {
                 Expression::Variable(name) => {
-                    let (id_ref, value_type) = parent_resolver
-                        .resolve_variable_with_type(name)
-                        .ok_or_else(|| {
-                            vec![code_parse_error!(
-                                loc.start,
-                                format!("undefined variable: {}", name)
-                            )]
-                        })?;
+                    let (id_ref, value_type) =
+                        resolve_variable_or_error(parent_resolver, name, name, loc.start)?;
                     Ok(make_located_exec(
                         ExecExpression::Operation1(
                             Operator1::Ref,
@@ -112,14 +127,8 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     ))
                 }
                 Expression::ArrayAccess(name, index_expr) => {
-                    let (id_ref, _value_type) = parent_resolver
-                        .resolve_variable_with_type(name)
-                        .ok_or_else(|| {
-                            vec![code_parse_error!(
-                                loc.start,
-                                format!("undefined variable: {}", name)
-                            )]
-                        })?;
+                    let (id_ref, _value_type) =
+                        resolve_variable_or_error(parent_resolver, name, name, loc.start)?;
 
                     // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
                     let array_size = parent_resolver
@@ -327,14 +336,8 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                                     )
                                 )]);
                             }
-                            let (id_ref, value_type) = parent_resolver
-                                .resolve_variable_with_type(name)
-                                .ok_or_else(|| {
-                                    vec![code_parse_error!(
-                                        loc.start,
-                                        format!("undefined variable: {}", name)
-                                    )]
-                                })?;
+                            let (id_ref, value_type) =
+                                resolve_variable_or_error(parent_resolver, name, name, loc.start)?;
                             let addr_expr = make_located_exec(
                                 ExecExpression::Operation1(
                                     Operator1::Ref,
@@ -579,28 +582,16 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                 return Ok(make_located_exec(ExecExpression::Factor(const_val), loc));
             }
             // 変数名を解決
-            let (var_ref, value_type) = parent_resolver
-                .resolve_variable_with_type(&resolved_name)
-                .ok_or_else(|| {
-                    vec![code_parse_error!(
-                        loc.start,
-                        format!("undefined variable: {}", v)
-                    )]
-                })?;
+            let (var_ref, value_type) =
+                resolve_variable_or_error(parent_resolver, &resolved_name, v, loc.start)?;
             Ok(make_located_exec(
                 ExecExpression::Variable(var_ref, value_type),
                 loc,
             ))
         }
         Expression::ArrayAccess(name, index_expr) => {
-            let (id_ref, _value_type) = parent_resolver
-                .resolve_variable_with_type(name)
-                .ok_or_else(|| {
-                    vec![code_parse_error!(
-                        loc.start,
-                        format!("undefined variable: {}", name)
-                    )]
-                })?;
+            let (id_ref, _value_type) =
+                resolve_variable_or_error(parent_resolver, name, name, loc.start)?;
 
             // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
             let array_size = parent_resolver

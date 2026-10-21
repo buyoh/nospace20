@@ -1,0 +1,35 @@
+# repeat の本体、else の本体、for の cond・step ブロックで宣言した関数を呼ぶ #
+func: __main() {
+  repeat: i(0), 3, {
+    func: sq(x) {
+      return: x * x;
+    }
+    __puti(sq(i));
+  };
+  __putc(32);
+  if: 0 {
+    __puti(0);
+  } else: {
+    func: e() {
+      return: 5;
+    }
+    __puti(e());
+  };
+  __putc(32);
+  for: {
+    let: j(0);
+  } {
+    func: limit() {
+      return: 3;
+    }
+    j < limit();
+  } {
+    func: inc(x) {
+      return: x + 1;
+    }
+    j = inc(j);
+  } {
+    __puti(j);
+  };
+  __putc('\n');
+}

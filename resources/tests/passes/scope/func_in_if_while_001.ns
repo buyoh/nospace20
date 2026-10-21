@@ -1,0 +1,37 @@
+# if / else / while の本体で宣言した関数を呼ぶ #
+func: __main() {
+  let: c(1);
+  if: c {
+    func: g() {
+      return: 10;
+    }
+    __puti(g());
+  } else: {
+    func: g() {
+      return: 20;
+    }
+    __puti(g());
+  };
+  __putc(32);
+  if: c - 1 {
+    func: g() {
+      return: 30;
+    }
+    __puti(g());
+  } else: {
+    func: g() {
+      return: 40;
+    }
+    __puti(g());
+  };
+  __putc(32);
+  let: i(0);
+  while: i < 3 {
+    func: next(x) {
+      return: x + 1;
+    }
+    i = next(i);
+    __puti(i);
+  };
+  __putc('\n');
+}

@@ -1,0 +1,14 @@
+# エラーケース: 関数内のブロックの非 static 変数を、そのブロック内の関数から参照する #
+func: f() {
+  {
+    let: v(3);
+    func: g() {
+      return: v;
+    }
+    return: g();
+  };
+}
+
+func: __main() {
+  __puti(f());
+}

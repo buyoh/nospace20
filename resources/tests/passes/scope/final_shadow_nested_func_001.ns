@@ -1,0 +1,31 @@
+# ネスト関数の x はグローバル変数を指すため、外側の関数の final: x に関係なく代入できる #
+let: x(5);
+
+func: f() {
+  final: x(0);
+  func: g() {
+    x = 7;
+    return: x;
+  }
+  return: g() + x;
+}
+
+func: f2() {
+  {
+    final: x(0);
+    func: g() {
+      x = 8;
+      return: x;
+    }
+    return: g() + x;
+  };
+}
+
+func: __main() {
+  __puti(f());
+  __putc(32);
+  __puti(f2());
+  __putc(32);
+  __puti(x);
+  __putc('\n');
+}

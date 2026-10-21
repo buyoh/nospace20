@@ -58,8 +58,11 @@ pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
 /// 式 (Expression) の中でブロックスコープが出現する場合（If/Block/ブロックエイリアス呼び出し等）
 /// に `analyze_internal_with_parent` を呼び出すための簡易ラッパー。
 ///
-/// ブロックスコープでの関数宣言は `analyze_internal_with_parent` でエラーにしているため、
-/// 現在はこの関数表に何も登録されない。
+/// 親の関数表を共有するため、ブロック内で宣言した関数も全体の関数表に登録される。
+///
+/// バグ: 以前は一時的な空の関数表を渡していたため、ブロック内の関数のインデックスが 0 から振られ、
+/// 解析後にその表が捨てられた。呼び出しは本来の関数表の別の関数（多くは __main）を指していた。
+/// 解決策: 親の関数表（`FunctionTable`）を共有し、ブロック内の関数も全体の関数表に登録する。
 fn analyze_block_for_expression(
     statements: &Vec<LocatedStatement>,
     parent_resolver: &ScopeResolver,
@@ -101,17 +104,6 @@ fn analyze_internal_with_parent(
     // TemplateFunctionDefinition と AliasInstantiation を FunctionDeclaration に変換する
     let expanded_statements = expand_template_instantiations(statements)?;
     let statements: &Vec<LocatedStatement> = &expanded_statements;
-
-    // バグ: ブロックスコープの関数宣言は一時的な空の関数表に登録され、解析後に捨てられていた。
-    // 呼び出しのインデックスが本来の関数表の別の関数（多くは __main）を指し、誤ったコードを生成していた。
-    // 解決策: ブロックスコープでの関数宣言を意味解析エラーにする。
-    // テンプレートのインスタンス化（alias:）も検出するため、テンプレート展開の後で検査する。
-    if matches!(scope_type, ScopeType::Block) {
-        let ns_prefix = parent_resolver
-            .map(|p| p.current_ns_prefix())
-            .unwrap_or_default();
-        reject_function_declarations_in_block(statements, &ns_prefix)?;
-    }
 
     let mut scope = ScopeBuilder::new();
 
@@ -188,7 +180,13 @@ fn analyze_internal_with_parent(
 
     // パス1b: 関数宣言を先にスキャンして登録（ホイスティング対応）
     // 名前空間内の関数もマングル名で登録する
-    scan_function_declarations(statements, "", &mut scope, ctx)?;
+    // バグ: 関数宣言のスキャンは "" から、パス 2 の参照は親から継承したプレフィックスから名前を作っていたため、
+    // 名前空間内の関数の本体（とその中のブロック）で宣言した関数が見つからず panic していた。
+    // 解決策: スキャンも親の名前空間プレフィックスから始め、パス 2 と同じ名前で登録する。
+    let ns_prefix = parent_resolver
+        .map(|p| p.current_ns_prefix())
+        .unwrap_or_default();
+    scan_function_declarations(statements, &ns_prefix, &mut scope, ctx)?;
 
     // パス1c: 変数宣言収集（ホイスティング対応）
     // 名前空間内の変数もマングル名で登録する
@@ -630,35 +628,6 @@ fn scan_function_declarations(
             Statement::NamespaceDeclaration(ns_name, body) => {
                 let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
                 scan_function_declarations(body, &sub_prefix, scope, ctx)?;
-            }
-            _ => {}
-        }
-    }
-    Ok(())
-}
-
-/// ブロックスコープ内の関数宣言をエラーにする（名前空間の中も調べる）
-///
-/// `ns_prefix` はエラーメッセージに出す関数名のマングル用（親の名前空間プレフィックスから始める）。
-/// 文の中の式（`if` の本体など）には入らない。子のブロックは自身の解析時に検査される。
-fn reject_function_declarations_in_block(
-    statements: &[LocatedStatement],
-    ns_prefix: &str,
-) -> Result<(), Vec<CodeParseError>> {
-    for located_stat in statements {
-        match &located_stat.statement {
-            Statement::FunctionDeclaration(name, ..) => {
-                return Err(vec![code_parse_error!(
-                    located_stat.location.start,
-                    format!(
-                        "semantic error: function '{}{}' cannot be declared in a block scope (only at global or function scope)",
-                        ns_prefix, name
-                    )
-                )]);
-            }
-            Statement::NamespaceDeclaration(ns_name, body) => {
-                let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
-                reject_function_declarations_in_block(body, &sub_prefix)?;
             }
             _ => {}
         }

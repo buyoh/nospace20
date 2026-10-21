@@ -787,3 +787,43 @@ fn test_variable_slot_index() {
     assert_eq!(func.block.scope.variables[1].slot_index, 1); // arr
     assert_eq!(func.block.scope.variables[2].slot_index, 4); // b (arr が 3 スロット使用)
 }
+
+/// ソースコードを字句解析・構文解析して意味解析する（テスト用）
+fn analyze_source(source: &str) -> Result<Scope, Vec<CodeParseError>> {
+    let tokens = crate::parse_to_tokens(&source.to_string()).expect("tokenize failed");
+    let tree = crate::parse_to_tree(&tokens).expect("parse failed");
+    analyze(&tree)
+}
+
+#[test]
+fn test_block_nested_func_array_access_skips_enclosing_block_array() {
+    // ブロック内の関数 g の a[1] は、ブロックの非 static 配列 a[3] ではなくグローバル配列 a[5] を指す。
+    // 解決結果（IdentifierRef）と配列サイズが同じ変数のものであることを確認する
+    let source = "
+        let: a[5];
+        func: f() {
+          {
+            let: a[3];
+            func: g() { return: a[1]; }
+            return: g();
+          };
+        }
+        func: __main() { __puti(f()); }
+    ";
+    let scope = analyze_source(source).expect("analyze failed");
+    let g = scope.get_function("g").expect("g must be registered");
+    let return_expr = match &g.block.statements[..] {
+        [LocatedExecStatement {
+            statement: ExecStatement::Return(Some(expr)),
+            ..
+        }] => expr,
+        _ => panic!("g must consist of a single return statement"),
+    };
+    match &return_expr.expression {
+        ExecExpression::ArrayAccess(id_ref, _, array_size) => {
+            assert!(id_ref.is_global, "a must resolve to the global array");
+            assert_eq!(*array_size, 5);
+        }
+        _ => panic!("return expression must be an array access"),
+    }
+}

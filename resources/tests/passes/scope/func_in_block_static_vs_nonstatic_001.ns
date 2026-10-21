@@ -1,0 +1,17 @@
+# 関数スコープの static x と同名のブロックの非 static x があるとき、 #
+# ブロック内の関数の x は境界を越えて関数スコープの static を指す #
+func: f() {
+  static: x(1);
+  {
+    let: x(2);
+    func: g() {
+      return: x;
+    }
+    return: g();
+  };
+}
+
+func: __main() {
+  __puti(f());
+  __putc('\n');
+}

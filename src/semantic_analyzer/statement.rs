@@ -47,12 +47,7 @@ pub(super) fn convert_to_exec_statements(
         match stat {
             Statement::VariableDeclaration(name, init, is_static_explicit, _, _, type_annot) => {
                 let (var_ref, var_type) =
-                    resolver.resolve_variable_with_type(name).ok_or_else(|| {
-                        vec![code_parse_error!(
-                            loc.start,
-                            format!("undefined variable: {}", name)
-                        )]
-                    })?;
+                    super::expression::resolve_variable_or_error(resolver, name, name, loc.start)?;
 
                 if let ValueType::Struct(struct_idx) = var_type.clone() {
                     if let crate::tree_parser::Expression::Operation2(
