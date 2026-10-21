@@ -5,6 +5,7 @@
 //! ## モジュール構成
 //!
 //! - `context`    : 解析コンテキスト（AnalyzeContext 構造体）
+//! - `function_table` : 意味解析中のグローバル関数表（FunctionTable 構造体）
 //! - `expression` : 式の変換処理（ExecExpression 生成）
 //! - `statement`  : 文の変換処理（ExecStatement 生成）
 //! - `scope`      : スコープ・識別子解決
@@ -18,6 +19,7 @@ mod alias;
 mod constexpr;
 mod context;
 mod expression;
+mod function_table;
 mod return_analysis;
 mod scope;
 mod statement;
@@ -28,6 +30,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use alias::{collect_alias_map, collect_block_alias_map, detect_block_alias_cycles};
 use constexpr::collect_constexpr_table;
+use function_table::FunctionTable;
 use return_analysis::{guarantees_return, has_return_statement};
 use scope::{FunctionIndex, Identifier, ScopeBuilder, ScopeResolver, ScopeType, SymbolTable};
 use template::expand_template_instantiations;
@@ -56,21 +59,13 @@ pub use types::{BuiltinFunctionKind, IdentifierRef, ValueType};
 /// に `analyze_internal_with_parent` を呼び出すための簡易ラッパー。
 ///
 /// ブロックスコープでの関数宣言は `analyze_internal_with_parent` でエラーにしているため、
-/// この関数表には何も登録されない。一時的な空 Vec を渡しているのはそのため
-/// （ブロック内の関数宣言を許可する際に、親の関数表を共有する予定）。
+/// 現在はこの関数表に何も登録されない。
 fn analyze_block_for_expression(
     statements: &Vec<LocatedStatement>,
     parent_resolver: &ScopeResolver,
-    func_return_types: &[ValueType],
+    functions: &mut FunctionTable,
 ) -> Result<(ScopeBuilder, Vec<LocatedExecStatement>), Vec<CodeParseError>> {
-    let mut temp_global_functions = Vec::new();
-    let mut temp_global_function_names = Vec::new();
-    let mut ctx = context::AnalyzeContext {
-        global_functions: &mut temp_global_functions,
-        global_function_names: &mut temp_global_function_names,
-        func_global_index: None,
-        inherited_func_return_types: func_return_types.to_vec(),
-    };
+    let mut ctx = context::AnalyzeContext::new_block(functions);
     analyze_internal_with_parent(
         statements,
         ScopeType::Block,
@@ -195,19 +190,6 @@ fn analyze_internal_with_parent(
     // 名前空間内の関数もマングル名で登録する
     scan_function_declarations(statements, "", &mut scope, ctx)?;
 
-    // 型チェック用の関数戻り値型スライスを決定
-    // inherited_func_return_types が空 = ルートまたは関数スコープ → global_functions から収集
-    // inherited_func_return_types が非空 = if/while/block の内部 → 外側の型コンテキストを継承
-    let effective_func_return_types: Vec<ValueType> = if ctx.inherited_func_return_types.is_empty()
-    {
-        ctx.global_functions
-            .iter()
-            .map(|f| f.return_type.clone())
-            .collect()
-    } else {
-        ctx.inherited_func_return_types.clone()
-    };
-
     // パス1c: 変数宣言収集（ホイスティング対応）
     // 名前空間内の変数もマングル名で登録する
     scan_variable_declarations(statements, "", is_static, &mut scope)?;
@@ -287,26 +269,19 @@ fn analyze_internal_with_parent(
     };
 
     // パス2: 文の変換（statement モジュールに委譲）
-    let exec_statements = statement::convert_to_exec_statements(
-        statements,
-        scope_type,
-        &mut scope,
-        &resolver,
-        &effective_func_return_types,
-        ctx,
-    )?;
+    let exec_statements =
+        statement::convert_to_exec_statements(statements, scope_type, &mut scope, &resolver, ctx)?;
 
     resolver.leave_scope();
     Ok((scope, exec_statements))
 }
 
 pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
-    let mut global_functions = Vec::new();
-    let mut global_function_names = Vec::new();
-    let mut ctx =
-        context::AnalyzeContext::new_root(&mut global_functions, &mut global_function_names);
-    analyze_internal(root, ScopeType::Root, &mut ctx)
-        .map(|(scope, root_stmts)| scope.build(root_stmts, global_functions, global_function_names))
+    let mut functions = FunctionTable::new();
+    let mut ctx = context::AnalyzeContext::new_root(&mut functions);
+    let (scope, root_stmts) = analyze_internal(root, ScopeType::Root, &mut ctx)?;
+    let (global_functions, global_function_names) = functions.into_parts();
+    Ok(scope.build(root_stmts, global_functions, global_function_names))
 }
 
 /// 名前空間の解析中に集めた `import` 宣言 1 件
@@ -576,7 +551,6 @@ fn scan_function_declarations(
         match &located_stat.statement {
             Statement::FunctionDeclaration(name, args, body, return_type_annot) => {
                 let mangled_name = format!("{}{}", ns_prefix, name);
-                let global_idx = ctx.global_functions.len();
 
                 for (arg_name, type_annot) in args {
                     if let Some(spec) = type_annot {
@@ -646,36 +620,11 @@ fn scan_function_declarations(
                     }
                 };
 
-                ctx.global_function_names.push(mangled_name.clone());
-                ctx.global_functions.push(Function {
-                    arg_indices: Vec::new(),
-                    return_type: return_type.clone(),
-                    is_unused: false,
-                    block: Block {
-                        scope: Scope {
-                            identifier_map: BTreeMap::new(),
-                            variable_indices: BTreeMap::new(),
-                            variable_name_to_var_index: BTreeMap::new(),
-                            variables: Vec::new(),
-                            variable_count: 0,
-                            functions: Vec::new(),
-                            struct_definitions: Vec::new(),
-                            struct_name_to_index: BTreeMap::new(),
-                            symbol_table: SymbolTable {
-                                function_names: Vec::new(),
-                                function_name_to_index: BTreeMap::new(),
-                            },
-                            main_function_index: None,
-                            static_init_statements: Vec::new(),
-                            root_statements: Vec::new(),
-                        },
-                        statements: Vec::new(),
-                    },
-                });
-                // identifier_map にはグローバルインデックスと引数数と戻り値型を登録
+                let global_idx = ctx.functions.declare(mangled_name.clone(), return_type);
+                // identifier_map にはグローバルインデックスと引数数を登録
                 scope.add_identifier(
                     &mangled_name,
-                    Identifier::Function(FunctionIndex(global_idx, args.len(), return_type)),
+                    Identifier::Function(FunctionIndex(global_idx, args.len())),
                 )?;
             }
             Statement::NamespaceDeclaration(ns_name, body) => {

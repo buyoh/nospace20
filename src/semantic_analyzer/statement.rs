@@ -31,14 +31,12 @@ use super::{
 /// - `scope_type` - 現在のスコープ種別（Root / Function / Block）
 /// - `scope` - 構築中のスコープ（static 初期化文付加のため）
 /// - `resolver` - 識別子解決器
-/// - `effective_func_return_types` - 型チェックに使用する関数戻り値型
-/// - `ctx` - 解析コンテキスト（グローバル関数リスト等）
+/// - `ctx` - 解析コンテキスト（グローバル関数表等）
 pub(super) fn convert_to_exec_statements(
     statements: &Vec<LocatedStatement>,
     scope_type: ScopeType,
     scope: &mut ScopeBuilder,
     resolver: &ScopeResolver,
-    effective_func_return_types: &[ValueType],
     ctx: &mut AnalyzeContext,
 ) -> Result<Vec<LocatedExecStatement>, Vec<CodeParseError>> {
     let mut exec_statements = Vec::<LocatedExecStatement>::new();
@@ -86,11 +84,11 @@ pub(super) fn convert_to_exec_statements(
                                         let exec_expr = convert_to_exec_expression_with_resolver(
                                             &Box::new(expr.clone()),
                                             resolver,
-                                            effective_func_return_types,
+                                            ctx.functions,
                                         )?;
                                         super::expression::require_int_type(
                                             &exec_expr,
-                                            effective_func_return_types,
+                                            ctx.functions.return_types(),
                                         )?;
                                         value_exprs.push(exec_expr);
                                         arg_index += 1;
@@ -107,11 +105,11 @@ pub(super) fn convert_to_exec_statements(
                                                 convert_to_exec_expression_with_resolver(
                                                     &Box::new(expr.clone()),
                                                     resolver,
-                                                    effective_func_return_types,
+                                                    ctx.functions,
                                                 )?;
                                             super::expression::require_int_type(
                                                 &exec_expr,
-                                                effective_func_return_types,
+                                                ctx.functions.return_types(),
                                             )?;
                                             value_exprs.push(exec_expr);
                                             arg_index += 1;
@@ -157,11 +155,11 @@ pub(super) fn convert_to_exec_statements(
                                                         convert_to_exec_expression_with_resolver(
                                                             &Box::new(nested_expr.clone()),
                                                             resolver,
-                                                            effective_func_return_types,
+                                                            ctx.functions,
                                                         )?;
                                                     super::expression::require_int_type(
                                                         &exec_expr,
-                                                        effective_func_return_types,
+                                                        ctx.functions.return_types(),
                                                     )?;
                                                     value_exprs.push(exec_expr);
                                                     nested_index += 1;
@@ -251,13 +249,13 @@ pub(super) fn convert_to_exec_statements(
                     let exec_rhs = convert_to_exec_expression_with_resolver(
                         rhs_expr,
                         resolver,
-                        effective_func_return_types,
+                        ctx.functions,
                     )?;
-                    super::expression::require_int_type(&exec_rhs, effective_func_return_types)?;
+                    super::expression::require_int_type(&exec_rhs, ctx.functions.return_types())?;
                     let exec_lhs = convert_to_exec_expression_with_resolver(
                         lhs_expr,
                         resolver,
-                        effective_func_return_types,
+                        ctx.functions,
                     )?;
                     super::expression::make_located_exec(
                         super::types::ExecExpression::Operation2(
@@ -269,15 +267,11 @@ pub(super) fn convert_to_exec_statements(
                     )
                 } else {
                     // 初期値なし（Factor(0)）の場合は通常変換
-                    convert_to_exec_expression_with_resolver(
-                        init,
-                        resolver,
-                        effective_func_return_types,
-                    )?
+                    convert_to_exec_expression_with_resolver(init, resolver, ctx.functions)?
                 };
                 if let Some(type_spec) = type_annot {
                     let expected = super::expression::resolve_type_spec(type_spec, resolver)?;
-                    let actual = exec_init.infer_type(effective_func_return_types);
+                    let actual = exec_init.infer_type(ctx.functions.return_types());
                     if matches!(var_type, ValueType::Struct(_))
                         && matches!(exec_init.expression, ExecExpression::Factor(0))
                     {
@@ -314,14 +308,10 @@ pub(super) fn convert_to_exec_statements(
                 };
 
                 // 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
-                // global_functions と global_function_names を渡す
+                // グローバル関数表を共有する
                 // func_global_index を渡すことで、ネストされた関数から
                 // この関数の static 変数にアクセスする際に正しいオフセットを参照可能にする
-                let mut func_ctx = AnalyzeContext::new_function(
-                    ctx.global_functions,
-                    ctx.global_function_names,
-                    global_idx,
-                );
+                let mut func_ctx = AnalyzeContext::new_function(ctx.functions, global_idx);
                 let (s, es) = super::analyze_internal_with_parent(
                     block,
                     ScopeType::Function,
@@ -343,24 +333,15 @@ pub(super) fn convert_to_exec_statements(
                     })
                     .collect();
 
-                // 関数の戻り値型はパス1aで決定済みの値を使用
-                let func_return_type = if let Some(Identifier::Function(info)) =
-                    scope.identifier_map.get(&mangled_name)
-                {
-                    info.2.clone()
-                } else {
-                    panic!("internal error: function return_type should be in pass 1a info");
-                };
-
-                ctx.global_functions[global_idx] = super::scope::Function {
+                // 関数の戻り値型はパス1aで決定済み（define は戻り値型を変えない）
+                ctx.functions.define(
+                    global_idx,
                     arg_indices,
-                    return_type: func_return_type,
-                    is_unused: false,
-                    block: Block {
+                    Block {
                         scope: built_scope,
                         statements: es,
                     },
-                };
+                );
             }
             Statement::Return(e) => {
                 if let ScopeType::Root = scope_type {
@@ -374,10 +355,10 @@ pub(super) fn convert_to_exec_statements(
                         let exec_e = convert_to_exec_expression_with_resolver(
                             expr,
                             resolver,
-                            effective_func_return_types,
+                            ctx.functions,
                         )?;
                         // return: の式は Int でなければならない
-                        super::expression::require_int_type(&exec_e, effective_func_return_types)?;
+                        super::expression::require_int_type(&exec_e, ctx.functions.return_types())?;
                         exec_statements.push(LocatedExecStatement {
                             statement: ExecStatement::Return(Some(exec_e)),
                             location: loc.clone(),
@@ -386,7 +367,7 @@ pub(super) fn convert_to_exec_statements(
                     None => {
                         // void return: 関数が int 型（return: expr; がある）場合はエラー
                         if let Some(idx) = ctx.func_global_index {
-                            if ctx.global_functions[idx].return_type != ValueType::Void {
+                            if *ctx.functions.return_type(idx) != ValueType::Void {
                                 return Err(vec![code_parse_error!(
                                     loc.start,
                                     "semantic error: return without value in non-void function"
@@ -407,7 +388,7 @@ pub(super) fn convert_to_exec_statements(
                     statement: ExecStatement::Expression(convert_to_exec_expression_with_resolver(
                         e,
                         resolver,
-                        effective_func_return_types,
+                        ctx.functions,
                     )?),
                     location: loc.clone(),
                 });
@@ -443,18 +424,11 @@ pub(super) fn convert_to_exec_statements(
                         "semantic error: while statement outside of function"
                     )]);
                 }
-                let exec_cond = convert_to_exec_expression_with_resolver(
-                    expr,
-                    resolver,
-                    effective_func_return_types,
-                )?;
+                let exec_cond =
+                    convert_to_exec_expression_with_resolver(expr, resolver, ctx.functions)?;
                 // void 型の式は条件式に使用不可
-                super::expression::require_int_type(&exec_cond, effective_func_return_types)?;
-                let (s, es) = super::analyze_block_for_expression(
-                    stat,
-                    resolver,
-                    effective_func_return_types,
-                )?;
+                super::expression::require_int_type(&exec_cond, ctx.functions.return_types())?;
+                let (s, es) = super::analyze_block_for_expression(stat, resolver, ctx.functions)?;
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::While(
                         ConditionMode::NonZero,
@@ -480,12 +454,7 @@ pub(super) fn convert_to_exec_statements(
                 // NOTE: func_global_index=None を渡す（元の動作と一致）—
                 // for-init ブロック内での return 型チェックをスキップするため
                 let (init_sb, init_es) = {
-                    let mut for_init_ctx = AnalyzeContext {
-                        global_functions: &mut *ctx.global_functions,
-                        global_function_names: &mut *ctx.global_function_names,
-                        func_global_index: None,
-                        inherited_func_return_types: ctx.inherited_func_return_types.clone(),
-                    };
+                    let mut for_init_ctx = AnalyzeContext::new_block(&mut *ctx.functions);
                     super::analyze_internal_with_parent(
                         init_stmts,
                         ScopeType::Block,
@@ -526,11 +495,8 @@ pub(super) fn convert_to_exec_statements(
                 );
 
                 // Step 3: cond ブロックを解析
-                let (cond_sb, cond_es) = super::analyze_block_for_expression(
-                    cond_stmts,
-                    &for_resolver,
-                    effective_func_return_types,
-                )?;
+                let (cond_sb, cond_es) =
+                    super::analyze_block_for_expression(cond_stmts, &for_resolver, ctx.functions)?;
                 let cond_scope = cond_sb.build(Vec::new(), Vec::new(), Vec::new());
 
                 // 条件ブロックの型チェック: 最後の式が int 型でなければならない
@@ -538,7 +504,8 @@ pub(super) fn convert_to_exec_statements(
                     scope: cond_scope,
                     statements: cond_es,
                 };
-                if infer_block_type(&temp_cond_block, effective_func_return_types) != ValueType::Int
+                if infer_block_type(&temp_cond_block, ctx.functions.return_types())
+                    != ValueType::Int
                 {
                     return Err(vec![code_parse_error!(
                         loc.start,
@@ -551,18 +518,12 @@ pub(super) fn convert_to_exec_statements(
                 } = temp_cond_block;
 
                 // Step 4: step ブロックを解析
-                let (step_sb, step_es) = super::analyze_block_for_expression(
-                    step_stmts,
-                    &for_resolver,
-                    effective_func_return_types,
-                )?;
+                let (step_sb, step_es) =
+                    super::analyze_block_for_expression(step_stmts, &for_resolver, ctx.functions)?;
 
                 // Step 5: body ブロックを解析
-                let (body_sb, body_es) = super::analyze_block_for_expression(
-                    body_stmts,
-                    &for_resolver,
-                    effective_func_return_types,
-                )?;
+                let (body_sb, body_es) =
+                    super::analyze_block_for_expression(body_stmts, &for_resolver, ctx.functions)?;
 
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::For(
@@ -608,14 +569,8 @@ pub(super) fn convert_to_exec_statements(
                     },
                     import_table: resolver.import_table.clone(),
                 };
-                let body_stmts = convert_to_exec_statements(
-                    body,
-                    scope_type,
-                    scope,
-                    &ns_resolver,
-                    effective_func_return_types,
-                    ctx,
-                )?;
+                let body_stmts =
+                    convert_to_exec_statements(body, scope_type, scope, &ns_resolver, ctx)?;
                 // ns_resolver は再入不可のため明示的にクリーンアップは不要
                 let _ = ns_resolver;
                 exec_statements.extend(body_stmts);

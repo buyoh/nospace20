@@ -10,6 +10,7 @@ use crate::{
 };
 
 use super::{
+    function_table::FunctionTable,
     scope::ScopeResolver,
     types::{
         Block, BuiltinFunctionKind, ConditionMode, ExecExpression, LocatedExecExpression, ValueType,
@@ -77,11 +78,11 @@ pub(super) fn resolve_type_spec(
 /// 式を ExecExpression に変換する（識別子解決あり）
 ///
 /// ScopeResolver を使用して変数名・関数名を IdentifierRef に解決する。
-/// func_return_types を使用して式の型チェックを行う。
+/// functions を使用して式の型チェックを行う。
 pub(super) fn convert_to_exec_expression_with_resolver(
     located_expr: &Box<LocatedExpression>,
     parent_resolver: &ScopeResolver,
-    func_return_types: &[ValueType],
+    functions: &mut FunctionTable,
 ) -> Result<Box<LocatedExecExpression>, Vec<CodeParseError>> {
     let loc = &located_expr.location;
     let expr = &located_expr.expression;
@@ -134,7 +135,7 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     let exec_index = convert_to_exec_expression_with_resolver(
                         index_expr,
                         parent_resolver,
-                        func_return_types,
+                        functions,
                     )?;
 
                     Ok(make_located_exec(
@@ -153,9 +154,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     let exec_inner = convert_to_exec_expression_with_resolver(
                         deref_inner,
                         parent_resolver,
-                        func_return_types,
+                        functions,
                     )?;
-                    require_int_type(&exec_inner, func_return_types)?;
+                    require_int_type(&exec_inner, functions.return_types())?;
                     Ok(exec_inner)
                 }
                 _ => Err(vec![code_parse_error!(
@@ -165,10 +166,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             }
         }
         Expression::Operation1(op, x) => {
-            let exec_x =
-                convert_to_exec_expression_with_resolver(&x, parent_resolver, func_return_types)?;
+            let exec_x = convert_to_exec_expression_with_resolver(&x, parent_resolver, functions)?;
             // void 型の式は単項演算のオペランドに使用不可
-            require_int_type(&exec_x, func_return_types)?;
+            require_int_type(&exec_x, functions.return_types())?;
             Ok(make_located_exec(
                 ExecExpression::Operation1(op.to_owned(), exec_x),
                 loc,
@@ -255,27 +255,21 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                 }
             }
 
-            let exec_l = convert_to_exec_expression_with_resolver(
-                &actual_l,
-                parent_resolver,
-                func_return_types,
-            )?;
-            let exec_r = convert_to_exec_expression_with_resolver(
-                &actual_r,
-                parent_resolver,
-                func_return_types,
-            )?;
+            let exec_l =
+                convert_to_exec_expression_with_resolver(&actual_l, parent_resolver, functions)?;
+            let exec_r =
+                convert_to_exec_expression_with_resolver(&actual_r, parent_resolver, functions)?;
 
             // 型チェック: void 式が二項演算のオペランドに使用されている場合はエラー
             match actual_op {
                 Operator2::Assign => {
                     // 代入の右辺は Int でなければならない
-                    require_int_type(&exec_r, func_return_types)?;
+                    require_int_type(&exec_r, functions.return_types())?;
                 }
                 _ => {
                     // その他の演算: 両辺は Int でなければならない
-                    require_int_type(&exec_l, func_return_types)?;
-                    require_int_type(&exec_r, func_return_types)?;
+                    require_int_type(&exec_l, functions.return_types())?;
+                    require_int_type(&exec_r, functions.return_types())?;
                 }
             }
 
@@ -286,13 +280,11 @@ pub(super) fn convert_to_exec_expression_with_resolver(
         }
         Expression::If(cond, stat1, stat2) => {
             let exec_cond =
-                convert_to_exec_expression_with_resolver(cond, parent_resolver, func_return_types)?;
+                convert_to_exec_expression_with_resolver(cond, parent_resolver, functions)?;
             // void 型の式は条件式に使用不可
-            require_int_type(&exec_cond, func_return_types)?;
-            let (s1, es1) =
-                super::analyze_block_for_expression(stat1, parent_resolver, func_return_types)?;
-            let (s2, es2) =
-                super::analyze_block_for_expression(stat2, parent_resolver, func_return_types)?;
+            require_int_type(&exec_cond, functions.return_types())?;
+            let (s1, es1) = super::analyze_block_for_expression(stat1, parent_resolver, functions)?;
+            let (s2, es2) = super::analyze_block_for_expression(stat2, parent_resolver, functions)?;
             Ok(make_located_exec(
                 ExecExpression::If(
                     ConditionMode::NonZero,
@@ -311,12 +303,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
         }
         Expression::TypeAnnotation(inner_expr, type_spec) => {
             let expected_type = resolve_type_spec(type_spec, parent_resolver)?;
-            let actual_expr = convert_to_exec_expression_with_resolver(
-                inner_expr,
-                parent_resolver,
-                func_return_types,
-            )?;
-            let actual_type = actual_expr.infer_type(func_return_types);
+            let actual_expr =
+                convert_to_exec_expression_with_resolver(inner_expr, parent_resolver, functions)?;
+            let actual_type = actual_expr.infer_type(functions.return_types());
 
             if expected_type == ValueType::Void && actual_type == ValueType::Int {
                 return Ok(make_located_exec(
@@ -384,12 +373,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             ))
         }
         Expression::FieldAccess(base_expr, field_name) => {
-            let exec_base = convert_to_exec_expression_with_resolver(
-                base_expr,
-                parent_resolver,
-                func_return_types,
-            )?;
-            let base_type = exec_base.infer_type(func_return_types);
+            let exec_base =
+                convert_to_exec_expression_with_resolver(base_expr, parent_resolver, functions)?;
+            let base_type = exec_base.infer_type(functions.return_types());
             let struct_idx = match base_type {
                 ValueType::Struct(idx) => idx,
                 _ => {
@@ -423,12 +409,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             ))
         }
         Expression::FieldArrayAccess(base_expr, field_name, index_expr) => {
-            let exec_base = convert_to_exec_expression_with_resolver(
-                base_expr,
-                parent_resolver,
-                func_return_types,
-            )?;
-            let base_type = exec_base.infer_type(func_return_types);
+            let exec_base =
+                convert_to_exec_expression_with_resolver(base_expr, parent_resolver, functions)?;
+            let base_type = exec_base.infer_type(functions.return_types());
             let struct_idx = match base_type {
                 ValueType::Struct(idx) => idx,
                 _ => {
@@ -460,12 +443,9 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     )]);
                 }
             };
-            let exec_index = convert_to_exec_expression_with_resolver(
-                index_expr,
-                parent_resolver,
-                func_return_types,
-            )?;
-            require_int_type(&exec_index, func_return_types)?;
+            let exec_index =
+                convert_to_exec_expression_with_resolver(index_expr, parent_resolver, functions)?;
+            require_int_type(&exec_index, functions.return_types())?;
             Ok(make_located_exec(
                 ExecExpression::StructFieldArrayAccess(
                     exec_base,
@@ -481,11 +461,8 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             "semantic error: struct literal can only be used in struct initialization"
         )]),
         Expression::Block(statements) => {
-            let (s, es) = super::analyze_block_for_expression(
-                statements,
-                parent_resolver,
-                func_return_types,
-            )?;
+            let (s, es) =
+                super::analyze_block_for_expression(statements, parent_resolver, functions)?;
             Ok(make_located_exec(
                 ExecExpression::Block(Block {
                     scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
@@ -498,13 +475,10 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             // 組み込み関数とユーザー定義関数を区別
             let mut args = Vec::new();
             for e in a {
-                let exec_arg = convert_to_exec_expression_with_resolver(
-                    e,
-                    parent_resolver,
-                    func_return_types,
-                )?;
+                let exec_arg =
+                    convert_to_exec_expression_with_resolver(e, parent_resolver, functions)?;
                 // 引数は void 型不可
-                require_int_type(&exec_arg, func_return_types)?;
+                require_int_type(&exec_arg, functions.return_types())?;
                 args.push(exec_arg);
             }
 
@@ -551,7 +525,7 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     let (s, es) = super::analyze_block_for_expression(
                         &block_body_clone,
                         parent_resolver,
-                        func_return_types,
+                        functions,
                     )?;
                     return Ok(make_located_exec(
                         ExecExpression::Block(Block {
@@ -639,13 +613,10 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                 })?
                 .unwrap_or(1);
 
-            let exec_index = convert_to_exec_expression_with_resolver(
-                index_expr,
-                parent_resolver,
-                func_return_types,
-            )?;
+            let exec_index =
+                convert_to_exec_expression_with_resolver(index_expr, parent_resolver, functions)?;
             // 配列インデックスに void 型は使用不可
-            require_int_type(&exec_index, func_return_types)?;
+            require_int_type(&exec_index, functions.return_types())?;
 
             Ok(make_located_exec(
                 ExecExpression::ArrayAccess(id_ref, exec_index, array_size),

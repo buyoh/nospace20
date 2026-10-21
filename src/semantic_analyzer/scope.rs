@@ -11,9 +11,9 @@ use crate::tree_parser::LocatedStatement;
 
 /// 関数の解決結果
 ///
-/// `.0`: 関数のグローバルインデックス、`.1`: 引数の数、`.2`: 戻り値の型
+/// `.0`: 関数のグローバルインデックス、`.1`: 引数の数（戻り値の型は `FunctionTable` が持つ）
 #[derive(Clone)]
-pub(super) struct FunctionIndex(pub usize, pub usize, pub ValueType);
+pub(super) struct FunctionIndex(pub usize, pub usize);
 
 /// 変数の解決結果（`.0`: 変数のインデックス）
 #[derive(Clone, Copy)]
