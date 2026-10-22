@@ -1,0 +1,5 @@
+# Static in a root-level block #
+# step 3 #
+let: g(0);
+{ static: x(5); x += 1; g = x; };
+func: __main() { __puti(g); __putc(10); }

@@ -32,6 +32,7 @@ pub fn apply(scope: &mut Scope) {
         is_final: false,
         array_size: None,
         value_type: ValueType::Int,
+        global_slot: None,
     };
     let var_index = scope.variables.len();
     scope.variables.push(var);
@@ -49,7 +50,6 @@ pub fn apply(scope: &mut Scope) {
         scope_depth: 0,
         local_index: slot_index,
         is_global: true,
-        owning_func_index: None,
     };
 
     // optimizer が生成する文には位置情報がない（ソースに対応しない）

@@ -1,0 +1,4 @@
+# Static initializers of unused functions run even with dead_code optimization #
+# step 3 #
+func: unused() { static: x({ __puti(7); 0; }); }
+func: __main() { __puti(1); __putc(10); }

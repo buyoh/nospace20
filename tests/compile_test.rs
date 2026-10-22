@@ -89,7 +89,10 @@ fn test_compile_error_invalid_operation_has_location() {
             ..Default::default()
         },
     );
-    assert!(result.is_err(), "Should fail: __alloc without the alloc extension");
+    assert!(
+        result.is_err(),
+        "Should fail: __alloc without the alloc extension"
+    );
 
     let error = result.unwrap_err();
     assert!(

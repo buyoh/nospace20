@@ -1,0 +1,4 @@
+# Static in a namespace inside a function block #
+# step 3 #
+func: f() { { namespace: N { static: x(3); } N$x += 1; __puti(N$x); }; }
+func: __main() { f(); f(); __putc(10); }

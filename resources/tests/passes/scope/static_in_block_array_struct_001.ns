@@ -1,0 +1,7 @@
+# Block static array and struct #
+# step 3 #
+struct: P (x, y);
+func: f() { { static: a[3]; static: done(0); static: p@P(10, 20);
+  if: done == 0 { a[0] = 1; a[1] = 2; a[2] = 3; done = 1; };
+  a[1] += 1; __puti(a[0] + a[1] + a[2]); __puti(p.x + p.y); }; }
+func: __main() { f(); __putc(32); f(); __putc(10); }

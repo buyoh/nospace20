@@ -1,0 +1,4 @@
+# Static in a while body is initialized once, not per iteration #
+# step 3 #
+func: f() { let: i(0); while: i < 2 { static: u(0); u += 1; __puti(u); i += 1; }; }
+func: __main() { f(); __putc(32); f(); __putc(10); }

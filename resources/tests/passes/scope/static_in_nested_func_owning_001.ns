@@ -1,0 +1,4 @@
+# Nested function updates a static of the outer function from a block #
+# step 3 #
+func: f() { static: s(1); let: a(0); func: g() { s += 1; return: s; } { a = g(); }; s += 10; return: a * 100 + s; }
+func: __main() { __puti(f()); __putc(32); __puti(f()); __putc(10); }

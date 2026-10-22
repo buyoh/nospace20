@@ -8,6 +8,7 @@ MAJOR
 
 MINOR
 
+- Language: static variables can be declared in block scopes (previously their initializers were ignored and their values were not kept). All static variables are initialized before __main in source order, followed by root-level let variables; previously function statics were initialized per function after root statics. Statics of unused functions are always initialized, also with --opt dead-code
 - Language: Initializers of static variables cannot reference non-static variables declared outside the initializer (function arguments, local variables, variables of root-level blocks), and cannot use return or break / continue targeting a loop outside the initializer (previously they compiled and read undefined values or crashed at runtime)
 
 PATCH

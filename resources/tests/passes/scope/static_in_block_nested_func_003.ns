@@ -1,0 +1,12 @@
+# Block-local function writes a block static. Replaces compile_error func_in_block_static_access_002 #
+# step 3 #
+func: __main() {
+  {
+    static: s(5);
+    func: g() {
+      s += 1;
+    }
+    g(); g();
+    __puti(s); __putc(10);
+  };
+}

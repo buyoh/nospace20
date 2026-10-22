@@ -1,0 +1,5 @@
+# Static in a for-init keeps its value even if another call overwrites the frame #
+# step 3 #
+func: clobber() { let: a(77); let: b(88); let: c(99); }
+func: f() { for: { let: i(0); static: runs(0); runs += 1; } { i < 1; } { i += 1; } { __puti(runs); }; }
+func: __main() { f(); clobber(); f(); __putc(10); }

@@ -1,0 +1,4 @@
+# Static in a block inside a root namespace #
+# step 3 #
+namespace: N { let: y(0); { static: x(4); x += 1; y = x; }; }
+func: __main() { __puti(N$y); __putc(10); }

@@ -1,0 +1,4 @@
+# Recursive calls share one block static #
+# step 3 #
+func: count(n) { let: total(0); { static: calls(0); calls += 1; total = calls; }; if: n > 0 { total = count(n - 1); }; return: total; }
+func: __main() { __puti(count(3)); __putc(32); __puti(count(0)); __putc(10); }

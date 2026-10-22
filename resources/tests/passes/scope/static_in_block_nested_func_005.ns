@@ -1,0 +1,4 @@
+# Block-local function updates a block static across calls of the outer function #
+# step 3 #
+func: f() { { static: s(5); func: g() { s += 1; return: s; } __puti(g()); __puti(g()); }; }
+func: __main() { f(); __putc(32); f(); __putc(10); }

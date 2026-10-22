@@ -1,0 +1,4 @@
+# Function static initializer of a block-local function reads the block static declared before it #
+# step 3 #
+func: f() { { static: b(30); func: g() { static: z(b + 1); return: z; } return: g(); }; }
+func: __main() { __puti(f()); __putc(10); }

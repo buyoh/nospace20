@@ -117,22 +117,18 @@ impl BuiltinFunctionKind {
 /// スコープ階層とローカルインデックスで管理することで、
 /// 実行時の文字列検索を排除し、O(1) アクセスを実現する。
 ///
-/// is_global フラグも保持。グローバル変数は関数のフレームとは別の固定領域に置かれるため、
-/// ローカル変数とは別の参照方法が必要。
+/// is_global フラグも保持。グローバル変数・static 変数は関数のフレームとは別の固定領域
+/// （グローバル領域）に置かれるため、ローカル変数とは別の参照方法が必要。
 #[derive(Debug, Clone, Copy)]
 pub struct IdentifierRef {
     /// スコープの深さ（0 = 現在のスコープ、1 = 親スコープ、...）
     pub scope_depth: usize,
     /// スコープ内でのインデックス
     pub local_index: usize,
-    /// グローバル変数かどうか
-    /// true の場合、グローバル変数の領域（`local_index` はルートスコープのスロット）を指す
+    /// グローバル領域にあるか（ルートの変数・すべての static 変数）
+    /// true の場合、`local_index` はグローバル領域内のオフセット
     /// false の場合、`scope_depth` だけ外側のスコープの、実行中のフレーム上のスロットを指す
     pub is_global: bool,
-    /// static 変数を所有する関数のグローバルインデックス
-    /// ネストされた関数から親関数の static 変数にアクセスする場合に使用。
-    /// None の場合、現在の関数の static 変数として扱う。
-    pub owning_func_index: Option<usize>,
 }
 
 /// 変数情報
@@ -155,6 +151,10 @@ pub(crate) struct Variable {
     pub is_final: bool,
     /// 変数の型
     pub value_type: ValueType,
+    /// 関数スコープ・ブロックスコープの static 変数なら、グローバル領域のオフセット
+    /// （`slot_index` にも同じ値が入る。スコープのスロットは消費しない）。
+    /// ルートの変数は None（ルートのスロット番号がそのままグローバル領域のオフセット）
+    pub global_slot: Option<usize>,
 }
 
 /// 構造体のフィールド情報

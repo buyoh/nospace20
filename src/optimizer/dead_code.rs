@@ -47,7 +47,8 @@ fn collect_reachable(scope: &Scope, main_idx: usize) -> HashSet<usize> {
     reachable.insert(main_idx);
     worklist.push_back(main_idx);
 
-    // ルートスコープの static_init_statements と root_statements からも収集
+    // ルートスコープの static_init_statements（関数・ブロックを含むすべての static の初期化文）と
+    // root_statements からも収集。使われない関数の static の初期化子から呼ぶ関数も到達可能になる
     for stmt in &scope.static_init_statements {
         collect_called_in_statement(stmt, &mut reachable, &mut worklist);
     }
@@ -71,10 +72,7 @@ fn collect_called_in_block(
     reachable: &mut HashSet<usize>,
     worklist: &mut VecDeque<usize>,
 ) {
-    // 関数ブロックの static_init_statements も走査
-    for stmt in &block.scope.static_init_statements {
-        collect_called_in_statement(stmt, reachable, worklist);
-    }
+    // static 変数の初期化文はルートの列だけにある（collect_reachable で走査済み）
     for stmt in &block.statements {
         collect_called_in_statement(stmt, reachable, worklist);
     }

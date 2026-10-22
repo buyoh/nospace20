@@ -1,0 +1,4 @@
+# Block static initializer reads a function static declared before it #
+# step 3 #
+func: f() { static: s(7); { static: t(s); return: t; }; }
+func: __main() { __puti(f()); __putc(10); }

@@ -525,7 +525,6 @@ fn test_internal_builtin_getiv_infer_type() {
         scope_depth: 0,
         local_index: 0,
         is_global: true,
-        owning_func_index: None,
     };
     let expr = ExecExpression::InternalBuiltinFunction(InternalBuiltinFunctionKind::Getiv(var_ref));
     assert_eq!(
@@ -543,7 +542,6 @@ fn test_internal_builtin_getcv_infer_type() {
         scope_depth: 0,
         local_index: 0,
         is_global: true,
-        owning_func_index: None,
     };
     let expr = ExecExpression::InternalBuiltinFunction(InternalBuiltinFunctionKind::Getcv(var_ref));
     assert_eq!(

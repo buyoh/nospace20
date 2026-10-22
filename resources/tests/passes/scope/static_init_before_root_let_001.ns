@@ -1,0 +1,5 @@
+# All statics are initialized before root non-static variables #
+# step 3 #
+let: g(s + 1);
+static: s(10);
+func: __main() { __puti(s); __putc(32); __puti(g); __putc(10); }

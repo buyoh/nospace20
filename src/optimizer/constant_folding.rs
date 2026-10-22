@@ -50,10 +50,7 @@ fn fold_block(block: &mut Block) {
     for stmt in &mut block.statements {
         fold_statement(stmt);
     }
-    // ネストしたスコープの static_init も畳み込む
-    for stmt in &mut block.scope.static_init_statements {
-        fold_statement(stmt);
-    }
+    // static 変数の初期化文はルートの列だけにある（関数・ブロックのスコープでは常に空）ので、ここでは扱わない
 }
 
 fn fold_statement(stmt: &mut LocatedExecStatement) {

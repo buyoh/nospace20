@@ -1,6 +1,0 @@
-{
-  "type": "compile_error",
-  "contains": [
-    "cannot be referenced from a nested function"
-  ]
-}

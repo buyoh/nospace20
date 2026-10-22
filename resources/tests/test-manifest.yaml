@@ -811,15 +811,7 @@ tests:
     path: func_in_for_init_counter_access_001
     comment: "Error: function in for init reads the loop variable"
 
-  - name: test_compile_error_func_in_block_static_access_001
-    type: compile_error
-    path: func_in_block_static_access_001
-    comment: "Error: block-local function reads block static (not resolved to same-named global)"
 
-  - name: test_compile_error_func_in_block_static_access_002
-    type: compile_error
-    path: func_in_block_static_access_002
-    comment: "Error: block-local function writes block static"
 
   - name: test_scope_func_in_while_cond_001
     type: success_io
@@ -846,10 +838,6 @@ tests:
     path: scope/func_in_namespaced_func_block_ns_001
     comment: "Namespace function inside a block of a namespaced function"
 
-  - name: test_compile_error_func_in_func_block_static_access_001
-    type: compile_error
-    path: func_in_func_block_static_access_001
-    comment: "Error: block static in a block-local function body referenced from its nested function"
 
   # Array / struct size overflow
   - name: test_compile_error_array_size_overflow_vars_001
@@ -887,10 +875,6 @@ tests:
     path: array_size_overflow_static_init_001
     comment: "Error: block variables in static initializers exceed i64"
 
-  - name: test_compile_error_array_size_overflow_static_init_frame_001
-    type: compile_error
-    path: array_size_overflow_static_init_frame_001
-    comment: "Error: static initializer frame of function f (reserving its non-static variables) exceeds i64"
 
   - name: test_scope_block_unused_func_decl_001
     type: success_io
@@ -2262,3 +2246,159 @@ tests:
     type: success_io
     path: variables/let_array_init_list_each_time_001
     comment: "Initializer list of a non-static array runs at each declaration (unchanged) (step 2)"
+
+  # static-storage-unification step 3
+  - name: test_scope_static_in_block_persist_001
+    type: success_io
+    path: scope/static_in_block_persist_001
+    comment: "Block static in an if body keeps its value across calls (step 3)"
+
+  - name: test_scope_static_in_root_block_001
+    type: success_io
+    path: scope/static_in_root_block_001
+    comment: "Static in a root-level block (step 3)"
+
+  - name: test_scope_static_in_root_if_001
+    type: success_io
+    path: scope/static_in_root_if_001
+    comment: "Static in a root-level if body (step 3)"
+
+  - name: test_scope_static_in_loop_body_001
+    type: success_io
+    path: scope/static_in_loop_body_001
+    comment: "Static in a while body is initialized once, not per iteration (step 3)"
+
+  - name: test_scope_static_in_while_cond_001
+    type: success_io
+    path: scope/static_in_while_cond_001
+    comment: "Static in a block of a while condition (step 3)"
+
+  - name: test_scope_static_in_for_init_001
+    type: success_io
+    path: scope/static_in_for_init_001
+    comment: "Static in a for-init keeps its value even if another call overwrites the frame (step 3)"
+
+  - name: test_scope_static_in_static_init_001
+    type: success_io
+    path: scope/static_in_static_init_001
+    comment: "Static declared in a block of a function static initializer is initialized first (step 3)"
+
+  - name: test_scope_static_in_block_init_reads_func_static_001
+    type: success_io
+    path: scope/static_in_block_init_reads_func_static_001
+    comment: "Block static initializer reads a function static declared before it (step 3)"
+
+  - name: test_scope_static_in_block_init_with_block_001
+    type: success_io
+    path: scope/static_in_block_init_with_block_001
+    comment: "Block static initializer declares its own block variable (step 3)"
+
+  - name: test_scope_static_in_block_init_calls_func_001
+    type: success_io
+    path: scope/static_in_block_init_calls_func_001
+    comment: "Block static initializer calls a function (step 3)"
+
+  - name: test_scope_static_in_block_nested_func_002
+    type: success_io
+    path: scope/static_in_block_nested_func_002
+    comment: "Block-local function reads a block static (not the same-named global). Replaces compile_error func_in_block_static_access_001 (step 3)"
+
+  - name: test_scope_static_in_block_nested_func_003
+    type: success_io
+    path: scope/static_in_block_nested_func_003
+    comment: "Block-local function writes a block static. Replaces compile_error func_in_block_static_access_002 (step 3)"
+
+  - name: test_scope_static_in_block_nested_func_004
+    type: success_io
+    path: scope/static_in_block_nested_func_004
+    comment: "Function in a block of a block-local function reads its block static. Replaces compile_error func_in_func_block_static_access_001 (step 3)"
+
+  - name: test_scope_static_in_block_nested_func_005
+    type: success_io
+    path: scope/static_in_block_nested_func_005
+    comment: "Block-local function updates a block static across calls of the outer function (step 3)"
+
+  - name: test_scope_static_in_block_func_static_init_001
+    type: success_io
+    path: scope/static_in_block_func_static_init_001
+    comment: "Function static initializer of a block-local function reads the block static declared before it (step 3)"
+
+  - name: test_scope_static_in_nested_func_block_init_001
+    type: success_io
+    path: scope/static_in_nested_func_block_init_001
+    comment: "Block static initializer in a nested function reads a static of the outer function (step 3)"
+
+  - name: test_scope_static_in_nested_func_owning_001
+    type: success_io
+    path: scope/static_in_nested_func_owning_001
+    comment: "Nested function updates a static of the outer function from a block (step 3)"
+
+  - name: test_scope_static_in_block_alias_001
+    type: success_io
+    path: scope/static_in_block_alias_001
+    comment: "Each expansion of a block alias has its own static (step 3)"
+
+  - name: test_scope_static_in_block_template_001
+    type: success_io
+    path: scope/static_in_block_template_001
+    comment: "Each template instance has its own block static (step 3)"
+
+  - name: test_scope_static_in_block_namespace_001
+    type: success_io
+    path: scope/static_in_block_namespace_001
+    comment: "Static in a namespace inside a function block (step 3)"
+
+  - name: test_scope_static_in_root_namespace_block_001
+    type: success_io
+    path: scope/static_in_root_namespace_block_001
+    comment: "Static in a block inside a root namespace (step 3)"
+
+  - name: test_scope_static_in_block_recursion_001
+    type: success_io
+    path: scope/static_in_block_recursion_001
+    comment: "Recursive calls share one block static (step 3)"
+
+  - name: test_scope_static_in_block_array_struct_001
+    type: success_io
+    path: scope/static_in_block_array_struct_001
+    comment: "Block static array and struct (step 3)"
+
+  - name: test_scope_static_in_block_array_init_list_001
+    type: success_io
+    path: scope/static_in_block_array_init_list_001
+    comment: "Initializer list of a block static array runs once (step 3)"
+
+  - name: test_scope_static_in_block_shadow_001
+    type: success_io
+    path: scope/static_in_block_shadow_001
+    comment: "Shadowing among a global, a function static and sibling block statics (step 3)"
+
+  - name: test_scope_static_in_block_address_001
+    type: success_io
+    path: scope/static_in_block_address_001
+    comment: "Address of a block static is the same across calls (step 3)"
+
+  - name: test_scope_static_in_main_block_001
+    type: success_io
+    path: scope/static_in_main_block_001
+    comment: "Static in a block of __main (step 3)"
+
+  - name: test_scope_static_init_order_source_001
+    type: success_io
+    path: scope/static_init_order_source_001
+    comment: "Statics are initialized in source order across root, functions and blocks (step 3)"
+
+  - name: test_scope_static_init_order_nested_func_001
+    type: success_io
+    path: scope/static_init_order_nested_func_001
+    comment: "Statics of a nested function are initialized at its position in the source (step 3)"
+
+  - name: test_scope_static_init_unused_func_001
+    type: success_io
+    path: scope/static_init_unused_func_001
+    comment: "Static initializers of unused functions run even with dead_code optimization (step 3)"
+
+  - name: test_scope_static_init_before_root_let_001
+    type: success_io
+    path: scope/static_init_before_root_let_001
+    comment: "All statics are initialized before root non-static variables (step 3)"

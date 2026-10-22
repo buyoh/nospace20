@@ -1,0 +1,4 @@
+# Block static initializer declares its own block variable #
+# step 3 #
+func: f() { let: z(9); { static: t({ let: q(3); q * 2; }); t += 1; __puti(t); }; __puti(z); }
+func: __main() { f(); __putc(32); f(); __putc(10); }

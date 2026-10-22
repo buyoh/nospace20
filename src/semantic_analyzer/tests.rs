@@ -844,7 +844,11 @@ fn analyze_error_message(source: &str) -> String {
 fn test_static_initializer_boundary_excludes_declaring_scope() {
     // 初期化子の境界は宣言したスコープの上にある。宣言したブロック自身の非 static 変数は境界の外
     let message = analyze_error_message("func: f() { { let: a(5); static: s(a); }; }");
-    assert!(message.contains("cannot reference non-static variable 'a'"), "{}", message);
+    assert!(
+        message.contains("cannot reference non-static variable 'a'"),
+        "{}",
+        message
+    );
 }
 
 #[test]
@@ -866,7 +870,11 @@ fn test_static_initializer_does_not_fall_back_to_same_named_global() {
     // 外の非 static 変数を見つけた時点でエラーにする（外側の同名のグローバル変数に解決しない）
     let message =
         analyze_error_message("let: a(9); func: f() { let: a(1); static: s(a); return: s; }");
-    assert!(message.contains("cannot reference non-static variable 'a'"), "{}", message);
+    assert!(
+        message.contains("cannot reference non-static variable 'a'"),
+        "{}",
+        message
+    );
 }
 
 #[test]
@@ -881,10 +889,13 @@ fn test_exec_context_new_unit_inside_static_initializer() {
     ";
     assert!(analyze_source(ok).is_ok());
     // 初期化子は外のループの内側でも、ループの深さは 0 から数える
-    let message = analyze_error_message(
-        "func: f() { while: 1 { static: s({ continue:; 0; }); }; }",
+    let message =
+        analyze_error_message("func: f() { while: 1 { static: s({ continue:; 0; }); }; }");
+    assert!(
+        message.contains("continue statement outside of a loop"),
+        "{}",
+        message
     );
-    assert!(message.contains("continue statement outside of a loop"), "{}", message);
 }
 
 #[test]
@@ -893,7 +904,101 @@ fn test_exec_context_loop_depth_for_init_and_body() {
     let message = analyze_error_message(
         "func: f() { for: { let: i(0); break:; } { i < 1; } { i += 1; } { }; }",
     );
-    assert!(message.contains("break statement outside of a loop"), "{}", message);
+    assert!(
+        message.contains("break statement outside of a loop"),
+        "{}",
+        message
+    );
     let ok = "func: f() { for: { let: i(0); } { i < 1; } { i += 1; } { break:; }; } func: __main() { f(); }";
     assert!(analyze_source(ok).is_ok());
+}
+
+/// 初期化文 `x = ...`（`Expression(Assign(Variable(ref), ...))` / 配列要素への代入）の代入先のグローバル領域のオフセット
+fn static_init_target_offset(stmt: &LocatedExecStatement) -> usize {
+    let ExecStatement::Expression(expr) = &stmt.statement else {
+        panic!("static initializer must be an expression statement");
+    };
+    let ExecExpression::Operation2(Operator2::Assign, lhs, _) = &expr.expression else {
+        panic!("static initializer must be an assignment");
+    };
+    match &lhs.expression {
+        ExecExpression::Variable(id_ref, _) | ExecExpression::ArrayAccess(id_ref, _, _) => {
+            assert!(
+                id_ref.is_global,
+                "static variables must be in the global region"
+            );
+            id_ref.local_index
+        }
+        _ => panic!("assignment target must be a variable"),
+    }
+}
+
+#[test]
+fn test_block_static_is_in_global_region() {
+    // ブロックの static は is_global の参照になり、ブロックのフレームのスロットを消費しない
+    let source = "func: f() { { static: s(3); return: s; }; } func: __main() { __puti(f()); }";
+    let scope = analyze_source(source).expect("analyze failed");
+    let f = scope.get_function("f").expect("f must exist");
+    let block = match &f.block.statements[0].statement {
+        ExecStatement::Expression(expr) => match &expr.expression {
+            ExecExpression::Block(block) => block,
+            _ => panic!("expected a block expression"),
+        },
+        _ => panic!("expected an expression statement"),
+    };
+    assert_eq!(block.scope.variable_count, 0);
+    match &block.statements[0].statement {
+        ExecStatement::Return(Some(expr)) => match &expr.expression {
+            ExecExpression::Variable(id_ref, _) => {
+                assert!(id_ref.is_global);
+                assert_eq!(id_ref.local_index, 0);
+            }
+            _ => panic!("expected a variable"),
+        },
+        _ => panic!("expected a return statement"),
+    }
+    // グローバル領域 = ルートの変数 0 個 + ブロックの static 1 個
+    assert_eq!(scope.variable_count, 1);
+}
+
+#[test]
+fn test_function_statics_do_not_use_frame_slots() {
+    let source = "let: g; func: f() { static: a(1); let: b; b = a; return: b; } func: __main() { __puti(f()); }";
+    let scope = analyze_source(source).expect("analyze failed");
+    let f = scope.get_function("f").expect("f must exist");
+    assert_eq!(f.block.scope.variable_count, 1, "only b uses a frame slot");
+    assert_eq!(scope.variable_count, 2, "g and the static a");
+    assert!(f.block.scope.static_init_statements.is_empty());
+}
+
+#[test]
+fn test_static_init_statements_are_in_source_order() {
+    // r（ルート、オフセット 0）→ f の a → ブロックの b → c の順に、ルートの 1 つの列に入る。
+    // オフセットは宣言の走査順に割り当てられる（f の関数スコープの a・c が先、ブロックの b が後）
+    let source = "
+        static: r(0);
+        func: f() { static: a(1); { static: b(2); }; static: c(3); }
+        func: __main() { f(); }
+    ";
+    let scope = analyze_source(source).expect("analyze failed");
+    let offsets: Vec<usize> = scope
+        .static_init_statements
+        .iter()
+        .map(static_init_target_offset)
+        .collect();
+    assert_eq!(offsets, vec![0, 1, 3, 2]);
+}
+
+#[test]
+fn test_static_declared_in_initializer_is_initialized_first() {
+    // static: x({ static: y(4); y + 1; }) の y の初期化文は x より前
+    let source = "func: f() { static: x({ static: y(4); y + 1; }); return: x; } func: __main() { __puti(f()); }";
+    let scope = analyze_source(source).expect("analyze failed");
+    let offsets: Vec<usize> = scope
+        .static_init_statements
+        .iter()
+        .map(static_init_target_offset)
+        .collect();
+    // x は関数スコープの走査で先に割り当てられ（0）、y は初期化子のブロックの解析で割り当てられる（1）
+    assert_eq!(offsets, vec![1, 0]);
 }

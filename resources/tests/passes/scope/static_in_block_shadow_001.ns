@@ -1,0 +1,5 @@
+# Shadowing among a global, a function static and sibling block statics #
+# step 3 #
+static: s(1);
+func: f() { static: s(10); { static: s(100); s += 1; __puti(s); }; { static: s(200); s += 1; __puti(s); }; s += 1; __puti(s); }
+func: __main() { f(); __putc(32); f(); __putc(32); __puti(s); __putc(10); }

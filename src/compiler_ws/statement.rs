@@ -10,56 +10,26 @@ use crate::semantic_analyzer::{Block, ConditionMode, ExecStatement, Scope};
 pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
-    // ① ルートレベルの static 変数の初期化を先に実行
+    // ① すべての static 変数（ルート・関数・ブロック）の初期化（ソース順。意味解析がルートの列にまとめる）
+    // 使われない関数の static も初期化する（最適化の有無で結果が変わらないように）
     for located_stmt in &scope.static_init_statements {
         ctx.set_location(&located_stmt.location);
         prog.append(generate_statement(ctx, &located_stmt.statement)?);
     }
 
-    // ② 関数内 static 変数の初期化
-    for (func_idx, func) in scope.functions.iter().enumerate() {
-        // 未使用関数（未到達関数）はスキップ
-        if func.is_unused() {
-            continue;
-        }
-        if !func.block.scope.static_init_statements.is_empty() {
-            let mut static_ctx = ctx.enter_function_for_static_init(func_idx, &func.block.scope);
-            for located_stmt in &func.block.scope.static_init_statements {
-                static_ctx.set_location(&located_stmt.location);
-                prog.append(generate_statement(
-                    &mut static_ctx,
-                    &located_stmt.statement,
-                )?);
-            }
-            // 予約したフレーム相当領域を超えていないこと（数え上げとコード生成の不一致の検出）
-            #[cfg(debug_assertions)]
-            {
-                let frame = ctx
-                    .layout()
-                    .static_init_frame(func_idx)
-                    .expect("static init frame must be reserved");
-                debug_assert!(
-                    static_ctx.next_var_offset() <= frame.end,
-                    "static init block variables exceed the reserved region"
-                );
-            }
-            ctx.sync_labels_from(&static_ctx);
-        }
-    }
-
-    // ③ グローバル変数の初期化（root_statements）
+    // ② グローバル変数の初期化（root_statements）
     for located_stmt in &scope.root_statements {
         ctx.set_location(&located_stmt.location);
         prog.append(generate_statement(ctx, &located_stmt.statement)?);
     }
 
-    // ルート初期化文（①③）のブロック変数が予約領域を超えていないこと
+    // ルート初期化文（①②）のブロック変数が予約領域を超えていないこと
     debug_assert!(
         ctx.next_var_offset() <= ctx.layout().root_init_block_range().end,
         "root block variables exceed the reserved region"
     );
 
-    // ⑤ 全ての関数定義を生成
+    // ③ 全ての関数定義を生成
     // 関数は symbol_table.function_names と functions が対応している
     for (i, func_name) in scope.symbol_table.function_names.iter().enumerate() {
         let func = &scope.functions[i];
@@ -425,12 +395,7 @@ fn generate_function_definition(
                 func_name
             )))
         })?;
-    let mut local_ctx = ctx.enter_function(
-        local_heap_size,
-        func_scope_var_count,
-        func_index,
-        &func.block.scope,
-    );
+    let mut local_ctx = ctx.enter_function(local_heap_size, func_scope_var_count);
 
     // 引数オフセットを計算
     let arg_offsets: Vec<i64> = (0..func.arg_indices.len())

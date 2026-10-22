@@ -1,0 +1,4 @@
+# Address of a block static is the same across calls #
+# step 3 #
+func: p() { { static: v(3); v += 1; return: &v; }; }
+func: __main() { let: a(p()); let: b(p()); __puti(a == b); __puti(*a); __putc(10); }

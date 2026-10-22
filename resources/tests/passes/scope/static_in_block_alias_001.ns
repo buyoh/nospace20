@@ -1,0 +1,4 @@
+# Each expansion of a block alias has its own static #
+# step 3 #
+func: f() { alias: counter { static: n(0); n += 1; __puti(n); }; counter(); counter(); }
+func: __main() { f(); __putc(32); f(); __putc(10); }

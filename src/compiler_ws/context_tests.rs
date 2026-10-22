@@ -37,10 +37,8 @@ fn test_enter_function_starts_with_zero_pending_values() {
     let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     let mut ctx =
         CodeGenContext::new_with_options(&scope, &layout, false, false, &BumpAllocRuntime);
-    let func = &scope.functions[0];
-
     ctx.with_pending_values(2, |ctx| {
-        let local = ctx.enter_function(1, 0, 0, &func.block.scope);
+        let local = ctx.enter_function(1, 0);
         assert_eq!(local.pending_stack_values(), 0);
     });
 }
@@ -64,27 +62,4 @@ fn test_pending_values_in_loop_counts_from_loop_entry() {
         ctx.pop_loop_labels();
     });
     assert_eq!(ctx.pending_stack_values_in_loop(), None);
-}
-
-#[test]
-fn test_enter_function_for_static_init_starts_with_zero_pending_values() {
-    let scope = parse_and_analyze(
-        "func: f() { static: s({ 1; }); return: s; }
-         func: __main() { return: f(); }",
-    );
-    let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
-    let mut ctx =
-        CodeGenContext::new_with_options(&scope, &layout, false, false, &BumpAllocRuntime);
-    let func_idx = scope
-        .symbol_table
-        .function_names
-        .iter()
-        .position(|n| n == "f")
-        .expect("function not found");
-    let func_scope = &scope.functions[func_idx].block.scope;
-
-    ctx.with_pending_values(2, |ctx| {
-        let static_ctx = ctx.enter_function_for_static_init(func_idx, func_scope);
-        assert_eq!(static_ctx.pending_stack_values(), 0);
-    });
 }

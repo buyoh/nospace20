@@ -1,0 +1,6 @@
+# Each template instance has its own block static #
+# step 3 #
+func: tmpl(x), alias: constexpr: step { let: r(0); { static: acc(0); acc += step; r = acc; }; return: r + x; }
+alias: t1(tmpl, 1);
+alias: t10(tmpl, 10);
+func: __main() { __puti(t1(0)); __putc(32); __puti(t1(0)); __putc(32); __puti(t10(0)); __putc(10); }

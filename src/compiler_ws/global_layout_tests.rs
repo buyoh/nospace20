@@ -9,15 +9,6 @@ fn parse_and_analyze(code: &str) -> Scope {
     analyze(&tree).expect("Failed to analyze")
 }
 
-fn func_index(scope: &Scope, name: &str) -> usize {
-    scope
-        .symbol_table
-        .function_names
-        .iter()
-        .position(|n| n == name)
-        .expect("function not found")
-}
-
 #[test]
 fn test_root_block_region_follows_globals_and_statics() {
     // グローバル 2 個・static 1 個・ルートのブロック変数 3 個（{} に 1、初期化子のブロックに 2）
@@ -27,82 +18,59 @@ fn test_root_block_region_follows_globals_and_statics() {
          func: f() { static: s; return: s; }
          func: __main() { return: f(); }",
     );
+    // グローバル領域 = ルートの変数 2 個 + 関数の static 1 個
+    assert_eq!(scope.variable_count, 3);
     let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     assert_eq!(layout.root_init_block_range(), 3..6);
     assert_eq!(layout.total_size(), 6);
-    assert_eq!(
-        layout.static_var_offset(func_index(&scope, "f"), 0),
-        Some(2)
-    );
 }
 
 #[test]
-fn test_static_init_frames_do_not_overlap() {
-    // f: 非 static 変数 a（スロット 0）+ ブロック変数 1 個
-    // q: 非 static 変数なし + ブロック変数 2 個
+fn test_function_static_initializer_blocks_use_root_init_region() {
+    // 関数の static の初期化子はルートの文脈で実行されるので、その中のブロック変数も
+    // ルート初期化文の領域に数える（以前は関数ごとのフレーム相当領域を予約していた）
     let scope = parse_and_analyze(
         "let: g;
-         func: f() { let: a; static: s1({ let: t; t = 1; t; }); return: s1; }
+         func: f() { static: s1({ let: t; t = 1; t; }); return: s1; }
          func: q() { static: s2({ let: u; let: v; u = 1; v = 2; u + v; }); return: s2; }
          func: __main() { return: f() + q(); }",
     );
     let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
-    // [0,1) g, [1,3) s1 s2, ルートのブロック無し
-    assert_eq!(layout.root_init_block_range(), 3..3);
-    let f = layout.static_init_frame(func_index(&scope, "f")).unwrap();
-    let q = layout.static_init_frame(func_index(&scope, "q")).unwrap();
-    assert_eq!(f.block_base - f.frame_base, 1);
-    assert_eq!(f.end - f.block_base, 1);
-    assert_eq!(q.block_base - q.frame_base, 0);
-    assert_eq!(q.end - q.block_base, 2);
-    assert!(f.end <= q.frame_base || q.end <= f.frame_base);
-    assert!(f.frame_base >= 3 && q.frame_base >= 3);
-    assert_eq!(layout.total_size(), 7);
-    assert_eq!(layout.static_init_frame(func_index(&scope, "__main")), None);
+    // [0,1) g, [1,3) s1 s2, [3,6) 初期化子のブロック変数 t / u v
+    assert_eq!(layout.root_init_block_range(), 3..6);
+    assert_eq!(layout.total_size(), 6);
 }
 
 #[test]
-fn test_static_init_frame_excludes_static_slots() {
-    // 非 static 変数 x はスロット 3（s: 0, buf: 1..3 の後）。static 配列の分も含めて x まで確保する
-    // 一方、最後の非 static 変数より後ろの static 配列は確保しない
+fn test_function_statics_are_in_global_region_not_in_frame() {
+    // 関数スコープの static（配列を含む）はグローバル領域に置かれ、関数のフレームのスロットを消費しない
     let scope = parse_and_analyze(
         "func: f() { static: s(1); static: buf[2]; let: x; static: big[100]; x = 1; return: s; }
          func: __main() { return: f(); }",
     );
+    assert_eq!(scope.variable_count, 103);
+    let f = scope.get_function("f").expect("f must exist");
+    assert_eq!(f.block.scope.variable_count, 1);
     let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
-    let frame = layout.static_init_frame(func_index(&scope, "f")).unwrap();
-    assert_eq!(frame.block_base - frame.frame_base, 4);
-    assert_eq!(frame.end, frame.block_base);
-    // static 103 スロット + フレーム相当 4 スロット
-    assert_eq!(layout.total_size(), 103 + 4);
+    assert_eq!(layout.total_size(), 103);
 }
 
 #[test]
 fn test_unused_function_static_init_is_reserved() {
+    // 使われない関数の static も初期化するので、その初期化子のブロック変数も予約する
     let scope = parse_and_analyze(
         "func: unused() { static: s({ let: t; t = 1; t; }); return: s; }
          func: __main() { return: 0; }",
     );
     let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
-    let frame = layout
-        .static_init_frame(func_index(&scope, "unused"))
-        .unwrap();
     // static s の直後に、ブロック変数 1 個
-    assert_eq!(
-        frame,
-        StaticInitFrame {
-            frame_base: 1,
-            block_base: 1,
-            end: 2
-        }
-    );
+    assert_eq!(layout.root_init_block_range(), 1..2);
     assert_eq!(layout.total_size(), 2);
 }
 
 #[test]
 fn test_no_init_blocks_keeps_previous_size() {
-    // 初期化文にブロックが無く、static 初期化子から参照しうる非 static 変数も無い
-    // → グローバル変数 + static 変数のみ（従来と同じサイズ）
+    // 初期化文にブロックが無い → グローバル変数 + static 変数のみ
     let scope = parse_and_analyze(
         "let: g(1); let: arr[3];
          func: f() { static: s; static: t[2]; return: s; }
@@ -115,17 +83,15 @@ fn test_no_init_blocks_keeps_previous_size() {
 }
 
 #[test]
-fn test_static_init_frame_reserves_non_static_vars_even_if_unreferenced() {
-    // 初期化子の無い `static: s;` も static 初期化文を持つため、引数・非 static 変数の分を確保する
+fn test_function_non_static_vars_are_not_reserved() {
+    // static の初期化子は関数の非 static 変数を参照できないので、引数・非 static 変数の分は予約しない
+    // （以前は StaticInitFrame がその分を確保していた）
     let scope = parse_and_analyze(
         "func: f(a, b) { let: arr[3]; static: s; return: s + a; }
          func: __main() { return: f(1, 2); }",
     );
     let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
-    let frame = layout.static_init_frame(func_index(&scope, "f")).unwrap();
-    // a, b, arr[3] の 5 スロット（static s はスロット 5）
-    assert_eq!(frame.block_base - frame.frame_base, 5);
-    assert_eq!(layout.total_size(), 1 + 5);
+    assert_eq!(layout.total_size(), 1);
 }
 
 #[test]

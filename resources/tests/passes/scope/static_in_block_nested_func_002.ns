@@ -1,0 +1,13 @@
+# Block-local function reads a block static (not the same-named global). Replaces compile_error func_in_block_static_access_001 #
+# step 3 #
+let: s(1);
+func: __main() {
+  {
+    static: s(5);
+    func: g() {
+      return: s;
+    }
+    __puti(g()); __putc(32); __puti(s);
+  };
+  __putc(32); __puti(s); __putc(10);
+}

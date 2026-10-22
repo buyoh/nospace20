@@ -1,0 +1,6 @@
+# Statics of a nested function are initialized at its position in the source #
+# step 3 #
+static: log(0);
+func: f() { static: a({ log = log * 10 + 1; 0; }); func: g() { static: b({ log = log * 10 + 2; 0; }); } static: c({ log = log * 10 + 3; 0; }); }
+func: h() { static: d({ log = log * 10 + 4; 0; }); }
+func: __main() { __puti(log); __putc(10); }

@@ -1,0 +1,4 @@
+# Static in a block of a while condition #
+# step 3 #
+func: f() { let: k(0); while: { static: n(0); n += 1; n < 3; } { k += 1; }; return: k; }
+func: __main() { __puti(f()); __puti(f()); __putc(10); }

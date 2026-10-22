@@ -44,7 +44,7 @@ pub struct CodeGenContext<'a> {
     #[allow(dead_code)]
     is_global: bool,
 
-    /// 関数本体のコードを生成しているか（static 変数の初期化の文脈では false）
+    /// 関数本体のコードを生成しているか（ルートの文・static 変数の初期化の文脈では false）
     in_function_body: bool,
 
     /// 現在の関数のローカル変数サイズ
@@ -83,12 +83,6 @@ pub struct CodeGenContext<'a> {
     /// グローバル領域の配置（static 変数・初期化文が使う変数のオフセット）
     layout: &'a GlobalLayout,
 
-    /// 現在処理中の関数インデックス (関数内でのみ Some)
-    current_func_index: Option<usize>,
-
-    /// 現在処理中の関数のスコープ (関数内でのみ Some)
-    current_func_scope: Option<&'a Scope>,
-
     /// 現在処理中の文のソース位置
     /// generate_statement 内でセットされ、コンパイルエラー発生時に参照される。
     /// None の場合、位置不明エラーとなる。
@@ -120,21 +114,15 @@ impl<'a> CodeGenContext<'a> {
             // 解決策: GlobalLayout が予約したルート初期化文用の領域から積む。
             next_var_offset: layout.root_init_block_range().start,
             layout,
-            current_func_index: None,
-            current_func_scope: None,
             current_location: None,
         }
     }
     /// local_heap_size: 関数内の全ブロック（ネスト含む）の変数合計数（i64 に収まることを検査済み）
     /// func_scope_var_count: 関数スコープ直下の変数数（local_heap_size 以下）
-    /// func_index: 関数のインデックス
-    /// func_scope: 関数のスコープ（Variable 情報参照用）
     pub fn enter_function(
         &self,
         local_heap_size: i64,
         func_scope_var_count: usize,
-        func_index: usize,
-        func_scope: &'a Scope,
     ) -> CodeGenContext<'a> {
         CodeGenContext {
             scope: self.scope,
@@ -153,49 +141,6 @@ impl<'a> CodeGenContext<'a> {
             next_var_offset: i64::try_from(func_scope_var_count)
                 .expect("function scope size is bounded by the checked frame size"),
             layout: self.layout,
-            current_func_index: Some(func_index),
-            current_func_scope: Some(func_scope),
-            current_location: None,
-        }
-    }
-
-    /// static 変数初期化用のコンテキストを作成
-    ///
-    /// static 初期化では、変数への書き込みはグローバルヒープ上で行われるため、
-    /// ローカルヒープの allocate/deallocate は不要（`heap[LOCAL_HEAP_BEGIN]` は GLOBAL_PTR のまま）。
-    /// 関数スコープ直下の非 static 変数・初期化子内のブロック変数は、
-    /// GlobalLayout が予約したフレーム相当領域に配置する。
-    /// それ以外は enter_function と同じ動作でアドレス解決を行う。
-    pub fn enter_function_for_static_init(
-        &self,
-        func_index: usize,
-        func_scope: &'a Scope,
-    ) -> CodeGenContext<'a> {
-        // バグ: scope_offsets = [0]、next_var_offset = 関数スコープ直下の変数数 から積んでいたため、
-        // 非 static 変数・ブロック変数が GLOBAL_PTR + slot に置かれ、グローバル変数・static 変数・
-        // アロケータの管理領域と重なっていた。
-        // 解決策: GlobalLayout が関数ごとに予約した領域を、関数フレームと同じ並びで使う。
-        let frame = self
-            .layout
-            .static_init_frame(func_index)
-            .expect("static init frame must be reserved for a function with static initializers");
-        CodeGenContext {
-            scope: self.scope,
-            labels: self.labels.clone(),
-            is_global: false,
-            in_function_body: false,
-            local_heap_size: 0, // フレーム不要
-            variables: HashMap::new(),
-            loop_labels: Vec::new(),
-            pending_stack_values: 0,
-            debug_ext: self.debug_ext,
-            alloc_ext: self.alloc_ext,
-            alloc_runtime: self.alloc_runtime,
-            scope_offsets: vec![frame.frame_base],
-            next_var_offset: frame.block_base,
-            layout: self.layout,
-            current_func_index: Some(func_index),
-            current_func_scope: Some(func_scope),
             current_location: None,
         }
     }
@@ -261,56 +206,28 @@ impl<'a> CodeGenContext<'a> {
     /// `local_index as i64` と `base_offset + local_index` は、変数が置かれる領域（関数フレーム・
     /// グローバル領域）の大きさが i64 に収まることを検査済みのため、溢れない。
     pub fn get_var_info(&self, var_ref: &IdentifierRef) -> VarInfo {
+        // ルートの変数・すべての static 変数はグローバル領域にある（意味解析が is_global で示す）
+        //
+        // バグ: 以前は関数の static を「関数スコープの段か」（scope_depth + 1 == len）と owning_func_index から
+        // 推測して引いており、段数の取り違えで誤ったアドレスになることがあった。ブロックの static は
+        // 引く手段が無く、フレーム上に置かれていた。
+        // 解決策: static 変数を意味解析でグローバル領域に割り当て、is_global の参照として受け取る。
         if var_ref.is_global {
-            VarInfo {
+            return VarInfo {
                 scope: VarScope::Global,
                 offset: var_ref.local_index as i64,
-            }
-        } else {
-            // static 変数チェック（関数スコープ直下の変数のみ）
-            //
-            // バグ: `scope_depth == 0` を「関数スコープ直下」として static を検索していた。
-            // scope_depth は現在のスコープからの段数なので、ブロック内から static を参照すると
-            // static 領域でなくフレーム上のアドレスになり、ブロック変数のスロット番号が
-            // static と一致すると static と誤認していた。
-            // 解決策: 関数スコープ（scope_offsets[0]）の段 `scope_depth == len - 1` で検索する。
-            if let (Some(func_idx), Some(_func_scope)) =
-                (self.current_func_index, self.current_func_scope)
-            {
-                let lookup_func_idx = match var_ref.owning_func_index {
-                    // 関数境界を越えた参照（ネストされた関数から親関数の static 変数）
-                    Some(owner) => Some(owner),
-                    // 自関数の関数スコープ直下の変数
-                    None if var_ref.scope_depth + 1 == self.scope_offsets.len() => Some(func_idx),
-                    None => None,
-                };
-                // var_ref.local_index はスロットインデックス
-                if let Some(global_offset) = lookup_func_idx
-                    .and_then(|idx| self.layout.static_var_offset(idx, var_ref.local_index))
-                {
-                    return VarInfo {
-                        scope: VarScope::Global,
-                        offset: global_offset,
-                    };
-                }
-            }
-
-            // scope_depth が scope_offsets の範囲を超える場合はグローバル変数として扱う
-            // （static 変数などで発生する可能性がある）
-            let scope_offsets_len = self.scope_offsets.len();
-            if var_ref.scope_depth >= scope_offsets_len {
-                VarInfo {
-                    scope: VarScope::Global,
-                    offset: var_ref.local_index as i64,
-                }
-            } else {
-                let scope_idx = scope_offsets_len - 1 - var_ref.scope_depth;
-                let base_offset = self.scope_offsets[scope_idx];
-                VarInfo {
-                    scope: VarScope::Local,
-                    offset: base_offset + var_ref.local_index as i64,
-                }
-            }
+            };
+        }
+        // それ以外は、現在の関数（またはルートの初期化文）のフレーム上のスコープの変数。
+        // 関数境界・static の初期化子の外の非 static 変数は意味解析が拒否するので、段数は scope_offsets に収まる
+        let scope_offsets_len = self.scope_offsets.len();
+        let scope_idx = scope_offsets_len
+            .checked_sub(1 + var_ref.scope_depth)
+            .expect("non-global variable must be in a scope of the current frame");
+        let base_offset = self.scope_offsets[scope_idx];
+        VarInfo {
+            scope: VarScope::Local,
+            offset: base_offset + var_ref.local_index as i64,
         }
     }
 

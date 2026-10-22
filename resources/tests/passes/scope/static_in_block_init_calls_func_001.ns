@@ -1,0 +1,5 @@
+# Block static initializer calls a function #
+# step 3 #
+func: h() { return: 42; }
+func: f() { { static: t(h()); return: t; }; }
+func: __main() { __puti(f()); __putc(10); }

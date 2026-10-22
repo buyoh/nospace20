@@ -1,0 +1,4 @@
+# Static declared in a block of a function static initializer is initialized first #
+# step 3 #
+func: f() { static: x({ static: y(4); y + 1; }); return: x; }
+func: __main() { __puti(f()); __putc(10); }

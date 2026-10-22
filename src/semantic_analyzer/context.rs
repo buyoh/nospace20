@@ -5,41 +5,19 @@
 //!
 //! これにより関数引数の数を削減し、コードの可読性を向上させる。
 
-use super::function_table::FunctionTable;
+use super::analysis_tables::AnalysisTables;
 
 /// 意味解析時に使用するコンテキスト。
 ///
-/// `analyze_internal_with_parent` の引数のうち、スコープに依存する状態と
-/// グローバルに共有される状態をまとめた構造体。
+/// `analyze_internal_with_parent` の引数のうち、全スコープの解析で共有する状態をまとめた構造体。
+/// 解析位置に依存する状態（実行文脈）は `ScopeResolver::exec` が持つ。
 pub(super) struct AnalyzeContext<'a> {
-    /// グローバル関数表（全スコープの解析で共有する）
-    pub functions: &'a mut FunctionTable,
-    /// 現在解析中の関数のグローバルインデックス（None = ルートスコープ・ブロックスコープ）
-    pub func_global_index: Option<usize>,
+    /// 全スコープの解析で共有する表（関数表・グローバル領域の割り当て・static の初期化文）
+    pub tables: &'a mut AnalysisTables,
 }
 
 impl<'a> AnalyzeContext<'a> {
-    /// ルートスコープ用コンテキストを生成する
-    pub fn new_root(functions: &'a mut FunctionTable) -> Self {
-        Self {
-            functions,
-            func_global_index: None,
-        }
-    }
-
-    /// 関数スコープ用コンテキストを生成する
-    pub fn new_function(functions: &'a mut FunctionTable, func_global_index: usize) -> Self {
-        Self {
-            functions,
-            func_global_index: Some(func_global_index),
-        }
-    }
-
-    /// ブロックスコープ用コンテキストを生成する
-    pub fn new_block(functions: &'a mut FunctionTable) -> Self {
-        Self {
-            functions,
-            func_global_index: None,
-        }
+    pub fn new(tables: &'a mut AnalysisTables) -> Self {
+        Self { tables }
     }
 }

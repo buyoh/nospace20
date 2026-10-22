@@ -1,0 +1,4 @@
+# Initializer list of a block static array runs once #
+# step 3 #
+func: f() { { static: a[2]([5, 6]); a[0] += 1; __puti(a[0]); }; }
+func: __main() { f(); f(); __putc(10); }

@@ -1,0 +1,4 @@
+# Block static in an if body keeps its value across calls #
+# step 3 #
+func: f() { if: 1 { static: u(20); u += 1; __puti(u); }; }
+func: __main() { f(); __putc(32); f(); __putc(10); }

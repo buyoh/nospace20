@@ -125,6 +125,9 @@ pub struct Scope {
 
     /// 変数のスロット総数（配列サイズを考慮）
     /// WS コンパイラがこのスコープの変数領域を確保する際に使用
+    /// 関数スコープ・ブロックスコープの static 変数はグローバル領域にあるので数えない。
+    /// ルートスコープではグローバル領域の大きさで、ルートの変数に加えて、関数スコープ・ブロックスコープの
+    /// すべての static 変数の分（`variables` に無い、名前の無いスロット）を含む
     pub(crate) variable_count: usize,
 
     /// 関数リスト（WS コンパイラ・optimizer からアクセスするため pub(crate)）
@@ -142,9 +145,9 @@ pub struct Scope {
     /// 関数名による検索を排除し、インデックスベースでアクセス
     pub main_function_index: Option<usize>,
 
-    /// static 変数の初期化文
-    /// 関数スコープの場合: 関数内の static 変数の初期化式
-    /// ルートスコープの場合: ルートレベルの static 変数の初期化式（非 static より先に実行）
+    /// static 変数の初期化文（ルートスコープだけ。それ以外は空）
+    /// ルート・関数・ブロックのすべての static 変数の初期化式を、ソース順に並べる
+    /// （初期化子の中で宣言した static は、その static より先）。ルートの文（`root_statements`）より先に実行する
     pub(crate) static_init_statements: Vec<LocatedExecStatement>,
 
     /// ルートスコープの実行文（非 static グローバル変数の初期化）
@@ -169,7 +172,10 @@ impl Scope {
 #[derive(Clone, Copy)]
 pub(super) enum ScopeType {
     Root,
-    Function,
+    /// 関数本体。`func_index` は関数のグローバルインデックス（`return` の型検査に使う）
+    Function {
+        func_index: usize,
+    },
     /// ブロックスコープ（`{}`・`if` / `while` / `for` / `repeat` の本体、ブロックエイリアスの展開先）。
     /// 関数を宣言でき、その関数は親と共有するグローバル関数表に登録される
     /// （以前は一時的な空の関数表に登録され、呼び出しが別の関数に誤解決されていた）
@@ -202,29 +208,23 @@ pub(super) struct ScopeInfo<'a> {
     pub struct_name_to_index: &'a BTreeMap<String, usize>,
     /// このスコープが関数スコープかどうか
     pub is_function_scope: bool,
-    /// この関数スコープのグローバル関数インデックス
-    /// ネストされた関数から親の static 変数にアクセスする際に使用
-    pub func_global_index: Option<usize>,
 }
 
 /// 関数境界を考慮した変数探索で見つかった変数
-struct FoundVariable<'s, 'a> {
+struct FoundVariable<'s> {
     /// 現在のスコープからの段数
     depth: usize,
     /// 見つけたスコープ内のスロットインデックス
     local_index: usize,
-    /// 最も内側の関数スコープより外側で見つけたか
-    crossed_function_boundary: bool,
-    scope: &'s ScopeInfo<'a>,
     var: &'s Variable,
 }
 
 /// 変数探索の結果
-enum VariableLookup<'s, 'a> {
-    Found(FoundVariable<'s, 'a>),
+enum VariableLookup<'s> {
+    Found(FoundVariable<'s>),
     NotFound,
-    /// 参照できない変数を見つけた（ブロックの static を内側の関数から参照した、
-    /// static 変数の初期化子から外の非 static 変数を参照した）。値はエラーメッセージ
+    /// 参照できない変数を見つけた（static 変数の初期化子から外の非 static 変数を参照した）。
+    /// 値はエラーメッセージ
     Forbidden(String),
 }
 
@@ -308,7 +308,6 @@ impl<'a> ScopeResolver<'a> {
         struct_definitions: &'a Vec<StructDefinition>,
         struct_name_to_index: &'a BTreeMap<String, usize>,
         is_function_scope: bool,
-        func_global_index: Option<usize>,
     ) {
         self.scope_stack.push(ScopeInfo {
             var_indices,
@@ -321,7 +320,6 @@ impl<'a> ScopeResolver<'a> {
             struct_definitions,
             struct_name_to_index,
             is_function_scope,
-            func_global_index,
         });
     }
 
@@ -381,6 +379,15 @@ impl<'a> ScopeResolver<'a> {
 
     /// 探索結果から IdentifierRef を組み立てる
     fn make_variable_ref(&self, found: &FoundVariable) -> IdentifierRef {
+        // 関数スコープ・ブロックスコープの static 変数はグローバル領域にある
+        if let Some(slot) = found.var.global_slot {
+            return IdentifierRef {
+                scope_depth: found.depth,
+                local_index: slot,
+                is_global: true,
+            };
+        }
+
         // グローバル変数かどうかを判定
         // スタックの最下層（depth == scope_stack.len() - 1）がルートスコープ
         let is_global = found.depth == self.scope_stack.len() - 1
@@ -390,26 +397,17 @@ impl<'a> ScopeResolver<'a> {
                 .map(|s| s.is_function_scope)
                 .unwrap_or(false);
 
-        // 関数境界を越えた static 変数アクセスの場合、
-        // 変数を所有する関数のグローバルインデックスを記録
-        let owning_func_index = if found.crossed_function_boundary {
-            found.scope.func_global_index
-        } else {
-            None
-        };
-
         IdentifierRef {
             scope_depth: found.depth,
             local_index: found.local_index,
             is_global,
-            owning_func_index,
         }
     }
 
     /// 名前空間の候補（`ns_candidate_names`）と import（`resolve_imported_name`）を含めて変数を探す
     ///
     /// 候補 → import の順に探し、最初に見つかった（または参照できないと判明した）結果を返す。
-    fn lookup_variable(&self, name: &str) -> VariableLookup<'_, 'a> {
+    fn lookup_variable(&self, name: &str) -> VariableLookup<'_> {
         for candidate in &self.ns_candidate_names(name) {
             match self.find_variable_exact(candidate) {
                 VariableLookup::NotFound => {}
@@ -425,7 +423,7 @@ impl<'a> ScopeResolver<'a> {
     /// 変数名を完全一致で探す（名前空間プレフィックスなし、関数境界を考慮）
     ///
     /// 最も内側の関数スコープより外側にある非 static 変数は読み飛ばす。
-    fn find_variable_exact(&self, name: &str) -> VariableLookup<'_, 'a> {
+    fn find_variable_exact(&self, name: &str) -> VariableLookup<'_> {
         // 最初に見つけた関数スコープ（自分の関数）の段数
         let mut first_function_scope_depth: Option<usize> = None;
 
@@ -464,27 +462,16 @@ impl<'a> ScopeResolver<'a> {
             let crossed_function_boundary =
                 first_function_scope_depth.is_some_and(|first_func_depth| depth > first_func_depth);
 
-            if crossed_function_boundary {
-                if !var.is_static {
-                    // 非 static 変数はスキップして探索継続
-                    continue;
-                }
-                if !scope_info.is_function_scope {
-                    // ブロックスコープの static は所有する関数（owning_func_index）を決められない。
-                    // 外側の同名変数に解決すると誤ったコードになるため、探索を打ち切ってエラーにする。
-                    // TODO: ブロック内の static 宣言の配置を直したら許可する（nested-block-function-and-static #2）
-                    return VariableLookup::Forbidden(format!(
-                        "semantic error: static variable '{}' declared in a block scope cannot be referenced from a nested function",
-                        name
-                    ));
-                }
+            // 関数境界の外の非 static 変数はスキップして探索継続する。
+            // static 変数（ルートの変数・関数やブロックの static）はグローバル領域にあるので、境界の外からも参照できる
+            // （以前はブロックの static の所有者を決められず、内側の関数からの参照をエラーにしていた）
+            if crossed_function_boundary && !var.is_static {
+                continue;
             }
 
             return VariableLookup::Found(FoundVariable {
                 depth,
                 local_index,
-                crossed_function_boundary,
-                scope: scope_info,
                 var,
             });
         }
@@ -555,7 +542,6 @@ impl<'a> ScopeResolver<'a> {
                         scope_depth: 0,
                         local_index: info.0,
                         is_global: true,
-                        owning_func_index: None,
                     });
                 }
             }
@@ -568,7 +554,6 @@ impl<'a> ScopeResolver<'a> {
                         scope_depth: 0,
                         local_index: info.0,
                         is_global: true,
-                        owning_func_index: None,
                     });
                 }
             }
@@ -715,8 +700,6 @@ pub(super) struct ScopeBuilder {
     pub struct_definitions: Vec<StructDefinition>,
     /// 構造体名 → インデックス
     pub struct_name_to_index: BTreeMap<String, usize>,
-    /// static 変数の初期化文を一時的に保持
-    pub static_init_statements: Vec<LocatedExecStatement>,
 }
 
 impl ScopeBuilder {
@@ -727,7 +710,6 @@ impl ScopeBuilder {
             variable_names: vec![],
             struct_definitions: Vec::new(),
             struct_name_to_index: BTreeMap::new(),
-            static_init_statements: vec![],
         }
     }
 
@@ -736,14 +718,21 @@ impl ScopeBuilder {
     /// バグ: スロット番号の累積が未チェックの `+=` で、巨大な配列が並ぶと debug では panic、
     /// release では wrap して誤ったスロット配置のコードを出力していた。
     /// 解決策: checked_add で累積し、usize に収まらない場合は溢れた変数の名前を Err で返す。
+    ///
+    /// グローバル領域に置く static 変数（`global_slot` が Some）はスコープのスロットを消費せず、
+    /// `variable_indices` にはグローバル領域のオフセットを入れる。
     pub fn compute_slot_layout(&self) -> Result<SlotLayout, String> {
         let mut variable_indices = BTreeMap::new();
         let mut variable_name_to_var_index = BTreeMap::new();
         let mut slot_index: usize = 0;
         for (var_idx, var) in self.variables.iter().enumerate() {
             let var_name = &self.variable_names[var_idx];
-            variable_indices.insert(var_name.clone(), slot_index);
             variable_name_to_var_index.insert(var_name.clone(), var_idx);
+            if let Some(global_slot) = var.global_slot {
+                variable_indices.insert(var_name.clone(), global_slot);
+                continue;
+            }
+            variable_indices.insert(var_name.clone(), slot_index);
             slot_index = slot_index
                 .checked_add(var.array_size.unwrap_or(1))
                 .ok_or_else(|| var_name.clone())?;
@@ -802,7 +791,7 @@ impl ScopeBuilder {
             struct_name_to_index: self.struct_name_to_index,
             symbol_table,
             main_function_index,
-            static_init_statements: self.static_init_statements,
+            static_init_statements: Vec::new(),
             root_statements,
         }
     }
