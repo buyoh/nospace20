@@ -1,12 +1,12 @@
 //! # Optimizer
 //!
-//! 意味解析後の中間表現 (`Scope`) に対して最適化パスを適用するモジュール。
+//! 意味解析後の中間表現 (`Program`) に対して最適化パスを適用するモジュール。
 //!
 //! ## 設計
 //!
 //! - 各最適化パスはプラグイン形式で、`OptimizationOptions` により個別に有効化・無効化できる
-//! - パスは `&mut Scope` を受け取り、中間表現を直接変換する
-//! - パス適用後は通常通り `&Scope` として Compiler WS に渡される
+//! - パスは `&mut Program` を受け取り、中間表現を直接変換する
+//! - パス適用後は通常通り `&Program` として Compiler WS に渡される
 //!
 //! ## パスの実行順序
 //!
@@ -27,7 +27,7 @@ mod test_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::semantic_analyzer::Scope;
+use crate::semantic_analyzer::Program;
 
 /// 最適化オプション
 ///
@@ -127,37 +127,37 @@ impl Default for OptimizationOptions {
     }
 }
 
-/// Scope に対して最適化パスを適用する
+/// Program に対して最適化パスを適用する
 ///
 /// `options` で有効化されたパスのみ実行される。
 /// パスの実行順序は固定されており、依存関係を考慮している。
-pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
+pub fn optimize(program: &mut Program, options: &OptimizationOptions) {
     if !options.any_enabled() {
         return;
     }
 
     // テスト用パス
     if options.noop_test_pass {
-        noop_test_pass::apply(scope);
+        noop_test_pass::apply(program);
     }
 
     // 定数畳み込みパス（条件式最適化の前に実行）
     if options.constant_folding {
-        constant_folding::apply(scope);
+        constant_folding::apply(program);
     }
 
     // 条件式最適化パス
     if options.condition_opt {
-        condition_opt::apply(scope);
+        condition_opt::apply(program);
     }
 
     // geti/getc 最適化パス
     if options.geti_opt {
-        geti_opt::apply(scope);
+        geti_opt::apply(program);
     }
 
     // 未到達関数削除パスは最後に実行（他パス完了後の状態を基に判定）
     if options.dead_code {
-        dead_code::apply(scope);
+        dead_code::apply(program);
     }
 }

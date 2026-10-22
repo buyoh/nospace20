@@ -245,10 +245,14 @@ impl<'b: 'a, 'a> ExpressionBuilder<'b, 'a> {
     }
 
     /// Expression を LocatedExpression に包む
+    ///
+    /// バグ: `end` は `current_pos()` で取るが、入力末尾（EOF）では `current_pos()` が 0 を返すため、
+    /// 入力末尾で切れた式で `end < start` の不正な範囲ができていた。
+    /// 解決策: `end` を `start` 以上に揃える（EOF 以外では `end` は直後のトークンの位置で、常に `start` 以上）。
     fn located(&self, expr: Expression, start: usize, end: usize) -> Box<LocatedExpression> {
         Box::new(LocatedExpression {
             expression: expr,
-            location: SourceLocation::new(start, end),
+            location: SourceLocation::new(start, end.max(start)),
         })
     }
 

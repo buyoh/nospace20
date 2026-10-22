@@ -299,11 +299,11 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     ConditionMode::NonZero,
                     exec_cond,
                     Block {
-                        scope: s1.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
+                        scope: s1.build(),
                         statements: es1,
                     },
                     Block {
-                        scope: s2.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
+                        scope: s2.build(),
                         statements: es2,
                     },
                 ),
@@ -471,7 +471,7 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             let (s, es) = super::analyze_block_for_expression(statements, parent_resolver, tables)?;
             Ok(make_located_exec(
                 ExecExpression::Block(Block {
-                    scope: s.build(Vec::new(), Vec::new(), Vec::new()), // root_statementsは空
+                    scope: s.build(),
                     statements: es,
                 }),
                 loc,
@@ -535,7 +535,7 @@ pub(super) fn convert_to_exec_expression_with_resolver(
                     )?;
                     return Ok(make_located_exec(
                         ExecExpression::Block(Block {
-                            scope: s.build(Vec::new(), Vec::new(), Vec::new()),
+                            scope: s.build(),
                             statements: es,
                         }),
                         loc,

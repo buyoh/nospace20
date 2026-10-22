@@ -63,7 +63,7 @@ impl GlobalSlotAllocator {
         Some(offset)
     }
 
-    /// グローバル領域の大きさ（ルートの Scope::variable_count に設定する）
+    /// グローバル領域の大きさ（`Program::global_slot_count` になる）
     pub(super) fn total(&self) -> usize {
         self.next_slot
     }

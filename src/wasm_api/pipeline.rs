@@ -7,7 +7,7 @@
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    compile_source, CodeParseError, CompileError, NospaceError, OptimizationOptions, Scope,
+    compile_source, CodeParseError, CompileError, NospaceError, OptimizationOptions, Program,
     TextCode, WsCompileOptions, WsOutputFormat,
 };
 
@@ -161,11 +161,11 @@ pub(super) fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> Resu
 ///
 /// The pipeline itself is `crate::analyze_source`, shared with the CLI and tests;
 /// this only converts errors into `ResultErr` with positions.
-pub(super) fn analyze_for_parse(source: &str) -> Result<(Scope, TextCode<'_>), ResultErr> {
+pub(super) fn analyze_for_parse(source: &str) -> Result<(Program, TextCode<'_>), ResultErr> {
     let text_code = TextCode::new(source);
-    let scope = crate::analyze_source(source, &OptimizationOptions::none())
+    let program = crate::analyze_source(source, &OptimizationOptions::none())
         .map_err(|e| convert_errors(&e, &text_code))?;
-    Ok((scope, text_code))
+    Ok((program, text_code))
 }
 
 /// Compile nospace source to Whitespace (common pipeline + optimization + code generation)

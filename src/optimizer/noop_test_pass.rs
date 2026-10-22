@@ -6,7 +6,7 @@
 
 use crate::base::SourceLocation;
 use crate::semantic_analyzer::{
-    ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Scope, ValueType,
+    ExecExpression, ExecStatement, LocatedExecExpression, LocatedExecStatement, Program, ValueType,
     Variable,
 };
 use crate::tree_parser::Operator2;
@@ -21,26 +21,29 @@ pub const MARKER_VAR_NAME: &str = "__opt_marker";
 ///
 /// ルートスコープにグローバル変数 `__opt_marker` を追加し、
 /// `__opt_marker = 0xDEAD` の初期化文を `root_statements` に追加する。
-pub fn apply(scope: &mut Scope) {
-    // 新しい変数のスロットインデックス = 現在の variable_count
-    let slot_index = scope.variable_count;
+pub fn apply(program: &mut Program) {
+    // グローバル領域の末尾（ルートの変数・すべての static 変数の後）に 1 スロット足す
+    let slot_index = program.global_slot_count;
+    program.global_slot_count += 1;
 
-    // Variable を追加
+    // Variable を追加。ルートの変数の後ろではなくグローバル領域の末尾に置くので、
+    // 関数・ブロックの static 変数と同じく global_slot で表し、ルートのフレームのスロット（variable_count）は使わない
+    // （例外的に、global_slot 付きの変数をルートの variables に入れる）
     let var = Variable {
         slot_index,
         is_static: false,
         is_final: false,
         array_size: None,
         value_type: ValueType::Int,
-        global_slot: None,
+        global_slot: Some(slot_index),
     };
-    let var_index = scope.variables.len();
-    scope.variables.push(var);
-    scope.variable_count += 1;
-    scope
+    let root_scope = &mut program.root_scope;
+    let var_index = root_scope.variables.len();
+    root_scope.variables.push(var);
+    root_scope
         .variable_indices
         .insert(MARKER_VAR_NAME.to_string(), slot_index);
-    scope
+    root_scope
         .variable_name_to_var_index
         .insert(MARKER_VAR_NAME.to_string(), var_index);
 
@@ -75,5 +78,5 @@ pub fn apply(scope: &mut Scope) {
         location: dummy_location,
     };
 
-    scope.root_statements.push(init_stmt);
+    program.root_statements.push(init_stmt);
 }

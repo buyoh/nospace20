@@ -12,55 +12,52 @@
 //!
 //! - `__main` 関数が存在しない場合は最適化をスキップ
 //! - グローバル変数の初期化式・static 変数初期化式から呼ばれる関数も到達可能とする
-//! - `Scope.functions` のインデックスは変えず、ダミー置換のみ行う（インデックスずれなし）
+//! - `Program.functions` のインデックスは変えず、ダミー置換のみ行う（インデックスずれなし）
 
 use std::collections::{HashSet, VecDeque};
 
 use crate::semantic_analyzer::{
-    Block, ExecExpression, ExecStatement, Function, LocatedExecStatement, Scope,
+    Block, ExecExpression, ExecStatement, Function, LocatedExecStatement, Program,
 };
 
 /// dead_code パスを適用する
-pub fn apply(scope: &mut Scope) {
-    let main_idx = match scope.main_function_index {
+pub fn apply(program: &mut Program) {
+    let main_idx = match program.main_function_index {
         Some(idx) => idx,
         None => return, // main がない場合はスキップ
     };
 
     // 到達可能な関数インデックスを BFS で収集
-    let reachable = collect_reachable(scope, main_idx);
+    let reachable = collect_reachable(program, main_idx);
 
     // 到達不可能な関数をダミーに置換
-    let total = scope.functions.len();
+    let total = program.functions.len();
     for idx in 0..total {
         if !reachable.contains(&idx) {
-            scope.functions[idx] = Function::dummy();
+            program.functions[idx] = Function::dummy();
         }
     }
 }
 
 /// BFS で到達可能な関数インデックスの集合を返す
-fn collect_reachable(scope: &Scope, main_idx: usize) -> HashSet<usize> {
+fn collect_reachable(program: &Program, main_idx: usize) -> HashSet<usize> {
     let mut reachable = HashSet::new();
     let mut worklist = VecDeque::new();
 
     reachable.insert(main_idx);
     worklist.push_back(main_idx);
 
-    // ルートスコープの static_init_statements（関数・ブロックを含むすべての static の初期化文）と
-    // root_statements からも収集。使われない関数の static の初期化子から呼ぶ関数も到達可能になる
-    for stmt in &scope.static_init_statements {
-        collect_called_in_statement(stmt, &mut reachable, &mut worklist);
-    }
-    for stmt in &scope.root_statements {
+    // ルートで実行する文（関数・ブロックを含むすべての static の初期化文と、ルートの文）からも収集。
+    // 使われない関数の static の初期化子から呼ぶ関数も到達可能になる
+    for stmt in program.top_level_statements() {
         collect_called_in_statement(stmt, &mut reachable, &mut worklist);
     }
 
     while let Some(func_idx) = worklist.pop_front() {
-        if func_idx >= scope.functions.len() {
+        if func_idx >= program.functions.len() {
             continue;
         }
-        let func = &scope.functions[func_idx];
+        let func = &program.functions[func_idx];
         collect_called_in_block(&func.block, &mut reachable, &mut worklist);
     }
 
@@ -72,7 +69,6 @@ fn collect_called_in_block(
     reachable: &mut HashSet<usize>,
     worklist: &mut VecDeque<usize>,
 ) {
-    // static 変数の初期化文はルートの列だけにある（collect_reachable で走査済み）
     for stmt in &block.statements {
         collect_called_in_statement(stmt, reachable, worklist);
     }

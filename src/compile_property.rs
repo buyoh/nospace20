@@ -4,6 +4,8 @@
 
 use std::fmt;
 
+use crate::WsOutputFormat;
+
 /// 言語サブセット
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LanguageStd {
@@ -22,8 +24,16 @@ pub enum CompileTarget {
     Ws,
     /// ニーモニック表記へコンパイル
     Mnemonic,
-    /// 中間表現 (JSON) へコンパイル（未対応）
-    Json,
+}
+
+impl CompileTarget {
+    /// このターゲットに対応する Whitespace の出力形式
+    pub fn output_format(self) -> WsOutputFormat {
+        match self {
+            CompileTarget::Ws => WsOutputFormat::Whitespace,
+            CompileTarget::Mnemonic => WsOutputFormat::Mnemonic,
+        }
+    }
 }
 
 /// ターゲット拡張
@@ -37,40 +47,18 @@ pub enum TargetExtension {
     Alloc,
 }
 
-/// コンパイルプロパティのバリデーションエラー
+/// コンパイルオプションのバリデーションエラー
 #[derive(Debug, Clone)]
 pub enum ValidationError {
-    /// 未対応の言語サブセット
-    UnsupportedStd(LanguageStd),
-    /// ターゲットと言語サブセットの不整合
-    IncompatibleOptions {
-        target: CompileTarget,
-        std: LanguageStd,
-    },
-    /// 未対応の機能
+    /// 未対応の機能（CLI の `--target json` など）
     UnimplementedFeature(String),
-    /// 拡張が現在の設定では使用不可
-    InvalidExtension(String),
 }
 
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ValidationError::UnsupportedStd(std) => {
-                write!(f, "--std={:?} is not yet implemented", std)
-            }
-            ValidationError::IncompatibleOptions { target, std: _ } => {
-                write!(
-                    f,
-                    "--target={:?} requires --std=ws\n  tip: use `--std=ws --target={:?}`",
-                    target, target
-                )
-            }
             ValidationError::UnimplementedFeature(feature) => {
                 write!(f, "{} is not yet implemented", feature)
-            }
-            ValidationError::InvalidExtension(msg) => {
-                write!(f, "{}", msg)
             }
         }
     }
@@ -99,18 +87,6 @@ impl CompileProperty {
     /// 指定されたコンパイルターゲット。未指定なら既定値（Ws）
     pub fn target_or_default(&self) -> CompileTarget {
         self.target.unwrap_or_default()
-    }
-
-    /// バリデーション
-    pub fn validate(&self) -> Result<(), ValidationError> {
-        // 未対応のターゲット
-        if self.target_or_default() == CompileTarget::Json {
-            return Err(ValidationError::UnimplementedFeature(
-                "--target=json".to_string(),
-            ));
-        }
-
-        Ok(())
     }
 }
 

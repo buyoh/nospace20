@@ -180,3 +180,44 @@ fn test_whitespace20_flush_failure_is_error() {
         stderr_of(&output)
     );
 }
+
+/// `--target json` は未実装のエラー（ライブラリの CompileTarget には無く、CLI の変換で拒否する）。
+/// ソースを読む前に終了するので、stdin への書き込みが失敗しないよう空にする
+#[test]
+fn test_nospace20_json_target_is_unimplemented() {
+    let output = nospace20(&["--target", "json"], "", None);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stderr_of(&output).contains("error: --target=json is not yet implemented"),
+        "{}",
+        stderr_of(&output)
+    );
+}
+
+/// debug 拡張が有効なとき、__clog はプログラムの stdout ではなく stderr に書く
+#[test]
+fn test_whitespace20_clog_goes_to_stderr_with_debug_ext() {
+    let ws = compile_debug("func: __main() { __clog(7); __puti(1); }");
+    let output = whitespace20(&["-", "--std-ext", "debug"], &ws, None);
+    assert!(output.status.success(), "{}", stderr_of(&output));
+    assert_eq!(stdout_of(&output), "1");
+    assert!(
+        stderr_of(&output).contains("__clog: 7"),
+        "{}",
+        stderr_of(&output)
+    );
+}
+
+/// debug 拡張が無いとき、__clog は何も出力しない（stderr にも stdout にも出ない）
+#[test]
+fn test_whitespace20_clog_is_discarded_without_debug_ext() {
+    let ws = compile_debug("func: __main() { __clog(7); __puti(1); }");
+    let output = whitespace20(&["-"], &ws, None);
+    assert!(output.status.success(), "{}", stderr_of(&output));
+    assert_eq!(stdout_of(&output), "1");
+    assert!(
+        !stderr_of(&output).contains("__clog"),
+        "{}",
+        stderr_of(&output)
+    );
+}

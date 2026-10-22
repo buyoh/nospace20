@@ -23,25 +23,22 @@
 //! 条件式が定数に畳み込まれた場合、ConditionMode に基づいて真偽を評価し、
 //! 対応するブロックに置換する。
 
-use crate::base::{pure_eval, SourceLocation};
+use crate::base::pure_eval;
 use crate::semantic_analyzer::{
     Block, ConditionMode, ExecExpression, ExecStatement, LocatedExecExpression,
-    LocatedExecStatement, Scope,
+    LocatedExecStatement, Program,
 };
 use crate::tree_parser::{Operator1, Operator2};
 
 /// 定数畳み込みパスを適用する
-pub fn apply(scope: &mut Scope) {
-    for func in &mut scope.functions {
+pub fn apply(program: &mut Program) {
+    for func in &mut program.functions {
         if func.is_unused() {
             continue;
         }
         fold_block(&mut func.block);
     }
-    for stmt in &mut scope.root_statements {
-        fold_statement(stmt);
-    }
-    for stmt in &mut scope.static_init_statements {
+    for stmt in program.top_level_statements_mut() {
         fold_statement(stmt);
     }
 }
@@ -50,7 +47,6 @@ fn fold_block(block: &mut Block) {
     for stmt in &mut block.statements {
         fold_statement(stmt);
     }
-    // static 変数の初期化文はルートの列だけにある（関数・ブロックのスコープでは常に空）ので、ここでは扱わない
 }
 
 fn fold_statement(stmt: &mut LocatedExecStatement) {
@@ -109,27 +105,26 @@ fn fold_statement(stmt: &mut LocatedExecStatement) {
 ///
 /// std::mem::replace を使用して所有権を移動し、最適化後の値を戻す。
 fn fold_located_expr(located: &mut Box<LocatedExecExpression>) {
-    let loc = located.location.clone();
     let expr = std::mem::replace(&mut located.expression, ExecExpression::Factor(0));
-    located.expression = fold_expression(expr, loc);
+    located.expression = fold_expression(expr);
 }
 
 /// 式を定数畳み込みする（所有権を消費して変換後の式を返す）
 ///
 /// ボトムアップで再帰的に畳み込む。
-fn fold_expression(expr: ExecExpression, loc: SourceLocation) -> ExecExpression {
+fn fold_expression(expr: ExecExpression) -> ExecExpression {
     match expr {
         // --- 二項演算 ---
         ExecExpression::Operation2(op, mut lhs, mut rhs) => {
             fold_located_expr(&mut lhs);
             fold_located_expr(&mut rhs);
-            try_fold_op2(op, lhs, rhs, loc)
+            try_fold_op2(op, lhs, rhs)
         }
 
         // --- 単項演算 ---
         ExecExpression::Operation1(op, mut operand) => {
             fold_located_expr(&mut operand);
-            try_fold_op1(op, operand, loc)
+            try_fold_op1(op, operand)
         }
 
         // --- If 式 ---
@@ -190,73 +185,30 @@ fn fold_expression(expr: ExecExpression, loc: SourceLocation) -> ExecExpression 
 }
 
 /// 二項演算の定数畳み込みを試みる
+///
+/// 両オペランドが定数で、評価できる場合（0 除算などでない）だけ畳み込む。
+/// 片方だけが定数の場合（`x + 0` など）は簡約しない
 fn try_fold_op2(
     op: Operator2,
     lhs: Box<LocatedExecExpression>,
     rhs: Box<LocatedExecExpression>,
-    _loc: SourceLocation,
 ) -> ExecExpression {
-    // 両オペランドが定数の場合のみ畳み込む
     if let (ExecExpression::Factor(a), ExecExpression::Factor(b)) =
         (&lhs.expression, &rhs.expression)
     {
-        let (a, b) = (*a, *b);
-        let result = pure_eval::eval_binary_pure(&op, a, b);
-        if let Some(v) = result {
+        if let Some(v) = pure_eval::eval_binary_pure(&op, *a, *b) {
             return ExecExpression::Factor(v);
         }
     }
-
-    // 部分的な簡約（一方が定数 0 or 1 の場合）
-    let lhs_val = if let ExecExpression::Factor(v) = lhs.expression {
-        Some(v)
-    } else {
-        None
-    };
-    let rhs_val = if let ExecExpression::Factor(v) = rhs.expression {
-        Some(v)
-    } else {
-        None
-    };
-
-    // 片方が定数の場合の簡約はオペランドを再構築して返す
-    let lhs = Box::new(LocatedExecExpression {
-        expression: if let Some(v) = lhs_val {
-            ExecExpression::Factor(v)
-        } else {
-            lhs.expression
-        },
-        location: lhs.location,
-    });
-    let rhs = Box::new(LocatedExecExpression {
-        expression: if let Some(v) = rhs_val {
-            ExecExpression::Factor(v)
-        } else {
-            rhs.expression
-        },
-        location: rhs.location,
-    });
-
     ExecExpression::Operation2(op, lhs, rhs)
 }
 
 /// 単項演算の定数畳み込みを試みる
-fn try_fold_op1(
-    op: Operator1,
-    operand: Box<LocatedExecExpression>,
-    _loc: SourceLocation,
-) -> ExecExpression {
+fn try_fold_op1(op: Operator1, operand: Box<LocatedExecExpression>) -> ExecExpression {
     if let ExecExpression::Factor(a) = operand.expression {
-        let result = pure_eval::eval_unary_pure(&op, a);
-        if let Some(v) = result {
+        if let Some(v) = pure_eval::eval_unary_pure(&op, a) {
             return ExecExpression::Factor(v);
         }
-        // 展開した Factor を戻す
-        let operand = Box::new(LocatedExecExpression {
-            expression: ExecExpression::Factor(a),
-            location: operand.location,
-        });
-        return ExecExpression::Operation1(op, operand);
     }
     ExecExpression::Operation1(op, operand)
 }

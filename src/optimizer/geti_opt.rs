@@ -28,22 +28,18 @@
 //! | `p = __geti()` | グローバル | 9 命令 | 4 命令 | 5 |
 //! | `p = __geti()` | ローカル | 13 命令 | 7 命令 | 6 |
 
-use crate::base::SourceLocation;
 use crate::semantic_analyzer::{
     Block, BuiltinFunctionKind, ExecExpression, ExecStatement, InternalBuiltinFunctionKind,
-    LocatedExecExpression, LocatedExecStatement, Scope,
+    LocatedExecExpression, LocatedExecStatement, Program,
 };
 use crate::tree_parser::Operator2;
 
 /// geti/getc 最適化パスを適用する
-pub fn apply(scope: &mut Scope) {
-    for func in &mut scope.functions {
+pub fn apply(program: &mut Program) {
+    for func in &mut program.functions {
         optimize_block(&mut func.block);
     }
-    for stmt in &mut scope.root_statements {
-        optimize_statement(stmt);
-    }
-    for stmt in &mut scope.static_init_statements {
+    for stmt in program.top_level_statements_mut() {
         optimize_statement(stmt);
     }
 }
@@ -155,10 +151,4 @@ fn recurse_into_expr(located: &mut Box<LocatedExecExpression>) {
         }
         _ => {}
     }
-}
-
-/// geti 最適化で使用するダミー位置情報（オプティマイザ生成ノード用）
-#[allow(dead_code)]
-fn dummy_location() -> SourceLocation {
-    SourceLocation::new(0, 0)
 }

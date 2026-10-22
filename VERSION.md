@@ -6,6 +6,10 @@ TODO: Update Cargo.toml.
 
 MAJOR
 
+- Library: The result of semantic analysis is the new type `Program` (root scope, all functions, initialization statements and the global region size). `semantic_analyze` / `analyze_source` return `Program`, and `optimize` / `optimizer::optimize` / `compile_to_ws` / `compiler_ws::compile_with_options` / `compiler_ws::compile_with_full_options` take `Program` instead of `Scope`. `symbol_table`, `main_function_index` and `has_function` moved from `Scope` to `Program`
+- Library: Remove `CompileTarget::Json`, `CompileProperty::validate`, the unused `ValidationError` variants `UnsupportedStd` / `IncompatibleOptions` / `InvalidExtension`, and `compiler_ws::memory::MemoryLayout` (use the constants in `compiler_ws::memory::heap_layout`). Add `CompileTarget::output_format`. nospace20 `--target json` is still reported as `--target=json is not yet implemented`
+- WASM `WasmWhitespaceVM`: `max_memory_cells` that is not a non-negative integer up to 4294967295 (a negative number, a fraction, NaN, an infinity or a larger value) is an error in `new`, `fromWhitespace` and `fromWhitespaceInteractive` (previously it was converted to u32 by wrapping, e.g. `-1` became 4294967295)
+
 MINOR
 
 - Language: static variables can be declared in block scopes (previously their initializers were ignored and their values were not kept). All static variables are initialized before __main in source order, followed by root-level let variables; previously function statics were initialized per function after root statics. Statics of unused functions are always initialized, also with --opt dead-code. If the static variables do not fit in the global region, compilation fails with `total size of global and static variables is too large`
@@ -16,6 +20,9 @@ PATCH
 - Language: Initializer lists and string initializers of static arrays run once before __main (previously the elements were re-assigned each time the declaration was executed, and root static arrays were filled after the other statics). final arrays can be initialized with an initializer list
 - Language: In a namespace, a local variable shadows the same-named variable of the enclosing namespace or an imported namespace, and a local constexpr shadows the same-named constexpr (previously the namespace or imported identifier was found first)
 - Compiler: return in a root-level block, return without a value in a block or for-init of an int function, and break / continue outside a loop in a function are now semantic errors (previously they compiled, or failed in the Whitespace code generator)
+- Semantic analyzer: The error `the name '...' is already used` now shows the line and column of the duplicate declaration (for a duplicate function argument, the position of the function declaration)
+- WASM `WasmWhitespaceVM.fromWhitespace` / `fromWhitespaceInteractive`: A Whitespace parse error uses the display message (e.g. `Whitespace parse error: invalid command for IMP 'IO' at position 2` instead of the Debug format `InvalidCommand { ... }`)
+- Parser: The end position of an expression cut off at the end of input no longer precedes its start position (internal location only; error output is unchanged)
 
 ## 4.0.0
 

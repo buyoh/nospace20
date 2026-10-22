@@ -8,7 +8,7 @@ pub use base::shared_writer::SharedWriter;
 pub use base::CodeParseError;
 pub use compiler_ws::CompileError;
 pub use logger::TextCode;
-pub use semantic_analyzer::Scope;
+pub use semantic_analyzer::{Program, Scope};
 use token_parser::PrettyToken;
 use tree_parser::LocatedStatement;
 
@@ -45,14 +45,14 @@ pub fn parse_to_tree(
     tree_parser::parse_to_tree(tokens)
 }
 
-/// 意味解析を実行し、スコープツリーを構築する
-pub fn semantic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
+/// 意味解析を実行し、プログラム（ルートスコープ・全関数など）を構築する
+pub fn semantic_analyze(root: &Vec<LocatedStatement>) -> Result<Program, Vec<CodeParseError>> {
     semantic_analyzer::analyze(root)
 }
 
-/// Scope に対して最適化パスを適用する
-pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
-    optimizer::optimize(scope, options);
+/// Program に対して最適化パスを適用する
+pub fn optimize(program: &mut Program, options: &OptimizationOptions) {
+    optimizer::optimize(program, options);
 }
 
 /// nospace のソースを意味解析まで通し、最適化パスが有効なら適用する
@@ -62,14 +62,14 @@ pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
 pub fn analyze_source(
     source: &str,
     options: &OptimizationOptions,
-) -> Result<Scope, Vec<CodeParseError>> {
+) -> Result<Program, Vec<CodeParseError>> {
     let tokens = parse_to_tokens(&source.to_string())?;
     let tree = parse_to_tree(&tokens)?;
-    let mut scope = semantic_analyze(&tree)?;
+    let mut program = semantic_analyze(&tree)?;
     if options.any_enabled() {
-        optimize(&mut scope, options);
+        optimize(&mut program, options);
     }
-    Ok(scope)
+    Ok(program)
 }
 
 /// Whitespace コンパイル出力形式
@@ -101,9 +101,12 @@ pub struct WsCompileOptions {
 /// Whitespace にコンパイル（統合 API）
 ///
 /// `WsCompileOptions` によって出力形式・拡張・最適化を一括指定できる。
-pub fn compile_to_ws(scope: &Scope, options: &WsCompileOptions) -> Result<String, CompileError> {
+pub fn compile_to_ws(
+    program: &Program,
+    options: &WsCompileOptions,
+) -> Result<String, CompileError> {
     let prog = compiler_ws::compile_with_full_options(
-        scope,
+        program,
         options.debug_ext,
         options.alloc_ext,
         options.optimization.peephole,
@@ -120,6 +123,6 @@ pub fn compile_to_ws(scope: &Scope, options: &WsCompileOptions) -> Result<String
 /// `analyze_source`（`options.optimization` の最適化を含む）→ `compile_to_ws` をまとめたもの。
 /// CLI・WASM・テストが共通に使う。エラーは `NospaceError::Parse` / `NospaceError::Compile`
 pub fn compile_source(source: &str, options: &WsCompileOptions) -> Result<String, NospaceError> {
-    let scope = analyze_source(source, &options.optimization).map_err(NospaceError::Parse)?;
-    compile_to_ws(&scope, options).map_err(NospaceError::Compile)
+    let program = analyze_source(source, &options.optimization).map_err(NospaceError::Parse)?;
+    compile_to_ws(&program, options).map_err(NospaceError::Compile)
 }

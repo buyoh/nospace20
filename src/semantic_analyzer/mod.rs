@@ -4,9 +4,9 @@
 //!
 //! ## モジュール構成
 //!
-//! - `context`    : 解析コンテキスト（AnalyzeContext 構造体）
 //! - `exec_context` : 実行文脈（ExecContext。ルートの初期化・関数本体・static の初期化子とループの深さ）
 //! - `function_table` : 意味解析中のグローバル関数表（FunctionTable 構造体）
+//! - `program`    : 意味解析の結果（Program 構造体。ルートスコープとプログラム全体の表）
 //! - `expression` : 式の変換処理（ExecExpression 生成）
 //! - `statement`  : 文の変換処理（ExecStatement 生成）
 //! - `scope`      : スコープ・識別子解決
@@ -20,10 +20,10 @@
 mod alias;
 mod analysis_tables;
 mod constexpr;
-mod context;
 mod exec_context;
 mod expression;
 mod function_table;
+mod program;
 mod return_analysis;
 mod scope;
 mod statement;
@@ -36,7 +36,7 @@ use alias::{collect_alias_map, collect_block_alias_map, detect_block_alias_cycle
 use analysis_tables::AnalysisTables;
 use constexpr::collect_constexpr_table;
 use return_analysis::{guarantees_return, has_return_statement};
-use scope::{FunctionIndex, Identifier, ScopeBuilder, ScopeResolver, ScopeType, SymbolTable};
+use scope::{FunctionIndex, Identifier, ScopeBuilder, ScopeResolver, ScopeType};
 use template::expand_template_instantiations;
 
 use crate::{
@@ -50,6 +50,7 @@ use crate::{
 #[allow(unused_imports)]
 use crate::tree_parser::{Expression, LocatedExpression, Operator1, Operator2};
 
+pub use program::Program;
 pub use scope::{Function, Scope};
 pub(crate) use types::{
     Block, ConditionMode, ExecExpression, ExecStatement, InternalBuiltinFunctionKind,
@@ -72,37 +73,44 @@ fn analyze_block_for_expression(
     parent_resolver: &ScopeResolver,
     tables: &mut AnalysisTables,
 ) -> Result<(ScopeBuilder, Vec<LocatedExecStatement>), Vec<CodeParseError>> {
-    let mut ctx = context::AnalyzeContext::new(tables);
     analyze_internal_with_parent(
         statements,
         ScopeType::Block,
-        Vec::new(),
+        None,
         Some(parent_resolver),
-        &mut ctx,
+        tables,
     )
 }
 
 fn analyze_internal(
     statements: &Vec<LocatedStatement>,
     scope_type: ScopeType,
-    ctx: &mut context::AnalyzeContext,
+    tables: &mut AnalysisTables,
 ) -> Result<(ScopeBuilder, Vec<LocatedExecStatement>), Vec<CodeParseError>> {
-    analyze_internal_with_parent(statements, scope_type, Vec::new(), None, ctx)
+    analyze_internal_with_parent(statements, scope_type, None, None, tables)
+}
+
+/// 関数本体のスコープに事前登録する変数（関数の引数）
+struct InitialVars {
+    /// 変数名と型注釈（宣言順）
+    vars: Vec<(String, Option<TypeSpec>)>,
+    /// 引数を宣言した関数宣言の文の開始位置（引数ごとの位置は AST に無いので、エラー位置に使う）
+    declaration_location: usize,
 }
 
 /// 初期変数と親のリゾルバを指定して解析する
 ///
 /// - `statements`      : 解析対象の文リスト
 /// - `scope_type`      : スコープ種別（Root / Function / Block）
-/// - `initial_vars`    : 事前登録する変数名（関数の引数など）
+/// - `initial_vars`    : 事前登録する変数（関数の引数。関数本体以外は None）
 /// - `parent_resolver` : 親スコープのリゾルバ（None = ルートスコープ）
-/// - `ctx`             : 解析コンテキスト
+/// - `tables`          : 全スコープで共有する表
 fn analyze_internal_with_parent(
     statements: &Vec<LocatedStatement>,
     scope_type: ScopeType,
-    initial_vars: Vec<(String, Option<TypeSpec>)>,
+    initial_vars: Option<InitialVars>,
     parent_resolver: Option<&ScopeResolver>,
-    ctx: &mut context::AnalyzeContext,
+    tables: &mut AnalysisTables,
 ) -> Result<(ScopeBuilder, Vec<LocatedExecStatement>), Vec<CodeParseError>> {
     // テンプレート関数のインスタンス化を展開するプレパス
     // TemplateFunctionDefinition と AliasInstantiation を FunctionDeclaration に変換する
@@ -122,31 +130,38 @@ fn analyze_internal_with_parent(
     let is_static = matches!(scope_type, ScopeType::Root);
     let is_function_scope = matches!(scope_type, ScopeType::Root | ScopeType::Function { .. });
 
-    // 初期変数を登録（関数の引数など）
-    for (var_name, type_annot) in initial_vars {
-        let value_type = match type_annot {
-            None => ValueType::Int,
-            Some(spec) => match spec {
-                TypeSpec::Int => ValueType::Int,
-                _ => {
-                    return Err(vec![code_parse_error!(format!(
-                        "semantic error: argument '{}' must be int type",
-                        var_name
-                    ))]);
-                }
-            },
-        };
-        scope.add_variable(
-            &var_name,
-            Variable {
-                slot_index: 0,
-                is_static: false,
-                array_size: None,
-                is_final: false,
-                value_type,
-                global_slot: None,
-            },
-        )?;
+    // 初期変数を登録（関数の引数）
+    if let Some(InitialVars {
+        vars,
+        declaration_location,
+    }) = initial_vars
+    {
+        for (var_name, type_annot) in vars {
+            let value_type = match type_annot {
+                None => ValueType::Int,
+                Some(spec) => match spec {
+                    TypeSpec::Int => ValueType::Int,
+                    _ => {
+                        return Err(vec![code_parse_error!(
+                            declaration_location,
+                            format!("semantic error: argument '{}' must be int type", var_name)
+                        )]);
+                    }
+                },
+            };
+            scope.add_variable(
+                &var_name,
+                Variable {
+                    slot_index: 0,
+                    is_static: false,
+                    array_size: None,
+                    is_final: false,
+                    value_type,
+                    global_slot: None,
+                },
+                declaration_location,
+            )?;
+        }
     }
 
     // 3パス解析 → 4パス解析（Pass 0 を追加）
@@ -191,7 +206,7 @@ fn analyze_internal_with_parent(
     let ns_prefix = parent_resolver
         .map(|p| p.current_ns_prefix())
         .unwrap_or_default();
-    scan_function_declarations(statements, &ns_prefix, &mut scope, ctx)?;
+    scan_function_declarations(statements, &ns_prefix, &mut scope, tables)?;
 
     // パス1c: 変数宣言収集（ホイスティング対応）
     // 名前空間内の変数もマングル名で登録する
@@ -200,7 +215,7 @@ fn analyze_internal_with_parent(
         "",
         is_static,
         &mut scope,
-        &mut ctx.tables.global_slots,
+        &mut tables.global_slots,
     )?;
 
     // 変数名からインデックスへのマッピングを先に構築（resolver で使用）
@@ -215,7 +230,7 @@ fn analyze_internal_with_parent(
     // ルートの変数の直後から、関数スコープ・ブロックスコープの static 変数を割り当てる
     // （関数・ブロックはルートのパス 2 で解析されるので、必ずこの後に割り当てられる）
     if matches!(scope_type, ScopeType::Root) {
-        ctx.tables.global_slots.start(slot_layout.variable_count);
+        tables.global_slots.start(slot_layout.variable_count);
     }
 
     // Variable を Clone するための一時保存（resolver が参照するため）
@@ -228,16 +243,8 @@ fn analyze_internal_with_parent(
         variable_name_to_var_index: slot_layout.variable_name_to_var_index,
         variables: scope.variables.clone(), // Clone が必要
         variable_count: slot_layout.variable_count,
-        functions: Vec::new(), // 未使用
         struct_definitions: scope.struct_definitions.clone(),
         struct_name_to_index: scope.struct_name_to_index.clone(),
-        symbol_table: SymbolTable {
-            function_names: Vec::new(),
-            function_name_to_index: BTreeMap::new(),
-        },
-        main_function_index: None,          // 一時スコープなので None
-        static_init_statements: Vec::new(), // 未使用
-        root_statements: Vec::new(),        // 未使用
     };
 
     // 親のリゾルバを継承して新しいリゾルバを作成
@@ -287,29 +294,34 @@ fn analyze_internal_with_parent(
     };
 
     // パス2: 文の変換（statement モジュールに委譲）
-    let exec_statements =
-        statement::convert_to_exec_statements(statements, scope_type, &mut scope, &resolver, ctx)?;
+    let exec_statements = statement::convert_to_exec_statements(
+        statements, scope_type, &mut scope, &resolver, tables,
+    )?;
 
     resolver.leave_scope();
     Ok((scope, exec_statements))
 }
 
-pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeParseError>> {
+pub fn analyze(root: &Vec<LocatedStatement>) -> Result<Program, Vec<CodeParseError>> {
     let mut tables = AnalysisTables::new();
-    let mut ctx = context::AnalyzeContext::new(&mut tables);
-    let (scope, root_stmts) = analyze_internal(root, ScopeType::Root, &mut ctx)?;
+    let (scope, root_stmts) = analyze_internal(root, ScopeType::Root, &mut tables)?;
     let AnalysisTables {
         functions,
         global_slots,
         static_init_statements,
     } = tables;
     let (global_functions, global_function_names) = functions.into_parts();
-    let mut built = scope.build(root_stmts, global_functions, global_function_names);
+    let root_scope = scope.build();
     // グローバル領域 = ルートの変数 + 関数スコープ・ブロックスコープのすべての static 変数
-    debug_assert!(global_slots.total() >= built.variable_count);
-    built.variable_count = global_slots.total();
-    built.static_init_statements = static_init_statements;
-    Ok(built)
+    debug_assert!(global_slots.total() >= root_scope.variable_count);
+    Ok(Program::new(
+        root_scope,
+        global_functions,
+        global_function_names,
+        static_init_statements,
+        root_stmts,
+        global_slots.total(),
+    ))
 }
 
 /// 名前空間の解析中に集めた `import` 宣言 1 件
@@ -573,7 +585,7 @@ fn scan_function_declarations(
     statements: &[LocatedStatement],
     ns_prefix: &str,
     scope: &mut ScopeBuilder,
-    ctx: &mut context::AnalyzeContext,
+    tables: &mut AnalysisTables,
 ) -> Result<(), Vec<CodeParseError>> {
     for located_stat in statements {
         match &located_stat.statement {
@@ -648,19 +660,17 @@ fn scan_function_declarations(
                     }
                 };
 
-                let global_idx = ctx
-                    .tables
-                    .functions
-                    .declare(mangled_name.clone(), return_type);
+                let global_idx = tables.functions.declare(mangled_name.clone(), return_type);
                 // identifier_map にはグローバルインデックスと引数数を登録
                 scope.add_identifier(
                     &mangled_name,
                     Identifier::Function(FunctionIndex(global_idx, args.len())),
+                    located_stat.location.start,
                 )?;
             }
             Statement::NamespaceDeclaration(ns_name, body) => {
                 let sub_prefix = format!("{}{}$", ns_prefix, ns_name);
-                scan_function_declarations(body, &sub_prefix, scope, ctx)?;
+                scan_function_declarations(body, &sub_prefix, scope, tables)?;
             }
             _ => {}
         }
@@ -745,6 +755,7 @@ fn scan_variable_declarations(
                         value_type,
                         global_slot: None,
                     },
+                    located_stat.location.start,
                 )?;
 
                 // 関数スコープ・ブロックスコープの static 変数は、グローバル領域に置く

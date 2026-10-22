@@ -3,7 +3,7 @@
 use crate::base::error::compile_error::{CompileError, CompileErrorKind};
 use crate::compiler_ws::block_var_count::count_nested_vars_in_statements;
 use crate::compiler_ws::memory::heap_layout;
-use crate::semantic_analyzer::Scope;
+use crate::semantic_analyzer::Program;
 use std::ops::Range;
 
 /// グローバル領域（GLOBAL_PTR からの相対オフセット）の配置
@@ -13,7 +13,7 @@ use std::ops::Range;
 ///
 /// ```text
 /// [0, V)              グローバル変数と、関数スコープ・ブロックスコープのすべての static 変数
-///                     （V はルートの variable_count。意味解析がオフセットを割り当て済み）
+///                     （V は Program::global_slot_count。意味解析がオフセットを割り当て済み）
 /// [V, V+R)            ルート初期化文（static の初期化・ルートの文）のブロック変数
 /// ```
 #[derive(Debug)]
@@ -25,7 +25,7 @@ pub struct GlobalLayout {
 }
 
 impl GlobalLayout {
-    /// Scope からグローバル領域の配置を計算する
+    /// 意味解析の結果からグローバル領域の配置を計算する
     ///
     /// バグ: ルートレベルのブロック（`{ let: b; }`、`if`、初期化子のブロック）の変数が
     /// どこにも予約されておらず、オフセット 0 から積まれて
@@ -45,15 +45,16 @@ impl GlobalLayout {
     ///
     /// `allocator_tail_slots`: アロケータがグローバル領域の直後に置く管理領域のスロット数
     /// （`AllocRuntime::reserved_tail_slots`）
-    pub fn compute(scope: &Scope, allocator_tail_slots: i64) -> Result<Self, CompileError> {
+    pub fn compute(program: &Program, allocator_tail_slots: i64) -> Result<Self, CompileError> {
         // グローバル変数・static 変数の直後
-        let next_offset = to_i64(Some(scope.variable_count)).ok_or_else(address_space_error)?;
+        let next_offset =
+            to_i64(Some(program.global_slot_count)).ok_or_else(address_space_error)?;
 
         // ルート初期化文のブロック変数
         // static の初期化とルートの文は同じコンテキストで next_var_offset が通しで増えるため、
         // 1 つの領域にまとめる。ルートスコープ自身の変数はグローバル変数として配置済み。
-        let root_block_count = count_nested_vars_in_statements(&scope.static_init_statements)
-            .zip(count_nested_vars_in_statements(&scope.root_statements))
+        let root_block_count = count_nested_vars_in_statements(&program.static_init_statements)
+            .zip(count_nested_vars_in_statements(&program.root_statements))
             .and_then(|(a, b)| a.checked_add(b));
         let root_init_block_range = next_offset
             ..checked_offset_add(next_offset, root_block_count).ok_or_else(address_space_error)?;

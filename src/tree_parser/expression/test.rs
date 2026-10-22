@@ -1037,3 +1037,26 @@ fn test_call_arg_missing_comma_then_invalid_token_terminates() {
     assert!(errs[1].message.contains("unexpected token"));
     assert_eq!(rest, Some(Token::Semicolon.describe()));
 }
+
+/// 入力末尾（EOF）で終わる式の位置は `start <= end`（以前は EOF で end が 0 になり、start より小さかった）
+#[test]
+fn test_location_at_eof_has_end_not_before_start() {
+    // `5` だけ（正常に終わる）: start = end = `5` の位置
+    let tokens = vec![(Token::Number(5), TokenInfo { code_pointer: 10 })];
+    let (e, errs) = parse_expr(tokens);
+    assert!(errs.is_empty(), "{:?}", errs);
+    assert_eq!(e.location, SourceLocation::new(10, 10));
+
+    // `5 +` で入力が切れる（構文エラー）: エラーでも返る式の範囲は start <= end
+    let tokens = vec![
+        (Token::Number(5), TokenInfo { code_pointer: 10 }),
+        (Token::Plus, TokenInfo { code_pointer: 11 }),
+    ];
+    let (e, errs) = parse_expr(tokens);
+    assert!(!errs.is_empty());
+    assert!(e.location.start <= e.location.end, "{:?}", e.location);
+    let Expression::Operation2(_, lhs, _) = &e.expression else {
+        panic!("expected Operation2: {:?}", e.expression);
+    };
+    assert_eq!(lhs.location, SourceLocation::new(10, 11));
+}

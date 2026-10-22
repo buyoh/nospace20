@@ -4,21 +4,24 @@ use crate::compiler_ws::{
     block_var_count::calculate_total_variable_count, context::CodeGenContext, expression,
     instruction::Instruction, program::WsProgram, types::WsNumber, CompileError, CompileErrorKind,
 };
-use crate::semantic_analyzer::{Block, ConditionMode, ExecStatement, Scope};
+use crate::semantic_analyzer::{Block, ConditionMode, ExecStatement, Program};
 
-/// スコープ全体のコードを生成
-pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgram, CompileError> {
+/// プログラム全体（ルートの文・全関数）のコードを生成
+pub fn generate_program(
+    ctx: &mut CodeGenContext,
+    program: &Program,
+) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
 
     // ① すべての static 変数（ルート・関数・ブロック）の初期化（ソース順。意味解析がルートの列にまとめる）
     // 使われない関数の static も初期化する（最適化の有無で結果が変わらないように）
-    for located_stmt in &scope.static_init_statements {
+    for located_stmt in &program.static_init_statements {
         ctx.set_location(&located_stmt.location);
         prog.append(generate_statement(ctx, &located_stmt.statement)?);
     }
 
     // ② グローバル変数の初期化（root_statements）
-    for located_stmt in &scope.root_statements {
+    for located_stmt in &program.root_statements {
         ctx.set_location(&located_stmt.location);
         prog.append(generate_statement(ctx, &located_stmt.statement)?);
     }
@@ -31,8 +34,8 @@ pub fn generate_scope(ctx: &mut CodeGenContext, scope: &Scope) -> Result<WsProgr
 
     // ③ 全ての関数定義を生成
     // 関数は symbol_table.function_names と functions が対応している
-    for (i, func_name) in scope.symbol_table.function_names.iter().enumerate() {
-        let func = &scope.functions[i];
+    for (i, func_name) in program.symbol_table.function_names.iter().enumerate() {
+        let func = &program.functions[i];
         // 未使用関数（未到達関数）はコード生成をスキップ
         if func.is_unused() {
             continue;

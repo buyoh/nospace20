@@ -3,7 +3,7 @@
 use crate::base::SourceLocation;
 use crate::compiler_ws::alloc_runtime::AllocRuntime;
 use crate::compiler_ws::{global_layout::GlobalLayout, label::LabelAllocator, types::LabelId};
-use crate::semantic_analyzer::{IdentifierRef, Scope};
+use crate::semantic_analyzer::{IdentifierRef, Program};
 use std::collections::HashMap;
 
 /// 変数のスコープ種別
@@ -34,8 +34,8 @@ struct LoopFrame {
 /// コード生成コンテキスト
 #[derive(Clone)]
 pub struct CodeGenContext<'a> {
-    /// 元の Scope 構造
-    scope: &'a Scope,
+    /// 意味解析の結果（全関数・`__main` のインデックスなど）
+    program: &'a Program,
 
     /// ラベル管理
     labels: LabelAllocator,
@@ -87,14 +87,14 @@ pub struct CodeGenContext<'a> {
 
 impl<'a> CodeGenContext<'a> {
     pub fn new_with_options(
-        scope: &'a Scope,
+        program: &'a Program,
         layout: &'a GlobalLayout,
         debug_ext: bool,
         alloc_ext: bool,
         alloc_runtime: &'a dyn AllocRuntime,
     ) -> Self {
         Self {
-            scope,
+            program,
             labels: LabelAllocator::new(),
             in_function_body: false,
             local_heap_size: 0,
@@ -120,7 +120,7 @@ impl<'a> CodeGenContext<'a> {
         func_scope_var_count: usize,
     ) -> CodeGenContext<'a> {
         CodeGenContext {
-            scope: self.scope,
+            program: self.program,
             labels: self.labels.clone(),
             in_function_body: true,
             local_heap_size,
@@ -225,10 +225,9 @@ impl<'a> CodeGenContext<'a> {
         }
     }
 
-    /// 現在のスコープを取得
-    #[allow(dead_code)]
-    pub fn scope(&self) -> &'a Scope {
-        self.scope
+    /// 意味解析の結果を取得
+    pub fn program(&self) -> &'a Program {
+        self.program
     }
 
     /// ローカルヒープサイズを取得

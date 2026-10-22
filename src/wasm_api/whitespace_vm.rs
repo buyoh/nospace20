@@ -31,25 +31,56 @@ pub(super) use crate::base::shared_writer::SharedWriter;
 // Whitespace VM helpers
 // ========================================
 
+/// Convert `max_memory_cells` passed from JS into the memory limit of the VM
+///
+/// `None` uses `DEFAULT_MAX_MEMORY_CELLS_WASM` and `0` is unlimited (`-0` is the same as `0`).
+/// Negative numbers, fractions, NaN, infinities and values above `u32::MAX` are errors.
+///
+/// Bug: the argument was `Option<u32>`, and wasm-bindgen converted a JS number to u32 by wrapping
+/// (e.g. `-1` became 4294967295 and `1.5` became 1), so invalid values were silently accepted.
+/// Fix: receive it as `f64` and reject values that are not a non-negative integer within the u32 range.
+fn max_memory_cells_from_js(value: Option<f64>) -> Result<Option<usize>, String> {
+    let Some(value) = value else {
+        return Ok(Some(DEFAULT_MAX_MEMORY_CELLS_WASM));
+    };
+    if !(value.is_finite() && value >= 0.0 && value.fract() == 0.0 && value <= u32::MAX as f64) {
+        return Err(format!(
+            "invalid max_memory_cells: {} (expected a non-negative integer up to {})",
+            value,
+            u32::MAX
+        ));
+    }
+    // An integer in 0..=u32::MAX converts to u32 exactly (usize is also 32-bit on wasm32)
+    Ok(max_memory_cells_from_setting(value as u32 as usize))
+}
+
 /// Build the VM options from the VM-related arguments of the constructors
 ///
 /// Shared by `new`, `fromWhitespace` and `fromWhitespaceInteractive` so that the same arguments
-/// mean the same thing. `max_memory_cells`: `None` uses `DEFAULT_MAX_MEMORY_CELLS_WASM`, `0` is unlimited.
+/// mean the same thing. See `max_memory_cells_from_js` for `max_memory_cells`.
 fn vm_options_from_args(
     debug_ext: bool,
-    max_memory_cells: Option<u32>,
+    max_memory_cells: Option<f64>,
     strict_heap: Option<bool>,
     randomize_heap: Option<bool>,
-) -> WsRunOptions {
-    WsRunOptions {
+) -> Result<WsRunOptions, String> {
+    Ok(WsRunOptions {
         debug_ext,
-        max_memory_cells: match max_memory_cells {
-            Some(cells) => max_memory_cells_from_setting(cells as usize),
-            None => Some(DEFAULT_MAX_MEMORY_CELLS_WASM),
-        },
+        max_memory_cells: max_memory_cells_from_js(max_memory_cells)?,
         strict_heap: strict_heap.unwrap_or(false),
         randomize_heap: randomize_heap.unwrap_or(false),
-    }
+    })
+}
+
+/// Same as `vm_options_from_args`, with the error converted into a `ResultErr` for JS
+fn vm_options_from_js_args(
+    debug_ext: bool,
+    max_memory_cells: Option<f64>,
+    strict_heap: Option<bool>,
+    randomize_heap: Option<bool>,
+) -> Result<WsRunOptions, JsValue> {
+    vm_options_from_args(debug_ext, max_memory_cells, strict_heap, randomize_heap)
+        .map_err(|msg| serde_wasm_bindgen::to_value(&ResultErr::single_error(msg)).unwrap())
 }
 
 /// Parse `std_extensions` for the VM: returns whether the debug extension is enabled
@@ -81,7 +112,9 @@ fn create_from_ws_source(
     // （fromWhitespace* も std_extensions で debug 拡張を指定できる）。
     // __clog の出力先（clog writer）は設定しない（出力は捨てる）。
     let vm = build_vm(ws_source, options).map_err(|e| {
-        let err = ResultErr::single_error(format!("Whitespace parse error: {:?}", e));
+        // Bug: the error used the Debug format (e.g. `InvalidCommand { position: 2, imp: "IO" }`), unlike
+        // step() errors and whitespace20. Fix: use the display message (same as whitespace20 `Parse error: ...`)
+        let err = ResultErr::single_error(format!("Whitespace parse error: {}", e));
         serde_wasm_bindgen::to_value(&err).unwrap()
     })?;
     let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
@@ -130,7 +163,7 @@ impl WasmWhitespaceVM {
     /// - `opt_passes`: Array of optimization passes (e.g., `["all"]`)
     /// - `max_memory_cells`: Memory limit of the VM in cells (heap addresses + data stack + return addresses).
     ///   `undefined` / `null` use `DEFAULT_MAX_MEMORY_CELLS_WASM` (4,194,304); only `0` means unlimited.
-    ///   The value is converted to u32 by wasm-bindgen (e.g. a negative number wraps), so pass a non-negative integer
+    ///   A value that is not a non-negative integer up to 4,294,967,295 is an error
     /// - `strict_heap`: Reading an uninitialized heap address is a runtime error (default: false)
     /// - `randomize_heap`: Reading an uninitialized heap address returns a deterministic non-zero value
     ///   (default: false; `strict_heap` takes precedence when both are true)
@@ -142,12 +175,15 @@ impl WasmWhitespaceVM {
         interactive: Option<bool>,
         std_extensions: Option<JsStdExtensionArray>,
         opt_passes: Option<JsOptPassArray>,
-        max_memory_cells: Option<u32>,
+        max_memory_cells: Option<f64>,
         strict_heap: Option<bool>,
         randomize_heap: Option<bool>,
     ) -> Result<WasmWhitespaceVM, JsValue> {
         let (debug_ext, alloc_ext) = pipeline::parse_std_extensions(std_extensions)
             .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
+        // Validate the VM arguments before compiling (same order as fromWhitespace*)
+        let options =
+            vm_options_from_js_args(debug_ext, max_memory_cells, strict_heap, randomize_heap)?;
 
         let ws_source = pipeline::compile_nospace(
             nospace_source,
@@ -158,8 +194,6 @@ impl WasmWhitespaceVM {
         )
         .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
-        let options =
-            vm_options_from_args(debug_ext, max_memory_cells, strict_heap, randomize_heap);
         create_from_ws_source(&ws_source, stdin, interactive.unwrap_or(false), &options)
     }
 
@@ -168,20 +202,20 @@ impl WasmWhitespaceVM {
     /// The VM arguments are the same as the tail of `new`:
     /// - `std_extensions`: `["debug"]` enables the debug extension of the VM.
     ///   `"alloc"` is a compile-time extension and has no effect here (accepted so the same array as for `new` can be passed)
-    /// - `max_memory_cells`: `undefined` / `null` use `DEFAULT_MAX_MEMORY_CELLS_WASM` (4,194,304); only `0` means unlimited
+    /// - `max_memory_cells`: same as `new` (`undefined` / `null` use `DEFAULT_MAX_MEMORY_CELLS_WASM` (4,194,304); only `0` means unlimited)
     /// - `strict_heap` / `randomize_heap`: same as `new`
     #[wasm_bindgen(js_name = "fromWhitespace")]
     pub fn from_whitespace(
         ws_source: &str,
         stdin: &str,
         std_extensions: Option<JsStdExtensionArray>,
-        max_memory_cells: Option<u32>,
+        max_memory_cells: Option<f64>,
         strict_heap: Option<bool>,
         randomize_heap: Option<bool>,
     ) -> Result<WasmWhitespaceVM, JsValue> {
         let debug_ext = debug_ext_from_std_extensions(std_extensions)?;
         let options =
-            vm_options_from_args(debug_ext, max_memory_cells, strict_heap, randomize_heap);
+            vm_options_from_js_args(debug_ext, max_memory_cells, strict_heap, randomize_heap)?;
         create_from_ws_source(ws_source, stdin, false, &options)
     }
 
@@ -195,13 +229,13 @@ impl WasmWhitespaceVM {
         ws_source: &str,
         initial_stdin: &str,
         std_extensions: Option<JsStdExtensionArray>,
-        max_memory_cells: Option<u32>,
+        max_memory_cells: Option<f64>,
         strict_heap: Option<bool>,
         randomize_heap: Option<bool>,
     ) -> Result<WasmWhitespaceVM, JsValue> {
         let debug_ext = debug_ext_from_std_extensions(std_extensions)?;
         let options =
-            vm_options_from_args(debug_ext, max_memory_cells, strict_heap, randomize_heap);
+            vm_options_from_js_args(debug_ext, max_memory_cells, strict_heap, randomize_heap)?;
         create_from_ws_source(ws_source, initial_stdin, true, &options)
     }
 

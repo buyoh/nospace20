@@ -3,7 +3,7 @@ use crate::compiler_ws::alloc_runtime::BumpAllocRuntime;
 use crate::semantic_analyzer::analyze;
 use crate::{parse_to_tokens, parse_to_tree};
 
-fn parse_and_analyze(code: &str) -> Scope {
+fn parse_and_analyze(code: &str) -> Program {
     let code_string = code.to_string();
     let tokens = parse_to_tokens(&code_string).expect("Failed to parse tokens");
     let tree = parse_to_tree(&tokens).expect("Failed to parse tree");

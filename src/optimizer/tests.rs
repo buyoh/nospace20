@@ -11,14 +11,14 @@ use crate::semantic_analyzer::{
 };
 
 /// AST 内の全 If/While の ConditionMode を再帰的に置換するヘルパー
-fn patch_condition_mode_in_scope(scope: &mut crate::semantic_analyzer::Scope, mode: ConditionMode) {
+fn patch_condition_mode_in_scope(
+    scope: &mut crate::semantic_analyzer::Program,
+    mode: ConditionMode,
+) {
     for func in &mut scope.functions {
         patch_condition_mode_in_block(&mut func.block, mode);
     }
-    for stmt in &mut scope.root_statements {
-        patch_condition_mode_in_statement(stmt, mode);
-    }
-    for stmt in &mut scope.static_init_statements {
+    for stmt in scope.top_level_statements_mut() {
         patch_condition_mode_in_statement(stmt, mode);
     }
 }
@@ -73,7 +73,8 @@ fn test_noop_pass_adds_marker_variable() {
     let s = crate::parse_to_tree(&t).unwrap();
     let mut scope = crate::semantic_analyze(&s).unwrap();
 
-    let orig_var_count = scope.variable_count;
+    let orig_slot_count = scope.global_slot_count;
+    let orig_root_var_count = scope.root_scope.variable_count;
 
     optimizer::optimize(
         &mut scope,
@@ -83,10 +84,12 @@ fn test_noop_pass_adds_marker_variable() {
         },
     );
 
-    // 変数が1つ追加されている
-    assert_eq!(scope.variable_count, orig_var_count + 1);
+    // グローバル領域が 1 スロット増えている（ルートのフレームのスロットは使わない）
+    assert_eq!(scope.global_slot_count, orig_slot_count + 1);
+    assert_eq!(scope.root_scope.variable_count, orig_root_var_count);
     // マーカー変数名が存在する
     assert!(scope
+        .root_scope
         .variable_indices
         .contains_key(noop_test_pass::MARKER_VAR_NAME));
     // root_statements が増えている
@@ -112,6 +115,7 @@ fn test_noop_pass_magic_number_initialized() {
     // マーカー変数はソースから参照できないので、実行せずに初期化文の構造を確かめる:
     // root_statements に「マーカー変数のスロット = MAGIC_NUMBER」の代入式があること
     let marker_slot = *scope
+        .root_scope
         .variable_indices
         .get(noop_test_pass::MARKER_VAR_NAME)
         .unwrap();
@@ -190,12 +194,12 @@ fn test_no_optimization_leaves_scope_unchanged() {
     let s = crate::parse_to_tree(&t).unwrap();
     let mut scope = crate::semantic_analyze(&s).unwrap();
 
-    let var_count_before = scope.variable_count;
+    let slot_count_before = scope.global_slot_count;
     let root_stmt_count_before = scope.root_statements.len();
 
     optimizer::optimize(&mut scope, &OptimizationOptions::none());
 
-    assert_eq!(scope.variable_count, var_count_before);
+    assert_eq!(scope.global_slot_count, slot_count_before);
     assert_eq!(scope.root_statements.len(), root_stmt_count_before);
 }
 

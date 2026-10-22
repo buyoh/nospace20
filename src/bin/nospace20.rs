@@ -8,11 +8,14 @@ use clap::{Parser, ValueEnum};
 use nospace20::cli_utils::CliCompileArgs;
 use nospace20::{
     compile_source, CodeParseError, CompileProperty, CompileTarget, NospaceError, TargetExtension,
-    TextCode, WsCompileOptions, WsOutputFormat,
+    TextCode, ValidationError, WsCompileOptions,
 };
 use unicode_width::UnicodeWidthStr;
 
 /// コンパイルターゲット
+///
+/// `Json` は未対応だが、`--target json` を「未実装」のエラーとして伝えるために受け付ける
+/// （ライブラリの `CompileTarget` には無い。変換で拒否する）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 enum CliTarget {
     #[default]
@@ -21,12 +24,16 @@ enum CliTarget {
     Json,
 }
 
-impl From<CliTarget> for CompileTarget {
-    fn from(cli: CliTarget) -> Self {
+impl TryFrom<CliTarget> for CompileTarget {
+    type Error = ValidationError;
+
+    fn try_from(cli: CliTarget) -> Result<Self, Self::Error> {
         match cli {
-            CliTarget::Ws => CompileTarget::Ws,
-            CliTarget::Mnemonic => CompileTarget::Mnemonic,
-            CliTarget::Json => CompileTarget::Json,
+            CliTarget::Ws => Ok(CompileTarget::Ws),
+            CliTarget::Mnemonic => Ok(CompileTarget::Mnemonic),
+            CliTarget::Json => Err(ValidationError::UnimplementedFeature(
+                "--target=json".to_string(),
+            )),
         }
     }
 }
@@ -112,20 +119,23 @@ fn main() {
     // Build optimization options first
     let opt_options = args.compile.build_optimization_options();
 
+    // Validation: 未対応のターゲット（--target json）はここで拒否する
+    let target = match args.target.map(CompileTarget::try_from).transpose() {
+        Ok(target) => target,
+        Err(err) => {
+            eprintln!("error: {}", err);
+            process::exit(1);
+        }
+    };
+
     // Build CompileProperty
     let property = CompileProperty {
         std: args.compile.std.into(),
-        target: args.target.map(Into::into),
+        target,
         target_extensions: args.compile.build_target_extensions(),
         output: args.output,
         debug: args.debug,
     };
-
-    // Validation
-    if let Err(err) = property.validate() {
-        eprintln!("error: {}", err);
-        process::exit(1);
-    }
 
     // Load source code
     let code_raw = if let Some(file_path) = args.file {
@@ -153,15 +163,10 @@ fn main() {
     // コンパイル
     let debug_ext = property.target_extensions.contains(&TargetExtension::Debug);
     let alloc_ext = property.target_extensions.contains(&TargetExtension::Alloc);
-    let output_format = match property.target_or_default() {
-        CompileTarget::Ws => WsOutputFormat::Whitespace,
-        CompileTarget::Mnemonic => WsOutputFormat::Mnemonic,
-        _ => unreachable!("Unsupported target should be caught by validation"),
-    };
     let ws_options = WsCompileOptions {
         debug_ext,
         alloc_ext,
-        output_format,
+        output_format: property.target_or_default().output_format(),
         optimization: opt_options,
     };
     let output = match compile_source(&code_raw, &ws_options) {

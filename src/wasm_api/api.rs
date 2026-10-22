@@ -8,7 +8,7 @@
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-use crate::{CompileTarget, LanguageStd, WsOutputFormat};
+use crate::{CompileTarget, LanguageStd};
 
 use super::pipeline;
 use super::types::{
@@ -62,12 +62,13 @@ pub fn compile(
         }
     };
 
-    let output_format = match compile_target {
-        CompileTarget::Ws => WsOutputFormat::Whitespace,
-        CompileTarget::Mnemonic => WsOutputFormat::Mnemonic,
-        _ => unreachable!(),
-    };
-    match pipeline::compile_nospace(source, opt_passes, debug_ext, alloc_ext, output_format) {
+    match pipeline::compile_nospace(
+        source,
+        opt_passes,
+        debug_ext,
+        alloc_ext,
+        compile_target.output_format(),
+    ) {
         Ok(output) => {
             let result = CompileResultOk {
                 success: true,

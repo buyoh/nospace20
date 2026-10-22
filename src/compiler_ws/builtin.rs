@@ -38,7 +38,7 @@ pub fn generate_footer(ctx: &CodeGenContext) -> Result<WsProgram, CompileError> 
     // __main 関数呼び出し
     // main_function_index を使用してラベルを取得（関数名ではなくインデックスで管理）
     let main_idx = ctx
-        .scope()
+        .program()
         .main_function_index
         .ok_or_else(|| CompileError::new(CompileErrorKind::MainNotFound))?;
     let main_label = ctx

@@ -5,9 +5,7 @@ use std::collections::BTreeMap;
 use crate::{base::CodeParseError, code_parse_error};
 
 use super::exec_context::{ExecContext, ExecUnit};
-use super::types::{
-    Block, IdentifierRef, LocatedExecStatement, StructDefinition, ValueType, Variable,
-};
+use super::types::{Block, IdentifierRef, StructDefinition, ValueType, Variable};
 use crate::tree_parser::LocatedStatement;
 
 /// 関数の解決結果
@@ -71,16 +69,8 @@ impl Function {
             variable_name_to_var_index: BTreeMap::new(),
             variables: Vec::new(),
             variable_count: 0,
-            functions: Vec::new(),
             struct_definitions: Vec::new(),
             struct_name_to_index: BTreeMap::new(),
-            symbol_table: SymbolTable {
-                function_names: Vec::new(),
-                function_name_to_index: BTreeMap::new(),
-            },
-            main_function_index: None,
-            static_init_statements: Vec::new(),
-            root_statements: Vec::new(),
         };
         Function {
             arg_indices: Vec::new(),
@@ -99,16 +89,13 @@ impl Function {
     }
 }
 
-/// スコープ情報
+/// スコープ情報（ルート・関数本体・ブロックで共通）
 ///
 /// 変数インデックス管理を含む。
 /// 変数名からローカルインデックスへのマッピングを保持することで、
 /// 実行時に Vec<i64> ベースの高速アクセスを可能にする。
 ///
-/// is_function_scope フラグも保持。関数スコープ境界を越える場合、
-/// static 変数のみアクセス可能。
-///
-/// ルートスコープには実行文（グローバル変数の初期化）も追加。
+/// プログラム全体で 1 つだけある表（全関数・初期化文・グローバル領域の大きさ）は `Program` が持つ。
 pub struct Scope {
     pub(super) identifier_map: BTreeMap<String, Identifier>,
 
@@ -126,46 +113,13 @@ pub struct Scope {
     /// 変数のスロット総数（配列サイズを考慮）
     /// WS コンパイラがこのスコープの変数領域を確保する際に使用
     /// 関数スコープ・ブロックスコープの static 変数はグローバル領域にあるので数えない。
-    /// ルートスコープではグローバル領域の大きさで、ルートの変数に加えて、関数スコープ・ブロックスコープの
-    /// すべての static 変数の分（`variables` に無い、名前の無いスロット）を含む
+    /// ルートスコープではルートの変数の分だけ（グローバル領域全体の大きさは `Program::global_slot_count`）
     pub(crate) variable_count: usize,
-
-    /// 関数リスト（WS コンパイラ・optimizer からアクセスするため pub(crate)）
-    pub(crate) functions: Vec<Function>,
 
     /// 構造体定義
     pub struct_definitions: Vec<StructDefinition>,
     /// 構造体名 → インデックス
     pub struct_name_to_index: BTreeMap<String, usize>,
-
-    /// デバッグ用シンボルテーブル
-    pub symbol_table: SymbolTable,
-
-    /// main 関数のインデックス（存在する場合）
-    /// 関数名による検索を排除し、インデックスベースでアクセス
-    pub main_function_index: Option<usize>,
-
-    /// static 変数の初期化文（ルートスコープだけ。それ以外は空）
-    /// ルート・関数・ブロックのすべての static 変数の初期化式を、ソース順に並べる
-    /// （初期化子の中で宣言した static は、その static より先）。ルートの文（`root_statements`）より先に実行する
-    pub(crate) static_init_statements: Vec<LocatedExecStatement>,
-
-    /// ルートスコープの実行文（非 static グローバル変数の初期化）
-    /// 関数スコープ・ブロックスコープでは空
-    pub(crate) root_statements: Vec<LocatedExecStatement>,
-}
-
-impl Scope {
-    #[cfg(test)]
-    pub(crate) fn get_function(&self, id: &str) -> Option<&Function> {
-        let idx = self.symbol_table.function_name_to_index.get(id)?;
-        Some(&self.functions[*idx])
-    }
-
-    /// 指定した名前の関数が存在するかチェックする
-    pub fn has_function(&self, id: &str) -> bool {
-        self.symbol_table.function_name_to_index.contains_key(id)
-    }
 }
 
 /// スコープの種類
@@ -743,14 +697,9 @@ impl ScopeBuilder {
     }
 
     /// スコープをビルドする
-    /// functions と function_names を引数として受け取る
-    /// ルートスコープの場合のみ有効な値を渡し、それ以外は空の Vec を渡す
-    pub fn build(
-        mut self,
-        root_statements: Vec<LocatedExecStatement>,
-        functions: Vec<Function>,
-        function_names: Vec<String>,
-    ) -> Scope {
+    ///
+    /// ルートでしか値を持たない表（全関数・初期化文など）は `Program` が持つ（`analyze` が組み立てる）
+    pub fn build(mut self) -> Scope {
         // 変数名からスロットインデックスへのマッピングを構築し、各 Variable に slot_index を設定
         // スロット数の合計は analyze_internal_with_parent で compute_slot_layout により検査済み
         // （ScopeBuilder は analyze_internal_with_parent でのみ作られ、その後に変数は追加されない）
@@ -765,54 +714,49 @@ impl ScopeBuilder {
             var.slot_index = variable_indices[&self.variable_names[var_idx]];
         }
 
-        // __main 関数のインデックスを解決
-        let main_function_index = function_names.iter().position(|name| name == "__main");
-
-        // SymbolTable を構築
-        let mut function_name_to_index = BTreeMap::new();
-        for (idx, name) in function_names.iter().enumerate() {
-            function_name_to_index.insert(name.clone(), idx);
-        }
-        let symbol_table = SymbolTable {
-            function_names,
-            function_name_to_index,
-        };
-
         Scope {
             identifier_map: self.identifier_map,
             variable_indices,
             variable_name_to_var_index,
             variables: self.variables,
             variable_count,
-            functions,
             struct_definitions: self.struct_definitions,
             struct_name_to_index: self.struct_name_to_index,
-            symbol_table,
-            main_function_index,
-            static_init_statements: Vec::new(),
-            root_statements,
         }
     }
 
+    /// 識別子を登録する。同じ名前が登録済みならエラー
+    ///
+    /// `location` は登録しようとした宣言の位置（文字インデックス）。重複エラーの位置に使う。
+    ///
+    /// バグ: 位置を受け取らず、重複エラー（`the name '...' is already used`）に行・列が付かなかった。
+    /// 解決策: 呼び出し元から宣言の位置を受け取り、エラーに付ける。
     pub fn add_identifier(
         &mut self,
         name: &str,
         identifier: Identifier,
+        location: usize,
     ) -> Result<(), Vec<CodeParseError>> {
         if self.identifier_map.contains_key(name) {
-            return Err(vec![code_parse_error!(format!(
-                "semantic error: the name '{}' is already used",
-                name
-            ))]);
+            return Err(vec![code_parse_error!(
+                location,
+                format!("semantic error: the name '{}' is already used", name)
+            )]);
         }
         self.identifier_map.insert(name.to_string(), identifier);
         Ok(())
     }
 
-    pub fn add_variable(&mut self, name: &str, var: Variable) -> Result<(), Vec<CodeParseError>> {
+    /// 変数を登録する。`location` は `add_identifier` と同じ
+    pub fn add_variable(
+        &mut self,
+        name: &str,
+        var: Variable,
+        location: usize,
+    ) -> Result<(), Vec<CodeParseError>> {
         let vi = self.variables.len();
         self.variables.push(var);
         self.variable_names.push(name.to_string());
-        self.add_identifier(name, Identifier::Variable(VariableIndex(vi)))
+        self.add_identifier(name, Identifier::Variable(VariableIndex(vi)), location)
     }
 }

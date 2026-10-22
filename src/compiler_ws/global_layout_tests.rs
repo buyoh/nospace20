@@ -2,7 +2,7 @@ use super::*;
 use crate::semantic_analyzer::analyze;
 use crate::{parse_to_tokens, parse_to_tree};
 
-fn parse_and_analyze(code: &str) -> Scope {
+fn parse_and_analyze(code: &str) -> Program {
     let code_string = code.to_string();
     let tokens = parse_to_tokens(&code_string).expect("Failed to parse tokens");
     let tree = parse_to_tree(&tokens).expect("Failed to parse tree");
@@ -19,7 +19,7 @@ fn test_root_block_region_follows_globals_and_statics() {
          func: __main() { return: f(); }",
     );
     // グローバル領域 = ルートの変数 2 個 + 関数の static 1 個
-    assert_eq!(scope.variable_count, 3);
+    assert_eq!(scope.global_slot_count, 3);
     let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");
     assert_eq!(layout.root_init_block_range(), 3..6);
     assert_eq!(layout.total_size(), 6);
@@ -48,7 +48,7 @@ fn test_function_statics_are_in_global_region_not_in_frame() {
         "func: f() { static: s(1); static: buf[2]; let: x; static: big[100]; x = 1; return: s; }
          func: __main() { return: f(); }",
     );
-    assert_eq!(scope.variable_count, 103);
+    assert_eq!(scope.global_slot_count, 103);
     let f = scope.get_function("f").expect("f must exist");
     assert_eq!(f.block.scope.variable_count, 1);
     let layout = GlobalLayout::compute(&scope, 0).expect("layout must fit");

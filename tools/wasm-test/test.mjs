@@ -370,6 +370,41 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   const vmWsiRandom = WasmWhitespaceVM.fromWhitespaceInteractive(uninitWs, "", undefined, undefined, false, true);
   assert.equal(runUntilStop(vmWsiRandom).status, "complete", "fromWhitespaceInteractive randomize_heap status");
   assert.notEqual(vmWsiRandom.flush_stdout(), "0", "fromWhitespaceInteractive randomize_heap reads non-zero");
+
+  // Returns the ResultErr thrown by `construct`
+  function thrownResultErr(construct, label) {
+    let thrown;
+    try {
+      construct();
+    } catch (e) {
+      thrown = e;
+    }
+    assert.ok(thrown !== undefined, `${label}: expected to throw`);
+    expectFailure(thrown, label);
+    return thrown;
+  }
+
+  // a Whitespace parse error uses the display message (not the Debug format)
+  const parseErr = thrownResultErr(() => WasmWhitespaceVM.fromWhitespace("\t\n\n", ""), "fromWhitespace parse error");
+  assert.equal(
+    parseErr.errors[0].message,
+    "Whitespace parse error: invalid command for IMP 'IO' at position 2",
+    "fromWhitespace parse error message"
+  );
+
+  // max_memory_cells that is not a non-negative integer is rejected (it used to wrap to u32)
+  for (const invalid of [-1, 1.5, 4294967296]) {
+    const newErr = thrownResultErr(
+      () => new WasmWhitespaceVM("func: __main() { }", "", false, undefined, undefined, invalid),
+      `new max_memory_cells ${invalid}`
+    );
+    assert.match(newErr.errors[0].message, /^invalid max_memory_cells: /, `new max_memory_cells ${invalid} message`);
+  }
+  const wsInvalidLimitErr = thrownResultErr(
+    () => WasmWhitespaceVM.fromWhitespace(recursionWs.output, "", undefined, -1),
+    "fromWhitespace max_memory_cells -1"
+  );
+  assert.match(wsInvalidLimitErr.errors[0].message, /^invalid max_memory_cells: /, "fromWhitespace max_memory_cells -1 message");
 }
 
 // 6. Compile error tests (semantic errors)

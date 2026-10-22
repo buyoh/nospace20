@@ -144,8 +144,8 @@ fn test_success_global_variable() {
 
     let scope = result.unwrap();
     // グローバル変数が登録されていることを確認
-    assert_eq!(scope.variable_count, 1);
-    assert!(scope.variables[0].is_static); // 暗黙的に static
+    assert_eq!(scope.root_scope.variable_count, 1);
+    assert!(scope.root_scope.variables[0].is_static); // 暗黙的に static
 }
 
 #[test]
@@ -789,7 +789,7 @@ fn test_variable_slot_index() {
 }
 
 /// ソースコードを字句解析・構文解析して意味解析する（テスト用）
-fn analyze_source(source: &str) -> Result<Scope, Vec<CodeParseError>> {
+fn analyze_source(source: &str) -> Result<Program, Vec<CodeParseError>> {
     let tokens = crate::parse_to_tokens(&source.to_string()).expect("tokenize failed");
     let tree = crate::parse_to_tree(&tokens).expect("parse failed");
     analyze(&tree)
@@ -958,7 +958,7 @@ fn test_block_static_is_in_global_region() {
         _ => panic!("expected a return statement"),
     }
     // グローバル領域 = ルートの変数 0 個 + ブロックの static 1 個
-    assert_eq!(scope.variable_count, 1);
+    assert_eq!(scope.global_slot_count, 1);
 }
 
 #[test]
@@ -967,8 +967,11 @@ fn test_function_statics_do_not_use_frame_slots() {
     let scope = analyze_source(source).expect("analyze failed");
     let f = scope.get_function("f").expect("f must exist");
     assert_eq!(f.block.scope.variable_count, 1, "only b uses a frame slot");
-    assert_eq!(scope.variable_count, 2, "g and the static a");
-    assert!(f.block.scope.static_init_statements.is_empty());
+    assert_eq!(scope.global_slot_count, 2, "g and the static a");
+    assert_eq!(
+        scope.root_scope.variable_count, 1,
+        "only g uses a root slot"
+    );
 }
 
 #[test]
@@ -1052,4 +1055,64 @@ fn test_global_slot_allocator_follows_root_variables_and_detects_overflow() {
 fn test_global_slot_allocator_rejects_allocation_before_start() {
     let mut slots = analysis_tables::GlobalSlotAllocator::new();
     let _ = slots.allocate(1);
+}
+
+/// 名前の重複エラーの位置（文字インデックス）を返す。重複エラー以外なら panic
+fn duplicate_name_error_position(source: &str) -> Option<usize> {
+    let errors = match analyze_source(source) {
+        Ok(_) => panic!("expected a duplicate name error: {}", source),
+        Err(errors) => errors,
+    };
+    assert_eq!(errors.len(), 1, "{}", source);
+    assert!(
+        errors[0].message.contains("is already used"),
+        "{}: {}",
+        source,
+        errors[0].message
+    );
+    errors[0].code_pointer
+}
+
+#[test]
+fn test_duplicate_function_in_block_has_location() {
+    let source = "{ func: k(){} func: k(){} }; func: __main() {}";
+    let expected = source.find("func: k(){} }").unwrap();
+    assert_eq!(duplicate_name_error_position(source), Some(expected));
+}
+
+#[test]
+fn test_variable_and_function_with_same_name_in_block_has_location() {
+    // 関数を先に登録するので、変数の宣言の方が重複になる
+    let source = "{ let: k(1); func: k(){} }; func: __main() {}";
+    let expected = source.find("let: k").unwrap();
+    assert_eq!(duplicate_name_error_position(source), Some(expected));
+}
+
+#[test]
+fn test_duplicate_function_in_function_scope_has_location() {
+    let source = "func: f() { func: k(){} func: k(){} } func: __main() {}";
+    let expected = source.find("func: k(){} }").unwrap();
+    assert_eq!(duplicate_name_error_position(source), Some(expected));
+}
+
+#[test]
+fn test_duplicate_function_in_root_has_location() {
+    let source = "func: k(){} func: k(){} func: __main() {}";
+    let expected = source.find("func: k(){} func: __main").unwrap();
+    assert_eq!(duplicate_name_error_position(source), Some(expected));
+}
+
+#[test]
+fn test_duplicate_argument_has_function_location() {
+    // 引数ごとの位置は AST に無いので、関数宣言の位置
+    let source = "func: f(a, a) {} func: __main() {}";
+    let expected = source.find("func: f").unwrap();
+    assert_eq!(duplicate_name_error_position(source), Some(expected));
+}
+
+#[test]
+fn test_argument_and_local_variable_with_same_name_has_location() {
+    let source = "func: f(a) { let: a; } func: __main() {}";
+    let expected = source.find("let: a").unwrap();
+    assert_eq!(duplicate_name_error_position(source), Some(expected));
 }

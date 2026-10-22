@@ -28,19 +28,16 @@
 use crate::base::SourceLocation;
 use crate::semantic_analyzer::{
     Block, ConditionMode, ExecExpression, ExecStatement, LocatedExecExpression,
-    LocatedExecStatement, Scope,
+    LocatedExecStatement, Program,
 };
 use crate::tree_parser::Operator2;
 
 /// 条件式最適化パスを適用する
-pub fn apply(scope: &mut Scope) {
-    for func in &mut scope.functions {
+pub fn apply(program: &mut Program) {
+    for func in &mut program.functions {
         optimize_block(&mut func.block);
     }
-    for stmt in &mut scope.root_statements {
-        optimize_statement(stmt);
-    }
-    for stmt in &mut scope.static_init_statements {
+    for stmt in program.top_level_statements_mut() {
         optimize_statement(stmt);
     }
 }

@@ -1,6 +1,6 @@
 //! optimizer のユニットテスト用ヘルパ
 //!
-//! 最適化パスの前後で意味が変わらないことを、Scope を Whitespace にコンパイルして
+//! 最適化パスの前後で意味が変わらないことを、Program を Whitespace にコンパイルして
 //! WhitespaceVM で実行した結果（`__trace` のヒット回数と stdout）の比較で確かめる。
 //! コンパイラは前後で共通なので、差が出れば多くの場合は最適化パスが原因である。
 //! ただし最適化後にだけ現れる IR はコンパイラの別の経路を通るので、各テストでは
@@ -8,14 +8,14 @@
 
 use std::collections::BTreeMap;
 
-use crate::semantic_analyzer::Scope;
+use crate::semantic_analyzer::Program;
 use crate::whitespace::{StepResult, WhitespaceVM};
 use crate::{compile_to_ws, WsCompileOptions};
 
 /// 実行ステップの上限（large テストと同じ）
 const MAX_STEPS: usize = 1_000_000;
 
-/// Scope を WS にコンパイルし、WhitespaceVM で実行した結果
+/// Program を WS にコンパイルし、WhitespaceVM で実行した結果
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct WsRunOutcome {
     /// __trace のキーごとのヒット回数
@@ -26,9 +26,9 @@ pub(super) struct WsRunOutcome {
 
 /// debug 拡張ありでコンパイルし、stdin を与えて実行する。
 /// コンパイルエラー・実行時エラー・ステップ上限超過は panic（テストの失敗）にする
-pub(super) fn run_ws(scope: &Scope, stdin: &str) -> WsRunOutcome {
+pub(super) fn run_ws(program: &Program, stdin: &str) -> WsRunOutcome {
     let ws = compile_to_ws(
-        scope,
+        program,
         &WsCompileOptions {
             debug_ext: true,
             ..Default::default()

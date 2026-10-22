@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    context::AnalyzeContext,
+    analysis_tables::AnalysisTables,
     exec_context::ExecUnit,
     expression::convert_to_exec_expression_with_resolver,
     scope::{Identifier, ScopeBuilder, ScopeResolver, ScopeType},
@@ -32,13 +32,13 @@ use super::{
 /// - `scope_type` - 現在のスコープ種別（Root / Function / Block）
 /// - `scope` - 構築中のスコープ（static 初期化文付加のため）
 /// - `resolver` - 識別子解決器
-/// - `ctx` - 解析コンテキスト（グローバル関数表等）
+/// - `tables` - 全スコープで共有する表（グローバル関数表等）
 pub(super) fn convert_to_exec_statements(
     statements: &Vec<LocatedStatement>,
     scope_type: ScopeType,
     scope: &mut ScopeBuilder,
     resolver: &ScopeResolver,
-    ctx: &mut AnalyzeContext,
+    tables: &mut AnalysisTables,
 ) -> Result<Vec<LocatedExecStatement>, Vec<CodeParseError>> {
     let mut exec_statements = Vec::<LocatedExecStatement>::new();
 
@@ -86,11 +86,11 @@ pub(super) fn convert_to_exec_statements(
                                         let exec_expr = convert_to_exec_expression_with_resolver(
                                             &Box::new(expr.clone()),
                                             init_resolver,
-                                            ctx.tables,
+                                            tables,
                                         )?;
                                         super::expression::require_int_type(
                                             &exec_expr,
-                                            ctx.tables.functions.return_types(),
+                                            tables.functions.return_types(),
                                         )?;
                                         value_exprs.push(exec_expr);
                                         arg_index += 1;
@@ -107,11 +107,11 @@ pub(super) fn convert_to_exec_statements(
                                                 convert_to_exec_expression_with_resolver(
                                                     &Box::new(expr.clone()),
                                                     init_resolver,
-                                                    ctx.tables,
+                                                    tables,
                                                 )?;
                                             super::expression::require_int_type(
                                                 &exec_expr,
-                                                ctx.tables.functions.return_types(),
+                                                tables.functions.return_types(),
                                             )?;
                                             value_exprs.push(exec_expr);
                                             arg_index += 1;
@@ -157,11 +157,11 @@ pub(super) fn convert_to_exec_statements(
                                                         convert_to_exec_expression_with_resolver(
                                                             &Box::new(nested_expr.clone()),
                                                             init_resolver,
-                                                            ctx.tables,
+                                                            tables,
                                                         )?;
                                                     super::expression::require_int_type(
                                                         &exec_expr,
-                                                        ctx.tables.functions.return_types(),
+                                                        tables.functions.return_types(),
                                                     )?;
                                                     value_exprs.push(exec_expr);
                                                     nested_index += 1;
@@ -224,7 +224,7 @@ pub(super) fn convert_to_exec_statements(
                             }
 
                             if *is_static_explicit {
-                                ctx.tables.static_init_statements.extend(init_statements);
+                                tables.static_init_statements.extend(init_statements);
                             } else {
                                 exec_statements.extend(init_statements);
                             }
@@ -251,10 +251,10 @@ pub(super) fn convert_to_exec_statements(
                             values,
                             loc,
                             init_resolver,
-                            ctx,
+                            tables,
                         )?;
                         if *is_static_explicit {
-                            ctx.tables.static_init_statements.extend(init_statements);
+                            tables.static_init_statements.extend(init_statements);
                         } else {
                             exec_statements.extend(init_statements);
                         }
@@ -272,17 +272,14 @@ pub(super) fn convert_to_exec_statements(
                 ) = &init.expression
                 {
                     // 初期化代入: rhs のみ変換し、Assign を直接構築（final チェックなし）
-                    let exec_rhs = convert_to_exec_expression_with_resolver(
-                        rhs_expr,
-                        init_resolver,
-                        ctx.tables,
-                    )?;
+                    let exec_rhs =
+                        convert_to_exec_expression_with_resolver(rhs_expr, init_resolver, tables)?;
                     super::expression::require_int_type(
                         &exec_rhs,
-                        ctx.tables.functions.return_types(),
+                        tables.functions.return_types(),
                     )?;
                     let exec_lhs =
-                        convert_to_exec_expression_with_resolver(lhs_expr, resolver, ctx.tables)?;
+                        convert_to_exec_expression_with_resolver(lhs_expr, resolver, tables)?;
                     super::expression::make_located_exec(
                         super::types::ExecExpression::Operation2(
                             Operator2::Assign,
@@ -293,11 +290,11 @@ pub(super) fn convert_to_exec_statements(
                     )
                 } else {
                     // 初期値なし（Factor(0)）の場合は通常変換
-                    convert_to_exec_expression_with_resolver(init, init_resolver, ctx.tables)?
+                    convert_to_exec_expression_with_resolver(init, init_resolver, tables)?
                 };
                 if let Some(type_spec) = type_annot {
                     let expected = super::expression::resolve_type_spec(type_spec, resolver)?;
-                    let actual = exec_init.infer_type(ctx.tables.functions.return_types());
+                    let actual = exec_init.infer_type(tables.functions.return_types());
                     if matches!(var_type, ValueType::Struct(_))
                         && matches!(exec_init.expression, ExecExpression::Factor(0))
                     {
@@ -316,7 +313,7 @@ pub(super) fn convert_to_exec_statements(
                 // - ルートスコープ: static 変数の初期化は非 static より先に実行
                 // - 関数スコープ: static 変数の初期化は main 前に1回だけ実行
                 if *is_static_explicit {
-                    ctx.tables.static_init_statements.push(located);
+                    tables.static_init_statements.push(located);
                 } else {
                     exec_statements.push(located);
                 }
@@ -335,18 +332,19 @@ pub(super) fn convert_to_exec_statements(
 
                 // 関数本体を解析（親resolverを渡してグローバル変数を参照可能にする）
                 // グローバル関数表を共有する。関数インデックスは return の型検査に使う
-                let mut func_ctx = AnalyzeContext::new(ctx.tables);
                 let (s, es) = super::analyze_internal_with_parent(
                     block,
                     ScopeType::Function {
                         func_index: global_idx,
                     },
-                    args.clone(),
+                    Some(super::InitialVars {
+                        vars: args.clone(),
+                        declaration_location: loc.start,
+                    }),
                     Some(resolver),
-                    &mut func_ctx,
+                    &mut *tables,
                 )?;
-                // 非ルートスコープの build() には空の functions/function_names を渡す
-                let built_scope = s.build(Vec::new(), Vec::new(), Vec::new()); // root_statementsは空
+                let built_scope = s.build();
 
                 // 引数のインデックスを事前計算（最適化）
                 let arg_indices: Vec<usize> = args
@@ -360,7 +358,7 @@ pub(super) fn convert_to_exec_statements(
                     .collect();
 
                 // 関数の戻り値型はパス1aで決定済み（define は戻り値型を変えない）
-                ctx.tables.functions.define(
+                tables.functions.define(
                     global_idx,
                     arg_indices,
                     Block {
@@ -374,11 +372,11 @@ pub(super) fn convert_to_exec_statements(
                 match e {
                     Some(expr) => {
                         let exec_e =
-                            convert_to_exec_expression_with_resolver(expr, resolver, ctx.tables)?;
+                            convert_to_exec_expression_with_resolver(expr, resolver, tables)?;
                         // return: の式は Int でなければならない
                         super::expression::require_int_type(
                             &exec_e,
-                            ctx.tables.functions.return_types(),
+                            tables.functions.return_types(),
                         )?;
                         exec_statements.push(LocatedExecStatement {
                             statement: ExecStatement::Return(Some(exec_e)),
@@ -387,10 +385,10 @@ pub(super) fn convert_to_exec_statements(
                     }
                     None => {
                         // void return: 関数が int 型（return: expr; がある）場合はエラー
-                        // バグ: 関数インデックスを AnalyzeContext から取っていたため、ブロック・for-init の中では
+                        // バグ: 関数インデックスを解析コンテキスト（当時の AnalyzeContext）から取っていたため、ブロック・for-init の中では
                         // None になり、int の関数の `return:;` が検査されずに 0 を返していた。
                         // 解決策: 実行文脈（ブロックにも引き継がれる）の関数インデックスで検査する。
-                        if *ctx.tables.functions.return_type(func_index) != ValueType::Void {
+                        if *tables.functions.return_type(func_index) != ValueType::Void {
                             return Err(vec![code_parse_error!(
                                 loc.start,
                                 "semantic error: return without value in non-void function"
@@ -408,7 +406,7 @@ pub(super) fn convert_to_exec_statements(
                 // 式文は void 型でも OK（値は捨てられる）
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::Expression(convert_to_exec_expression_with_resolver(
-                        e, resolver, ctx.tables,
+                        e, resolver, tables,
                     )?),
                     location: loc.clone(),
                 });
@@ -437,20 +435,16 @@ pub(super) fn convert_to_exec_statements(
                 // 条件・本体はループの内側（WS コンパイラも条件の前にループのラベルを積む）
                 let loop_resolver = resolver.for_loop_body();
                 let exec_cond =
-                    convert_to_exec_expression_with_resolver(expr, &loop_resolver, ctx.tables)?;
+                    convert_to_exec_expression_with_resolver(expr, &loop_resolver, tables)?;
                 // void 型の式は条件式に使用不可
-                super::expression::require_int_type(
-                    &exec_cond,
-                    ctx.tables.functions.return_types(),
-                )?;
-                let (s, es) =
-                    super::analyze_block_for_expression(stat, &loop_resolver, ctx.tables)?;
+                super::expression::require_int_type(&exec_cond, tables.functions.return_types())?;
+                let (s, es) = super::analyze_block_for_expression(stat, &loop_resolver, tables)?;
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::While(
                         ConditionMode::NonZero,
                         exec_cond,
                         Block {
-                            scope: s.build(Vec::new(), Vec::new(), Vec::new()),
+                            scope: s.build(),
                             statements: es,
                         },
                     ),
@@ -470,17 +464,14 @@ pub(super) fn convert_to_exec_statements(
                 // バグ: 以前は func_global_index=None を渡して for-init の中の return の型検査を飛ばしており、
                 // int の関数の for-init の `return:;` が通っていた。
                 // 解決策: return の型検査を実行文脈（ブロックにも引き継がれる）で行う。
-                let (init_sb, init_es) = {
-                    let mut for_init_ctx = AnalyzeContext::new(&mut *ctx.tables);
-                    super::analyze_internal_with_parent(
-                        init_stmts,
-                        ScopeType::Block,
-                        Vec::new(),
-                        Some(resolver),
-                        &mut for_init_ctx,
-                    )?
-                };
-                let init_scope = init_sb.build(Vec::new(), Vec::new(), Vec::new());
+                let (init_sb, init_es) = super::analyze_internal_with_parent(
+                    init_stmts,
+                    ScopeType::Block,
+                    None,
+                    Some(resolver),
+                    &mut *tables,
+                )?;
+                let init_scope = init_sb.build();
 
                 // Step 2: for スコープのリゾルバを構築
                 // 現在のスコープに init スコープを重ねることで、
@@ -514,15 +505,15 @@ pub(super) fn convert_to_exec_statements(
 
                 // Step 3: cond ブロックを解析
                 let (cond_sb, cond_es) =
-                    super::analyze_block_for_expression(cond_stmts, &for_resolver, ctx.tables)?;
-                let cond_scope = cond_sb.build(Vec::new(), Vec::new(), Vec::new());
+                    super::analyze_block_for_expression(cond_stmts, &for_resolver, tables)?;
+                let cond_scope = cond_sb.build();
 
                 // 条件ブロックの型チェック: 最後の式が int 型でなければならない
                 let temp_cond_block = Block {
                     scope: cond_scope,
                     statements: cond_es,
                 };
-                if infer_block_type(&temp_cond_block, ctx.tables.functions.return_types())
+                if infer_block_type(&temp_cond_block, tables.functions.return_types())
                     != ValueType::Int
                 {
                     return Err(vec![code_parse_error!(
@@ -537,11 +528,11 @@ pub(super) fn convert_to_exec_statements(
 
                 // Step 4: step ブロックを解析
                 let (step_sb, step_es) =
-                    super::analyze_block_for_expression(step_stmts, &for_resolver, ctx.tables)?;
+                    super::analyze_block_for_expression(step_stmts, &for_resolver, tables)?;
 
                 // Step 5: body ブロックを解析
                 let (body_sb, body_es) =
-                    super::analyze_block_for_expression(body_stmts, &for_resolver, ctx.tables)?;
+                    super::analyze_block_for_expression(body_stmts, &for_resolver, tables)?;
 
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::For(
@@ -555,11 +546,11 @@ pub(super) fn convert_to_exec_statements(
                             statements: cond_es,
                         },
                         Block {
-                            scope: step_sb.build(Vec::new(), Vec::new(), Vec::new()),
+                            scope: step_sb.build(),
                             statements: step_es,
                         },
                         Block {
-                            scope: body_sb.build(Vec::new(), Vec::new(), Vec::new()),
+                            scope: body_sb.build(),
                             statements: body_es,
                         },
                     ),
@@ -589,7 +580,7 @@ pub(super) fn convert_to_exec_statements(
                     exec: resolver.exec,
                 };
                 let body_stmts =
-                    convert_to_exec_statements(body, scope_type, scope, &ns_resolver, ctx)?;
+                    convert_to_exec_statements(body, scope_type, scope, &ns_resolver, tables)?;
                 // ns_resolver は再入不可のため明示的にクリーンアップは不要
                 let _ = ns_resolver;
                 exec_statements.extend(body_stmts);
@@ -671,7 +662,7 @@ fn expand_array_initializer(
     values: &[Box<LocatedExpression>],
     statement_location: &SourceLocation,
     resolver: &ScopeResolver,
-    ctx: &mut AnalyzeContext,
+    tables: &mut AnalysisTables,
 ) -> Result<Vec<LocatedExecStatement>, Vec<CodeParseError>> {
     // パーサは配列の宣言（型は Array）にだけ配列の初期化子を作る
     let ValueType::Array(_, array_size) = var_type else {
@@ -679,8 +670,8 @@ fn expand_array_initializer(
     };
     let mut init_statements = Vec::with_capacity(values.len());
     for (i, value) in values.iter().enumerate() {
-        let exec_value = convert_to_exec_expression_with_resolver(value, resolver, ctx.tables)?;
-        super::expression::require_int_type(&exec_value, ctx.tables.functions.return_types())?;
+        let exec_value = convert_to_exec_expression_with_resolver(value, resolver, tables)?;
+        super::expression::require_int_type(&exec_value, tables.functions.return_types())?;
         let lhs = super::expression::make_located_exec(
             ExecExpression::ArrayAccess(
                 var_ref,
