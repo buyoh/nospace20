@@ -486,11 +486,14 @@ impl<'a> ScopeResolver<'a> {
         // バグ: static 変数の初期化子は __main の前に実行されるのに、初期化子の外のローカル変数
         // （引数・関数やブロックの非 static 変数）を参照でき、未定義の値を読んでいた。
         // 解決策: 初期化子の外（スタック上の位置が unit_base より下）の非 static 変数を見つけたらエラーにする。
-        // 外側の同名の変数へ黙って解決しないよう、関数境界の読み飛ばしより先に判定し、探索を打ち切る。
+        // 同じ関数の中の同名の変数を飛ばして外側の変数へ黙って解決しないよう、探索を打ち切る。
+        // ただし最も内側の関数の境界より外の非 static 変数は、`let:` の初期化と同じく元々見えない
+        // （下の読み飛ばしで外側を探す）ので、エラーにしない。
         let position = self.scope_stack.len() - 1 - depth;
         if self.exec.unit == ExecUnit::StaticInitializer
             && position < self.exec.unit_base
             && !var.is_static
+            && !crossed_function_boundary
         {
             return VariableLookup::Forbidden(format!(
                 "semantic error: initializer of a static variable cannot reference non-static variable '{}'",
@@ -633,9 +636,19 @@ impl<'a> ScopeResolver<'a> {
                     .then(|| candidate.to_string())
             })
             .unwrap_or_else(|| name.to_string());
+        // バグ: エイリアスが無いときに、名前を import した完全修飾名に置き換えて返していたため、
+        // 呼び出し元の探索で同名のローカル変数が見つからず、import した変数に解決されていた。
+        // 解決策: import した名前がエイリアスのときだけ置き換えて、そのチェーンをたどる。それ以外は元の名前を返し、
+        // import は呼び出し元の探索（スコープごとに候補 → import の順）に任せる。
         if current == name {
             if let Some(imported) = self.resolve_imported_name(name) {
-                current = imported;
+                let imported_is_alias = self
+                    .scope_stack
+                    .iter()
+                    .any(|scope_info| scope_info.alias_map.contains_key(&imported));
+                if imported_is_alias {
+                    current = imported;
+                }
             }
         }
         loop {

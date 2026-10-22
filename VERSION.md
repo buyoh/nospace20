@@ -8,13 +8,13 @@ MAJOR
 
 MINOR
 
-- Language: static variables can be declared in block scopes (previously their initializers were ignored and their values were not kept). All static variables are initialized before __main in source order, followed by root-level let variables; previously function statics were initialized per function after root statics. Statics of unused functions are always initialized, also with --opt dead-code
+- Language: static variables can be declared in block scopes (previously their initializers were ignored and their values were not kept). All static variables are initialized before __main in source order, followed by root-level let variables; previously function statics were initialized per function after root statics. Statics of unused functions are always initialized, also with --opt dead-code. If the static variables do not fit in the global region, compilation fails with `total size of global and static variables is too large`
 - Language: Initializers of static variables cannot reference non-static variables declared outside the initializer (function arguments, local variables, variables of root-level blocks), and cannot use return or break / continue targeting a loop outside the initializer (previously they compiled and read undefined values or crashed at runtime)
 
 PATCH
 
 - Language: Initializer lists and string initializers of static arrays run once before __main (previously the elements were re-assigned each time the declaration was executed, and root static arrays were filled after the other statics). final arrays can be initialized with an initializer list
-- Language: In a namespace, a local variable or constexpr shadows the same-named identifier of the enclosing namespace (previously the namespace identifier was found first)
+- Language: In a namespace, a local variable or constexpr shadows the same-named identifier of the enclosing namespace or an imported namespace (previously the namespace or imported identifier was found first)
 - Compiler: return in a root-level block, return without a value in a block or for-init of an int function, and break / continue outside a loop in a function are now semantic errors (previously they compiled, or failed in the Whitespace code generator)
 
 ## 4.0.0

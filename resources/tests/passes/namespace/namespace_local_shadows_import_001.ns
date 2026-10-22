@@ -1,0 +1,4 @@
+# import した名前空間の変数より、関数のローカル変数が優先される #
+namespace: A { let: v(5); }
+namespace: B { import: A; func: f() { let: v(9); return: v; } func: g() { return: v; } }
+func: __main() { __puti(B$f()); __puti(B$g()); __putc(10); }

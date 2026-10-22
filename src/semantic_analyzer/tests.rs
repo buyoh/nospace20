@@ -1034,3 +1034,22 @@ fn test_namespace_local_variable_shadows_namespace_variable() {
         _ => panic!("expected a return statement"),
     }
 }
+
+#[test]
+fn test_global_slot_allocator_follows_root_variables_and_detects_overflow() {
+    let mut slots = analysis_tables::GlobalSlotAllocator::new();
+    slots.start(3);
+    assert_eq!(slots.allocate(2), Some(3));
+    assert_eq!(slots.allocate(1), Some(5));
+    assert_eq!(slots.total(), 6);
+    // usize に収まらない割り当ては None（意味解析のエラーにする）
+    assert_eq!(slots.allocate(usize::MAX), None);
+}
+
+#[test]
+#[cfg(debug_assertions)]
+#[should_panic(expected = "global slots must be allocated after start")]
+fn test_global_slot_allocator_rejects_allocation_before_start() {
+    let mut slots = analysis_tables::GlobalSlotAllocator::new();
+    let _ = slots.allocate(1);
+}

@@ -40,10 +40,6 @@ pub struct CodeGenContext<'a> {
     /// ラベル管理
     labels: LabelAllocator,
 
-    /// 現在のスコープがグローバルか
-    #[allow(dead_code)]
-    is_global: bool,
-
     /// 関数本体のコードを生成しているか（ルートの文・static 変数の初期化の文脈では false）
     in_function_body: bool,
 
@@ -100,7 +96,6 @@ impl<'a> CodeGenContext<'a> {
         Self {
             scope,
             labels: LabelAllocator::new(),
-            is_global: true,
             in_function_body: false,
             local_heap_size: 0,
             variables: HashMap::new(),
@@ -127,7 +122,6 @@ impl<'a> CodeGenContext<'a> {
         CodeGenContext {
             scope: self.scope,
             labels: self.labels.clone(),
-            is_global: false,
             in_function_body: true,
             local_heap_size,
             variables: HashMap::new(),

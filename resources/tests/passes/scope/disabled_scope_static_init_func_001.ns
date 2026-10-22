@@ -1,5 +1,4 @@
 # 関数内 static 変数に初期値を設定し、呼び出し時に初期値が保持されることを確認 #
-# BUG: function_static_storage のキー不整合により初期値が復元されない #
 
 func: get_initial() {
   static: val(42);

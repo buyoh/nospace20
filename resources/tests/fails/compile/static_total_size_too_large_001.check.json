@@ -1,0 +1,6 @@
+{
+  "type": "compile_error",
+  "contains": [
+    "total size of global and static variables is too large"
+  ]
+}

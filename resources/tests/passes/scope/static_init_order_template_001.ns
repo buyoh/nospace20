@@ -1,0 +1,7 @@
+# テンプレートのインスタンスの static は、alias: でインスタンス化した位置で初期化される（定義の位置ではない） #
+static: log(0);
+func: tmpl(x), alias: constexpr: k { static: a({ log = log * 10 + k; 0; }); return: x; }
+static: b({ log = log * 10 + 9; 0; });
+alias: t1(tmpl, 1);
+alias: t2(tmpl, 2);
+func: __main() { __puti(log); __putc(10); }

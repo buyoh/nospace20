@@ -1,0 +1,4 @@
+# 入れ子の関数の static の初期化子は、外側の関数のローカル変数（関数境界の外）を読み飛ばし、同名のルートの static を読む #
+static: x(7);
+func: f() { let: x(1); func: g() { static: s(x); return: s; } return: g() * 10 + x; }
+func: __main() { __puti(f()); __putc(10); }

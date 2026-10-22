@@ -1,0 +1,6 @@
+# ルートのブロックエイリアスの static は、展開した位置（関数の中）で初期化される #
+static: log(0);
+alias: mark { static: m({ log = log * 10 + 1; 0; }); };
+func: f() { mark(); }
+static: z({ log = log * 10 + 2; 0; });
+func: __main() { __puti(log); __putc(10); }

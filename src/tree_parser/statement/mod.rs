@@ -749,17 +749,19 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let loc = SourceLocation::new(start_pos, end_pos);
 
         // 文字コードと末尾の 0（ヌル終端）を、宣言の初期化子として渡す
-        let mut values: Vec<LocatedExpression> = chars
+        let mut values: Vec<Box<LocatedExpression>> = chars
             .into_iter()
-            .map(|char_val| LocatedExpression {
-                expression: Expression::Factor(char_val),
-                location: loc.clone(),
+            .map(|char_val| {
+                Box::new(LocatedExpression {
+                    expression: Expression::Factor(char_val),
+                    location: loc.clone(),
+                })
             })
             .collect();
-        values.push(LocatedExpression {
+        values.push(Box::new(LocatedExpression {
             expression: Expression::Factor(0),
             location: loc.clone(),
-        });
+        }));
         results.push(array_initializer_declaration(
             id,
             values,
@@ -856,7 +858,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let loc = SourceLocation::new(start_pos, end_pos);
         results.push(array_initializer_declaration(
             id,
-            init_values.into_iter().map(|value| *value).collect(),
+            init_values,
             is_static,
             is_final,
             actual_size,
@@ -1902,7 +1904,7 @@ pub(super) fn parse_to_statements(
 /// 解決策: 要素の値の列を宣言の初期化子に入れ、意味解析で要素の代入に展開する。
 fn array_initializer_declaration(
     id: &str,
-    values: Vec<LocatedExpression>,
+    values: Vec<Box<LocatedExpression>>,
     is_static: bool,
     is_final: bool,
     array_size: i64,

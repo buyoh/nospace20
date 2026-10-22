@@ -6,9 +6,9 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    base::CodeParseError,
+    base::{CodeParseError, SourceLocation},
     code_parse_error,
-    tree_parser::{LocatedStatement, Operator2, Statement},
+    tree_parser::{LocatedExpression, LocatedStatement, Operator2, Statement},
 };
 
 use super::{
@@ -17,7 +17,7 @@ use super::{
     expression::convert_to_exec_expression_with_resolver,
     scope::{Identifier, ScopeBuilder, ScopeResolver, ScopeType},
     types::{
-        infer_block_type, Block, ConditionMode, ExecExpression, ExecStatement,
+        infer_block_type, Block, ConditionMode, ExecExpression, ExecStatement, IdentifierRef,
         LocatedExecStatement, ValueType,
     },
 };
@@ -239,53 +239,20 @@ pub(super) fn convert_to_exec_statements(
                 }
 
                 // 配列の初期化リスト・文字列初期化子: 要素ごとの代入に展開する
-                // 左辺は convert_to_exec_expression_with_resolver を通さないので、final の再代入の検査を受けない
                 if let crate::tree_parser::Expression::Operation2(Operator2::Assign, _, rhs_expr) =
                     &init.expression
                 {
                     if let crate::tree_parser::Expression::ArrayInitializer(values) =
                         &rhs_expr.expression
                     {
-                        let array_size = match &var_type {
-                            ValueType::Array(_, size) => *size,
-                            _ => values.len(),
-                        };
-                        let mut init_statements = Vec::with_capacity(values.len());
-                        for (i, value) in values.iter().enumerate() {
-                            let exec_value = convert_to_exec_expression_with_resolver(
-                                &Box::new(value.clone()),
-                                init_resolver,
-                                ctx.tables,
-                            )?;
-                            super::expression::require_int_type(
-                                &exec_value,
-                                ctx.tables.functions.return_types(),
-                            )?;
-                            let lhs = super::expression::make_located_exec(
-                                ExecExpression::ArrayAccess(
-                                    var_ref,
-                                    super::expression::make_located_exec(
-                                        ExecExpression::Factor(i as i64),
-                                        &value.location,
-                                    ),
-                                    array_size,
-                                ),
-                                &value.location,
-                            );
-                            init_statements.push(LocatedExecStatement {
-                                statement: ExecStatement::Expression(
-                                    super::expression::make_located_exec(
-                                        ExecExpression::Operation2(
-                                            Operator2::Assign,
-                                            lhs,
-                                            exec_value,
-                                        ),
-                                        &value.location,
-                                    ),
-                                ),
-                                location: loc.clone(),
-                            });
-                        }
+                        let init_statements = expand_array_initializer(
+                            var_ref,
+                            &var_type,
+                            values,
+                            loc,
+                            init_resolver,
+                            ctx,
+                        )?;
                         if *is_static_explicit {
                             ctx.tables.static_init_statements.extend(init_statements);
                         } else {
@@ -682,9 +649,56 @@ fn check_loop_control(
     }
     let message = match resolver.exec.unit {
         ExecUnit::RootInit => format!("semantic error: {} statement outside of function", keyword),
-        ExecUnit::FunctionBody { .. } | ExecUnit::StaticInitializer => {
+        ExecUnit::FunctionBody { .. } => {
             format!("semantic error: {} statement outside of a loop", keyword)
         }
+        // 外側にループがあっても、static の初期化子は __main の前に実行されるので、そのループは指せない
+        ExecUnit::StaticInitializer => format!(
+            "semantic error: {} statement outside of a loop (a static initializer cannot target a loop outside it)",
+            keyword
+        ),
     };
     Err(vec![code_parse_error!(location_start, message)])
+}
+
+/// 配列の初期化子（初期化リスト・文字列初期化子）を、要素ごとの代入文 `var[i] = value` に展開する
+///
+/// 左辺は `convert_to_exec_expression_with_resolver` を通さずに組み立てるので、final の再代入の検査を受けない
+/// （宣言の初期化なので、final の配列にも使える）。値は `resolver`（static なら初期化子の文脈）で変換する。
+fn expand_array_initializer(
+    var_ref: IdentifierRef,
+    var_type: &ValueType,
+    values: &[Box<LocatedExpression>],
+    statement_location: &SourceLocation,
+    resolver: &ScopeResolver,
+    ctx: &mut AnalyzeContext,
+) -> Result<Vec<LocatedExecStatement>, Vec<CodeParseError>> {
+    // パーサは配列の宣言（型は Array）にだけ配列の初期化子を作る
+    let ValueType::Array(_, array_size) = var_type else {
+        panic!("internal error: array initializer for a non-array variable");
+    };
+    let mut init_statements = Vec::with_capacity(values.len());
+    for (i, value) in values.iter().enumerate() {
+        let exec_value = convert_to_exec_expression_with_resolver(value, resolver, ctx.tables)?;
+        super::expression::require_int_type(&exec_value, ctx.tables.functions.return_types())?;
+        let lhs = super::expression::make_located_exec(
+            ExecExpression::ArrayAccess(
+                var_ref,
+                super::expression::make_located_exec(
+                    ExecExpression::Factor(i as i64),
+                    &value.location,
+                ),
+                *array_size,
+            ),
+            &value.location,
+        );
+        init_statements.push(LocatedExecStatement {
+            statement: ExecStatement::Expression(super::expression::make_located_exec(
+                ExecExpression::Operation2(Operator2::Assign, lhs, exec_value),
+                &value.location,
+            )),
+            location: statement_location.clone(),
+        });
+    }
+    Ok(init_statements)
 }
