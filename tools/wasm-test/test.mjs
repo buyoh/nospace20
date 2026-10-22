@@ -290,6 +290,86 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   // max_memory_cells = 0 is unlimited
   const vmUnlimited = new WasmWhitespaceVM(recursionSource, "", false, undefined, undefined, 0);
   assert.equal(vmUnlimited.step(100000).status, "suspended", "unlimited status");
+
+  // --- strict_heap / randomize_heap (the 7th / 8th arguments of new) ---
+  // reads the uninitialized local variable x (an uninitialized heap address)
+  const uninitSource = "func: __main() { let: x; __puti(x); __putc(10); }";
+  const vmUninit = new WasmWhitespaceVM(uninitSource, "");
+  assert.equal(runUntilStop(vmUninit).status, "complete", "uninit default status");
+  assert.equal(vmUninit.flush_stdout(), "0\n", "uninit default reads 0");
+
+  const vmStrict = new WasmWhitespaceVM(uninitSource, "", false, undefined, undefined, undefined, true);
+  const strictResult = runUntilStop(vmStrict);
+  assert.equal(strictResult.status, "error", "new strict_heap status");
+  assert.match(strictResult.error, /^uninitialized heap at address \d+$/, "new strict_heap error");
+
+  const vmRandom = new WasmWhitespaceVM(uninitSource, "", false, undefined, undefined, undefined, false, true);
+  assert.equal(runUntilStop(vmRandom).status, "complete", "new randomize_heap status");
+  assert.notEqual(vmRandom.flush_stdout(), "0\n", "new randomize_heap reads non-zero");
+
+  // strict_heap takes precedence over randomize_heap
+  const vmBoth = new WasmWhitespaceVM(uninitSource, "", false, undefined, undefined, undefined, true, true);
+  assert.equal(runUntilStop(vmBoth).status, "error", "new strict_heap and randomize_heap status");
+
+  // the compiler's output does not read uninitialized heap, so a normal program completes with strict_heap
+  const vmStrictOk = new WasmWhitespaceVM("func: __main() { __puti(1); }", "", false, undefined, undefined, undefined, true);
+  assert.equal(runUntilStop(vmStrictOk).status, "complete", "new strict_heap normal program status");
+  assert.equal(vmStrictOk.flush_stdout(), "1", "new strict_heap normal program stdout");
+
+  // --- fromWhitespace / fromWhitespaceInteractive accept the same VM arguments as new ---
+  // Push 1; Retrieve; OutputNumber; Exit (reads the uninitialized heap address 1)
+  const uninitWs = "   \t\n\t\t\t\t\n \t\n\n\n";
+  const vmWsDefault = WasmWhitespaceVM.fromWhitespace(uninitWs, "");
+  assert.equal(runUntilStop(vmWsDefault).status, "complete", "fromWhitespace default status");
+  assert.equal(vmWsDefault.flush_stdout(), "0", "fromWhitespace default reads 0");
+
+  const vmWsStrict = WasmWhitespaceVM.fromWhitespace(uninitWs, "", undefined, undefined, true);
+  const wsStrictResult = runUntilStop(vmWsStrict);
+  assert.equal(wsStrictResult.status, "error", "fromWhitespace strict_heap status");
+  assert.equal(wsStrictResult.error, "uninitialized heap at address 1", "fromWhitespace strict_heap error");
+
+  const vmWsRandom = WasmWhitespaceVM.fromWhitespace(uninitWs, "", undefined, undefined, false, true);
+  assert.equal(runUntilStop(vmWsRandom).status, "complete", "fromWhitespace randomize_heap status");
+  assert.notEqual(vmWsRandom.flush_stdout(), "0", "fromWhitespace randomize_heap reads non-zero");
+
+  // debug extension: fromWhitespace previously always ran without it
+  const assertWs = compile("func: __main() { __assert(0); __puti(1); }", "ws", "standard", ["debug"]);
+  expectSuccess(assertWs, "compile __assert for fromWhitespace");
+  const vmWsNoDebug = WasmWhitespaceVM.fromWhitespace(assertWs.output, "");
+  assert.equal(runUntilStop(vmWsNoDebug).status, "complete", "fromWhitespace without debug status");
+  const vmWsDebug = WasmWhitespaceVM.fromWhitespace(assertWs.output, "", ["debug"]);
+  const wsDebugResult = runUntilStop(vmWsDebug);
+  assert.equal(wsDebugResult.status, "error", "fromWhitespace debug status");
+  assert.equal(wsDebugResult.error, "assertion failed: 0", "fromWhitespace debug error");
+
+  // "alloc" has no effect on the VM but is accepted (the same array as for new can be passed)
+  const vmWsAlloc = WasmWhitespaceVM.fromWhitespace(assertWs.output, "", ["debug", "alloc"]);
+  assert.equal(runUntilStop(vmWsAlloc).status, "error", "fromWhitespace debug+alloc status");
+
+  // memory limit: the default is now the same as new (was unlimited)
+  const recursionWs = compile(recursionSource, "ws", "standard");
+  expectSuccess(recursionWs, "compile recursion for fromWhitespace");
+  const vmWsDefaultLimit = WasmWhitespaceVM.fromWhitespace(recursionWs.output, "");
+  const wsDefaultLimitResult = runUntilStop(vmWsDefaultLimit, 1000000, 10000);
+  assert.equal(wsDefaultLimitResult.status, "error", "fromWhitespace default memory limit status");
+  assert.equal(wsDefaultLimitResult.error, "memory limit exceeded: 4194304 cells", "fromWhitespace default memory limit error");
+  const vmWsLimit = WasmWhitespaceVM.fromWhitespace(recursionWs.output, "", undefined, 1000);
+  assert.equal(runUntilStop(vmWsLimit).error, "memory limit exceeded: 1000 cells", "fromWhitespace memory limit error");
+  const vmWsUnlimited = WasmWhitespaceVM.fromWhitespace(recursionWs.output, "", undefined, 0);
+  assert.equal(vmWsUnlimited.step(100000).status, "suspended", "fromWhitespace unlimited status");
+
+  // fromWhitespaceInteractive takes the VM arguments at the same positions
+  const vmWsiStrict = WasmWhitespaceVM.fromWhitespaceInteractive(uninitWs, "", undefined, undefined, true);
+  assert.equal(runUntilStop(vmWsiStrict).status, "error", "fromWhitespaceInteractive strict_heap status");
+  const vmWsiDebug = WasmWhitespaceVM.fromWhitespaceInteractive(assertWs.output, "", ["debug"]);
+  const wsiDebugResult = runUntilStop(vmWsiDebug);
+  assert.equal(wsiDebugResult.status, "error", "fromWhitespaceInteractive debug status");
+  assert.equal(wsiDebugResult.error, "assertion failed: 0", "fromWhitespaceInteractive debug error");
+  const vmWsiLimit = WasmWhitespaceVM.fromWhitespaceInteractive(recursionWs.output, "", undefined, 1000);
+  assert.equal(runUntilStop(vmWsiLimit).error, "memory limit exceeded: 1000 cells", "fromWhitespaceInteractive memory limit error");
+  const vmWsiRandom = WasmWhitespaceVM.fromWhitespaceInteractive(uninitWs, "", undefined, undefined, false, true);
+  assert.equal(runUntilStop(vmWsiRandom).status, "complete", "fromWhitespaceInteractive randomize_heap status");
+  assert.notEqual(vmWsiRandom.flush_stdout(), "0", "fromWhitespaceInteractive randomize_heap reads non-zero");
 }
 
 // 6. Compile error tests (semantic errors)
