@@ -158,19 +158,19 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
 
 // 2. compile() tests
 {
-  const result = compile("func: __main() { __puti(1); __putc(10); }", "ws", "ws");
+  const result = compile("func: __main() { __puti(1); __putc(10); }", "ws", "standard");
   expectSuccess(result, "compile ws");
   assert.equal(typeof result.output, "string", "compile ws output type");
   assert.ok(result.output.length > 0, "compile ws output length");
 
-  const result2 = compile("func: __main() { __puti(1); __putc(10); }", "mnemonic", "ws");
+  const result2 = compile("func: __main() { __puti(1); __putc(10); }", "mnemonic", "standard");
   expectSuccess(result2, "compile mnemonic");
   assert.ok(result2.output.includes("push"), "compile mnemonic output");
 
-  const result3 = compile("func: __main() {}", "invalid", "ws");
+  const result3 = compile("func: __main() {}", "invalid", "standard");
   expectFailure(result3, "compile invalid target");
 
-  const result4 = compile("func: __main() {}", "ws", "standard");
+  const result4 = compile("func: __main() {}", "ws", "min");
   expectFailure(result4, "compile std mismatch");
 }
 
@@ -210,7 +210,7 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   const instructions = vm.disassemble();
   assert.ok(Array.isArray(instructions), "vm disassemble type");
 
-  const compiled = compile("func: __main() { __puti(2); __putc(10); }", "ws", "ws");
+  const compiled = compile("func: __main() { __puti(2); __putc(10); }", "ws", "standard");
   expectSuccess(compiled, "compile for fromWhitespace");
   const vm2 = WasmWhitespaceVM.fromWhitespace(compiled.output, "");
   runToComplete(vm2, 100, 1000);
@@ -304,7 +304,7 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   expectConstructorThrowsResultErr("func: __main() { let: x; let: x; }", "compile error: duplicate variable");
 
   // Missing main function
-  const result9 = compile("func: foo() { __puti(1); }", "ws", "ws");
+  const result9 = compile("func: foo() { __puti(1); }", "ws", "standard");
   expectFailure(result9, "compile error: missing main function");
 
   // Assignment to undefined variable
