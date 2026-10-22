@@ -1,0 +1,1 @@
+{"type": "ws_runtime_error", "error": "InvalidNumberInput", "stdin": "1 2\n3\n"}

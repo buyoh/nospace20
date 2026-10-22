@@ -14,7 +14,7 @@ nospace20 --opt all program.ns
 nospace20 --opt constant-folding --opt dead-code program.ns
 
 # コンパイルモードでも同様に指定できる
-nospace20 --mode compile --opt all -o out.ws program.ns
+nospace20 --opt all -o out.ws program.ns
 ```
 
 ## パス一覧

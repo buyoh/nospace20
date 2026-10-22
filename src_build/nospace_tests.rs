@@ -162,7 +162,10 @@ fn write_ws_self_tests(f: &mut fs::File, test: &TestCase, flags: &TargetFlags, b
         (flags.has_whitespace_self, WsSelfVariant::Plain),
         (flags.has_whitespace_self_strict, WsSelfVariant::Strict),
         (flags.has_whitespace_self_opt_all, WsSelfVariant::OptAll),
-        (flags.has_whitespace_self_randomize, WsSelfVariant::Randomize),
+        (
+            flags.has_whitespace_self_randomize,
+            WsSelfVariant::Randomize,
+        ),
     ];
     for (enabled, variant) in variants {
         if !enabled {

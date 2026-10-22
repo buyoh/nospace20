@@ -133,9 +133,12 @@ pub type RuntimeError = WsRuntimeError;
 enum ReadResult {
     /// stdin バッファ不足（interactive モード用）
     WouldBlock,
-    /// I/O エラー
-    IoError(String),
+    /// 実行時エラー（I/O の失敗・入力の終端・不正な数値の入力）
+    Error(RuntimeError),
 }
+
+/// 数値の入力で、何も読めずに入力が終わったときのエラー文言（Buffered / Interactive で共通）
+const UNEXPECTED_END_OF_INPUT: &str = "unexpected end of input";
 
 /// stdin ソースの種別（内部使用）
 enum StdinSource {
@@ -185,24 +188,25 @@ impl InteractiveBuffer {
         }
     }
 
-    /// 改行を含む1行を読み取る
+    /// 改行を含む1行をバイト列として読み取る
     ///
     /// - バッファに '\n' を含む行がある → Ok(line)
     /// - closed 後でバッファに残りデータ → Ok(残り全行)
-    /// - closed 後でバッファ空 → Err(IoError("end of stream"))
+    /// - closed 後でバッファ空 → Ok(None)（EOF）
     /// - バッファ不足 → Err(WouldBlock)
-    fn read_line(&mut self) -> Result<String, ReadResult> {
+    // BUG FIX: 従来は各バイトを `b as char`（Latin-1）で文字列にしていたため、UTF-8 の空白
+    // （NBSP など）が Buffered 経路（UTF-8 で読む）と違う文字になり、`__geti` の結果が食い違った。
+    // バイト列のまま返し、UTF-8 への変換と解釈は read_number で両経路共通に行う。
+    fn read_line(&mut self) -> Result<Option<Vec<u8>>, ReadResult> {
         if let Some(newline_pos) = self.data.iter().position(|&b| b == b'\n') {
-            let line: String = self.data.drain(..=newline_pos).map(|b| b as char).collect();
-            return Ok(line);
+            return Ok(Some(self.data.drain(..=newline_pos).collect()));
         }
         if self.closed {
             if self.data.is_empty() {
-                return Err(ReadResult::IoError("end of stream".to_string()));
+                return Ok(None);
             }
             // closed 後、残りのデータを最終行として返す
-            let line: String = self.data.drain(..).map(|b| b as char).collect();
-            return Ok(line);
+            return Ok(Some(self.data.drain(..).collect()));
         }
         Err(ReadResult::WouldBlock)
     }
@@ -570,6 +574,14 @@ impl WhitespaceVM {
         let _ = self.stdout.flush();
     }
 
+    /// stdout をフラッシュし、失敗を返す
+    ///
+    /// `flush` は失敗を捨てるため、出力先への書き込みの失敗（`> /dev/full` など）を
+    /// 終了コードに反映したい CLI はこちらを使う
+    pub fn try_flush(&mut self) -> std::io::Result<()> {
+        self.stdout.flush()
+    }
+
     /// stdout の内容を文字列として取得（テスト用）
     ///
     /// デフォルトの stdout バッファ（SharedWriter）を使用している場合のみ動作する。
@@ -841,8 +853,8 @@ impl WhitespaceVM {
                         self.data_stack.push(addr);
                         return ExecuteResult::WaitingForInput(InputWaitType::Char);
                     }
-                    Err(ReadResult::IoError(e)) => {
-                        return ExecuteResult::Error(RuntimeError::IoError(e));
+                    Err(ReadResult::Error(e)) => {
+                        return ExecuteResult::Error(e);
                     }
                 }
             }
@@ -864,8 +876,8 @@ impl WhitespaceVM {
                         self.data_stack.push(addr);
                         return ExecuteResult::WaitingForInput(InputWaitType::Number);
                     }
-                    Err(ReadResult::IoError(e)) => {
-                        return ExecuteResult::Error(RuntimeError::IoError(e));
+                    Err(ReadResult::Error(e)) => {
+                        return ExecuteResult::Error(e);
                     }
                 }
             }
@@ -1047,7 +1059,7 @@ impl WhitespaceVM {
                 match reader.read(&mut buf) {
                     Ok(1) => Ok(buf[0] as i64),
                     Ok(_) => Ok(0), // EOF
-                    Err(e) => Err(ReadResult::IoError(e.to_string())),
+                    Err(e) => Err(ReadResult::Error(RuntimeError::IoError(e.to_string()))),
                 }
             }
             StdinSource::Interactive(buffer) => match buffer.read_byte() {
@@ -1058,26 +1070,32 @@ impl WhitespaceVM {
         }
     }
 
-    /// 標準入力から整数を読み取る
+    /// 標準入力から 1 行を読み、整数として解釈する（wsc の readnum と同じ規則）
+    ///
+    /// 行の取得だけを経路（Buffered / Interactive）ごとに行い、解釈は `parse_input_number` で共通に行う。
+    // BUG FIX: 従来は Buffered が `read_line`（不正な UTF-8 で I/O エラー）、Interactive が Latin-1 で
+    // 文字列にしてから `str::parse::<i64>` していたため、経路で結果が食い違い、`1_000` など wsc が
+    // 受け付ける入力も拒否していた。行はバイト列で受け取って UTF-8（不正なバイトは U+FFFD）に変換し、
+    // 共通の解釈関数に渡す。
     fn read_number(&mut self) -> Result<i64, ReadResult> {
-        match &mut self.stdin {
+        let line = match &mut self.stdin {
             StdinSource::Buffered(reader) => {
-                let mut line = String::new();
-                reader
-                    .read_line(&mut line)
-                    .map_err(|e| ReadResult::IoError(e.to_string()))?;
-                line.trim()
-                    .parse::<i64>()
-                    .map_err(|e| ReadResult::IoError(e.to_string()))
+                let mut line = Vec::new();
+                let read_bytes = reader
+                    .read_until(b'\n', &mut line)
+                    .map_err(|e| ReadResult::Error(RuntimeError::IoError(e.to_string())))?;
+                (read_bytes > 0).then_some(line)
             }
-            StdinSource::Interactive(buffer) => match buffer.read_line() {
-                Ok(line) => line
-                    .trim()
-                    .parse::<i64>()
-                    .map_err(|e| ReadResult::IoError(e.to_string())),
-                Err(e) => Err(e),
-            },
-        }
+            StdinSource::Interactive(buffer) => buffer.read_line()?,
+        };
+        let line = line.ok_or_else(|| {
+            ReadResult::Error(RuntimeError::IoError(UNEXPECTED_END_OF_INPUT.to_string()))
+        })?;
+        let line = String::from_utf8_lossy(&line);
+        super::input_number::parse_input_number(&line).ok_or_else(|| {
+            let shown = line.strip_suffix('\n').unwrap_or(&line);
+            ReadResult::Error(RuntimeError::InvalidNumberInput(shown.to_string()))
+        })
     }
 }
 

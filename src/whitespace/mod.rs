@@ -3,6 +3,7 @@
 //! Whitespace 言語のパーサとインタプリタを提供する。
 //! 明示的スタックマシンとして実装されており、中断・再開が可能。
 
+mod input_number;
 mod interpreter;
 mod label_interner;
 mod memory_limit;

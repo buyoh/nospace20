@@ -2,42 +2,22 @@
 //!
 //! WhitespaceVM のメモリ上限と、__clog の debug 拡張 API (-13) を確認する。
 
+mod common;
+
 use nospace20::whitespace::{RuntimeError, StepResult, WhitespaceVM};
-use nospace20::{
-    compile_to_ws, parse_to_tokens, parse_to_tree, semantic_analyze, WsCompileOptions,
-    WsOutputFormat,
-};
+use nospace20::{SharedWriter, WsCompileOptions, WsOutputFormat};
 use std::cell::RefCell;
-use std::io::Write;
 use std::rc::Rc;
 
-/// 共有バッファに書き込む writer（clog writer の出力の取得用）
-///
-/// `nospace20::base::shared_writer::SharedWriter` は crate 外に公開されていないため、ここで定義する
-struct SharedWriter(Rc<RefCell<Vec<u8>>>);
-
-impl Write for SharedWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.borrow_mut().write(buf)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
 fn compile(source: &str, debug_ext: bool, output_format: WsOutputFormat) -> String {
-    let tokens = parse_to_tokens(&source.to_string()).unwrap();
-    let ast = parse_to_tree(&tokens).unwrap();
-    let scope = semantic_analyze(&ast).unwrap();
-    compile_to_ws(
-        &scope,
+    common::ns_run::compile_ns(
+        source,
         &WsCompileOptions {
             debug_ext,
             output_format,
             ..Default::default()
         },
     )
-    .unwrap()
 }
 
 /// 末尾でない無限再帰は、メモリ上限付きの VM で MemoryLimitExceeded になる

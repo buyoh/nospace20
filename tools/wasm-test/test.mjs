@@ -131,7 +131,7 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   assert.equal(vm5Result.status, "error", "vm5 debug+alloc assert status");
   assert.equal(vm5Result.error, "assertion failed: 0", "vm5 debug+alloc assert error");
 
-  // ["alloc"] is the former ignore_debug: __assert is ignored
+  // ["alloc"] (no debug extension): __assert is ignored
   const vm6 = new WasmWhitespaceVM(
     "func: __main() { __assert(0); __puti(1); __putc(10); }",
     "",
@@ -139,7 +139,7 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
     ["alloc"]
   );
   runToComplete(vm6, 1000, 1000);
-  assert.equal(vm6.flush_stdout(), "1\n", "vm6 ignore_debug stdout");
+  assert.equal(vm6.flush_stdout(), "1\n", "vm6 no debug ext stdout");
 
   // opt_passes option
   const vm7 = new WasmWhitespaceVM(

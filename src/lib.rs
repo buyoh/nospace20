@@ -3,6 +3,8 @@
 extern crate assert_matches;
 
 pub use base::error::{CompileStage, NospaceError};
+/// `Rc<RefCell<Vec<u8>>>` に書き込む writer（VM の stdout / clog の出力をメモリ上で受け取るのに使う）
+pub use base::shared_writer::SharedWriter;
 pub use base::CodeParseError;
 pub use compiler_ws::CompileError;
 pub use logger::TextCode;
@@ -16,6 +18,7 @@ mod compile_property;
 pub mod compiler_ws;
 mod logger;
 pub mod optimizer;
+pub mod runner;
 mod semantic_analyzer;
 mod token_parser;
 mod tree_parser;
@@ -28,7 +31,7 @@ pub mod cli_utils;
 mod wasm_api;
 
 pub use compile_property::{
-    CompileProperty, CompileTarget, ExecutionMode, LanguageStd, TargetExtension, ValidationError,
+    CompileProperty, CompileTarget, LanguageStd, TargetExtension, ValidationError,
 };
 pub use optimizer::OptimizationOptions;
 
@@ -50,6 +53,23 @@ pub fn semantic_analyze(root: &Vec<LocatedStatement>) -> Result<Scope, Vec<CodeP
 /// Scope に対して最適化パスを適用する
 pub fn optimize(scope: &mut Scope, options: &OptimizationOptions) {
     optimizer::optimize(scope, options);
+}
+
+/// nospace のソースを意味解析まで通し、最適化パスが有効なら適用する
+///
+/// `parse_to_tokens → parse_to_tree → semantic_analyze → optimize` をまとめたもの。
+/// CLI・WASM・テストが共通に使う。
+pub fn analyze_source(
+    source: &str,
+    options: &OptimizationOptions,
+) -> Result<Scope, Vec<CodeParseError>> {
+    let tokens = parse_to_tokens(&source.to_string())?;
+    let tree = parse_to_tree(&tokens)?;
+    let mut scope = semantic_analyze(&tree)?;
+    if options.any_enabled() {
+        optimize(&mut scope, options);
+    }
+    Ok(scope)
 }
 
 /// Whitespace コンパイル出力形式
@@ -93,4 +113,13 @@ pub fn compile_to_ws(scope: &Scope, options: &WsCompileOptions) -> Result<String
         WsOutputFormat::Whitespace => Ok(prog.to_whitespace()),
         WsOutputFormat::Mnemonic => Ok(prog.to_debug_string()),
     }
+}
+
+/// nospace のソースを Whitespace にコンパイルする
+///
+/// `analyze_source`（`options.optimization` の最適化を含む）→ `compile_to_ws` をまとめたもの。
+/// CLI・WASM・テストが共通に使う。エラーは `NospaceError::Parse` / `NospaceError::Compile`
+pub fn compile_source(source: &str, options: &WsCompileOptions) -> Result<String, NospaceError> {
+    let scope = analyze_source(source, &options.optimization).map_err(NospaceError::Parse)?;
+    compile_to_ws(&scope, options).map_err(NospaceError::Compile)
 }

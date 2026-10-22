@@ -165,5 +165,5 @@ nospace20 の Whitespace インタプリタは、使用するメモリの量に�
 
 - 単位はセル（64 ビット整数 1 個）。使用セル数 = ヒープの書き込まれたことのあるアドレスの数 + データスタックの要素数 + 戻り先（Call で積まれたもの）の数
 - 使用セル数を増やす操作（ヒープの新しいアドレスへの書き込み、Push / Duplicate / Copy、Call）で上限を超える場合、その操作を行わずに実行時エラー `memory limit exceeded: {上限} cells` で停止する。すでにオペランドを pop した命令（Store など）では、pop したオペランドは戻さない
-- `whitespace20` では `--max-memory-cells <N>` で指定する。既定は `0`（無制限）
+- `whitespace20` では `--max-memory-cells <N>` で指定する。既定は 16777216 セル。`0` で無制限
 

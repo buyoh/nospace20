@@ -39,9 +39,12 @@ stdin が必要な場合:
 ```json
 {
   "type": "ws_runtime_error",
-  "error": "ErrorVariantName"
+  "error": "ErrorVariantName",
+  "stdin": "input data\n"
 }
 ```
+
+`stdin` は省略可（省略時は空）。wsc とのクロスバリデーション（`_wsc` テスト）にも同じ stdin を渡す。
 
 エラーの種類:
 - `StackUnderflow`

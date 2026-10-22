@@ -1,10 +1,8 @@
 use std::{fs, io};
 
+use nospace20::runner::{build_vm, WsRunOptions};
 use nospace20::whitespace::{StepResult, WhitespaceVM};
-use nospace20::{
-    compile_to_ws, parse_to_tokens, parse_to_tree, semantic_analyze, OptimizationOptions,
-    WsCompileOptions,
-};
+use nospace20::{OptimizationOptions, WsCompileOptions};
 
 use super::test_config::{load_check_json, TestConfig};
 use super::trace_assert::assert_trace_hit_counts;
@@ -40,14 +38,8 @@ impl WsSelfTarget {
 ///
 /// 解析・コンパイルに失敗したら panic する（テストの失敗）
 pub fn compile_for_ws_self(source: &str, target: WsSelfTarget) -> String {
-    let t = parse_to_tokens(&source.to_string()).unwrap();
-    let s = parse_to_tree(&t).unwrap();
-    let mut a = semantic_analyze(&s).unwrap();
-    if target.opt_all {
-        nospace20::optimize(&mut a, &OptimizationOptions::all());
-    }
-    let ws_code = compile_to_ws(
-        &a,
+    let ws_code = crate::common::ns_run::compile_ns(
+        source,
         &WsCompileOptions {
             debug_ext: target.debug_ext,
             alloc_ext: target.alloc_ext,
@@ -58,8 +50,7 @@ pub fn compile_for_ws_self(source: &str, target: WsSelfTarget) -> String {
             },
             ..Default::default()
         },
-    )
-    .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
+    );
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -72,11 +63,14 @@ pub fn compile_for_ws_self(source: &str, target: WsSelfTarget) -> String {
 
 /// コンパイル済みの Whitespace から、`target` の条件の VM を作る（stdin は空）
 pub fn new_ws_self_vm(ws_code: &str, target: WsSelfTarget, test_name: &str) -> WhitespaceVM {
-    WhitespaceVM::from_source(ws_code)
+    let options = WsRunOptions {
+        debug_ext: target.debug_ext,
+        strict_heap: target.strict_heap,
+        randomize_heap: target.randomize_heap,
+        ..Default::default()
+    };
+    build_vm(ws_code, &options)
         .unwrap_or_else(|e| panic!("Failed to parse Whitespace for {}: {:?}", test_name, e))
-        .with_debug_ext(target.debug_ext)
-        .with_strict_heap(target.strict_heap)
-        .with_randomize_heap(target.randomize_heap)
 }
 
 /// 実行結果が正常終了でなければ panic する

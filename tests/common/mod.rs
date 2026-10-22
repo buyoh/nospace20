@@ -1,6 +1,8 @@
 // Test utilities for running Whitespace code
 #![allow(dead_code)]
 
+pub mod ns_run;
+
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};

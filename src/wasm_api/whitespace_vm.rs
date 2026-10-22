@@ -8,11 +8,12 @@ use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
 
+use crate::runner::{build_vm, WsRunOptions};
 use crate::whitespace::{
     max_memory_cells_from_setting, InputWaitType, StepResult, WhitespaceVM,
     DEFAULT_MAX_MEMORY_CELLS_WASM,
 };
-use crate::{compile_to_ws, WsCompileOptions};
+use crate::WsOutputFormat;
 
 use super::pipeline;
 use super::types::{
@@ -42,18 +43,19 @@ fn create_from_ws_source(
     debug_ext: bool,
     max_memory_cells: Option<usize>,
 ) -> Result<WasmWhitespaceVM, JsValue> {
-    let vm = WhitespaceVM::from_source(ws_source).map_err(|e| {
-        let err = ResultErr::single_error(format!("Whitespace parse error: {:?}", e));
-        serde_wasm_bindgen::to_value(&err).unwrap()
-    })?;
-
     // バグ修正: 従来は with_debug_ext(false) を固定で呼んでいたため、`new()` に `["debug"]` を渡しても
     // コンパイラだけが debug 拡張付きのコードを出力し、VM は __trace を記録せず __assert も失敗しなかった。
     // 解決策: 呼び出し側から debug_ext を受け取って VM に反映する（fromWhitespace* は false のまま）。
     // __clog の出力先（clog writer）は設定しない（出力は捨てる）。
-    let vm = vm
-        .with_debug_ext(debug_ext)
-        .with_max_memory_cells(max_memory_cells);
+    let options = WsRunOptions {
+        debug_ext,
+        max_memory_cells,
+        ..Default::default()
+    };
+    let vm = build_vm(ws_source, &options).map_err(|e| {
+        let err = ResultErr::single_error(format!("Whitespace parse error: {:?}", e));
+        serde_wasm_bindgen::to_value(&err).unwrap()
+    })?;
     let stdout_buf = Rc::new(RefCell::new(Vec::<u8>::new()));
     let stdout_clone = Rc::clone(&stdout_buf);
 
@@ -113,20 +115,14 @@ impl WasmWhitespaceVM {
         let (debug_ext, alloc_ext) = pipeline::parse_std_extensions(std_extensions)
             .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
-        let (scope, text_code, opt_options) =
-            pipeline::analyze_and_optimize(nospace_source, opt_passes)
-                .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
-
-        // Compile
-        let ws_options = WsCompileOptions {
+        let ws_source = pipeline::compile_nospace(
+            nospace_source,
+            opt_passes,
             debug_ext,
             alloc_ext,
-            optimization: opt_options,
-            ..Default::default()
-        };
-        let ws_source = compile_to_ws(&scope, &ws_options).map_err(|e| {
-            serde_wasm_bindgen::to_value(&pipeline::convert_compile_error(&e, &text_code)).unwrap()
-        })?;
+            WsOutputFormat::Whitespace,
+        )
+        .map_err(|e| serde_wasm_bindgen::to_value(&e).unwrap())?;
 
         let max_memory_cells = match max_memory_cells {
             Some(cells) => max_memory_cells_from_setting(cells as usize),

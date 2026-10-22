@@ -26,6 +26,8 @@ pub enum WsRuntimeError {
     AssertionFailed(i64),
     /// VM が使うメモリが上限を超えた（値は上限のセル数）
     MemoryLimitExceeded(usize),
+    /// InputNumber で読んだ行が整数として解釈できない（値は読んだ行。末尾の `\n` は除く）
+    InvalidNumberInput(String),
 }
 
 impl std::fmt::Display for WsRuntimeError {
@@ -40,6 +42,7 @@ impl std::fmt::Display for WsRuntimeError {
             Self::IoError(msg) => write!(f, "I/O error: {}", msg),
             Self::AssertionFailed(val) => write!(f, "assertion failed: {}", val),
             Self::MemoryLimitExceeded(cells) => write!(f, "memory limit exceeded: {} cells", cells),
+            Self::InvalidNumberInput(line) => write!(f, "invalid number input: {:?}", line),
         }
     }
 }

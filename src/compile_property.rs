@@ -4,8 +4,6 @@
 
 use std::fmt;
 
-use crate::{OptimizationOptions, WsCompileOptions, WsOutputFormat};
-
 /// 言語サブセット
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LanguageStd {
@@ -14,16 +12,6 @@ pub enum LanguageStd {
     Standard,
     // /// 最小限の機能セット（未実装）
     // Min,
-}
-
-/// 実行モード
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ExecutionMode {
-    /// Whitespace にコンパイルし、内蔵の Whitespace VM で実行する（デフォルト）
-    #[default]
-    Run,
-    /// コンパイルモード
-    Compile,
 }
 
 /// コンパイルターゲット
@@ -61,10 +49,8 @@ pub enum ValidationError {
     },
     /// 未対応の機能
     UnimplementedFeature(String),
-    /// 拡張が現在のモード/設定では使用不可
+    /// 拡張が現在の設定では使用不可
     InvalidExtension(String),
-    /// コンパイルモード専用のオプションが他のモードで指定された（値はオプション名）
-    CompileOnlyOption(&'static str),
 }
 
 impl fmt::Display for ValidationError {
@@ -76,7 +62,7 @@ impl fmt::Display for ValidationError {
             ValidationError::IncompatibleOptions { target, std: _ } => {
                 write!(
                     f,
-                    "--target={:?} requires --std=ws\n  tip: use `--std=ws --mode=compile --target={:?}`",
+                    "--target={:?} requires --std=ws\n  tip: use `--std=ws --target={:?}`",
                     target, target
                 )
             }
@@ -85,9 +71,6 @@ impl fmt::Display for ValidationError {
             }
             ValidationError::InvalidExtension(msg) => {
                 write!(f, "{}", msg)
-            }
-            ValidationError::CompileOnlyOption(name) => {
-                write!(f, "{} is only valid with --mode=compile", name)
             }
         }
     }
@@ -102,20 +85,14 @@ impl std::error::Error for ValidationError {}
 pub struct CompileProperty {
     /// 言語サブセット
     pub std: LanguageStd,
-    /// 実行モード
-    pub mode: ExecutionMode,
-    /// 指定されたコンパイルターゲット（mode=Compile 時のみ有効。None なら既定の Ws）
+    /// 指定されたコンパイルターゲット（None なら既定の Ws）
     pub target: Option<CompileTarget>,
     /// ターゲット拡張（複数指定可能）
-    ///
-    /// mode=Run では alloc だけをこの値に従わせ、debug は `ignore_debug` で決める（`run_compile_options`）
     pub target_extensions: Vec<TargetExtension>,
-    /// 出力ファイルパス（mode=Compile 時、None なら stdout）
+    /// 出力ファイルパス（None なら stdout）
     pub output: Option<String>,
-    /// デバッグモード
+    /// デバッグモード（出力ファイル名を stderr に表示する）
     pub debug: bool,
-    /// デバッグ用組み込み関数を無視する
-    pub ignore_debug: bool,
 }
 
 impl CompileProperty {
@@ -124,44 +101,13 @@ impl CompileProperty {
         self.target.unwrap_or_default()
     }
 
-    /// `--mode run` で使うコンパイルオプション
-    ///
-    /// debug 拡張は `ignore_debug` がなければ常に有効にする（`target_extensions` に Debug が
-    /// あっても `ignore_debug` を優先する）。alloc 拡張は `target_extensions` に従う。
-    /// 実行する VM の debug 拡張の有無には、返した値の `debug_ext` を使う
-    pub fn run_compile_options(&self, optimization: OptimizationOptions) -> WsCompileOptions {
-        WsCompileOptions {
-            debug_ext: !self.ignore_debug,
-            alloc_ext: self.target_extensions.contains(&TargetExtension::Alloc),
-            output_format: WsOutputFormat::Whitespace,
-            optimization,
-        }
-    }
-
     /// バリデーション
     pub fn validate(&self) -> Result<(), ValidationError> {
-        // BUG FIX: run モードで指定された --target / --output が黙って無視されていた。
-        // 明示指定かどうかを区別できるよう target を Option にし、ここでエラーにする。
-        if self.mode == ExecutionMode::Run {
-            if self.target.is_some() {
-                return Err(ValidationError::CompileOnlyOption("--target"));
-            }
-            if self.output.is_some() {
-                return Err(ValidationError::CompileOnlyOption("--output"));
-            }
-        }
-
-        // コンパイルモードの場合
-        if self.mode == ExecutionMode::Compile {
-            // 未対応のターゲット
-            match self.target_or_default() {
-                CompileTarget::Json => {
-                    return Err(ValidationError::UnimplementedFeature(
-                        "--target=json".to_string(),
-                    ));
-                }
-                _ => {}
-            }
+        // 未対応のターゲット
+        if self.target_or_default() == CompileTarget::Json {
+            return Err(ValidationError::UnimplementedFeature(
+                "--target=json".to_string(),
+            ));
         }
 
         Ok(())

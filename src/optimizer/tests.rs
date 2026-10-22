@@ -173,7 +173,10 @@ fn test_noop_pass_does_not_affect_execution() {
     // 最適化ありの結果
     let after = run_ws(&scope, "");
 
-    assert_eq!(before, after, "trace results and stdout should be identical");
+    assert_eq!(
+        before, after,
+        "trace results and stdout should be identical"
+    );
     assert_eq!(before.stdout, "30");
     assert_eq!(before.traced.get(&0), Some(&1));
     assert_eq!(before.traced.get(&1), Some(&2));
@@ -1232,7 +1235,10 @@ fn test_geti_opt_combined_with_condition_opt() {
     );
     let result_opt = run_ws(&scope_opt, "5\n");
 
-    assert_eq!(result_orig.stdout, "15", "x=5: else branch prints 1, then x");
+    assert_eq!(
+        result_orig.stdout, "15",
+        "x=5: else branch prints 1, then x"
+    );
     assert_eq!(
         result_orig, result_opt,
         "combined opt semantics should not change"

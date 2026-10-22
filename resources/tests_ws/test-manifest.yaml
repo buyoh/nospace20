@@ -190,6 +190,16 @@ tests:
     path: io/input_number_001
     comment: "Input number"
 
+  - name: test_ws_io_input_number_wsc_forms_001
+    type: ws_io
+    path: io/input_number_wsc_forms_001
+    comment: "InputNumber: surrounding spaces, '+' sign and '_' separators (wsc compatible)"
+
+  - name: test_ws_io_input_number_wsc_forms_002
+    type: ws_io
+    path: io/input_number_wsc_forms_002
+    comment: "InputNumber: NBSP (UTF-8) is trimmed, CRLF, i64::MIN on the last line without LF"
+
   - name: test_ws_io_input_char_001
     type: ws_io
     path: io/input_char_001
@@ -210,6 +220,16 @@ tests:
     type: ws_runtime_error
     path: callstack_underflow_001
     comment: "Return without prior Call"
+
+  - name: test_ws_errors_input_number_two_on_line_001
+    type: ws_runtime_error
+    path: input_number_two_on_line_001
+    comment: "InputNumber: one integer per line (two numbers on a line is an error)"
+
+  - name: test_ws_errors_input_number_eof_001
+    type: ws_runtime_error
+    path: input_number_eof_001
+    comment: "InputNumber: end of input is an error"
 
   - name: test_ws_errors_undefined_label_001
     type: ws_runtime_error

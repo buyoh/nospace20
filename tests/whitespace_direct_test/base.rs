@@ -83,9 +83,11 @@ pub fn test_ws_runtime_error_base(test_name: &str) {
         .get("error")
         .and_then(|v| v.as_str())
         .expect(&format!("No 'error' field in check.json for {}", test_name));
+    let stdin_str = check.get("stdin").and_then(|v| v.as_str()).unwrap_or("");
 
     let mut vm = WhitespaceVM::from_source(&ws_code)
-        .expect(&format!("Failed to parse Whitespace for {}", test_name));
+        .expect(&format!("Failed to parse Whitespace for {}", test_name))
+        .with_stdin(Box::new(io::Cursor::new(stdin_str.as_bytes().to_vec())));
 
     let result = vm.run(100_000);
 
@@ -101,6 +103,7 @@ pub fn test_ws_runtime_error_base(test_name: &str) {
                 RuntimeError::IoError(_) => "IoError",
                 RuntimeError::AssertionFailed(_) => "AssertionFailed",
                 RuntimeError::MemoryLimitExceeded(_) => "MemoryLimitExceeded",
+                RuntimeError::InvalidNumberInput(_) => "InvalidNumberInput",
             };
             assert_eq!(
                 expected_error, error_name,
@@ -206,8 +209,15 @@ pub fn test_ws_runtime_error_wsc_base(test_name: &str) {
         .expect(&format!("Failed to read {}.wsa", test_name));
     let ws_code = decode_wsa(&wsa_content);
 
+    let check: serde_json::Value = serde_json::from_reader(io::BufReader::new(
+        fs::File::open(format!("{}.check.json", path_base))
+            .expect(&format!("Failed to read {}.check.json", test_name)),
+    ))
+    .expect(&format!("Failed to parse check.json for {}", test_name));
+    let stdin_str = check.get("stdin").and_then(|v| v.as_str()).unwrap_or("");
+
     // wsc で実行（エラーを期待）
-    let result = crate::common::run_whitespace(&ws_code, "");
+    let result = crate::common::run_whitespace(&ws_code, stdin_str);
 
     assert!(
         result.is_err(),

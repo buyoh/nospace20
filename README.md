@@ -32,28 +32,32 @@ Web Editor is implemented as a separate project, https://github.com/buyoh/nospac
 
 ## CLI Usage
 
-Run Nospace20 instantly.
-
-```bash
-$ echo 10 | cargo run --release --bin nospace20 -- \
-    resources/tests/passes/examples/e0-01-fibonacci.ns --opt all
-89
-```
-
-`--mode run` (the default) compiles the source to Whitespace and runs it on the built-in Whitespace VM (the same VM as `whitespace20`).
-The debug extension (`__assert`, `__assert_not`, `__trace`, `__clog`) is always enabled in run mode; `--ignore-debug` compiles without it (debug built-ins are ignored, but their arguments are still evaluated). `__clog` writes to stderr.
-The alloc extension is enabled by default; `--no-std-ext` disables it.
-Execution is limited to 16777216 memory cells, so infinite recursion stops with `memory limit exceeded`.
+`nospace20` compiles nospace to Whitespace, and `whitespace20` runs Whitespace on the built-in VM.
 
 Compile and run:
 
 ```bash
-$ cargo run --bin nospace20 -- \
-    resources/tests/passes/examples/e0-01-fibonacci.ns \
-    --std-ext debug --opt all --mode compile --target ws > /tmp/out.ws
-$ echo 10 | cargo run --bin whitespace20 -- /tmp/out.ws
+$ cargo build --release
+$ target/release/nospace20 resources/tests/passes/examples/e0-01-fibonacci.ns \
+    --std-ext debug --opt all -o /tmp/out.ws
+$ echo 10 | target/release/whitespace20 --std-ext debug /tmp/out.ws
 89
 ```
+
+Pass the same `--std-ext` to both commands: the debug extension (`__assert`, `__assert_not`, `__trace`, `__clog`) works only when both the compiler and the VM enable it (without it, debug built-ins are ignored, but their arguments are still evaluated). `__clog` writes to stderr.
+The alloc extension is enabled by default; `--no-std-ext` disables it.
+`whitespace20` limits execution to 16777216 memory cells by default (`--max-memory-cells`, `0` = unlimited), so infinite recursion stops with `memory limit exceeded`.
+`whitespace20 -` reads the Whitespace source from stdin; the program's input is then given by `--input FILE`.
+
+Run a nospace program instantly (compile and run without temporary files; requires bash and `/dev/fd`, i.e. Linux or macOS):
+
+```bash
+$ echo 10 | NOSPACE20=target/release/nospace20 WHITESPACE20=target/release/whitespace20 \
+    tools/nsrun.sh --opt all resources/tests/passes/examples/e0-01-fibonacci.ns
+89
+```
+
+`tools/nsrun.sh [--ignore-debug] [NOSPACE20_ARGS...] FILE.ns [-- WHITESPACE20_ARGS...]` enables the debug extension unless `--ignore-debug`, passes arguments before `--` to `nospace20` and after `--` to `whitespace20`. `NOSPACE20` / `WHITESPACE20` select the binaries (default: `nospace20` / `whitespace20` on `PATH`; `cargo install` does not install the script).
 
 ## Build
 

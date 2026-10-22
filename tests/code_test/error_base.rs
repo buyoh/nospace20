@@ -1,6 +1,8 @@
 use std::{fs, io};
 
-use nospace20::{compile_to_ws, parse_to_tokens, parse_to_tree, semantic_analyze, WsCompileOptions};
+use nospace20::{
+    compile_to_ws, parse_to_tokens, parse_to_tree, semantic_analyze, WsCompileOptions,
+};
 
 use nospace20::whitespace::StepResult;
 

@@ -1,0 +1,19 @@
+# Push 0, InputNumber (heap[0] = 1 行目の整数)
+SSSN
+TNTT
+# Push 1, InputNumber (heap[1] = 2 行目の整数)
+SSSTN
+TNTT
+# Push 0, Retrieve, OutputNumber
+SSSN
+TTT
+TNST
+# Push 44 (","), OutputChar
+SSSTSTTSSN
+TNSS
+# Push 1, Retrieve, OutputNumber
+SSSTN
+TTT
+TNST
+# Exit
+NNN

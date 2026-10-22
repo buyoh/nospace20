@@ -1,8 +1,6 @@
 use std::{fs, io};
 
-use nospace20::{
-    compile_to_ws, parse_to_tokens, parse_to_tree, semantic_analyze, WsCompileOptions,
-};
+use nospace20::WsCompileOptions;
 
 use super::test_config::TestConfig;
 
@@ -20,11 +18,7 @@ pub fn test_whitespace_base(test_name: &str) {
         .expect("Something went wrong reading the file");
 
     // コンパイル
-    let t = parse_to_tokens(&ns_cnt).unwrap();
-    let s = parse_to_tree(&t).unwrap();
-    let a = semantic_analyze(&s).unwrap();
-    let ws_code = compile_to_ws(&a, &WsCompileOptions::default())
-        .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
+    let ws_code = crate::common::ns_run::compile_ns(&ns_cnt, &WsCompileOptions::default());
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");
@@ -67,11 +61,7 @@ pub fn test_whitespace_io_base(test_name: &str) {
     let test_cases = check_json.get_io_test_cases();
 
     // コンパイル（全ケース共通）
-    let t = parse_to_tokens(&ns_cnt).unwrap();
-    let s = parse_to_tree(&t).unwrap();
-    let a = semantic_analyze(&s).unwrap();
-    let ws_code = compile_to_ws(&a, &WsCompileOptions::default())
-        .unwrap_or_else(|e| panic!("Compilation failed: {:?}", e));
+    let ws_code = crate::common::ns_run::compile_ns(&ns_cnt, &WsCompileOptions::default());
 
     // Whitespace コードが空白文字のみであることを確認
     assert!(!ws_code.is_empty(), "Whitespace code is empty");

@@ -7,8 +7,8 @@
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    optimize, parse_to_tokens, parse_to_tree, semantic_analyze, CodeParseError, CompileError,
-    OptimizationOptions, Scope, TextCode,
+    compile_source, CodeParseError, CompileError, NospaceError, OptimizationOptions, Scope,
+    TextCode, WsCompileOptions, WsOutputFormat,
 };
 
 use crate::optimizer::PASS_NAMES;
@@ -157,34 +157,45 @@ pub(super) fn convert_errors(errors: &[CodeParseError], text: &TextCode) -> Resu
 // Common compilation pipeline
 // ========================================
 
-/// Parse nospace source with token analysis, syntax analysis, and semantic analysis (common pipeline)
+/// Run token analysis, syntax analysis and semantic analysis without optimization (for `parse`)
 ///
-/// Consolidates `parse_to_tokens → parse_to_tree → semantic_analyze` duplicated in 4 places:
-/// `run`, `compile`, `parse`, `WasmWhitespaceVM::new`.
-pub(super) fn analyze_source(source: &str) -> Result<(Scope, TextCode<'_>), ResultErr> {
+/// The pipeline itself is `crate::analyze_source`, shared with the CLI and tests;
+/// this only converts errors into `ResultErr` with positions.
+pub(super) fn analyze_for_parse(source: &str) -> Result<(Scope, TextCode<'_>), ResultErr> {
     let text_code = TextCode::new(source);
-    let source_string = source.to_string();
-
-    let tokens = parse_to_tokens(&source_string).map_err(|e| convert_errors(&e, &text_code))?;
-    let tree = parse_to_tree(&tokens).map_err(|e| convert_errors(&e, &text_code))?;
-    let scope = semantic_analyze(&tree).map_err(|e| convert_errors(&e, &text_code))?;
-
+    let scope = crate::analyze_source(source, &OptimizationOptions::none())
+        .map_err(|e| convert_errors(&e, &text_code))?;
     Ok((scope, text_code))
 }
 
-/// Common pipeline + apply optimization
+/// Compile nospace source to Whitespace (common pipeline + optimization + code generation)
 ///
-/// "Analysis + optimization" flow used by both `run` and `compile` functions.
-pub(super) fn analyze_and_optimize(
+/// Used by both `compile` and `WasmWhitespaceVM::new`. The pipeline itself is
+/// `crate::compile_source`, shared with the CLI and tests; this only parses the
+/// optimization passes and converts errors into `ResultErr` with positions.
+pub(super) fn compile_nospace(
     source: &str,
     opt_passes: Option<JsOptPassArray>,
-) -> Result<(Scope, TextCode<'_>, OptimizationOptions), ResultErr> {
-    let (mut scope, text_code) = analyze_source(source)?;
-    let opt_options = parse_opt_passes(opt_passes)?;
-    if opt_options.any_enabled() {
-        optimize(&mut scope, &opt_options);
-    }
-    Ok((scope, text_code, opt_options))
+    debug_ext: bool,
+    alloc_ext: bool,
+    output_format: WsOutputFormat,
+) -> Result<String, ResultErr> {
+    // バグ修正（12-wasm-compile-opt-mismatch）: 最適化オプションを WsCompileOptions に渡さないと
+    // peephole（WsProgram レベルの最適化）が適用されず CLI と出力が異なる。解析と同じ値を渡す。
+    // NOTE: 最適化パス名の検証は解析より先に行う。ソースの誤りと不正なパス名が同時にある場合は
+    // パス名のエラーを返す（以前は解析のエラーを返していた。VERSION.md に記載）
+    let options = WsCompileOptions {
+        debug_ext,
+        alloc_ext,
+        output_format,
+        optimization: parse_opt_passes(opt_passes)?,
+    };
+    let text_code = TextCode::new(source);
+    compile_source(source, &options).map_err(|e| match e {
+        NospaceError::Parse(errors) => convert_errors(&errors, &text_code),
+        NospaceError::Compile(error) => convert_compile_error(&error, &text_code),
+        other => ResultErr::single_error(other.to_string()),
+    })
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-use crate::{compile_to_ws, CompileTarget, LanguageStd, WsCompileOptions, WsOutputFormat};
+use crate::{CompileTarget, LanguageStd, WsOutputFormat};
 
 use super::pipeline;
 use super::types::{
@@ -21,7 +21,7 @@ use super::types::{
 // ========================================
 
 /// Compile nospace source code.
-/// Equivalent to CLI's `--mode=compile`.
+/// Equivalent to the CLI `nospace20`.
 ///
 /// - `std_extensions`: Array of extensions to enable (e.g., `["debug", "alloc"]`)
 /// - `opt_passes`: Array of optimization passes to enable (e.g., `["all"]` or `["constant-folding", "dead-code"]`)
@@ -62,30 +62,12 @@ pub fn compile(
         }
     };
 
-    // Parse + optimize
-    let (scope, text_code, opt_options) = match pipeline::analyze_and_optimize(source, opt_passes) {
-        Ok(v) => v,
-        Err(e) => return serde_wasm_bindgen::to_value(&e).unwrap().into(),
-    };
-
-    // Compile
     let output_format = match compile_target {
         CompileTarget::Ws => WsOutputFormat::Whitespace,
         CompileTarget::Mnemonic => WsOutputFormat::Mnemonic,
         _ => unreachable!(),
     };
-    let ws_options = WsCompileOptions {
-        debug_ext,
-        alloc_ext,
-        output_format,
-        // バグ修正: 従来は `..Default::default()` で最適化オプションを捨てていたため、
-        // peephole（WsProgram レベルの最適化）が適用されず CLI と出力が異なっていた。
-        // 解決策: 解析時に構築した最適化オプションをそのまま渡す。
-        optimization: opt_options,
-    };
-    let compiled = compile_to_ws(&scope, &ws_options);
-
-    match compiled {
+    match pipeline::compile_nospace(source, opt_passes, debug_ext, alloc_ext, output_format) {
         Ok(output) => {
             let result = CompileResultOk {
                 success: true,
@@ -94,18 +76,14 @@ pub fn compile(
             let js: JsValue = serde_wasm_bindgen::to_value(&result).unwrap();
             js.into()
         }
-        Err(e) => {
-            // Convert CompileError with position information
-            let err_result = pipeline::convert_compile_error(&e, &text_code);
-            serde_wasm_bindgen::to_value(&err_result).unwrap().into()
-        }
+        Err(e) => serde_wasm_bindgen::to_value(&e).unwrap().into(),
     }
 }
 
 /// Perform only syntax checking on nospace source code.
 #[wasm_bindgen]
 pub fn parse(source: &str) -> JsParseResult {
-    match pipeline::analyze_source(source) {
+    match pipeline::analyze_for_parse(source) {
         Ok(_) => {
             #[derive(Serialize)]
             struct ParseResultOk {

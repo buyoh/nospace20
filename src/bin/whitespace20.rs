@@ -1,10 +1,11 @@
 //! whitespace20 - A Whitespace language interpreter
 
 use clap::{Parser, ValueEnum};
-use nospace20::whitespace::{max_memory_cells_from_setting, StepResult, WhitespaceVM};
+use nospace20::runner::{build_vm, run_vm_to_end, WsRunError, WsRunOptions};
+use nospace20::whitespace::{max_memory_cells_from_setting, DEFAULT_MAX_MEMORY_CELLS};
 use nospace20::TargetExtension;
 use std::fs;
-use std::io::{BufReader, Write};
+use std::io::{BufReader, Read, Write};
 use std::process;
 
 /// ターゲット拡張
@@ -26,8 +27,14 @@ impl From<CliTargetExt> for TargetExtension {
 #[command(name = "whitespace20")]
 #[command(version)]
 #[command(about = "A Whitespace language interpreter")]
+#[command(after_help = "\
+Pass the same --std-ext to nospace20 and whitespace20 (e.g. `--std-ext debug` for both); \
+otherwise __assert / __trace silently have no effect.
+Only Whitespace code is accepted (not the mnemonic output of `nospace20 --target mnemonic`).
+To compile and run a nospace program at once, use tools/nsrun.sh.")]
 struct Args {
-    /// Whitespace source file to execute
+    /// Whitespace source file to execute ("-" reads the source from stdin;
+    /// then the program's stdin is empty unless --input is given)
     file: String,
 
     /// Read stdin from file
@@ -55,12 +62,25 @@ struct Args {
     randomize_heap: bool,
 
     /// Maximum memory used by the VM, in cells: heap addresses + data stack + return addresses (0 = unlimited)
-    #[arg(long, default_value_t = 0)]
+    #[arg(long, default_value_t = DEFAULT_MAX_MEMORY_CELLS)]
     max_memory_cells: usize,
 
-    /// Standard extensions (can be specified multiple times, for compatibility with nospace20)
+    /// Standard extensions (can be specified multiple times; use the same value as for nospace20)
     #[arg(long = "std-ext", value_enum)]
     std_ext: Vec<CliTargetExt>,
+}
+
+/// ソースを読む。`-` なら stdin から読む
+fn read_source(file: &str) -> Result<String, String> {
+    if file == "-" {
+        let mut source = String::new();
+        std::io::stdin()
+            .read_to_string(&mut source)
+            .map_err(|e| format!("Error reading source from stdin: {}", e))?;
+        Ok(source)
+    } else {
+        fs::read_to_string(file).map_err(|e| format!("Error reading file '{}': {}", file, e))
+    }
 }
 
 fn main() {
@@ -70,29 +90,24 @@ fn main() {
         args.std_ext.into_iter().map(|e| e.into()).collect();
     let debug_ext = target_extensions.contains(&TargetExtension::Debug);
 
-    // ファイル読み込み
-    let source = match fs::read_to_string(&args.file) {
-        Ok(content) => content,
-        Err(e) => {
-            eprintln!("Error reading file '{}': {}", args.file, e);
-            process::exit(1);
-        }
-    };
+    let source = read_source(&args.file).unwrap_or_else(|msg| {
+        eprintln!("{}", msg);
+        process::exit(1);
+    });
 
     // VM 初期化
-    let mut vm = match WhitespaceVM::from_source(&source) {
-        Ok(vm) => vm
-            .with_debug_ext(debug_ext)
-            .with_strict_heap(args.strict_heap)
-            .with_randomize_heap(args.randomize_heap)
-            .with_max_memory_cells(max_memory_cells_from_setting(args.max_memory_cells)),
-        Err(e) => {
-            eprintln!("Parse error: {}", e);
-            process::exit(1);
-        }
+    let options = WsRunOptions {
+        debug_ext,
+        max_memory_cells: max_memory_cells_from_setting(args.max_memory_cells),
+        strict_heap: args.strict_heap,
+        randomize_heap: args.randomize_heap,
     };
+    let mut vm = build_vm(&source, &options).unwrap_or_else(|e| {
+        eprintln!("Parse error: {}", e);
+        process::exit(1);
+    });
 
-    // stdin 設定
+    // stdin 設定（ソースを stdin から読んだ場合は、stdin はすでに終端まで読まれている）
     let stdin: Box<dyn std::io::BufRead> = if let Some(input_file) = &args.input {
         match fs::File::open(input_file) {
             Ok(file) => Box::new(BufReader::new(file)),
@@ -131,10 +146,12 @@ fn main() {
         args.max_steps
     };
 
-    let result = vm.run(max_steps);
-    vm.flush();
+    // BUG FIX: 従来は `vm.flush()` が flush の失敗を捨てていたため、出力先への書き込みが
+    // 失敗しても（`> /dev/full` など）exit 0 になっていた。run_vm_to_end は正常終了時の
+    // flush の失敗を WsRunError::Flush として返す
+    let result = run_vm_to_end(&mut vm, max_steps);
 
-    // デバッグ情報
+    // デバッグ情報（失敗時も表示する）
     if args.debug {
         eprintln!("Total steps: {}", vm.total_steps());
         eprintln!("Final stack size: {}", vm.data_stack().len());
@@ -146,21 +163,16 @@ fn main() {
 
     // 結果に応じて終了コード設定
     match result {
-        StepResult::Complete => {
-            process::exit(0);
+        Ok(()) => process::exit(0),
+        Err(WsRunError::Runtime(e)) => eprintln!("Runtime error: {}", e),
+        Err(WsRunError::StepLimitExceeded(steps)) => {
+            eprintln!("Error: Execution limit exceeded ({} steps)", steps)
         }
-        StepResult::Suspended => {
-            eprintln!("Error: Execution limit exceeded ({} steps)", max_steps);
-            process::exit(1);
+        // CLI は interactive stdin を使わないため通常到達しない
+        Err(WsRunError::UnexpectedInputWait) => {
+            eprintln!("Error: Unexpected input wait in non-interactive mode")
         }
-        StepResult::Error(e) => {
-            eprintln!("Runtime error: {}", e);
-            process::exit(1);
-        }
-        StepResult::WaitingForInput(_) => {
-            // CLI は interactive stdin を使わないため通常到達しない
-            eprintln!("Error: Unexpected input wait in non-interactive mode");
-            process::exit(1);
-        }
+        Err(e) => eprintln!("Error: {}", e),
     }
+    process::exit(1);
 }

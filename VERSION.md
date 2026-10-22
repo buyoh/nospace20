@@ -4,15 +4,25 @@
 
 MAJOR
 
-- CLI: `--mode run` now compiles to Whitespace and runs it on the built-in Whitespace VM (the same VM as whitespace20) instead of the direct interpreter. The debug extension is enabled unless `--ignore-debug` (which takes precedence over `--std-ext debug`), and alloc is enabled unless `--no-std-ext`. `__clog` writes to stderr. Execution is limited to 16,777,216 memory cells (infinite recursion stops with `memory limit exceeded`). The `main returns: N` / `main exited` lines are no longer printed, runtime error messages are those of the Whitespace VM, misuse of `__alloc` / `__free` (freed or out-of-range access, invalid free, invalid size) is no longer detected, and using `__alloc` / `__free` with `--no-std-ext` is now a compile error
+- CLI: Remove the direct interpreter and `--mode` / `--ignore-debug` from nospace20. nospace20 is now a compiler only: `nospace20 x.ns` writes Whitespace to stdout (previously it ran the program). Run the output with whitespace20, passing the same `--std-ext` to both (e.g. `nospace20 --std-ext debug x.ns -o x.ws && whitespace20 --std-ext debug x.ws`), or use `tools/nsrun.sh x.ns` to compile and run at once (the debug extension is enabled unless `--ignore-debug`). Compared with the former run mode: runtime error messages are those of the Whitespace VM, the `main returns: N` / `main exited` lines are no longer printed, misuse of `__alloc` / `__free` (freed or out-of-range access, invalid free, invalid size) is no longer detected, using `__alloc` / `__free` with `--no-std-ext` is a compile error, and `--debug` trace results are written by `whitespace20 --debug` to stderr
+- CLI: nospace20 `--debug` only prints the output file name; a missing `__main` is reported as `__main function not found`
+- whitespace20: The memory limit is 16,777,216 cells by default (was unlimited; `--max-memory-cells 0` for unlimited)
+- Whitespace VM / whitespace20 / WASM: `__geti` (InputNumber) reads one line and parses it like wsc: surrounding Unicode whitespace is trimmed, an optional `+` / `-` sign, decimal digits, and `_` separators after the first digit (`1_000`). Empty lines, more than one number on a line and values outside i64 stop with the new runtime error `invalid number input: "<line>"`; end of input stops with `I/O error: unexpected end of input`. Interactive stdin (WASM) now decodes the line as UTF-8 instead of Latin-1
+- Library: Add `WsRuntimeError::InvalidNumberInput`. Remove `ExecutionMode`, `CompileProperty::mode`, `CompileProperty::ignore_debug` and `ValidationError::CompileOnlyOption`
 - WASM: Remove `WasmNospaceVM`. Use `WasmWhitespaceVM` (constructed from nospace source) instead; pass `["debug", "alloc"]` as `std_extensions` for the previous default (`["alloc"]` for the previous `ignore_debug`). `getReturnValue()` / `isFailed()` have no replacement, `flushStdout()` / `getTraced()` are `flush_stdout()` / `get_traced()`, and `total_steps()` counts Whitespace instructions
 - Library: Remove the direct interpreter API (`interpret`, `interpret_with_env`, `interpret_func`, `interpret_func_with_env`, `interpret_func_testing`, `interpret_func_testing_randomize`, `interpret_func_with_io`, `Environment`, `EnvironmentConfig`, `InterpretError`, `NospaceVM`, `StepResult`, `NospaceError::Interpret`, `CompileStage::NospaceExecution`) and `algorithm::hash::lcg_hash_with_offset`
 
 MINOR
 
-- Library: Add `CompileProperty::run_compile_options`, which returns the compile options used by `--mode run`
+- whitespace20: Accept `-` as the source file (read the Whitespace source from stdin; give the program's input with `--input`)
+- Library: Add `analyze_source` / `compile_source` (nospace source to `Scope` / Whitespace, shared by the CLI, WASM and tests), the `runner` module (`build_vm`, `run_vm_to_end`, `run_ws_to_end`, `WsRunOptions`, `RunIo`, `WsRunOutcome`, `WsRunError`), `WhitespaceVM::try_flush` and the `SharedWriter` re-export
+- Tools: Add `tools/nsrun.sh`, which compiles a nospace program and runs it on whitespace20 without temporary files
 
 PATCH
+
+- whitespace20: A failure to flush stdout at exit (e.g. `> /dev/full`) is now reported with exit code 1 (was exit 0)
+- WASM `compile` / `WasmWhitespaceVM::new`: An invalid optimization pass name is reported before syntax errors in the source
+- nospace20: A failure to write the output to stdout (e.g. `> /dev/full`, closed pipe) is now reported with exit code 1 (was a panic or exit 0)
 
 ## 3.2.0
 

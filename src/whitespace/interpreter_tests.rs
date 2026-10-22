@@ -787,3 +787,145 @@ fn test_memory_limit_call_undefined_label_reported_first() {
         StepResult::Error(RuntimeError::UndefinedLabel(_))
     ));
 }
+
+// ===== InputNumber の入力の解釈（wsc の readnum と同じ規則） =====
+
+/// InputNumber を 2 回行い、読んだ値を heap[0], heap[1] に置くプログラム
+fn read_two_numbers_program() -> Vec<Instruction> {
+    vec![
+        Instruction::Push(WsNumber(0)),
+        Instruction::InputNumber,
+        Instruction::Push(WsNumber(1)),
+        Instruction::InputNumber,
+        Instruction::Exit,
+    ]
+}
+
+/// Buffered stdin で実行し、結果と読めた値（heap[0], heap[1]）を返す
+fn run_read_two_buffered(input: &[u8]) -> (StepResult, Option<i64>, Option<i64>) {
+    let mut vm = WhitespaceVM::from_instructions(read_two_numbers_program())
+        .unwrap()
+        .with_stdin(Box::new(std::io::Cursor::new(input.to_vec())));
+    let result = vm.run(100);
+    (
+        result,
+        vm.heap().get(&0).copied(),
+        vm.heap().get(&1).copied(),
+    )
+}
+
+/// Interactive stdin（入力を全部渡して close）で実行し、結果と読めた値を返す
+fn run_read_two_interactive(input: &[u8]) -> (StepResult, Option<i64>, Option<i64>) {
+    let mut vm = WhitespaceVM::from_instructions(read_two_numbers_program())
+        .unwrap()
+        .with_interactive_stdin();
+    vm.provide_stdin(std::str::from_utf8(input).unwrap());
+    vm.close_stdin();
+    let result = vm.run(100);
+    (
+        result,
+        vm.heap().get(&0).copied(),
+        vm.heap().get(&1).copied(),
+    )
+}
+
+/// Buffered / Interactive の両方で同じ結果になることを確かめる
+fn assert_read_two(input: &[u8], expected: (StepResult, Option<i64>, Option<i64>)) {
+    assert_eq!(
+        run_read_two_buffered(input),
+        expected,
+        "buffered {:?}",
+        input
+    );
+    assert_eq!(
+        run_read_two_interactive(input),
+        expected,
+        "interactive {:?}",
+        input
+    );
+}
+
+#[test]
+fn test_input_number_wsc_compatible_forms() {
+    assert_read_two(
+        b"  +5 \n1_000\n",
+        (StepResult::Complete, Some(5), Some(1000)),
+    );
+    assert_read_two(
+        b"-9223372036854775808\r\n7",
+        (StepResult::Complete, Some(i64::MIN), Some(7)),
+    );
+}
+
+/// NBSP（UTF-8）も前後の空白として除く。従来の Interactive は Latin-1 で読んでいたためエラーだった
+#[test]
+fn test_input_number_utf8_whitespace_is_trimmed_on_both_paths() {
+    assert_read_two(
+        "\u{a0}5\n6\u{a0}\n".as_bytes(),
+        (StepResult::Complete, Some(5), Some(6)),
+    );
+}
+
+/// 1 行に 2 つの数があっても 1 行 = 1 整数（wsc と同じくエラー）
+#[test]
+fn test_input_number_two_numbers_on_one_line_is_error() {
+    assert_read_two(
+        b"1 2\n3\n",
+        (
+            StepResult::Error(RuntimeError::InvalidNumberInput("1 2".to_string())),
+            None,
+            None,
+        ),
+    );
+}
+
+#[test]
+fn test_input_number_empty_line_is_error() {
+    assert_read_two(
+        b"\n5\n",
+        (
+            StepResult::Error(RuntimeError::InvalidNumberInput(String::new())),
+            None,
+            None,
+        ),
+    );
+}
+
+#[test]
+fn test_input_number_eof_is_error() {
+    assert_read_two(
+        b"7\n",
+        (
+            StepResult::Error(RuntimeError::IoError("unexpected end of input".to_string())),
+            Some(7),
+            None,
+        ),
+    );
+}
+
+#[test]
+fn test_input_number_out_of_i64_range_is_error() {
+    assert_read_two(
+        b"9223372036854775808\n1\n",
+        (
+            StepResult::Error(RuntimeError::InvalidNumberInput(
+                "9223372036854775808".to_string(),
+            )),
+            None,
+            None,
+        ),
+    );
+}
+
+/// 不正な UTF-8 のバイトは U+FFFD になり、数字ではないのでエラー（Buffered は従来 I/O エラー）
+#[test]
+fn test_input_number_invalid_utf8_is_invalid_number_input() {
+    assert_eq!(
+        run_read_two_buffered(b"\xff5\n"),
+        (
+            StepResult::Error(RuntimeError::InvalidNumberInput("\u{fffd}5".to_string())),
+            None,
+            None,
+        )
+    );
+}
