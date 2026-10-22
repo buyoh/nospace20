@@ -1,5 +1,0 @@
-# Test main_function_index #
-
-func: __main() {
-    return: 42;
-}

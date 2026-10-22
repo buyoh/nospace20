@@ -85,6 +85,16 @@ tests:
     path: literals/char_hex_multi_001
     comment: "Variable-length hex escape sequences in character literals"
 
+  - name: test_literals_char_hex_001
+    type: success
+    path: literals/char_hex_001
+    comment: "Hex escape sequences in character literals"
+
+  - name: test_literals_hex_number_001
+    type: success
+    path: literals/hex_number_001
+    comment: "Hexadecimal number literals"
+
   - name: test_literals_keyword_as_ident_001
     type: success
     path: literals/keyword_as_ident_001
@@ -931,6 +941,21 @@ tests:
     type: syntax_error
     path: only_closing_brace_001
     comment: "Only closing brace detection"
+
+  - name: test_syntax_error_char_hex_invalid_001
+    type: syntax_error
+    path: char_hex_invalid_001
+    comment: "Invalid hex escape in character literal"
+
+  - name: test_syntax_error_char_hex_invalid_002
+    type: syntax_error
+    path: char_hex_invalid_002
+    comment: "Invalid hex escape in character literal"
+
+  - name: test_syntax_error_hex_invalid_001
+    type: syntax_error
+    path: hex_invalid_001
+    comment: "Invalid hexadecimal number literal"
 
   - name: test_syntax_error_extra_closing_braces_001
     type: syntax_error
