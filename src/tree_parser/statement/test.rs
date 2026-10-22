@@ -556,52 +556,48 @@ fn test_parse_array_declaration_with_init() {
     ];
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
-    // 宣言 + 初期化式3つ = 4文
-    assert_eq!(
-        stmts.len(),
-        4,
-        "Expected 4 statements (1 declaration + 3 assignments)"
-    );
+    // 初期化リストは宣言の初期化子（ArrayInitializer）になり、要素の代入文は作らない
+    assert_eq!(stmts.len(), 1, "Expected 1 declaration statement");
+    assert_array_initializer_declaration(&stmts[0], "arr", 3, &[10, 20, 30]);
+}
 
-    // 1つ目: 配列宣言
-    match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, _, array_size, type_annot) => {
-            assert_eq!(name, "arr");
-            assert_eq!(*is_static, false);
-            assert_eq!(*array_size, Some(3));
+/// `name = ArrayInitializer(values)` を初期化に持つ配列宣言（非 static）であることを確かめる
+fn assert_array_initializer_declaration(
+    stmt: &LocatedStatement,
+    expected_name: &str,
+    expected_size: i64,
+    expected_values: &[i64],
+) {
+    match &stmt.statement {
+        Statement::VariableDeclaration(name, init, is_static, _, array_size, type_annot) => {
+            assert_eq!(name, expected_name);
+            assert!(!*is_static);
+            assert_eq!(*array_size, Some(expected_size));
             assert!(type_annot.is_none());
-        }
-        _ => panic!("Expected Statement::VariableDeclaration"),
-    }
-
-    // 2-4つ目: 各要素への代入 arr[0]=10, arr[1]=20, arr[2]=30
-    for (i, expected_val) in [10, 20, 30].iter().enumerate() {
-        match &stmts[i + 1].statement {
-            Statement::Expression(expr) => match &expr.expression {
+            match &init.expression {
                 Expression::Operation2(Operator2::Assign, left, right) => {
                     match &left.expression {
-                        Expression::ArrayAccess(name, index) => {
-                            assert_eq!(name, "arr");
-                            match &index.expression {
-                                Expression::Factor(idx) => {
-                                    assert_eq!(*idx, i as i64);
-                                }
-                                _ => panic!("Expected Factor as index"),
-                            }
-                        }
-                        _ => panic!("Expected ArrayAccess on left side"),
+                        Expression::Variable(target) => assert_eq!(target, expected_name),
+                        _ => panic!("Expected Variable on left side"),
                     }
                     match &right.expression {
-                        Expression::Factor(val) => {
-                            assert_eq!(*val, *expected_val);
+                        Expression::ArrayInitializer(values) => {
+                            let actual: Vec<i64> = values
+                                .iter()
+                                .map(|v| match v.expression {
+                                    Expression::Factor(n) => n,
+                                    _ => panic!("Expected Factor as element"),
+                                })
+                                .collect();
+                            assert_eq!(actual, expected_values);
                         }
-                        _ => panic!("Expected Factor on right side"),
+                        _ => panic!("Expected ArrayInitializer on right side"),
                     }
                 }
-                _ => panic!("Expected Operation2(Assign)"),
-            },
-            _ => panic!("Expected Statement::Expression"),
+                _ => panic!("Expected Operation2(Assign) as initializer"),
+            }
         }
+        _ => panic!("Expected Statement::VariableDeclaration"),
     }
 }
 
@@ -641,48 +637,9 @@ fn test_parse_array_declaration_size_omitted_with_init() {
     ];
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
-    // 宣言 + 初期化式3つ = 4文
-    assert_eq!(
-        stmts.len(),
-        4,
-        "Expected 4 statements (1 declaration + 3 assignments)"
-    );
-
-    // 1つ目: 配列宣言（サイズ3と推論）
-    match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, _, array_size, _) => {
-            assert_eq!(name, "arr");
-            assert_eq!(*is_static, false);
-            assert_eq!(*array_size, Some(3), "Expected inferred size 3");
-        }
-        _ => panic!("Expected Statement::VariableDeclaration"),
-    }
-
-    // 2-4つ目: 各要素への代入
-    for (i, expected_val) in [1i64, 2, 3].iter().enumerate() {
-        match &stmts[i + 1].statement {
-            Statement::Expression(expr) => match &expr.expression {
-                Expression::Operation2(Operator2::Assign, left, right) => {
-                    match &left.expression {
-                        Expression::ArrayAccess(name, index) => {
-                            assert_eq!(name, "arr");
-                            match &index.expression {
-                                Expression::Factor(idx) => assert_eq!(*idx, i as i64),
-                                _ => panic!("Expected Factor as index"),
-                            }
-                        }
-                        _ => panic!("Expected ArrayAccess on left side"),
-                    }
-                    match &right.expression {
-                        Expression::Factor(val) => assert_eq!(*val, *expected_val),
-                        _ => panic!("Expected Factor on right side"),
-                    }
-                }
-                _ => panic!("Expected Operation2(Assign)"),
-            },
-            _ => panic!("Expected Statement::Expression"),
-        }
-    }
+    // サイズ 3 と推論され、初期化リストは宣言の初期化子になる
+    assert_eq!(stmts.len(), 1, "Expected 1 declaration statement");
+    assert_array_initializer_declaration(&stmts[0], "arr", 3, &[1, 2, 3]);
 }
 
 fn token_string_literal(s: &str) -> PrettyToken {
@@ -705,22 +662,9 @@ fn test_parse_array_declaration_size_omitted_string() {
     ];
     let (stmts, errs) = parse_stmts(tokens);
     assert!(errs.is_empty(), "Expected no errors, got: {:?}", errs);
-    // 宣言 + 'A', 'B', 'C', '\0' = 5文
-    assert_eq!(stmts.len(), 5, "Expected 5 statements");
-
-    // 1つ目: 配列宣言（サイズ4と推論: 3文字 + null）
-    match &stmts[0].statement {
-        Statement::VariableDeclaration(name, _, is_static, _, array_size, _) => {
-            assert_eq!(name, "str");
-            assert_eq!(*is_static, false);
-            assert_eq!(
-                *array_size,
-                Some(4),
-                "Expected inferred size 4 (3 chars + null)"
-            );
-        }
-        _ => panic!("Expected Statement::VariableDeclaration"),
-    }
+    // サイズ 4（3 文字 + ヌル終端）と推論され、文字コードと末尾の 0 が宣言の初期化子になる
+    assert_eq!(stmts.len(), 1, "Expected 1 declaration statement");
+    assert_array_initializer_declaration(&stmts[0], "str", 4, &[65, 66, 67, 0]);
 }
 
 // エラー: '[]' でサイズ省略しているのに初期値なし: let: arr[];

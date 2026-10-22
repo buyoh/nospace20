@@ -692,7 +692,7 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         Ok(spec)
     }
 
-    /// 配列の文字列初期化 `("Hello")` をパースして各代入文を `results` へ追加する。
+    /// 配列の文字列初期化 `("Hello")` をパースして宣言文を `results` へ追加する。
     /// `(` は呼び出し元で消費済み、`StringLiteral` トークンがピーク位置にあること。
     ///
     /// 戻り値: `false` はエラー発生（`results` にエラー文追加済み、呼び出し元は return すること）
@@ -748,81 +748,31 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
         let end_pos = self.current_pos_or(start_pos);
         let loc = SourceLocation::new(start_pos, end_pos);
 
-        // 配列宣言を追加
-        results.push(LocatedStatement {
-            statement: Statement::VariableDeclaration(
-                id.to_string(),
-                Box::new(LocatedExpression {
-                    expression: Expression::Factor(0),
-                    location: loc.clone(),
-                }),
-                is_static,
-                is_final,
-                Some(actual_size),
-                None,
-            ),
-            location: loc.clone(),
-        });
-
-        // 各文字を配列要素に代入
-        let null_idx = chars.len();
-        for (i, char_val) in chars.into_iter().enumerate() {
-            let assign_expr = Box::new(LocatedExpression {
-                expression: Expression::Operation2(
-                    Operator2::Assign,
-                    Box::new(LocatedExpression {
-                        expression: Expression::ArrayAccess(
-                            id.to_string(),
-                            Box::new(LocatedExpression {
-                                expression: Expression::Factor(i as i64),
-                                location: loc.clone(),
-                            }),
-                        ),
-                        location: loc.clone(),
-                    }),
-                    Box::new(LocatedExpression {
-                        expression: Expression::Factor(char_val),
-                        location: loc.clone(),
-                    }),
-                ),
+        // 文字コードと末尾の 0（ヌル終端）を、宣言の初期化子として渡す
+        let mut values: Vec<LocatedExpression> = chars
+            .into_iter()
+            .map(|char_val| LocatedExpression {
+                expression: Expression::Factor(char_val),
                 location: loc.clone(),
-            });
-            results.push(LocatedStatement {
-                statement: Statement::Expression(assign_expr),
-                location: loc.clone(),
-            });
-        }
-
-        // ヌル終端を追加
-        let assign_expr = Box::new(LocatedExpression {
-            expression: Expression::Operation2(
-                Operator2::Assign,
-                Box::new(LocatedExpression {
-                    expression: Expression::ArrayAccess(
-                        id.to_string(),
-                        Box::new(LocatedExpression {
-                            expression: Expression::Factor(null_idx as i64),
-                            location: loc.clone(),
-                        }),
-                    ),
-                    location: loc.clone(),
-                }),
-                Box::new(LocatedExpression {
-                    expression: Expression::Factor(0),
-                    location: loc.clone(),
-                }),
-            ),
+            })
+            .collect();
+        values.push(LocatedExpression {
+            expression: Expression::Factor(0),
             location: loc.clone(),
         });
-        results.push(LocatedStatement {
-            statement: Statement::Expression(assign_expr),
-            location: loc.clone(),
-        });
+        results.push(array_initializer_declaration(
+            id,
+            values,
+            is_static,
+            is_final,
+            actual_size,
+            &loc,
+        ));
 
         true
     }
 
-    /// 配列のリスト初期化 `([val1, val2, ...])` をパースして各代入文を `results` へ追加する。
+    /// 配列のリスト初期化 `([val1, val2, ...])` をパースして宣言文を `results` へ追加する。
     /// `(` および `[` は呼び出し元で消費済みであること。
     ///
     /// 戻り値: `false` はエラー発生（`results` にエラー文追加済み、呼び出し元は return すること）
@@ -902,50 +852,16 @@ impl<'b: 'a, 'a> StatementBuilder<'b, 'a> {
             init_values.len() as i64
         };
 
-        // 配列宣言を追加
         let end_pos = self.current_pos_or(start_pos);
         let loc = SourceLocation::new(start_pos, end_pos);
-
-        results.push(LocatedStatement {
-            statement: Statement::VariableDeclaration(
-                id.to_string(),
-                Box::new(LocatedExpression {
-                    expression: Expression::Factor(0),
-                    location: loc.clone(),
-                }),
-                is_static,
-                is_final,
-                Some(actual_size),
-                None,
-            ),
-            location: loc.clone(),
-        });
-
-        // 各要素への代入文を生成: arr[0] = val0, arr[1] = val1, ...
-        for (i, val_expr) in init_values.into_iter().enumerate() {
-            let val_loc = val_expr.location.clone();
-            let assign_expr = Box::new(LocatedExpression {
-                expression: Expression::Operation2(
-                    Operator2::Assign,
-                    Box::new(LocatedExpression {
-                        expression: Expression::ArrayAccess(
-                            id.to_string(),
-                            Box::new(LocatedExpression {
-                                expression: Expression::Factor(i as i64),
-                                location: loc.clone(),
-                            }),
-                        ),
-                        location: loc.clone(),
-                    }),
-                    val_expr,
-                ),
-                location: SourceLocation::new(loc.start, val_loc.end),
-            });
-            results.push(LocatedStatement {
-                statement: Statement::Expression(assign_expr),
-                location: loc.clone(),
-            });
-        }
+        results.push(array_initializer_declaration(
+            id,
+            init_values.into_iter().map(|value| *value).collect(),
+            is_static,
+            is_final,
+            actual_size,
+            &loc,
+        ));
 
         true
     }
@@ -1975,6 +1891,50 @@ pub(super) fn parse_to_statements(
 // ============================================================
 
 /// 指定した位置の LocatedExpression を構築するヘルパー
+/// 初期化リスト・文字列初期化子つきの配列宣言を作る
+///
+/// 初期化は `Assign(Variable(id), ArrayInitializer(values))` とし、通常の変数の初期化と同じ形で
+/// 宣言の初期化子として意味解析に渡す。
+///
+/// バグ: 以前は「宣言（初期化は 0）+ 要素ごとの代入文」に分解していたため、要素の代入が宣言から切り離され、
+/// static の配列でも宣言の位置を通るたびに実行され（static の初期化として扱われない）、final の配列では
+/// 再代入として検査されてエラーになっていた。
+/// 解決策: 要素の値の列を宣言の初期化子に入れ、意味解析で要素の代入に展開する。
+fn array_initializer_declaration(
+    id: &str,
+    values: Vec<LocatedExpression>,
+    is_static: bool,
+    is_final: bool,
+    array_size: i64,
+    loc: &SourceLocation,
+) -> LocatedStatement {
+    let init = LocatedExpression {
+        expression: Expression::Operation2(
+            Operator2::Assign,
+            Box::new(LocatedExpression {
+                expression: Expression::Variable(id.to_string()),
+                location: loc.clone(),
+            }),
+            Box::new(LocatedExpression {
+                expression: Expression::ArrayInitializer(values),
+                location: loc.clone(),
+            }),
+        ),
+        location: loc.clone(),
+    };
+    LocatedStatement {
+        statement: Statement::VariableDeclaration(
+            id.to_string(),
+            Box::new(init),
+            is_static,
+            is_final,
+            Some(array_size),
+            None,
+        ),
+        location: loc.clone(),
+    }
+}
+
 fn make_located_expr_at(expr: Expression, pos: usize) -> Box<LocatedExpression> {
     Box::new(LocatedExpression {
         expression: expr,

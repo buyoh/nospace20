@@ -1,0 +1,4 @@
+# Initializer list of a non-static array runs at each declaration (unchanged) #
+# step 2 #
+func: f() { let: a[2]([1, 2]); a[0] += 10; return: a[0]; }
+func: __main() { __puti(f()); __putc(32); __puti(f()); __putc(10); }

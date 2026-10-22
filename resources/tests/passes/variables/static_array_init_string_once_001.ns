@@ -1,0 +1,4 @@
+# String initializer of a function static array runs once before __main #
+# step 2 #
+func: g() { static: s[]("AB"); s[0] += 1; __putc(s[0]); }
+func: __main() { g(); g(); __putc(10); }

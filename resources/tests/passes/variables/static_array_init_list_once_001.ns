@@ -1,0 +1,4 @@
+# Initializer list of a function static array runs once before __main #
+# step 2 #
+func: f() { static: a[3]([1, 2, 3]); a[1] += 1; __puti(a[1]); }
+func: __main() { f(); f(); __putc(10); }

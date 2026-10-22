@@ -1,0 +1,4 @@
+# Error: initializer list of a static array reads a function argument #
+# step 2 #
+func: f(n) { static: a[3]([n, 2, 3]); return: a[0]; }
+func: __main() { __puti(f(7)); }

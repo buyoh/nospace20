@@ -463,6 +463,10 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             loc.start,
             "semantic error: struct literal can only be used in struct initialization"
         )]),
+        // パーサは配列の初期化子を変数宣言の初期化にしか作らず、宣言の変換（statement.rs）が先に展開する
+        Expression::ArrayInitializer(_) => {
+            panic!("internal error: array initializer outside a variable declaration")
+        }
         Expression::Block(statements) => {
             let (s, es) =
                 super::analyze_block_for_expression(statements, parent_resolver, functions)?;

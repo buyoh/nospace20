@@ -1,0 +1,4 @@
+# Error: block alias cycle through an array initializer list is still detected #
+# step 2 #
+alias: A { let: x[1]([A()]); 1; };
+func: __main() { A(); }

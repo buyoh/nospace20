@@ -211,6 +211,12 @@ fn collect_block_alias_refs_in_expr(
         Expression::Block(stmts) => {
             collect_block_alias_refs_in_stmts(stmts, block_alias_map, alias_map, refs)
         }
+        // 配列の初期化子の要素（以前は要素ごとの代入文として走査されていた）
+        Expression::ArrayInitializer(values) => {
+            for value in values {
+                collect_block_alias_refs_in_expr(value, block_alias_map, alias_map, refs);
+            }
+        }
         _ => {}
     }
 }

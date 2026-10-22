@@ -12,6 +12,7 @@ MINOR
 
 PATCH
 
+- Language: Initializer lists and string initializers of static arrays run once before __main (previously the elements were re-assigned each time the declaration was executed, and root static arrays were filled after the other statics). final arrays can be initialized with an initializer list
 - Compiler: return in a root-level block, return without a value in a block or for-init of an int function, and break / continue outside a loop in a function are now semantic errors (previously they compiled, or failed in the Whitespace code generator)
 
 ## 4.0.0

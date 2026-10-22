@@ -1,0 +1,5 @@
+# Elements of a root static array are initialized before later statics read them #
+# step 2 #
+static: a[2]([5, 6]);
+static: b(a[1] + 1);
+func: __main() { __puti(b); __putc(10); }

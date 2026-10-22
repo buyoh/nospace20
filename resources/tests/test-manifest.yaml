@@ -2226,3 +2226,39 @@ tests:
     type: success_io
     path: control_flow/for_body_break_001
     comment: "break in a for body (step 1)"
+
+  # static-storage-unification step 2
+  - name: test_compile_error_static_init_nonstatic_array_list_001
+    type: compile_error
+    path: static_init_nonstatic_array_list_001
+    comment: "Error: initializer list of a static array reads a function argument (step 2)"
+
+  - name: test_compile_error_block_alias_cycle_in_array_init_001
+    type: compile_error
+    path: block_alias_cycle_in_array_init_001
+    comment: "Error: block alias cycle through an array initializer list is still detected (step 2)"
+
+  - name: test_variables_static_array_init_list_once_001
+    type: success_io
+    path: variables/static_array_init_list_once_001
+    comment: "Initializer list of a function static array runs once before __main (step 2)"
+
+  - name: test_variables_static_array_init_string_once_001
+    type: success_io
+    path: variables/static_array_init_string_once_001
+    comment: "String initializer of a function static array runs once before __main (step 2)"
+
+  - name: test_variables_root_static_array_init_order_001
+    type: success_io
+    path: variables/root_static_array_init_order_001
+    comment: "Elements of a root static array are initialized before later statics read them (step 2)"
+
+  - name: test_variables_final_array_init_list_001
+    type: success_io
+    path: variables/final_array_init_list_001
+    comment: "final arrays can be initialized with an initializer list / string initializer (step 2)"
+
+  - name: test_variables_let_array_init_list_each_time_001
+    type: success_io
+    path: variables/let_array_init_list_each_time_001
+    comment: "Initializer list of a non-static array runs at each declaration (unchanged) (step 2)"

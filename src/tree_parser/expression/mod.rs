@@ -84,6 +84,9 @@ pub enum Expression {
     FieldArrayAccess(Box<LocatedExpression>, String, Box<LocatedExpression>),
     /// 構造体リテラル: struct: Name(expr, expr, ...)
     StructLiteral(String, Vec<LocatedExpression>),
+    /// 配列の初期化子（初期化リスト・文字列初期化子）。変数宣言の初期化（`Assign` の右辺）にだけ現れる。
+    /// 要素の値を先頭から並べる（文字列初期化子は文字コードと、末尾の 0）
+    ArrayInitializer(Vec<LocatedExpression>),
     Factor(i64),
     Variable(String),
     ArrayAccess(String, Box<LocatedExpression>), // 配列アクセス: arr[expr]

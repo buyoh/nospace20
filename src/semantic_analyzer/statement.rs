@@ -237,6 +237,63 @@ pub(super) fn convert_to_exec_statements(
                     }
                 }
 
+                // 配列の初期化リスト・文字列初期化子: 要素ごとの代入に展開する
+                // 左辺は convert_to_exec_expression_with_resolver を通さないので、final の再代入の検査を受けない
+                if let crate::tree_parser::Expression::Operation2(Operator2::Assign, _, rhs_expr) =
+                    &init.expression
+                {
+                    if let crate::tree_parser::Expression::ArrayInitializer(values) =
+                        &rhs_expr.expression
+                    {
+                        let array_size = match &var_type {
+                            ValueType::Array(_, size) => *size,
+                            _ => values.len(),
+                        };
+                        let mut init_statements = Vec::with_capacity(values.len());
+                        for (i, value) in values.iter().enumerate() {
+                            let exec_value = convert_to_exec_expression_with_resolver(
+                                &Box::new(value.clone()),
+                                init_resolver,
+                                ctx.functions,
+                            )?;
+                            super::expression::require_int_type(
+                                &exec_value,
+                                ctx.functions.return_types(),
+                            )?;
+                            let lhs = super::expression::make_located_exec(
+                                ExecExpression::ArrayAccess(
+                                    var_ref,
+                                    super::expression::make_located_exec(
+                                        ExecExpression::Factor(i as i64),
+                                        &value.location,
+                                    ),
+                                    array_size,
+                                ),
+                                &value.location,
+                            );
+                            init_statements.push(LocatedExecStatement {
+                                statement: ExecStatement::Expression(
+                                    super::expression::make_located_exec(
+                                        ExecExpression::Operation2(
+                                            Operator2::Assign,
+                                            lhs,
+                                            exec_value,
+                                        ),
+                                        &value.location,
+                                    ),
+                                ),
+                                location: loc.clone(),
+                            });
+                        }
+                        if *is_static_explicit {
+                            scope.static_init_statements.extend(init_statements);
+                        } else {
+                            exec_statements.extend(init_statements);
+                        }
+                        continue;
+                    }
+                }
+
                 // 初期化式を変換（変数宣言自体はパス1で完了）
                 // final 変数の初期化代入は再代入ブロックの対象外にするため、
                 // init_expr のトップレベルの Assign を分解して直接構築する
