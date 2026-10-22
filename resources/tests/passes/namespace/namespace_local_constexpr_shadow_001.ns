@@ -1,0 +1,4 @@
+# A local constexpr in a namespace function shadows the namespace constexpr #
+# step 4 #
+namespace: N { constexpr: K(1); func: f() { constexpr: K(2); return: K; } }
+func: __main() { __puti(N$f()); __putc(10); }

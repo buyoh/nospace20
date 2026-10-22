@@ -1,0 +1,4 @@
+# A local function in a namespace function shadows the namespace function #
+# step 4 #
+namespace: N { func: h() { return: 1; } func: f() { func: h() { return: 2; } return: h(); } }
+func: __main() { __puti(N$f()); __putc(10); }

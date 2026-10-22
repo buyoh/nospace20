@@ -1,0 +1,4 @@
+# A local variable in a namespace function shadows the namespace variable #
+# step 4 #
+namespace: N { let: s(9); func: f4() { let: s(1); s = 2; return: N$s; } }
+func: __main() { __puti(N$f4()); __putc(32); __puti(N$s); __putc(10); }

@@ -1002,3 +1002,35 @@ fn test_static_declared_in_initializer_is_initialized_first() {
     // x は関数スコープの走査で先に割り当てられ（0）、y は初期化子のブロックの解析で割り当てられる（1）
     assert_eq!(offsets, vec![1, 0]);
 }
+
+#[test]
+fn test_namespace_local_variable_shadows_namespace_variable() {
+    // 名前空間 N の関数の中の `s = 2` は、ローカルの `s` を指す（外側のスコープの N$s ではない）。
+    // `return: N$s` は名前空間の変数（グローバル）を指す
+    let source = "
+        namespace: N { let: s(9); func: f4() { let: s(1); s = 2; return: N$s; } }
+        func: __main() { __puti(N$f4()); }
+    ";
+    let scope = analyze_source(source).expect("analyze failed");
+    let f4 = scope.get_function("N$f4").expect("N$f4 must exist");
+    // 文 0 は `let: s(1)` の初期化、文 1 が `s = 2`、文 2 が `return: N$s`
+    let assign_target = match &f4.block.statements[1].statement {
+        ExecStatement::Expression(expr) => match &expr.expression {
+            ExecExpression::Operation2(Operator2::Assign, lhs, _) => match &lhs.expression {
+                ExecExpression::Variable(id_ref, _) => *id_ref,
+                _ => panic!("expected a variable"),
+            },
+            _ => panic!("expected an assignment"),
+        },
+        _ => panic!("expected an expression statement"),
+    };
+    assert!(!assign_target.is_global, "s = 2 must assign the local s");
+    assert_eq!(assign_target.scope_depth, 0);
+    match &f4.block.statements[2].statement {
+        ExecStatement::Return(Some(expr)) => match &expr.expression {
+            ExecExpression::Variable(id_ref, _) => assert!(id_ref.is_global),
+            _ => panic!("expected a variable"),
+        },
+        _ => panic!("expected a return statement"),
+    }
+}

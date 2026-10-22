@@ -2402,3 +2402,24 @@ tests:
     type: success_io
     path: scope/static_init_before_root_let_001
     comment: "All statics are initialized before root non-static variables (step 3)"
+
+  # static-storage-unification step 4
+  - name: test_namespace_namespace_local_var_shadow_001
+    type: success_io
+    path: namespace/namespace_local_var_shadow_001
+    comment: "A local variable in a namespace function shadows the namespace variable (step 4)"
+
+  - name: test_namespace_namespace_local_constexpr_shadow_001
+    type: success_io
+    path: namespace/namespace_local_constexpr_shadow_001
+    comment: "A local constexpr in a namespace function shadows the namespace constexpr (step 4)"
+
+  - name: test_namespace_namespace_local_func_shadow_001
+    type: success_io
+    path: namespace/namespace_local_func_shadow_001
+    comment: "A local function in a namespace function shadows the namespace function (step 4)"
+
+  - name: test_namespace_namespace_block_static_shadow_001
+    type: success_io
+    path: namespace/namespace_block_static_shadow_001
+    comment: "A block static seen from a block-local function shadows the namespace variable (needs step 3) (step 4)"

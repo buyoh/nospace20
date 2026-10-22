@@ -404,26 +404,40 @@ impl<'a> ScopeResolver<'a> {
         }
     }
 
-    /// 名前空間の候補（`ns_candidate_names`）と import（`resolve_imported_name`）を含めて変数を探す
-    ///
-    /// 候補 → import の順に探し、最初に見つかった（または参照できないと判明した）結果を返す。
-    fn lookup_variable(&self, name: &str) -> VariableLookup<'_> {
-        for candidate in &self.ns_candidate_names(name) {
-            match self.find_variable_exact(candidate) {
-                VariableLookup::NotFound => {}
-                result => return result,
-            }
-        }
+    /// 名前空間の候補（`ns_candidate_names` の順）と、import した完全修飾名（あれば）を、探す順に並べる
+    fn candidate_names_with_import(&self, name: &str) -> Vec<String> {
+        let mut names = self.ns_candidate_names(name);
         if let Some(imported) = self.resolve_imported_name(name) {
-            return self.find_variable_exact(&imported);
+            names.push(imported);
         }
-        VariableLookup::NotFound
+        names
     }
 
-    /// 変数名を完全一致で探す（名前空間プレフィックスなし、関数境界を考慮）
+    /// スコープを内側から順に見て、各スコープで `names` を順に試し、最初に見つかった結果を返す
     ///
+    /// バグ: 以前は名前の候補（`N$s` → `s`）ごとにスコープスタック全体を探していたため、外側のスコープにある
+    /// 名前空間の識別子 `N$s` が、内側のスコープのローカルな `s` より先に見つかっていた。
+    /// 解決策: スコープを内側から順に見て、各スコープの中で候補を試す（内側のスコープが常に優先される。
+    /// 同じスコープの中の候補の優先順位は今までと同じ）。
+    fn find_in_scopes<T>(
+        &self,
+        names: &[String],
+        mut lookup: impl FnMut(&ScopeInfo<'a>, &str) -> Option<T>,
+    ) -> Option<T> {
+        self.scope_stack.iter().rev().find_map(|scope_info| {
+            names
+                .iter()
+                .find_map(|candidate| lookup(scope_info, candidate.as_str()))
+        })
+    }
+
+    /// 名前空間の候補と import を含めて、関数境界を考慮して変数を探す
+    ///
+    /// スコープを内側から順に見て、各スコープで候補 → import の順に試す（`find_in_scopes` と同じ順）。
     /// 最も内側の関数スコープより外側にある非 static 変数は読み飛ばす。
-    fn find_variable_exact(&self, name: &str) -> VariableLookup<'_> {
+    /// 最初に見つかった（または参照できないと判明した）結果を返す。
+    fn lookup_variable(&self, name: &str) -> VariableLookup<'_> {
+        let names = self.candidate_names_with_import(name);
         // 最初に見つけた関数スコープ（自分の関数）の段数
         let mut first_function_scope_depth: Option<usize> = None;
 
@@ -432,50 +446,70 @@ impl<'a> ScopeResolver<'a> {
             if scope_info.is_function_scope && first_function_scope_depth.is_none() {
                 first_function_scope_depth = Some(depth);
             }
-
-            let (Some(&local_index), Some(&var_idx)) = (
-                scope_info.var_indices.get(name),
-                scope_info.var_name_to_var_index.get(name),
-            ) else {
-                continue;
-            };
-            let var = &scope_info.variables[var_idx];
-
-            // バグ: static 変数の初期化子は __main の前に実行されるのに、初期化子の外のローカル変数
-            // （引数・関数やブロックの非 static 変数）を参照でき、未定義の値を読んでいた。
-            // 解決策: 初期化子の外（スタック上の位置が unit_base より下）の非 static 変数を見つけたらエラーにする。
-            // 外側の同名の変数へ黙って解決しないよう、関数境界の読み飛ばしより先に判定し、探索を打ち切る。
-            let position = self.scope_stack.len() - 1 - depth;
-            if self.exec.unit == ExecUnit::StaticInitializer
-                && position < self.exec.unit_base
-                && !var.is_static
-            {
-                return VariableLookup::Forbidden(format!(
-                    "semantic error: initializer of a static variable cannot reference non-static variable '{}'",
-                    name
-                ));
-            }
-
             // バグ: 関数スコープの段だけを境界とみなしていたため、関数とその外側の関数の間にあるブロックスコープの
             // 非 static 変数を、内側の関数から参照できてしまっていた。
             // 解決策: 最も内側の関数スコープより外側の段は、スコープ種別によらず境界の外とする。
             let crossed_function_boundary =
                 first_function_scope_depth.is_some_and(|first_func_depth| depth > first_func_depth);
 
-            // 関数境界の外の非 static 変数はスキップして探索継続する。
-            // static 変数（ルートの変数・関数やブロックの static）はグローバル領域にあるので、境界の外からも参照できる
-            // （以前はブロックの static の所有者を決められず、内側の関数からの参照をエラーにしていた）
-            if crossed_function_boundary && !var.is_static {
-                continue;
+            for candidate in &names {
+                match self.check_variable_in_scope(
+                    depth,
+                    scope_info,
+                    candidate,
+                    crossed_function_boundary,
+                ) {
+                    VariableLookup::NotFound => {}
+                    result => return result,
+                }
             }
-
-            return VariableLookup::Found(FoundVariable {
-                depth,
-                local_index,
-                var,
-            });
         }
         VariableLookup::NotFound
+    }
+
+    /// 1 つのスコープに、名前 `name`（完全一致）の参照できる変数があるかを調べる
+    fn check_variable_in_scope<'s>(
+        &self,
+        depth: usize,
+        scope_info: &'s ScopeInfo<'a>,
+        name: &str,
+        crossed_function_boundary: bool,
+    ) -> VariableLookup<'s> {
+        let (Some(&local_index), Some(&var_idx)) = (
+            scope_info.var_indices.get(name),
+            scope_info.var_name_to_var_index.get(name),
+        ) else {
+            return VariableLookup::NotFound;
+        };
+        let var = &scope_info.variables[var_idx];
+
+        // バグ: static 変数の初期化子は __main の前に実行されるのに、初期化子の外のローカル変数
+        // （引数・関数やブロックの非 static 変数）を参照でき、未定義の値を読んでいた。
+        // 解決策: 初期化子の外（スタック上の位置が unit_base より下）の非 static 変数を見つけたらエラーにする。
+        // 外側の同名の変数へ黙って解決しないよう、関数境界の読み飛ばしより先に判定し、探索を打ち切る。
+        let position = self.scope_stack.len() - 1 - depth;
+        if self.exec.unit == ExecUnit::StaticInitializer
+            && position < self.exec.unit_base
+            && !var.is_static
+        {
+            return VariableLookup::Forbidden(format!(
+                "semantic error: initializer of a static variable cannot reference non-static variable '{}'",
+                name
+            ));
+        }
+
+        // 関数境界の外の非 static 変数は読み飛ばして探索を続ける。
+        // static 変数（ルートの変数・関数やブロックの static）はグローバル領域にあるので、境界の外からも参照できる
+        // （以前はブロックの static の所有者を決められず、内側の関数からの参照をエラーにしていた）
+        if crossed_function_boundary && !var.is_static {
+            return VariableLookup::NotFound;
+        }
+
+        VariableLookup::Found(FoundVariable {
+            depth,
+            local_index,
+            var,
+        })
     }
 
     /// 変数が final かどうかを返す
@@ -529,59 +563,31 @@ impl<'a> ScopeResolver<'a> {
     ///
     /// local_index はグローバル関数リストのインデックスを指す。
     pub fn resolve_function(&self, name: &str) -> Option<IdentifierRef> {
-        let candidates = self.ns_candidate_names(name);
-        for candidate in &candidates {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(Identifier::Function(info)) =
-                    scope_info.func_map.get(candidate.as_str())
-                {
-                    // 全関数はルートスコープにフラット化されているため、
-                    // 常に is_global=true、scope_depth=0 を返す
-                    // local_index はグローバルインデックス
-                    return Some(IdentifierRef {
-                        scope_depth: 0,
-                        local_index: info.0,
-                        is_global: true,
-                    });
-                }
+        let names = self.candidate_names_with_import(name);
+        self.find_in_scopes(&names, |scope_info, candidate| {
+            match scope_info.func_map.get(candidate) {
+                // 全関数はルートスコープにフラット化されているため、
+                // 常に is_global=true、scope_depth=0 を返す
+                // local_index はグローバルインデックス
+                Some(Identifier::Function(info)) => Some(IdentifierRef {
+                    scope_depth: 0,
+                    local_index: info.0,
+                    is_global: true,
+                }),
+                _ => None,
             }
-        }
-        if let Some(imported) = self.resolve_imported_name(name) {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(Identifier::Function(info)) = scope_info.func_map.get(imported.as_str())
-                {
-                    return Some(IdentifierRef {
-                        scope_depth: 0,
-                        local_index: info.0,
-                        is_global: true,
-                    });
-                }
-            }
-        }
-        None
+        })
     }
 
-    /// 関数の期待される引数数を取得する（名前空間対応）
+    /// 関数の期待される引数数を取得する（名前空間対応。探索順は `resolve_function` と同じ）
     pub fn get_function_arg_count(&self, name: &str) -> Option<usize> {
-        let candidates = self.ns_candidate_names(name);
-        for candidate in &candidates {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(Identifier::Function(info)) =
-                    scope_info.func_map.get(candidate.as_str())
-                {
-                    return Some(info.1);
-                }
+        let names = self.candidate_names_with_import(name);
+        self.find_in_scopes(&names, |scope_info, candidate| {
+            match scope_info.func_map.get(candidate) {
+                Some(Identifier::Function(info)) => Some(info.1),
+                _ => None,
             }
-        }
-        if let Some(imported) = self.resolve_imported_name(name) {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(Identifier::Function(info)) = scope_info.func_map.get(imported.as_str())
-                {
-                    return Some(info.1);
-                }
-            }
-        }
-        None
+        })
     }
 
     /// constexpr 定数名を解決し、定数値を返す
@@ -590,39 +596,22 @@ impl<'a> ScopeResolver<'a> {
     /// スコープスタックを内側から外側へ探索し、最も近いスコープの constexpr 値を返す。
     /// 見つからない場合は None を返す。
     pub fn resolve_constexpr(&self, name: &str) -> Option<i64> {
-        let candidates = self.ns_candidate_names(name);
-        for candidate in &candidates {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(&v) = scope_info.constexpr_table.get(candidate.as_str()) {
-                    return Some(v);
-                }
-            }
-        }
-        if let Some(imported) = self.resolve_imported_name(name) {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(&v) = scope_info.constexpr_table.get(imported.as_str()) {
-                    return Some(v);
-                }
-            }
-        }
-        None
+        let names = self.candidate_names_with_import(name);
+        self.find_in_scopes(&names, |scope_info, candidate| {
+            scope_info.constexpr_table.get(candidate).copied()
+        })
     }
 
     /// ブロックエイリアス名を解決し、AST 本体を返す
     ///
-    /// 名前空間プレフィックスを考慮した名前でも探索する。
+    /// 名前空間プレフィックスを考慮した名前でも探索する（import は対象外）。
     /// スコープスタックを内側から外側へ探索する。
     /// 見つからない場合は None を返す。
     pub fn resolve_block_alias(&self, name: &str) -> Option<&Vec<LocatedStatement>> {
-        let candidates = self.ns_candidate_names(name);
-        for candidate in &candidates {
-            for scope_info in self.scope_stack.iter().rev() {
-                if let Some(body) = scope_info.block_alias_map.get(candidate.as_str()) {
-                    return Some(body);
-                }
-            }
-        }
-        None
+        let names = self.ns_candidate_names(name);
+        self.find_in_scopes(&names, |scope_info, candidate| {
+            scope_info.block_alias_map.get(candidate)
+        })
     }
 
     /// エイリアス名をチェーン解決して最終的な識別子名を返す
@@ -636,18 +625,14 @@ impl<'a> ScopeResolver<'a> {
         let mut visited: BTreeSet<String> = BTreeSet::new();
         // 最初の解決候補を名前空間対応で取得
         let candidates = self.ns_candidate_names(name);
-        let mut current = {
-            let mut resolved_start = name.to_string();
-            'outer: for candidate in &candidates {
-                for scope_info in self.scope_stack.iter().rev() {
-                    if scope_info.alias_map.contains_key(candidate.as_str()) {
-                        resolved_start = candidate.clone();
-                        break 'outer;
-                    }
-                }
-            }
-            resolved_start
-        };
+        let mut current = self
+            .find_in_scopes(&candidates, |scope_info, candidate| {
+                scope_info
+                    .alias_map
+                    .contains_key(candidate)
+                    .then(|| candidate.to_string())
+            })
+            .unwrap_or_else(|| name.to_string());
         if current == name {
             if let Some(imported) = self.resolve_imported_name(name) {
                 current = imported;
