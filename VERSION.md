@@ -1,6 +1,6 @@
 # Version
 
-## x.x.x (WIP)
+## 4.0.0
 
 Summary:
 
