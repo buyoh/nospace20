@@ -1,0 +1,4 @@
+# break targeting a loop inside the static initializer is allowed #
+# step 1 #
+func: f() { static: s({ let: k(0); while: 1 { k += 1; if: k == 3 { break:; }; }; k; }); return: s; }
+func: __main() { __puti(f()); __putc(10); }

@@ -13,6 +13,7 @@ use crate::{
 
 use super::{
     context::AnalyzeContext,
+    exec_context::ExecUnit,
     expression::convert_to_exec_expression_with_resolver,
     scope::{Identifier, ScopeBuilder, ScopeResolver, ScopeType},
     types::{
@@ -48,6 +49,11 @@ pub(super) fn convert_to_exec_statements(
             Statement::VariableDeclaration(name, init, is_static_explicit, _, _, type_annot) => {
                 let (var_ref, var_type) =
                     super::expression::resolve_variable_or_error(resolver, name, name, loc.start)?;
+                // static 変数の初期化子は __main の前に実行されるので、新しい実行単位として変換する
+                // （初期化子の外の非 static 変数・return・外のループへの break / continue を禁止する）。
+                // 左辺（static 変数自身）は元のリゾルバで変換する
+                let static_init_resolver = is_static_explicit.then(|| resolver.for_static_initializer());
+                let init_resolver = static_init_resolver.as_ref().unwrap_or(resolver);
 
                 if let ValueType::Struct(struct_idx) = var_type.clone() {
                     if let crate::tree_parser::Expression::Operation2(
@@ -78,7 +84,7 @@ pub(super) fn convert_to_exec_statements(
                                         })?;
                                         let exec_expr = convert_to_exec_expression_with_resolver(
                                             &Box::new(expr.clone()),
-                                            resolver,
+                                            init_resolver,
                                             ctx.functions,
                                         )?;
                                         super::expression::require_int_type(
@@ -99,7 +105,7 @@ pub(super) fn convert_to_exec_statements(
                                             let exec_expr =
                                                 convert_to_exec_expression_with_resolver(
                                                     &Box::new(expr.clone()),
-                                                    resolver,
+                                                    init_resolver,
                                                     ctx.functions,
                                                 )?;
                                             super::expression::require_int_type(
@@ -149,7 +155,7 @@ pub(super) fn convert_to_exec_statements(
                                                     let exec_expr =
                                                         convert_to_exec_expression_with_resolver(
                                                             &Box::new(nested_expr.clone()),
-                                                            resolver,
+                                                            init_resolver,
                                                             ctx.functions,
                                                         )?;
                                                     super::expression::require_int_type(
@@ -243,7 +249,7 @@ pub(super) fn convert_to_exec_statements(
                     // 初期化代入: rhs のみ変換し、Assign を直接構築（final チェックなし）
                     let exec_rhs = convert_to_exec_expression_with_resolver(
                         rhs_expr,
-                        resolver,
+                        init_resolver,
                         ctx.functions,
                     )?;
                     super::expression::require_int_type(&exec_rhs, ctx.functions.return_types())?;
@@ -262,7 +268,7 @@ pub(super) fn convert_to_exec_statements(
                     )
                 } else {
                     // 初期値なし（Factor(0)）の場合は通常変換
-                    convert_to_exec_expression_with_resolver(init, resolver, ctx.functions)?
+                    convert_to_exec_expression_with_resolver(init, init_resolver, ctx.functions)?
                 };
                 if let Some(type_spec) = type_annot {
                     let expected = super::expression::resolve_type_spec(type_spec, resolver)?;
@@ -339,12 +345,7 @@ pub(super) fn convert_to_exec_statements(
                 );
             }
             Statement::Return(e) => {
-                if let ScopeType::Root = scope_type {
-                    return Err(vec![code_parse_error!(
-                        loc.start,
-                        "semantic error: return statement outside of function"
-                    )]);
-                }
+                let func_index = return_target_function(resolver, loc.start)?;
                 match e {
                     Some(expr) => {
                         let exec_e = convert_to_exec_expression_with_resolver(
@@ -361,13 +362,14 @@ pub(super) fn convert_to_exec_statements(
                     }
                     None => {
                         // void return: 関数が int 型（return: expr; がある）場合はエラー
-                        if let Some(idx) = ctx.func_global_index {
-                            if *ctx.functions.return_type(idx) != ValueType::Void {
-                                return Err(vec![code_parse_error!(
-                                    loc.start,
-                                    "semantic error: return without value in non-void function"
-                                )]);
-                            }
+                        // バグ: 関数インデックスを AnalyzeContext から取っていたため、ブロック・for-init の中では
+                        // None になり、int の関数の `return:;` が検査されずに 0 を返していた。
+                        // 解決策: 実行文脈（ブロックにも引き継がれる）の関数インデックスで検査する。
+                        if *ctx.functions.return_type(func_index) != ValueType::Void {
+                            return Err(vec![code_parse_error!(
+                                loc.start,
+                                "semantic error: return without value in non-void function"
+                            )]);
                         }
                         exec_statements.push(LocatedExecStatement {
                             statement: ExecStatement::Return(None),
@@ -389,24 +391,14 @@ pub(super) fn convert_to_exec_statements(
                 });
             }
             Statement::Continue => {
-                if let ScopeType::Root = scope_type {
-                    return Err(vec![code_parse_error!(
-                        loc.start,
-                        "semantic error: continue statement outside of function"
-                    )]);
-                }
+                check_loop_control(resolver, "continue", loc.start)?;
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::Continue,
                     location: loc.clone(),
                 });
             }
             Statement::Break => {
-                if let ScopeType::Root = scope_type {
-                    return Err(vec![code_parse_error!(
-                        loc.start,
-                        "semantic error: break statement outside of function"
-                    )]);
-                }
+                check_loop_control(resolver, "break", loc.start)?;
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::Break,
                     location: loc.clone(),
@@ -419,11 +411,14 @@ pub(super) fn convert_to_exec_statements(
                         "semantic error: while statement outside of function"
                     )]);
                 }
+                // 条件・本体はループの内側（WS コンパイラも条件の前にループのラベルを積む）
+                let loop_resolver = resolver.for_loop_body();
                 let exec_cond =
-                    convert_to_exec_expression_with_resolver(expr, resolver, ctx.functions)?;
+                    convert_to_exec_expression_with_resolver(expr, &loop_resolver, ctx.functions)?;
                 // void 型の式は条件式に使用不可
                 super::expression::require_int_type(&exec_cond, ctx.functions.return_types())?;
-                let (s, es) = super::analyze_block_for_expression(stat, resolver, ctx.functions)?;
+                let (s, es) =
+                    super::analyze_block_for_expression(stat, &loop_resolver, ctx.functions)?;
                 exec_statements.push(LocatedExecStatement {
                     statement: ExecStatement::While(
                         ConditionMode::NonZero,
@@ -445,9 +440,10 @@ pub(super) fn convert_to_exec_statements(
                 }
 
                 // Step 1: init ブロックを解析（現在のスコープの子として）
-                // init スコープには for ループ変数が含まれる
-                // NOTE: func_global_index=None を渡す（元の動作と一致）—
-                // for-init ブロック内での return 型チェックをスキップするため
+                // init スコープには for ループ変数が含まれる。init はループの外（実行文脈はそのまま）
+                // バグ: 以前は func_global_index=None を渡して for-init の中の return の型検査を飛ばしており、
+                // int の関数の for-init の `return:;` が通っていた。
+                // 解決策: return の型検査を実行文脈（ブロックにも引き継がれる）で行う。
                 let (init_sb, init_es) = {
                     let mut for_init_ctx = AnalyzeContext::new_block(&mut *ctx.functions);
                     super::analyze_internal_with_parent(
@@ -463,10 +459,12 @@ pub(super) fn convert_to_exec_statements(
                 // Step 2: for スコープのリゾルバを構築
                 // 現在のスコープに init スコープを重ねることで、
                 // cond/step/body から init 変数を scope_depth=1 でアクセス可能にする
+                // cond・step・body はループの内側（WS コンパイラも cond の前にループのラベルを積む）
                 let mut for_resolver = super::scope::ScopeResolver {
                     scope_stack: resolver.scope_stack.clone(),
                     namespace_prefix: resolver.namespace_prefix.clone(),
                     import_table: resolver.import_table.clone(),
+                    exec: resolver.exec.in_loop(),
                 };
                 // for-init スコープの constexpr は展開済みのため、空のテーブルを渡す
                 let for_init_empty_constexpr: BTreeMap<String, i64> = BTreeMap::new();
@@ -563,6 +561,7 @@ pub(super) fn convert_to_exec_statements(
                         prefix
                     },
                     import_table: resolver.import_table.clone(),
+                    exec: resolver.exec,
                 };
                 let body_stmts =
                     convert_to_exec_statements(body, scope_type, scope, &ns_resolver, ctx)?;
@@ -586,4 +585,48 @@ pub(super) fn convert_to_exec_statements(
     }
 
     Ok(exec_statements)
+}
+
+/// `return` を書ける位置かを確かめ、戻り先の関数のグローバルインデックスを返す
+///
+/// バグ: スコープの種類（ScopeType::Root）でしか検査しておらず、ルートのブロックや static 変数の初期化子の
+/// 中の return が通り、実行時にスタックを壊していた。
+/// 解決策: 実行文脈で検査し、関数本体の中だけで許可する。
+fn return_target_function(
+    resolver: &ScopeResolver,
+    location_start: usize,
+) -> Result<usize, Vec<CodeParseError>> {
+    match resolver.exec.unit {
+        ExecUnit::FunctionBody { func_index } => Ok(func_index),
+        ExecUnit::RootInit => Err(vec![code_parse_error!(
+            location_start,
+            "semantic error: return statement outside of function"
+        )]),
+        ExecUnit::StaticInitializer => Err(vec![code_parse_error!(
+            location_start,
+            "semantic error: return statement in a static initializer"
+        )]),
+    }
+}
+
+/// `break` / `continue`（`keyword`）を書ける位置か（実行単位の中のループの内側か）を確かめる
+///
+/// バグ: ルートの直下でしか検査しておらず、関数の中のループの外は WS コンパイラのエラーになり、
+/// static 変数の初期化子の中から外のループを指すものは誤ったコードになっていた。
+/// 解決策: 実行文脈のループの深さ（実行単位に入ると 0 に戻る）で検査する。
+fn check_loop_control(
+    resolver: &ScopeResolver,
+    keyword: &str,
+    location_start: usize,
+) -> Result<(), Vec<CodeParseError>> {
+    if resolver.exec.loop_depth > 0 {
+        return Ok(());
+    }
+    let message = match resolver.exec.unit {
+        ExecUnit::RootInit => format!("semantic error: {} statement outside of function", keyword),
+        ExecUnit::FunctionBody { .. } | ExecUnit::StaticInitializer => {
+            format!("semantic error: {} statement outside of a loop", keyword)
+        }
+    };
+    Err(vec![code_parse_error!(location_start, message)])
 }

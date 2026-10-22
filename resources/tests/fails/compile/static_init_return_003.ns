@@ -1,0 +1,5 @@
+# Error: block alias containing return expanded inside a static initializer #
+# step 1 #
+alias: early { return: 1; };
+func: f() { static: x({ early(); 2; }); return: x; }
+func: __main() { __puti(f()); }

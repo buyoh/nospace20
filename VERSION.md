@@ -1,5 +1,19 @@
 # Version
 
+## x.x.x (WIP)
+
+TODO: Update Cargo.toml.
+
+MAJOR
+
+MINOR
+
+- Language: Initializers of static variables cannot reference non-static variables declared outside the initializer (function arguments, local variables, variables of root-level blocks), and cannot use return or break / continue targeting a loop outside the initializer (previously they compiled and read undefined values or crashed at runtime)
+
+PATCH
+
+- Compiler: return in a root-level block, return without a value in a block or for-init of an int function, and break / continue outside a loop in a function are now semantic errors (previously they compiled, or failed in the Whitespace code generator)
+
 ## 4.0.0
 
 Summary:

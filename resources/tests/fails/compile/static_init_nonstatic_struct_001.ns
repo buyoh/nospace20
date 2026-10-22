@@ -1,0 +1,5 @@
+# Error: struct literal value of a static initializer reads a local variable #
+# step 1 #
+struct: P (x, y);
+func: f() { let: a(1); static: p@P(a, 2); return: p.x; }
+func: __main() { __puti(f()); }

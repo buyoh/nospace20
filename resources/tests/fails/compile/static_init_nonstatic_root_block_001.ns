@@ -1,0 +1,5 @@
+# Error: static initializer in a root block reads a non-static variable of the block #
+# step 1 #
+let: g(0);
+{ let: a(5); static: s(a + 1); g = s; };
+func: __main() { __puti(g); }

@@ -1,0 +1,4 @@
+# Error: static initializer in a for body reads the for-init variable #
+# step 1 #
+func: f() { for: { let: i(0); } { i < 1; } { i += 1; } { static: s(i); }; return: 0; }
+func: __main() { __puti(f()); }

@@ -5,6 +5,7 @@
 //! ## モジュール構成
 //!
 //! - `context`    : 解析コンテキスト（AnalyzeContext 構造体）
+//! - `exec_context` : 実行文脈（ExecContext。ルートの初期化・関数本体・static の初期化子とループの深さ）
 //! - `function_table` : 意味解析中のグローバル関数表（FunctionTable 構造体）
 //! - `expression` : 式の変換処理（ExecExpression 生成）
 //! - `statement`  : 文の変換処理（ExecStatement 生成）
@@ -18,6 +19,7 @@
 mod alias;
 mod constexpr;
 mod context;
+mod exec_context;
 mod expression;
 mod function_table;
 mod return_analysis;
@@ -226,10 +228,18 @@ fn analyze_internal_with_parent(
 
     // 親のリゾルバを継承して新しいリゾルバを作成
     let mut resolver = if let Some(parent) = parent_resolver {
+        // 関数本体は新しい実行単位。ブロックは親の実行文脈を引き継ぐ
+        let exec = match (scope_type, ctx.func_global_index) {
+            (ScopeType::Function, Some(func_index)) => {
+                exec_context::ExecContext::function_body(func_index, parent.scope_stack.len())
+            }
+            _ => parent.exec,
+        };
         let mut new_resolver = ScopeResolver {
             scope_stack: parent.scope_stack.clone(),
             namespace_prefix: parent.namespace_prefix.clone(),
             import_table: import_bundle.import_table.clone(),
+            exec,
         };
         new_resolver.enter_scope(
             &temporary_scope.variable_indices,

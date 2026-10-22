@@ -1,0 +1,4 @@
+# Error: break outside a loop in a function (previously a WS compiler error) #
+# step 1 #
+func: f() { break:; }
+func: __main() { f(); }

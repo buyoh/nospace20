@@ -1,0 +1,4 @@
+# Static initializer of a nested function reads a static of the outer function #
+# step 1 #
+func: f() { static: fs(7); func: g() { static: t(fs + 1); return: t; } return: g(); }
+func: __main() { __puti(f()); __putc(10); }

@@ -68,26 +68,33 @@ fn test_compile_error_returns_code_parse_error() {
     assert_eq!(error.location, None);
 }
 
-/// continue outside loop のコンパイルエラーに位置情報が含まれることを確認するテスト
+/// WS コンパイラのエラー（InvalidOperation）に位置情報が含まれることを確認するテスト
 ///
-/// セマンティクス解析を通過するが、コンパイル時にエラーとなるケース。
+/// 意味解析を通過するが、コンパイル時にエラーとなるケース。
+/// 以前は continue outside loop を使っていたが、ループの外の break / continue は
+/// 意味解析で拒否するようになった（static-storage-unification ステップ 1）ので、
+/// alloc 拡張なしの `__alloc` に置き換えた。
 #[test]
 fn test_compile_error_invalid_operation_has_location() {
-    // continue をループ外で使用するコード
-    // セマンティクス解析はパスするが、コンパイル時に continue outside loop エラーとなる
-    let source = "func:__main(){continue:;return:0;}";
+    let source = "func:__main(){let: p(__alloc(1)); return:0;}";
 
     let tokens = parse_to_tokens(&source.to_string()).unwrap();
     let ast = parse_to_tree(&tokens).unwrap();
     let scope = semantic_analyze(&ast).unwrap();
 
-    let result = compile_to_ws(&scope, &WsCompileOptions::default());
-    assert!(result.is_err(), "Should fail: continue outside loop");
+    let result = compile_to_ws(
+        &scope,
+        &WsCompileOptions {
+            alloc_ext: false,
+            ..Default::default()
+        },
+    );
+    assert!(result.is_err(), "Should fail: __alloc without the alloc extension");
 
     let error = result.unwrap_err();
     assert!(
-        error.kind.to_string().contains("continue"),
-        "Error message should mention 'continue': {}",
+        error.kind.to_string().contains("__alloc"),
+        "Error message should mention '__alloc': {}",
         error.kind
     );
     assert!(

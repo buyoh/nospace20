@@ -44,6 +44,9 @@ pub struct CodeGenContext<'a> {
     #[allow(dead_code)]
     is_global: bool,
 
+    /// 関数本体のコードを生成しているか（static 変数の初期化の文脈では false）
+    in_function_body: bool,
+
     /// 現在の関数のローカル変数サイズ
     local_heap_size: i64,
 
@@ -104,6 +107,7 @@ impl<'a> CodeGenContext<'a> {
             scope,
             labels: LabelAllocator::new(),
             is_global: true,
+            in_function_body: false,
             local_heap_size: 0,
             variables: HashMap::new(),
             loop_labels: Vec::new(),
@@ -136,6 +140,7 @@ impl<'a> CodeGenContext<'a> {
             scope: self.scope,
             labels: self.labels.clone(),
             is_global: false,
+            in_function_body: true,
             local_heap_size,
             variables: HashMap::new(),
             loop_labels: Vec::new(),
@@ -178,6 +183,7 @@ impl<'a> CodeGenContext<'a> {
             scope: self.scope,
             labels: self.labels.clone(),
             is_global: false,
+            in_function_body: false,
             local_heap_size: 0, // フレーム不要
             variables: HashMap::new(),
             loop_labels: Vec::new(),
@@ -192,6 +198,11 @@ impl<'a> CodeGenContext<'a> {
             current_func_scope: Some(func_scope),
             current_location: None,
         }
+    }
+
+    /// 関数本体のコードを生成しているか
+    pub fn in_function_body(&self) -> bool {
+        self.in_function_body
     }
 
     /// グローバル領域の配置を取得

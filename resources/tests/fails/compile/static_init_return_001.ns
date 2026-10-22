@@ -1,0 +1,4 @@
+# Error: return inside a function static initializer #
+# step 1 #
+func: f() { static: x({ if: 1 { return: 3; }; 5; }); return: x; }
+func: __main() { __puti(f()); }

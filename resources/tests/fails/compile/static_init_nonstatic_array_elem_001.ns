@@ -1,0 +1,4 @@
+# Error: static initializer reads an element of a local array (not reported as an undefined variable) #
+# step 1 #
+func: f() { let: arr[2]; arr[0] = 1; static: x(arr[0]); return: x; }
+func: __main() { __puti(f()); }

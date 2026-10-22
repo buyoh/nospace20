@@ -1,0 +1,5 @@
+# Error: block static initializer reads an outer block variable (not resolved to the same-named global) #
+# step 1 #
+let: a(9);
+func: f() { { let: a(1); { static: s(a); return: s; }; }; }
+func: __main() { __puti(f()); }

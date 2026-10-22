@@ -1,0 +1,6 @@
+{
+  "type": "compile_error",
+  "contains": [
+    "return without value in non-void function"
+  ]
+}

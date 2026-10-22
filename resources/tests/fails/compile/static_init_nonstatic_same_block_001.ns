@@ -1,0 +1,4 @@
+# Error: block static initializer reads a non-static variable of the same block #
+# step 1 #
+func: f() { { let: a(5); static: s(a + 1); return: s; }; }
+func: __main() { __puti(f()); }

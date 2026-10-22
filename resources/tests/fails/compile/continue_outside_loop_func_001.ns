@@ -1,0 +1,4 @@
+# Error: continue outside a loop in a function block #
+# step 1 #
+func: f() { { continue:; }; }
+func: __main() { f(); }

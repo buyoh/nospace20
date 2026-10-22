@@ -827,3 +827,73 @@ fn test_block_nested_func_array_access_skips_enclosing_block_array() {
         _ => panic!("return expression must be an array access"),
     }
 }
+
+/// 解析のエラーメッセージを 1 つの文字列にまとめる（成功した場合は panic）
+fn analyze_error_message(source: &str) -> String {
+    match analyze_source(source) {
+        Ok(_) => panic!("analysis must fail: {}", source),
+        Err(errors) => errors
+            .iter()
+            .map(|e| e.message.clone())
+            .collect::<Vec<_>>()
+            .join("\n"),
+    }
+}
+
+#[test]
+fn test_static_initializer_boundary_excludes_declaring_scope() {
+    // 初期化子の境界は宣言したスコープの上にある。宣言したブロック自身の非 static 変数は境界の外
+    let message = analyze_error_message("func: f() { { let: a(5); static: s(a); }; }");
+    assert!(message.contains("cannot reference non-static variable 'a'"), "{}", message);
+}
+
+#[test]
+fn test_static_initializer_allows_its_own_block_variables_and_statics() {
+    // 初期化子の中のブロックの変数は境界の内側。static 変数・グローバル変数は境界の外でも参照できる
+    let source = "
+        let: g(1);
+        func: f() {
+          static: a(2);
+          { static: b(a + g); static: c({ let: t(3); t + b; }); return: c; };
+        }
+        func: __main() { __puti(f()); }
+    ";
+    assert!(analyze_source(source).is_ok());
+}
+
+#[test]
+fn test_static_initializer_does_not_fall_back_to_same_named_global() {
+    // 外の非 static 変数を見つけた時点でエラーにする（外側の同名のグローバル変数に解決しない）
+    let message =
+        analyze_error_message("let: a(9); func: f() { let: a(1); static: s(a); return: s; }");
+    assert!(message.contains("cannot reference non-static variable 'a'"), "{}", message);
+}
+
+#[test]
+fn test_exec_context_new_unit_inside_static_initializer() {
+    // 初期化子の中で定義した関数は新しい実行単位: return を書けて、ループの深さも 0 から数える
+    let ok = "
+        func: f() {
+          static: x({ func: g() { let: i(0); while: 1 { i += 1; if: i == 2 { break:; }; }; return: i; } g(); });
+          return: x;
+        }
+        func: __main() { __puti(f()); }
+    ";
+    assert!(analyze_source(ok).is_ok());
+    // 初期化子は外のループの内側でも、ループの深さは 0 から数える
+    let message = analyze_error_message(
+        "func: f() { while: 1 { static: s({ continue:; 0; }); }; }",
+    );
+    assert!(message.contains("continue statement outside of a loop"), "{}", message);
+}
+
+#[test]
+fn test_exec_context_loop_depth_for_init_and_body() {
+    // for の init はループの外、cond / step / body はループの内側
+    let message = analyze_error_message(
+        "func: f() { for: { let: i(0); break:; } { i < 1; } { i += 1; } { }; }",
+    );
+    assert!(message.contains("break statement outside of a loop"), "{}", message);
+    let ok = "func: f() { for: { let: i(0); } { i < 1; } { i += 1; } { break:; }; } func: __main() { f(); }";
+    assert!(analyze_source(ok).is_ok());
+}

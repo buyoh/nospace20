@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::{base::CodeParseError, code_parse_error};
 
+use super::exec_context::{ExecContext, ExecUnit};
 use super::types::{
     Block, IdentifierRef, LocatedExecStatement, StructDefinition, ValueType, Variable,
 };
@@ -222,17 +223,21 @@ struct FoundVariable<'s, 'a> {
 enum VariableLookup<'s, 'a> {
     Found(FoundVariable<'s, 'a>),
     NotFound,
-    /// 参照できない変数を見つけた（ブロックの static を内側の関数から参照した）。値はエラーメッセージ
+    /// 参照できない変数を見つけた（ブロックの static を内側の関数から参照した、
+    /// static 変数の初期化子から外の非 static 変数を参照した）。値はエラーメッセージ
     Forbidden(String),
 }
 
-/// スコープ解決のためのコンテキスト
+/// 名前解決と、解析位置の実行文脈
 ///
 /// 2パス解析のパス2で使用され、
 /// 変数名・関数名を IdentifierRef に解決する。
 ///
 /// 関数境界チェックも実装。親の関数スコープの非 static 変数には
 /// アクセスできないようにする。
+/// `exec` は、解析位置が属する実行単位（ルートの初期化・関数本体・static の初期化子）と
+/// ループの深さを表し、`return` / `break` / `continue` と初期化子の参照の検査に使う。
+#[derive(Clone)]
 pub(super) struct ScopeResolver<'a> {
     /// スコープスタック（末尾が現在のスコープ）
     pub scope_stack: Vec<ScopeInfo<'a>>,
@@ -241,6 +246,8 @@ pub(super) struct ScopeResolver<'a> {
     pub namespace_prefix: Vec<String>,
     /// import 解決テーブル: current namespace (no trailing '$') -> imported name -> fully-qualified target
     pub import_table: BTreeMap<String, BTreeMap<String, String>>,
+    /// 解析位置の実行文脈
+    pub exec: ExecContext,
 }
 
 impl<'a> ScopeResolver<'a> {
@@ -249,7 +256,26 @@ impl<'a> ScopeResolver<'a> {
             scope_stack: Vec::new(),
             namespace_prefix: Vec::new(),
             import_table: BTreeMap::new(),
+            exec: ExecContext::root(),
         }
+    }
+
+    /// 実行文脈だけを差し替えた複製を返す
+    pub fn with_exec(&self, exec: ExecContext) -> ScopeResolver<'a> {
+        ScopeResolver {
+            exec,
+            ..self.clone()
+        }
+    }
+
+    /// static 変数の初期化子を変換するための複製を返す（現在のスコープまでが初期化子の外になる）
+    pub fn for_static_initializer(&self) -> ScopeResolver<'a> {
+        self.with_exec(ExecContext::static_initializer(self.scope_stack.len()))
+    }
+
+    /// ループの条件・本体を変換するための複製を返す
+    pub fn for_loop_body(&self) -> ScopeResolver<'a> {
+        self.with_exec(self.exec.in_loop())
     }
 
     fn current_ns_key(&self) -> String {
@@ -416,6 +442,21 @@ impl<'a> ScopeResolver<'a> {
                 continue;
             };
             let var = &scope_info.variables[var_idx];
+
+            // バグ: static 変数の初期化子は __main の前に実行されるのに、初期化子の外のローカル変数
+            // （引数・関数やブロックの非 static 変数）を参照でき、未定義の値を読んでいた。
+            // 解決策: 初期化子の外（スタック上の位置が unit_base より下）の非 static 変数を見つけたらエラーにする。
+            // 外側の同名の変数へ黙って解決しないよう、関数境界の読み飛ばしより先に判定し、探索を打ち切る。
+            let position = self.scope_stack.len() - 1 - depth;
+            if self.exec.unit == ExecUnit::StaticInitializer
+                && position < self.exec.unit_base
+                && !var.is_static
+            {
+                return VariableLookup::Forbidden(format!(
+                    "semantic error: initializer of a static variable cannot reference non-static variable '{}'",
+                    name
+                ));
+            }
 
             // バグ: 関数スコープの段だけを境界とみなしていたため、関数とその外側の関数の間にあるブロックスコープの
             // 非 static 変数を、内側の関数から参照できてしまっていた。

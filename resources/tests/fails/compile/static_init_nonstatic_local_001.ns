@@ -1,0 +1,4 @@
+# Error: static initializer reads a non-static variable of the function scope #
+# step 1 #
+func: f() { let: a(1); static: s(a); return: s; }
+func: __main() { __puti(f()); }

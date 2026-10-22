@@ -1,0 +1,4 @@
+# Error: break in a static initializer targets a loop outside the initializer #
+# step 1 #
+func: f() { let: i(0); while: i < 3 { static: s({ break:; 0; }); i += 1; }; return: i; }
+func: __main() { __puti(f()); }

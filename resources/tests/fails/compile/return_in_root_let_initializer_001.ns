@@ -1,0 +1,4 @@
+# Error: return in a block of a root let initializer #
+# step 1 #
+let: g({ return: 1; 2; });
+func: __main() { __puti(g); }

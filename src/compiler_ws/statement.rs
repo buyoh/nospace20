@@ -134,18 +134,10 @@ pub fn generate_statement(
 
         // break 文
         ExecStatement::Break => {
-            let loop_end = ctx.current_loop_end().ok_or_else(|| {
-                let loc = ctx.current_location();
-                match loc {
-                    Some(l) => CompileError::with_location(
-                        CompileErrorKind::InvalidOperation("break outside loop".to_string()),
-                        l,
-                    ),
-                    None => CompileError::new(CompileErrorKind::InvalidOperation(
-                        "break outside loop".to_string(),
-                    )),
-                }
-            })?;
+            // ループの外の break は意味解析が拒否する（実行文脈のループの深さ）
+            let loop_end = ctx
+                .current_loop_end()
+                .expect("break outside a loop is rejected by the semantic analyzer");
             let mut prog = discard_values_in_loop(ctx);
             prog.push(Instruction::Jump(loop_end));
             Ok(prog)
@@ -153,18 +145,10 @@ pub fn generate_statement(
 
         // continue 文
         ExecStatement::Continue => {
-            let loop_start = ctx.current_loop_start().ok_or_else(|| {
-                let loc = ctx.current_location();
-                match loc {
-                    Some(l) => CompileError::with_location(
-                        CompileErrorKind::InvalidOperation("continue outside loop".to_string()),
-                        l,
-                    ),
-                    None => CompileError::new(CompileErrorKind::InvalidOperation(
-                        "continue outside loop".to_string(),
-                    )),
-                }
-            })?;
+            // ループの外の continue は意味解析が拒否する（実行文脈のループの深さ）
+            let loop_start = ctx
+                .current_loop_start()
+                .expect("continue outside a loop is rejected by the semantic analyzer");
             let mut prog = discard_values_in_loop(ctx);
             prog.push(Instruction::Jump(loop_start));
             Ok(prog)
@@ -364,6 +348,8 @@ fn generate_return(
     ctx: &mut CodeGenContext,
     expr: &crate::semantic_analyzer::LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
+    // 関数の外（ルートの文・static 変数の初期化子）の return は意味解析が拒否する
+    debug_assert!(ctx.in_function_body(), "return outside a function body");
     let mut prog = WsProgram::new();
 
     // 返り値を評価
@@ -387,6 +373,7 @@ fn generate_return(
 
 /// void return 文のコード生成（式なし）
 fn generate_void_return(ctx: &mut CodeGenContext) -> Result<WsProgram, CompileError> {
+    debug_assert!(ctx.in_function_body(), "return outside a function body");
     let mut prog = WsProgram::new();
 
     // デフォルト返却値 0

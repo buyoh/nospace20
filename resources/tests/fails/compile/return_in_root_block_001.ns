@@ -1,0 +1,5 @@
+# Error: return in a root-level block (previously compiled and crashed at runtime) #
+# step 1 #
+let: g(0);
+{ g = 1; return: 5; };
+func: __main() { __puti(g); }

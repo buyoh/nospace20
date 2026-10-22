@@ -1,0 +1,6 @@
+{
+  "type": "compile_error",
+  "contains": [
+    "break statement outside of a loop"
+  ]
+}

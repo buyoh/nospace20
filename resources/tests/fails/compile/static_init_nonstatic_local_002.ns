@@ -1,0 +1,4 @@
+# Error: function static initializer writes non-static variables of the function (previously allowed) #
+# step 1 #
+func: f() { let: a; static: s({ a = 7; a; }); return: s; }
+func: __main() { __puti(f()); }

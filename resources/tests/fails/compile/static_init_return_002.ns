@@ -1,0 +1,4 @@
+# Error: return inside a root static initializer (not in the last position) #
+# step 1 #
+static: x({ if: 1 { return: 1; }; 2; });
+func: __main() { __puti(x); }

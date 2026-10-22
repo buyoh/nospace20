@@ -1,0 +1,4 @@
+# Error: continue in a block static initializer targets a loop outside the initializer #
+# step 1 #
+func: f() { let: i(0); while: i < 3 { i += 1; { static: s({ continue:; 0; }); }; }; return: i; }
+func: __main() { __puti(f()); }

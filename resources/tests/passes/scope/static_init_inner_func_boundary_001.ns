@@ -1,0 +1,5 @@
+# A function inside a static initializer skips the initializer's block variable and reads the same-named root static #
+# step 1 #
+static: t(42);
+func: f() { static: x({ let: t(1); func: g() { return: t; } g() + t; }); return: x; }
+func: __main() { __puti(f()); __putc(10); }

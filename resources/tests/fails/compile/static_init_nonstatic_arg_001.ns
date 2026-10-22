@@ -1,0 +1,4 @@
+# Error: static initializer reads a function argument #
+# step 1 #
+func: f(n) { static: x(n + 1); return: x; }
+func: __main() { __puti(f(5)); }

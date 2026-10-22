@@ -1,0 +1,4 @@
+# break inside a block expression in a while condition targets that loop #
+# step 1 #
+func: f() { let: i(0); while: { i += 1; if: i == 3 { break:; }; 1; } { }; return: i; }
+func: __main() { __puti(f()); __putc(10); }

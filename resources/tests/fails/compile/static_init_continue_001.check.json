@@ -1,0 +1,6 @@
+{
+  "type": "compile_error",
+  "contains": [
+    "continue statement outside of a loop"
+  ]
+}

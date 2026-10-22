@@ -1,0 +1,4 @@
+# Error: void return in a for-init of an int function #
+# step 1 #
+func: f() { for: { let: i(0); return:; } { i < 1; } { i += 1; } { }; return: 1; }
+func: __main() { __puti(f()); }

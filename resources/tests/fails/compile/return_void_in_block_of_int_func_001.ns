@@ -1,0 +1,4 @@
+# Error: void return in a block of an int function (previously the type check was skipped in blocks) #
+# step 1 #
+func: f() { { return:; }; return: 1; }
+func: __main() { __puti(f()); }

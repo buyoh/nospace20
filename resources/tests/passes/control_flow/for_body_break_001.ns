@@ -1,0 +1,4 @@
+# break in a for body #
+# step 1 #
+func: f() { for: { let: i(0); } { i < 3; } { i += 1; } { break:; }; return: 2; }
+func: __main() { __puti(f()); __putc(10); }

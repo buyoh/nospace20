@@ -1,0 +1,4 @@
+# return in a function defined inside a static initializer is allowed #
+# step 1 #
+func: f() { static: x({ func: g() { return: 4; } g(); }); return: x; }
+func: __main() { __puti(f()); __putc(10); }

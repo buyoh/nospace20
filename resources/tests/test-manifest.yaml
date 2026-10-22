@@ -2090,3 +2090,139 @@ tests:
     type: success_io
     path: control_flow/mid_expr_return_007
     comment: "式の途中の return / continue: ブロック式内のループ・Deref・struct の base・途中の引数"
+
+  # static-storage-unification step 1
+  - name: test_compile_error_static_init_return_001
+    type: compile_error
+    path: static_init_return_001
+    comment: "Error: return inside a function static initializer (step 1)"
+
+  - name: test_compile_error_static_init_return_002
+    type: compile_error
+    path: static_init_return_002
+    comment: "Error: return inside a root static initializer (not in the last position) (step 1)"
+
+  - name: test_compile_error_static_init_return_003
+    type: compile_error
+    path: static_init_return_003
+    comment: "Error: block alias containing return expanded inside a static initializer (step 1)"
+
+  - name: test_compile_error_static_init_break_001
+    type: compile_error
+    path: static_init_break_001
+    comment: "Error: break in a static initializer targets a loop outside the initializer (step 1)"
+
+  - name: test_compile_error_static_init_continue_001
+    type: compile_error
+    path: static_init_continue_001
+    comment: "Error: continue in a block static initializer targets a loop outside the initializer (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_arg_001
+    type: compile_error
+    path: static_init_nonstatic_arg_001
+    comment: "Error: static initializer reads a function argument (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_local_001
+    type: compile_error
+    path: static_init_nonstatic_local_001
+    comment: "Error: static initializer reads a non-static variable of the function scope (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_local_002
+    type: compile_error
+    path: static_init_nonstatic_local_002
+    comment: "Error: function static initializer writes non-static variables of the function (previously allowed) (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_same_block_001
+    type: compile_error
+    path: static_init_nonstatic_same_block_001
+    comment: "Error: block static initializer reads a non-static variable of the same block (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_outer_block_001
+    type: compile_error
+    path: static_init_nonstatic_outer_block_001
+    comment: "Error: block static initializer reads an outer block variable (not resolved to the same-named global) (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_root_block_001
+    type: compile_error
+    path: static_init_nonstatic_root_block_001
+    comment: "Error: static initializer in a root block reads a non-static variable of the block (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_struct_001
+    type: compile_error
+    path: static_init_nonstatic_struct_001
+    comment: "Error: struct literal value of a static initializer reads a local variable (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_for_init_001
+    type: compile_error
+    path: static_init_nonstatic_for_init_001
+    comment: "Error: static initializer in a for body reads the for-init variable (step 1)"
+
+  - name: test_compile_error_return_in_root_block_001
+    type: compile_error
+    path: return_in_root_block_001
+    comment: "Error: return in a root-level block (previously compiled and crashed at runtime) (step 1)"
+
+  - name: test_compile_error_return_void_in_block_of_int_func_001
+    type: compile_error
+    path: return_void_in_block_of_int_func_001
+    comment: "Error: void return in a block of an int function (previously the type check was skipped in blocks) (step 1)"
+
+  - name: test_compile_error_return_void_in_for_init_of_int_func_001
+    type: compile_error
+    path: return_void_in_for_init_of_int_func_001
+    comment: "Error: void return in a for-init of an int function (step 1)"
+
+  - name: test_compile_error_break_outside_loop_func_001
+    type: compile_error
+    path: break_outside_loop_func_001
+    comment: "Error: break outside a loop in a function (previously a WS compiler error) (step 1)"
+
+  - name: test_compile_error_continue_outside_loop_func_001
+    type: compile_error
+    path: continue_outside_loop_func_001
+    comment: "Error: continue outside a loop in a function block (step 1)"
+
+  - name: test_compile_error_static_init_nonstatic_array_elem_001
+    type: compile_error
+    path: static_init_nonstatic_array_elem_001
+    comment: "Error: static initializer reads an element of a local array (not reported as an undefined variable) (step 1)"
+
+  - name: test_compile_error_return_in_root_let_initializer_001
+    type: compile_error
+    path: return_in_root_let_initializer_001
+    comment: "Error: return in a block of a root let initializer (step 1)"
+
+  - name: test_scope_static_init_inner_loop_break_001
+    type: success_io
+    path: scope/static_init_inner_loop_break_001
+    comment: "break targeting a loop inside the static initializer is allowed (step 1)"
+
+  - name: test_scope_static_init_inner_func_return_001
+    type: success_io
+    path: scope/static_init_inner_func_return_001
+    comment: "return in a function defined inside a static initializer is allowed (step 1)"
+
+  - name: test_scope_static_init_inner_func_boundary_001
+    type: success_io
+    path: scope/static_init_inner_func_boundary_001
+    comment: "A function inside a static initializer skips the initializer's block variable and reads the same-named root static (step 1)"
+
+  - name: test_scope_static_init_reads_static_001
+    type: success_io
+    path: scope/static_init_reads_static_001
+    comment: "Static initializers may read statics declared before them in the same scope (step 1)"
+
+  - name: test_scope_static_init_reads_outer_func_static_001
+    type: success_io
+    path: scope/static_init_reads_outer_func_static_001
+    comment: "Static initializer of a nested function reads a static of the outer function (step 1)"
+
+  - name: test_control_flow_while_cond_block_break_001
+    type: success_io
+    path: control_flow/while_cond_block_break_001
+    comment: "break inside a block expression in a while condition targets that loop (step 1)"
+
+  - name: test_control_flow_for_body_break_001
+    type: success_io
+    path: control_flow/for_body_break_001
+    comment: "break in a for body (step 1)"
