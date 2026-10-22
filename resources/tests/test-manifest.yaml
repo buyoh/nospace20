@@ -22,7 +22,6 @@ tests:
     path: c001
     comment: "Legacy test"
 
-  # Phase 7: break/continue をサポートしたため有効化
   - name: test_ok_coding_c002
     type: success
     path: c002
@@ -144,13 +143,11 @@ tests:
     path: operators/logical_or_001
     comment: "Logical OR operator"
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_logical_short_circuit_001
     type: success
     path: operators/logical_short_circuit_001
     comment: "Logical short-circuit evaluation (AND)"
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_logical_short_circuit_002
     type: success
     path: operators/logical_short_circuit_002
@@ -179,7 +176,6 @@ tests:
     comment: "Integer overflow wraps (implementation behavior). wsc is multi-precision, so whitespace target is excluded"
     exclude_targets: [whitespace]
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_logical_precedence_001
     type: success
     path: operators/logical_precedence_001
@@ -205,13 +201,11 @@ tests:
     path: operators/ref_deref_assign_001
     comment: "Dereference assignment (*ptr = value)"
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_ref_func_arg_001
     type: success
     path: operators/ref_func_arg_001
     comment: "Passing pointers to functions"
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_operators_ref_swap_001
     type: success
     path: operators/ref_swap_001
@@ -927,7 +921,6 @@ tests:
   # ========================================
   # Integration
   # ========================================
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_integration_integ_001
     type: success
     path: integration/integ_001
@@ -1288,13 +1281,11 @@ tests:
     path: legacy/legacy_003
     comment: "Legacy I/O test"
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_legacy_004
     type: success_io
     path: legacy/legacy_004
     comment: "Legacy I/O test"
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_legacy_005
     type: success_io
     path: legacy/legacy_005
@@ -1345,7 +1336,6 @@ tests:
     path: legacy/legacy_013
     comment: "Legacy I/O test (pointers)"
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_legacy_014
     type: success_io
     path: legacy/legacy_014
@@ -1361,7 +1351,6 @@ tests:
   #   path: legacy/legacy_018
   #   comment: "Legacy I/O test (character literals, __getcv)"
 
-  # Phase 7: ユーザー定義関数呼び出しをサポートしたため有効化
   - name: test_legacy_020
     type: success_io
     path: legacy/legacy_020
