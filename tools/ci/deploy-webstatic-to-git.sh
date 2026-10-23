@@ -48,12 +48,14 @@ do_build() {
 
   bash tools/update-nospace20.sh "$REPO_ROOT_DIR"
 
-  cat > .env.local <<EOL
-NODE_ENV=production
-VITE_APPLICATION_FLAVOR=wasm
-VITE_BASE_PATH="/nospace20/"
-VITE_NOSPACE_VERSION=$nospace_version
-VITE_WEBUI_VERSION=$webui_version
+  cat > env.local.js <<EOL
+module.exports = {
+  NODE_ENV: 'production',
+  VITE_APPLICATION_FLAVOR: 'wasm',
+  VITE_BASE_PATH: '/nospace20/',
+  VITE_NOSPACE_VERSION: '$nospace_version',
+  VITE_WEBUI_VERSION: '$webui_version'
+};
 EOL
 
   bash tools/build-webui.sh
