@@ -920,8 +920,7 @@ struct: Line (start@Point, end@Point);
   - 参照に対しても `.` でアクセスできる（参照を自動的にデリファレンスする）。参照の参照は不可
 
 ```
-let: s@MyStruct(struct: MyStruct(10, [1,2,3,4,5,6,7,8,9]));
-let: t(struct: MyStruct(10, [1,2,3,4,5,6,7,8,9]));  # 型注釈省略 #
+let: s@MyStruct(10, [1,2,3,4,5,6,7,8,9]);
 s.number = 10;
 s.data[i] = 42;
 let: p(&s);
