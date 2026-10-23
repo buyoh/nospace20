@@ -1,0 +1,10 @@
+# alias と同じ名前の変数の初期化は alias の指す先を書き換えない #
+func: __main() {
+  let: x(1);
+  alias: C(x);
+  {
+    let: C(5);
+  };
+  __puti(x);
+  __putc(10);
+}

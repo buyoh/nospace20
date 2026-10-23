@@ -1,0 +1,5 @@
+# constexpr への代入 #
+constexpr: C(3);
+func: __main() {
+  C = 4;
+}

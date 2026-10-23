@@ -1,0 +1,7 @@
+# struct 型のフィールドへの代入 #
+struct: Q(a, b);
+struct: P(f, q@Q);
+func: __main() {
+  let: s@P(1, struct: Q(2, 3));
+  s.q = 5;
+}

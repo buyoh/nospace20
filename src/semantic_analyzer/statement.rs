@@ -278,8 +278,14 @@ pub(super) fn convert_to_exec_statements(
                         &exec_rhs,
                         tables.functions.return_types(),
                     )?;
-                    let exec_lhs =
-                        convert_to_exec_expression_with_resolver(lhs_expr, resolver, tables)?;
+                    // バグ修正: 以前は左辺（宣言した名前）を通常の式として変換していたため、外側に同名の
+                    // constexpr があると左辺が Factor になって初期化が消え（WS コンパイラが黙って捨てていた）、
+                    // 同名の alias があると alias の指す先を書き換えていた。
+                    // 解決済みの宣言した変数そのものを左辺にする（配列の初期化リストと同じ）
+                    let exec_lhs = super::expression::make_located_exec(
+                        ExecExpression::Variable(var_ref, var_type.clone()),
+                        &lhs_expr.location,
+                    );
                     super::expression::make_located_exec(
                         super::types::ExecExpression::Operation2(
                             Operator2::Assign,

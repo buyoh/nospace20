@@ -1177,6 +1177,77 @@ tests:
     path: ref_non_variable_001
     comment: "Error: reference operator on non-variable"
 
+  # assignment target check
+  - name: test_compile_error_assign_non_place_binary_001
+    type: compile_error
+    path: assign_non_place_binary_001
+    comment: "Error: assignment to a binary expression"
+
+  - name: test_compile_error_assign_non_place_unary_001
+    type: compile_error
+    path: assign_non_place_unary_001
+    comment: "Error: assignment to a unary expression"
+
+  - name: test_compile_error_assign_non_place_call_001
+    type: compile_error
+    path: assign_non_place_call_001
+    comment: "Error: assignment to a function call"
+
+  - name: test_compile_error_assign_non_place_block_001
+    type: compile_error
+    path: assign_non_place_block_001
+    comment: "Error: assignment to a block expression"
+
+  - name: test_compile_error_assign_non_place_type_annotation_001
+    type: compile_error
+    path: assign_non_place_type_annotation_001
+    comment: "Error: assignment to a type annotation"
+
+  - name: test_compile_error_assign_non_place_value_001
+    type: compile_error
+    path: assign_non_place_value_001
+    comment: "Error: assignment to a non-place in value context"
+
+  - name: test_compile_error_assign_non_place_if_001
+    type: compile_error
+    path: assign_non_place_if_001
+    comment: "Error: assignment to an if expression"
+
+  - name: test_compile_error_assign_non_place_compound_001
+    type: compile_error
+    path: assign_non_place_compound_001
+    comment: "Error: compound assignment to a non-place"
+
+  - name: test_compile_error_assign_constexpr_001
+    type: compile_error
+    path: assign_constexpr_001
+    comment: "Error: assignment to a constexpr"
+
+  - name: test_compile_error_assign_struct_variable_001
+    type: compile_error
+    path: assign_struct_variable_001
+    comment: "Error: assignment to a struct variable"
+
+  - name: test_compile_error_assign_struct_field_struct_001
+    type: compile_error
+    path: assign_struct_field_struct_001
+    comment: "Error: assignment to a struct-typed field"
+
+  - name: test_compile_error_assign_non_place_chain_001
+    type: compile_error
+    path: assign_non_place_chain_001
+    comment: "Error: chained assignment to an assignment value"
+
+  - name: test_compile_error_ref_constexpr_shadow_001
+    type: compile_error
+    path: ref_constexpr_shadow_001
+    comment: "Error: reference operator on a constexpr shadowing a local variable"
+
+  - name: test_compile_error_ref_void_index_001
+    type: compile_error
+    path: ref_void_index_001
+    comment: "Error: void index in reference operator"
+
   - name: test_compile_error_return_outside_func_001
     type: compile_error
     path: return_outside_func_001
@@ -1768,6 +1839,31 @@ tests:
     type: success_io
     path: struct-nested
     comment: "Nested struct field access"
+
+  - name: test_assign_struct_field_001
+    type: success_io
+    path: assign-struct-field
+    comment: "Assignment to struct fields"
+
+  - name: test_ref_struct_field_001
+    type: success_io
+    path: ref-struct-field
+    comment: "Reference operator on struct fields"
+
+  - name: test_ref_alias_001
+    type: success_io
+    path: ref-alias
+    comment: "Reference operator through an alias"
+
+  - name: test_init_shadow_alias_001
+    type: success_io
+    path: init-shadow-alias
+    comment: "Initialization of a variable shadowing an alias"
+
+  - name: test_init_shadow_constexpr_001
+    type: success_io
+    path: init-shadow-constexpr
+    comment: "Initialization of a variable shadowing a constexpr"
 
   - name: test_compile_error_type_mismatch_001
     type: compile_error

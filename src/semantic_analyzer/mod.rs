@@ -23,6 +23,7 @@ mod constexpr;
 mod exec_context;
 mod expression;
 mod function_table;
+mod place;
 mod program;
 mod return_analysis;
 mod scope;

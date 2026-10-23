@@ -1,0 +1,81 @@
+# 構造体のフィールドへの代入 #
+struct: Q(a, b);
+struct: P(f, g@int[3], q@Q);
+
+let: gs@P;
+
+func: show(v) {
+  __puti(v);
+  __putc(10);
+}
+
+func: side(v) {
+  __puti(v);
+  __putc(10);
+  return: v;
+}
+
+func: __main() {
+  static: ss@P;
+  let: s@P;
+  let: y;
+  # ローカル変数は未初期化なので、読み出すフィールドを先に初期化する #
+  s.g[0] = 0;
+  s.g[2] = 0;
+  s.q.b = 0;
+  # 文の位置 #
+  s.f = 5;
+  show(s.f);
+  s.g[1] = 6;
+  show(s.g[0]);
+  show(s.g[1]);
+  show(s.g[2]);
+  # 配列のフィールドを添字なしで書くと先頭要素 #
+  s.g = 7;
+  show(s.g[0]);
+  # 入れ子のフィールド #
+  s.q.a = 8;
+  show(s.q.a);
+  show(s.q.b);
+  # 値の位置 #
+  y = (s.f = 9);
+  show(y);
+  show(s.f);
+  y = (s.g[2] = 10);
+  show(y);
+  show(s.g[2]);
+  # 複合代入 #
+  s.f += 1;
+  show(s.f);
+  # 型注釈の base #
+  let: arr[6];
+  (arr)@P.f = 11;
+  (arr)@P.q.b = 12;
+  show(arr[0]);
+  show(arr[5]);
+  # struct 変数への型注釈・alias 経由の base #
+  (s)@P.f = 17;
+  show(s.f);
+  alias: t(s);
+  t.q.b = 18;
+  show(s.q.b);
+  # 配列フィールドへの複合代入（先頭要素） #
+  s.g += 2;
+  show(s.g[0]);
+  # 右辺の副作用が実行される #
+  s.f = side(19);
+  show(s.f);
+  # 条件の中で値として使う代入 #
+  if: (s.q.a = 20) == 20 {
+    show(s.q.a);
+  };
+    # グローバル変数・static 変数 #
+  gs.f = 13;
+  gs.g[1] = 14;
+  show(gs.f);
+  show(gs.g[1]);
+  ss.q.a = 15;
+  ss.g[2] = 16;
+  show(ss.q.a);
+  show(ss.g[2]);
+}

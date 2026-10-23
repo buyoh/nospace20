@@ -1,0 +1,24 @@
+# 構造体のフィールドへの参照演算子 #
+struct: Q(a, b);
+struct: P(f, g@int[3], q@Q);
+
+func: show(v) {
+  __puti(v);
+  __putc(10);
+}
+
+func: __main() {
+  let: s@P;
+  let: p(&s.f);
+  *p = 3;
+  show(s.f);
+  let: r(&s.g[1]);
+  *r = 4;
+  show(s.g[1]);
+  # 後置添字は *(&(s.g) + 2) に展開される #
+  (s.g)[2] = 5;
+  show(s.g[2]);
+  # struct 型のフィールドのアドレスは struct の先頭 + オフセット #
+  show(&s.q == &s + 4);
+  show(&s.q.b == &s + 5);
+}

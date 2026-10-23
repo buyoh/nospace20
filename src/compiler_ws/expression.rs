@@ -98,28 +98,59 @@ pub fn generate_expression(
             prog.push(Instruction::Push(WsNumber(0)));
             Ok(prog)
         }
-        ExecExpression::StructFieldAccess(base, offset, _, field_type) => {
-            let mut prog = generate_expression(ctx, base)?;
-            // フィールドのオフセットは struct の total_size 未満。struct 型の値は、検査済みのフレーム・
-            // グローバル領域に置かれた変数か、total_size 以上の配列のキャストからしか得られないため i64 に収まる
-            prog.push(Instruction::Push(WsNumber(*offset as i64)));
-            prog.push(Instruction::Add);
+        ExecExpression::StructFieldAccess(_, _, _, field_type) => {
+            let mut prog = generate_place_address(ctx, located_expr)?;
+            // struct 型のフィールドの値はそのアドレス
             if !matches!(field_type, ValueType::Struct(_)) {
                 prog.push(Instruction::Retrieve);
             }
             Ok(prog)
         }
-        ExecExpression::StructFieldArrayAccess(base, offset, index_expr, _) => {
+        ExecExpression::StructFieldArrayAccess(_, _, _, _) => {
+            let mut prog = generate_place_address(ctx, located_expr)?;
+            prog.push(Instruction::Retrieve);
+            Ok(prog)
+        }
+    }
+}
+
+/// 場所（変数・配列要素・デリファレンス・構造体のフィールド）のアドレスを取得（スタックにアドレスをプッシュ）
+///
+/// 場所でない式は意味解析で拒否されるため来ないが、来た場合は CompileError を返す。
+fn generate_place_address(
+    ctx: &mut CodeGenContext,
+    place: &LocatedExecExpression,
+) -> Result<WsProgram, CompileError> {
+    match &place.expression {
+        ExecExpression::Variable(var_ref, _) => generate_variable_address(ctx, var_ref),
+        ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
+            generate_array_element_address(ctx, var_ref, index_expr)
+        }
+        ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
+            generate_expression(ctx, addr_expr)
+        }
+        ExecExpression::StructFieldAccess(base, offset, _, _) => {
+            // struct 型の式の値はアドレス
             let mut prog = generate_expression(ctx, base)?;
             // フィールドのオフセットは struct の total_size 未満。struct 型の値は、検査済みのフレーム・
             // グローバル領域に置かれた変数か、total_size 以上の配列のキャストからしか得られないため i64 に収まる
             prog.push(Instruction::Push(WsNumber(*offset as i64)));
             prog.push(Instruction::Add);
-            prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, index_expr))?);
-            prog.push(Instruction::Add);
-            prog.push(Instruction::Retrieve);
             Ok(prog)
         }
+        ExecExpression::StructFieldArrayAccess(base, offset, index_expr, _) => {
+            let mut prog = generate_expression(ctx, base)?;
+            // オフセットが i64 に収まる理由は StructFieldAccess と同じ
+            prog.push(Instruction::Push(WsNumber(*offset as i64)));
+            prog.push(Instruction::Add);
+            prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, index_expr))?);
+            prog.push(Instruction::Add);
+            Ok(prog)
+        }
+        _ => Err(make_error(
+            ctx,
+            "Expected a variable, array element, struct field or dereference".to_string(),
+        )),
     }
 }
 
@@ -225,22 +256,8 @@ fn generate_unary_op(
             prog.push(Instruction::Call(reserved_labels::COMPARATOR_ZERO));
         }
         Operator1::Ref => {
-            // 変数または配列要素のアドレスを取得
-            match &inner.expression {
-                ExecExpression::Variable(var_ref, _) => {
-                    prog.append(generate_variable_address(ctx, var_ref)?);
-                }
-                ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
-                    prog.append(generate_array_element_address(ctx, var_ref, index_expr)?);
-                }
-                _ => {
-                    return Err(make_error(
-                        ctx,
-                        "Reference operator (&) can only be applied to variables or array elements"
-                            .to_string(),
-                    ));
-                }
-            }
+            // 場所（変数・配列要素・構造体のフィールドなど）のアドレスを取得
+            prog.append(generate_place_address(ctx, inner)?);
         }
         Operator1::Deref => {
             // スタックトップの値をアドレスとして値を取得
@@ -495,7 +512,7 @@ fn generate_binary_op(
 
         // 代入
         Operator2::Assign => {
-            // 左辺は変数参照、配列アクセス、またはデリファレンスである必要がある
+            // 左辺は変数参照、配列アクセス、デリファレンス、または構造体のフィールドである必要がある
             match &left.expression {
                 ExecExpression::Variable(var_ref, _) => {
                     prog.append(generate_store_variable_impl(ctx, var_ref, right, true)?);
@@ -515,10 +532,14 @@ fn generate_binary_op(
                     prog.append(generate_expression(ctx, addr_expr)?);
                     prog.push(Instruction::Retrieve);
                 }
+                ExecExpression::StructFieldAccess(..)
+                | ExecExpression::StructFieldArrayAccess(..) => {
+                    prog.append(generate_store_place(ctx, left, right, true)?);
+                }
                 _ => {
                     return Err(make_error(
                         ctx,
-                        "Left-hand side of assignment must be a variable, array access, or dereference"
+                        "Left-hand side of assignment must be a variable, array element, struct field or dereference"
                             .to_string(),
                     ));
                 }
@@ -579,6 +600,28 @@ fn generate_store_array_impl(
     if emit_retrieve {
         // 代入式の値として value を残す（アドレスを再計算して Retrieve）
         prog.append(generate_array_element_address(ctx, var_ref, index_expr)?);
+        prog.push(Instruction::Retrieve);
+    }
+    Ok(prog)
+}
+
+/// 場所（構造体のフィールドなど）への値の格納
+///
+/// `emit_retrieve` が `true` の場合、代入後に値を再取得してスタックに残す（value context）。
+/// `false` の場合は Store のみで終了（void context）。
+/// アドレス計算は `generate_place_address` に委譲。
+fn generate_store_place(
+    ctx: &mut CodeGenContext,
+    place: &LocatedExecExpression,
+    value_expr: &LocatedExecExpression,
+    emit_retrieve: bool,
+) -> Result<WsProgram, CompileError> {
+    let mut prog = generate_place_address(ctx, place)?;
+    prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, value_expr))?);
+    prog.push(Instruction::Store);
+    if emit_retrieve {
+        // 代入式の値として value を残す（アドレスを再計算して Retrieve）
+        prog.append(generate_place_address(ctx, place)?);
         prog.push(Instruction::Retrieve);
     }
     Ok(prog)
@@ -984,10 +1027,19 @@ fn generate_assign_void(
             prog.append(generate_operands(ctx, addr_expr, right)?);
             prog.push(Instruction::Store);
         }
+        ExecExpression::StructFieldAccess(..) | ExecExpression::StructFieldArrayAccess(..) => {
+            prog.append(generate_store_place(ctx, left, right, false)?);
+        }
         _ => {
-            // 非代入左辺: 通常の代入生成 + Discard にフォールバック
-            prog.append(generate_expression(ctx, left)?); // エラーになるはず
-            prog.push(Instruction::Discard);
+            // バグ修正: 以前は「左辺を評価して Discard」にフォールバックしていた。generate_expression は
+            // フィールドや Factor も評価できるためエラーにならず、代入と右辺の評価（副作用を含む）が
+            // 黙って消えていた（フィールドへの代入・`x + 1 = 1;`・constexpr への代入など）。
+            // フィールドへの代入は上の分岐で扱い、代入できない左辺は意味解析で拒否するので、ここは内部エラーにする
+            return Err(make_error(
+                ctx,
+                "Left-hand side of assignment must be a variable, array element, struct field or dereference"
+                    .to_string(),
+            ));
         }
     }
     Ok(prog)

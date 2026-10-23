@@ -14,6 +14,8 @@ MINOR
 
 - Language: static variables can be declared in block scopes (previously their initializers were ignored and their values were not kept). All static variables are initialized before __main in source order, followed by root-level let variables; previously function statics were initialized per function after root statics. Statics of unused functions are always initialized, also with --opt dead-code. If the static variables do not fit in the global region, compilation fails with `total size of global and static variables is too large`
 - Language: Initializers of static variables cannot reference non-static variables declared outside the initializer (function arguments, local variables, variables of root-level blocks), and cannot use return or break / continue targeting a loop outside the initializer (previously they compiled and read undefined values or crashed at runtime)
+- Language: The left-hand side of an assignment must be a variable, an array element, a struct field or a dereference; other expressions (e.g. `x + 1 = 1`, `x = 1 = 2`), struct values and constexpr names are now semantic errors (previously the assignment, including its right-hand side, was silently dropped, or failed in the Whitespace code generator)
+- Language: `&` can be applied to struct fields (e.g. `&s.f`, `&s.g[i]`) and to aliases of variables. `&C` where `C` is a constexpr is an error even if a local variable of the same name exists (previously it returned the address of the local variable). The index of `&arr[i]` cannot be a void expression
 
 PATCH
 
@@ -22,6 +24,8 @@ PATCH
 - Compiler: return in a root-level block, return without a value in a block or for-init of an int function, and break / continue outside a loop in a function are now semantic errors (previously they compiled, or failed in the Whitespace code generator)
 - Semantic analyzer: The error `the name '...' is already used` now shows the line and column of the duplicate declaration (for a duplicate function argument, the position of the function declaration)
 - WASM `WasmWhitespaceVM.fromWhitespace` / `fromWhitespaceInteractive`: A Whitespace parse error uses the display message (e.g. `Whitespace parse error: invalid command for IMP 'IO' at position 2` instead of the Debug format `InvalidCommand { ... }`)
+- Compiler: Assignments to struct fields (`s.f = v`, `s.g[i] = v`) were silently dropped
+- Language: Initializing a variable whose name is also an outer constexpr or alias now initializes the declared variable (previously the initialization was silently dropped for a constexpr, or was written to the aliased variable for an alias). Note: a repeat counter with the same name as an outer alias is initialized as a new variable while its condition and increment still refer to the aliased variable
 - Parser: The end position of an expression cut off at the end of input no longer precedes its start position (internal location only; error output is unchanged)
 
 ## 4.0.0

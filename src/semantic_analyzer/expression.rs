@@ -11,6 +11,7 @@ use crate::{
 
 use super::{
     analysis_tables::AnalysisTables,
+    place::{check_assignable_target, check_not_final_target, is_place},
     scope::ScopeResolver,
     types::{
         Block, BuiltinFunctionKind, ConditionMode, ExecExpression, IdentifierRef,
@@ -109,70 +110,26 @@ pub(super) fn convert_to_exec_expression_with_resolver(
     let expr = &located_expr.expression;
     match expr {
         Expression::Operation1(Operator1::Ref, inner) => {
-            // & は変数または配列要素、またはデリファレンス結果に適用可能。
-            // &(*x) = x となるため、Deref の場合は内側の式をそのまま返す。
-            match &inner.expression {
-                Expression::Variable(name) => {
-                    let (id_ref, value_type) =
-                        resolve_variable_or_error(parent_resolver, name, name, loc.start)?;
-                    Ok(make_located_exec(
-                        ExecExpression::Operation1(
-                            Operator1::Ref,
-                            make_located_exec(
-                                ExecExpression::Variable(id_ref, value_type),
-                                &inner.location,
-                            ),
-                        ),
-                        loc,
-                    ))
-                }
-                Expression::ArrayAccess(name, index_expr) => {
-                    let (id_ref, _value_type) =
-                        resolve_variable_or_error(parent_resolver, name, name, loc.start)?;
-
-                    // arr[i] は *(&arr + i) と同義。配列でなくてもインデックスアクセス可能。
-                    let array_size = parent_resolver
-                        .get_array_size(name)
-                        .ok_or_else(|| {
-                            vec![code_parse_error!(
-                                loc.start,
-                                format!("undefined variable: {}", name)
-                            )]
-                        })?
-                        .unwrap_or(1);
-
-                    let exec_index = convert_to_exec_expression_with_resolver(
-                        index_expr,
-                        parent_resolver,
-                        tables,
-                    )?;
-
-                    Ok(make_located_exec(
-                        ExecExpression::Operation1(
-                            Operator1::Ref,
-                            make_located_exec(
-                                ExecExpression::ArrayAccess(id_ref, exec_index, array_size),
-                                &inner.location,
-                            ),
-                        ),
-                        loc,
-                    ))
-                }
-                // &(*x) = x : デリファレンス結果に & を適用した場合は内側の式を評価して返す
-                Expression::Operation1(Operator1::Deref, deref_inner) => {
-                    let exec_inner = convert_to_exec_expression_with_resolver(
-                        deref_inner,
-                        parent_resolver,
-                        tables,
-                    )?;
-                    require_int_type(&exec_inner, tables.functions.return_types())?;
-                    Ok(exec_inner)
-                }
-                _ => Err(vec![code_parse_error!(
-                    loc.start,
-                    "reference operator (&) can only be applied to variables or array elements"
-                )]),
+            // & は場所（変数・配列要素・構造体のフィールド・デリファレンス）に適用可能。
+            // 内側を通常どおり変換してから判定する（alias・constexpr の解決を代入と揃えるため）
+            let exec_inner =
+                convert_to_exec_expression_with_resolver(inner, parent_resolver, tables)?;
+            // &(*x) = x : デリファレンス結果に & を適用した場合は内側の式を返す
+            if let ExecExpression::Operation1(Operator1::Deref, deref_inner) = exec_inner.expression
+            {
+                require_int_type(&deref_inner, tables.functions.return_types())?;
+                return Ok(deref_inner);
             }
+            if !is_place(&exec_inner.expression) {
+                return Err(vec![code_parse_error!(
+                    loc.start,
+                    "reference operator (&) can only be applied to variables, array elements, struct fields or dereferences"
+                )]);
+            }
+            Ok(make_located_exec(
+                ExecExpression::Operation1(Operator1::Ref, exec_inner),
+                loc,
+            ))
         }
         Expression::Operation1(op, x) => {
             let exec_x = convert_to_exec_expression_with_resolver(&x, parent_resolver, tables)?;
@@ -235,33 +192,7 @@ pub(super) fn convert_to_exec_expression_with_resolver(
 
             // final 変数への代入チェック: 再代入不可の変数への書き込みはコンパイルエラー
             if actual_op == Operator2::Assign {
-                match &actual_l.expression {
-                    Expression::Variable(name) => {
-                        let resolved_name = parent_resolver
-                            .resolve_alias_chain(name)
-                            .map_err(|e| vec![code_parse_error!(loc.start, e)])?;
-                        if parent_resolver.is_final_variable(&resolved_name) {
-                            return Err(vec![code_parse_error!(
-                                loc.start,
-                                format!("cannot assign to final variable '{}'", name)
-                            )]);
-                        }
-                    }
-                    Expression::ArrayAccess(name, _) => {
-                        let resolved_name = parent_resolver
-                            .resolve_alias_chain(name)
-                            .map_err(|e| vec![code_parse_error!(loc.start, e)])?;
-                        if parent_resolver.is_final_variable(&resolved_name) {
-                            return Err(vec![code_parse_error!(
-                                loc.start,
-                                format!("cannot assign to element of final array '{}'", name)
-                            )]);
-                        }
-                    }
-                    _ => {
-                        // *ptr = value のような間接代入は静的チェック不可
-                    }
-                }
+                check_not_final_target(actual_l, parent_resolver, loc.start)?;
             }
 
             let exec_l =
@@ -272,6 +203,10 @@ pub(super) fn convert_to_exec_expression_with_resolver(
             // 型チェック: void 式が二項演算のオペランドに使用されている場合はエラー
             match actual_op {
                 Operator2::Assign => {
+                    // バグ修正: 以前は左辺の種類を検査せず、`x + 1 = 1;`・`C = 4;`（constexpr）・`s = 5;`（struct）
+                    // が意味解析を通り、WS コンパイラが左辺を評価して捨てていた（右辺も評価されない）。
+                    // 左辺が場所であり struct 型でないことをここで検査する
+                    check_assignable_target(&exec_l, tables.functions.return_types(), loc.start)?;
                     // 代入の右辺は Int でなければならない
                     require_int_type(&exec_r, tables.functions.return_types())?;
                 }

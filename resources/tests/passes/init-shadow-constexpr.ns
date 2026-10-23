@@ -1,0 +1,7 @@
+# 外側の constexpr と同じ名前の変数の初期化（宣言した変数を初期化し、C は constexpr のまま） #
+constexpr: C(3);
+func: __main() {
+  let: C(5);
+  __puti(C);
+  __putc(10);
+}

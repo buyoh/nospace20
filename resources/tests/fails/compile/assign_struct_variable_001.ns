@@ -1,0 +1,6 @@
+# struct 変数そのものへの代入 #
+struct: P(f, g);
+func: __main() {
+  let: s@P(1, 2);
+  s = 5;
+}

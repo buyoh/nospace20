@@ -1,0 +1,9 @@
+# alias 経由の参照演算子 #
+func: __main() {
+  let: x(1);
+  alias: y(x);
+  let: p(&y);
+  *p = 7;
+  __puti(x);
+  __putc(10);
+}

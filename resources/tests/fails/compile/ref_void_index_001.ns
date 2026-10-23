@@ -1,0 +1,5 @@
+# 参照演算子の配列添字に void 式 #
+func: __main() {
+  let: arr[3];
+  let: p(&arr[(1)@void]);
+}

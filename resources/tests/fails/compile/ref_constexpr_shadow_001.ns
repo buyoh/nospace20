@@ -1,0 +1,6 @@
+# 同名のローカル変数があっても constexpr が優先され、& は constexpr に使えない #
+constexpr: C(3);
+func: __main() {
+  let: C(5);
+  let: p(&C);
+}
