@@ -6,9 +6,18 @@ TODO: Update Cargo.toml.
 
 MAJOR
 
-- Library: The result of semantic analysis is the new type `Program` (root scope, all functions, initialization statements and the global region size). `semantic_analyze` / `analyze_source` return `Program`, and `optimize` / `optimizer::optimize` / `compile_to_ws` / `compiler_ws::compile_with_options` / `compiler_ws::compile_with_full_options` take `Program` instead of `Scope`. `symbol_table`, `main_function_index` and `has_function` moved from `Scope` to `Program`
-- Library: Remove `CompileTarget::Json`, `CompileProperty::validate`, the unused `ValidationError` variants `UnsupportedStd` / `IncompatibleOptions` / `InvalidExtension`, and `compiler_ws::memory::MemoryLayout` (use the constants in `compiler_ws::memory::heap_layout`). Add `CompileTarget::output_format`. nospace20 `--target json` is still reported as `--target=json is not yet implemented`
-- WASM `WasmWhitespaceVM`: `max_memory_cells` that is not a non-negative integer up to 4294967295 (a negative number, a fraction, NaN, an infinity or a larger value) is an error in `new`, `fromWhitespace` and `fromWhitespaceInteractive` (previously it was converted to u32 by wrapping, e.g. `-1` became 4294967295)
+MINOR
+
+PATCH
+
+
+## 4.1.0
+
+Summary:
+
+- Fixed an issue where certain control constructs could be used in unintended locations.
+- Fixed an issue where assignments to struct fields and invalid assignment targets were silently ignored.
+- Fixed an issue where the initialization syntax for static variables behaved in an unintended manner.
 
 MINOR
 
@@ -16,6 +25,9 @@ MINOR
 - Language: Initializers of static variables cannot reference non-static variables declared outside the initializer (function arguments, local variables, variables of root-level blocks), and cannot use return or break / continue targeting a loop outside the initializer (previously they compiled and read undefined values or crashed at runtime)
 - Language: The left-hand side of an assignment must be a variable, an array element, a struct field or a dereference; other expressions (e.g. `x + 1 = 1`, `x = 1 = 2`), struct values and constexpr names are now semantic errors (previously the assignment, including its right-hand side, was silently dropped, or failed in the Whitespace code generator)
 - Language: `&` can be applied to struct fields (e.g. `&s.f`, `&s.g[i]`) and to aliases of variables. `&C` where `C` is a constexpr is an error even if a local variable of the same name exists (previously it returned the address of the local variable). The index of `&arr[i]` cannot be a void expression
+- Library: The result of semantic analysis is the new type `Program` (root scope, all functions, initialization statements and the global region size).
+- Library: Remove `CompileTarget::Json`, `CompileProperty::validate`, the unused `ValidationError` variants `UnsupportedStd` / `IncompatibleOptions` / `InvalidExtension`, and `compiler_ws::memory::MemoryLayout` (use the constants in `compiler_ws::memory::heap_layout`). Add `CompileTarget::output_format`. nospace20 `--target json` is still reported as `--target=json is not yet implemented`
+- WASM `WasmWhitespaceVM`: `max_memory_cells` that is not a non-negative integer up to 4294967295 (a negative number, a fraction, NaN, an infinity or a larger value) is an error in `new`, `fromWhitespace` and `fromWhitespaceInteractive` (previously it was converted to u32 by wrapping, e.g. `-1` became 4294967295)
 
 PATCH
 
