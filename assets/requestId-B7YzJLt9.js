@@ -1,0 +1,3 @@
+function s(t){return t.map(r=>{const n=r.line!=null?`:${r.line}${r.column!=null?":"+r.column:""}`:"",o=r.details?`
+  ${r.details}`:"";return`${r.message}${n}${o}`}).join(`
+`)}function a(t){let r;try{r=JSON.parse(t)}catch{return null}return e(r)?s(r.errors):null}function e(t){if(typeof t!="object"||t===null)return!1;const r=t;return r.success!==!1||!Array.isArray(r.errors)?!1:r.errors.every(n=>typeof n=="object"&&n!==null&&typeof n.message=="string")}function l(t){let r;try{r=JSON.parse(t)}catch{return null}return e(r)?r.errors:null}function u(t=globalThis.crypto){let r=0;return()=>typeof t?.randomUUID=="function"?t.randomUUID():`${Date.now().toString(36)}-${(r++).toString(36)}-${Math.random().toString(36).slice(2,8)}`}export{l as a,u as c,s as f,e as i,a as t};
