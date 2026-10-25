@@ -95,7 +95,7 @@ METRICS = [
 ]
 
 INSTRUCTION_FIELDS = [
-    "push", "duplicate", "copy", "swap", "discard",
+    "push", "duplicate", "copy", "slide", "swap", "discard",
     "add", "sub", "mul", "div", "modulo",
     "store", "retrieve",
     "label", "call", "jump", "jump_if_zero", "jump_if_negative",

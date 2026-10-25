@@ -1,0 +1,47 @@
+# 値として使う代入: 右辺の中の式の途中の return / break / continue が、積んだアドレスを残さない #
+func: ret(c) {
+  let: a[2];
+  let: y;
+  y = (a[1] = { if: c { return: 7; }; 3; });
+  return: y + a[1];
+}
+
+func: brk() {
+  let: a[2];
+  let: y;
+  let: i;
+  i = 0;
+  y = 0;
+  while: i < 5 {
+    y = (a[0] = { if: i == 2 { break:; }; i + 10; });
+    i = i + 1;
+  };
+  return: y * 100 + i;
+}
+
+func: cont() {
+  let: a[2];
+  let: y;
+  let: s;
+  let: i;
+  i = 0;
+  s = 0;
+  while: i < 4 {
+    i = i + 1;
+    y = (*(&a[0]) = { if: i % 2 == 0 { continue:; }; i; });
+    s = s + y;
+  };
+  return: s;
+}
+
+func: __main() {
+  let: keep;
+  keep = 42;
+  __puti(ret(1)); __putc(10);
+  __puti(ret(0)); __putc(10);
+  __puti(brk()); __putc(10);
+  __puti(brk()); __putc(10);
+  __puti(cont()); __putc(10);
+  __puti(cont()); __putc(10);
+  __puti(keep); __putc(10);
+}

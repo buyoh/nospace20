@@ -234,3 +234,10 @@ fn test_parse_label_eof() {
         Err(ParseError::UnexpectedEof { .. })
     ));
 }
+
+#[test]
+fn test_parse_slide() {
+    // Slide = Space Tab LF <num>、WsNumber(1) = Space Tab LF
+    let result = parse(" \t\n \t\n").unwrap();
+    assert_eq!(result, vec![Instruction::Slide(WsNumber(1))]);
+}

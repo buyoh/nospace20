@@ -8,7 +8,14 @@ MAJOR
 
 MINOR
 
+- whitespace20: Support the Slide instruction (Whitespace v0.3). A negative argument is a stack underflow error (reserved)
+
 PATCH
+
+- Compiler: Inline the logical NOT operator and stop emitting the built-in comparator routines (fewer instructions)
+- Compiler: An assignment used as a value (e.g. `y = (a[i] = v)`) no longer evaluates the index, the dereferenced address or the struct base of the target twice (side effects ran twice)
+- Compiler: Use the Slide instruction to drop temporary values in the fsba allocator and in mid-expression return (fewer instructions; the output requires a Whitespace v0.3 interpreter, as it already did for Copy in the fsba allocator)
+- whitespace20: Copy with an out-of-range index is now a stack underflow error on every platform (was truncated to a smaller index or trapped on WASM)
 
 
 ## 4.1.0

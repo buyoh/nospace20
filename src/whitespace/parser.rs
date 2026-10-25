@@ -85,6 +85,11 @@ fn parse_stack_op(chars: &[WsChar], pos: usize) -> Result<(Instruction, usize), 
             let (n, new_pos) = parse_number(chars, pos + 2)?;
             Ok((Instruction::Copy(n), new_pos))
         }
+        (Some(WsChar::Tab), Some(WsChar::Lf)) => {
+            // Slide <n>
+            let (n, new_pos) = parse_number(chars, pos + 2)?;
+            Ok((Instruction::Slide(n), new_pos))
+        }
         _ => Err(ParseError::InvalidCommand {
             position: pos,
             imp: "Stack".into(),

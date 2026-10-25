@@ -929,3 +929,144 @@ fn test_input_number_invalid_utf8_is_invalid_number_input() {
         )
     );
 }
+
+// ===== Copy / index_from_top =====
+
+#[test]
+fn test_index_from_top_in_range() {
+    assert_eq!(index_from_top(3, 0), Some(2));
+    assert_eq!(index_from_top(3, 2), Some(0));
+    assert_eq!(index_from_top(3, 3), None);
+    assert_eq!(index_from_top(0, 0), None);
+}
+
+/// wasm32 で usize に切り詰められていた深さ（2^32）は範囲外になる
+#[test]
+fn test_index_from_top_does_not_truncate_depth() {
+    assert_eq!(index_from_top(1, 1u64 << 32), None);
+}
+
+/// depth + 1 が u64 で溢れる場合も範囲外になる
+#[test]
+fn test_index_from_top_depth_add_overflow() {
+    assert_eq!(index_from_top(1, u64::MAX), None);
+}
+
+/// wasm32 で `1 + depth` が溢れて trap していた深さ（u32::MAX）は範囲外になる
+#[test]
+fn test_index_from_top_u32_max_depth() {
+    assert_eq!(index_from_top(1, u32::MAX as u64), None);
+}
+
+fn run_copy_on_stack(stack: &[i64], n: i64) -> (StepResult, Vec<i64>) {
+    let mut insts: Vec<Instruction> = stack
+        .iter()
+        .map(|&v| Instruction::Push(WsNumber(v)))
+        .collect();
+    insts.push(Instruction::Copy(WsNumber(n)));
+    insts.push(Instruction::Exit);
+    let mut vm = WhitespaceVM::from_instructions(insts).unwrap();
+    let result = vm.run(100);
+    (result, vm.data_stack().to_vec())
+}
+
+#[test]
+fn test_copy_out_of_range_is_stack_underflow() {
+    for n in [u32::MAX as i64, 1i64 << 32, i64::MIN, i64::MAX, 3] {
+        let (result, _) = run_copy_on_stack(&[1, 2, 3], n);
+        assert_eq!(
+            result,
+            StepResult::Error(RuntimeError::StackUnderflow),
+            "Copy({})",
+            n
+        );
+    }
+}
+
+/// 負の n は |n| として扱う（本処理系の挙動。将来の独自拡張のため予約）
+#[test]
+fn test_copy_negative_is_absolute_value() {
+    let (result_neg, stack_neg) = run_copy_on_stack(&[10, 20, 30], -1);
+    let (result_pos, stack_pos) = run_copy_on_stack(&[10, 20, 30], 1);
+    assert_eq!(result_neg, result_pos);
+    assert_eq!(stack_neg, stack_pos);
+    assert_eq!(stack_neg, vec![10, 20, 30, 20]);
+}
+
+// ===== Slide =====
+
+fn run_slide_on_stack(stack: &[i64], n: i64) -> (StepResult, Vec<i64>) {
+    let mut insts: Vec<Instruction> = stack
+        .iter()
+        .map(|&v| Instruction::Push(WsNumber(v)))
+        .collect();
+    insts.push(Instruction::Slide(WsNumber(n)));
+    insts.push(Instruction::Exit);
+    let mut vm = WhitespaceVM::from_instructions(insts).unwrap();
+    let result = vm.run(100);
+    (result, vm.data_stack().to_vec())
+}
+
+#[test]
+fn test_slide_keeps_top() {
+    assert_eq!(
+        run_slide_on_stack(&[1, 2, 3], 1),
+        (StepResult::Complete, vec![1, 3])
+    );
+    assert_eq!(
+        run_slide_on_stack(&[1, 2, 3], 2),
+        (StepResult::Complete, vec![3])
+    );
+    assert_eq!(
+        run_slide_on_stack(&[1, 2, 3], 0),
+        (StepResult::Complete, vec![1, 2, 3])
+    );
+}
+
+#[test]
+fn test_slide_out_of_range_is_stack_underflow() {
+    for (stack, n) in [
+        (&[1, 2, 3][..], 3),
+        (&[][..], 0),
+        (&[1, 2, 3][..], i64::MAX),
+        (&[1, 2, 3][..], 1i64 << 32),
+    ] {
+        let (result, _) = run_slide_on_stack(stack, n);
+        assert_eq!(
+            result,
+            StepResult::Error(RuntimeError::StackUnderflow),
+            "Slide({}) on {:?}",
+            n,
+            stack
+        );
+    }
+}
+
+/// 負の n は将来の独自拡張のため予約しており、スタックが十分深くてもエラーにする（Copy と異なり |n| にしない）
+#[test]
+fn test_slide_negative_is_reserved_error() {
+    for n in [-1, i64::MIN] {
+        let (result, stack) = run_slide_on_stack(&[1, 2, 3, 4], n);
+        assert_eq!(
+            result,
+            StepResult::Error(RuntimeError::StackUnderflow),
+            "Slide({})",
+            n
+        );
+        assert_eq!(stack, vec![1, 2, 3, 4], "Slide({})", n);
+    }
+}
+
+#[test]
+fn test_slide_profiling_count() {
+    let mut vm = WhitespaceVM::from_instructions(vec![
+        Instruction::Push(WsNumber(1)),
+        Instruction::Push(WsNumber(2)),
+        Instruction::Slide(WsNumber(1)),
+        Instruction::Exit,
+    ])
+    .unwrap()
+    .with_profiling(true);
+    assert_eq!(vm.run(100), StepResult::Complete);
+    assert_eq!(vm.profile_stats().instruction_counts.slide, 1);
+}

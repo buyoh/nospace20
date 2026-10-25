@@ -128,11 +128,12 @@ impl std::fmt::Display for HeapAddress {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     // === スタック操作 (IMP: SP) ===
-    Push(WsNumber), // SP SP <number>
-    Duplicate,      // SP LF SP
-    Copy(WsNumber), // SP TB SP <n>
-    Swap,           // SP LF TB
-    Discard,        // SP LF LF
+    Push(WsNumber),  // SP SP <number>
+    Duplicate,       // SP LF SP
+    Copy(WsNumber),  // SP TB SP <n>
+    Slide(WsNumber), // SP TB LF <n>
+    Swap,            // SP LF TB
+    Discard,         // SP LF LF
 
     // === 算術演算 (IMP: TB SP) ===
     Add, // TB SP SP SP
@@ -176,6 +177,11 @@ impl Instruction {
             Duplicate => vec![Space, Lf, Space],
             Copy(n) => {
                 let mut v = vec![Space, Tab, Space];
+                v.extend(n.encode());
+                v
+            }
+            Slide(n) => {
+                let mut v = vec![Space, Tab, Lf];
                 v.extend(n.encode());
                 v
             }
@@ -237,6 +243,7 @@ impl Instruction {
             Push(n) => format!("push {}", n.0),
             Duplicate => "dup".to_string(),
             Copy(n) => format!("copy {}", n.0),
+            Slide(n) => format!("slide {}", n.0),
             Swap => "swap".to_string(),
             Discard => "pop".to_string(),
             Add => "add".to_string(),

@@ -1,0 +1,40 @@
+# 値として使う代入: 代入先の添字・アドレス・フィールドの base の式は 1 回だけ評価される #
+struct: P(f, g@int[3]);
+
+let: n;
+
+func: tick(v) {
+  n = n + 1;
+  return: v;
+}
+
+func: show(v) {
+  __puti(v);
+  __putc(10);
+}
+
+func: __main() {
+  let: a[3];
+  let: x;
+  let: y;
+  let: s@P;
+  # 配列の添字 #
+  n = 0;
+  y = (a[tick(1)] = 5);
+  show(n); show(y); show(a[1]);
+  # デリファレンス先 #
+  n = 0;
+  y = (*(tick(&x)) = 6);
+  show(n); show(y); show(x);
+  # フィールドの base #
+  n = 0;
+  y = (({ n = n + 1; s; }).f = 7);
+  show(n); show(y); show(s.f);
+  # フィールドの配列の添字 #
+  n = 0;
+  y = (s.g[tick(2)] = 8);
+  show(n); show(y); show(s.g[2]);
+  # ローカル変数（再評価しても副作用はないが、値は同じ） #
+  y = (x = 9);
+  show(y); show(x);
+}

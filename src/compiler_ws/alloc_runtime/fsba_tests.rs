@@ -1,5 +1,7 @@
 use super::*;
-use crate::compiler_ws::alloc_runtime::test_helpers::{run_alloc_free_sequence, AllocOp};
+use crate::compiler_ws::alloc_runtime::test_helpers::{
+    run_alloc_free_sequence, slot_addr, AllocOp,
+};
 
 #[test]
 fn test_fsba_memory_init_produces_instructions() {
@@ -383,4 +385,26 @@ fn test_fsba_prologue_epilogue_on_vm() {
     // block=15, ptr=16. LHB set to 16. arg[0]=42 at heap[16], arg[1]=99 at heap[17]
     // After epilogue: LHB restored to 8 (GLOBAL_PTR)
     assert_eq!(output, "42\n99\n8\n");
+}
+
+/// 汎用フリーリストの先頭が要求より小さいとき、それを飛ばして次のブロックを返すことを検証。
+#[test]
+fn test_fsba_general_alloc_skips_small_block() {
+    let fsba = FsbaFirstFitAllocRuntime;
+    let ops = vec![
+        AllocOp::Alloc { size: 60, slot: 0 },
+        AllocOp::Alloc { size: 40, slot: 1 },
+        AllocOp::Free { slot: 0 },
+        AllocOp::Free { slot: 1 },
+        // フリーリスト: [40 のブロック] -> [60 のブロック]
+        AllocOp::Alloc { size: 50, slot: 2 },
+    ];
+    let vm = run_alloc_free_sequence(&fsba, 0, &ops);
+    let heap = vm.heap();
+    // 40 のブロック（total=41）を飛ばし、60 のブロック（total=61）を分割して先頭を返す
+    assert_eq!(heap.get(&slot_addr(2)), heap.get(&slot_addr(0)));
+    assert_eq!(heap.get(&slot_addr(2)).copied(), Some(14));
+    // ALLOC_HEAP_TOP: 13 → 74 → 115 のまま伸びない
+    let aht = heap.get(&heap_layout::ALLOC_HEAP_TOP).copied().unwrap_or(0);
+    assert_eq!(aht, 115);
 }

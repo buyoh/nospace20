@@ -89,7 +89,7 @@ Whitespace バックエンドに固有の最適化。if/while の条件式を Wh
 
 ### 背景
 
-最適化前の `if: x == 0 { A } else: { B }` は比較サブルーチン (`COMPARATOR_ZERO`) を経由して約 10 命令を要する。最適化後は条件式の評価と分岐を合わせて 2 命令に短縮される。
+最適化前の `if: x == 0 { A } else: { B }` は比較サブルーチン (`COMPARATOR_ZERO`) を経由して約 10 命令を要していた（比較サブルーチンは過去の生成方式。現在は比較演算がインライン化され、ルーチン自体も削除されている。下記 `comparison-inline` を参照）。最適化後は条件式の評価と分岐を合わせて 2 命令に短縮される。
 
 ### 変換パターン
 
@@ -185,7 +185,7 @@ Whitespace バックエンドに固有の最適化。`p = __geti()` / `p = __get
 
 **常時有効（オプションフラグなし）**
 
-比較演算子（`==`, `!=`, `<`, `<=`, `>`, `>=`）のコード生成を、サブルーチン呼び出し（`COMPARATOR_ZERO` / `COMPARATOR_NEGATIVE`）からインライン分岐に変換する。
+比較演算子（`==`, `!=`, `<`, `<=`, `>`, `>=`）のコード生成を、サブルーチン呼び出し（`COMPARATOR_ZERO` / `COMPARATOR_NEGATIVE`）からインライン分岐に変換する。論理 NOT（`!`）も同じ形のインライン分岐で生成するため、比較用の組み込みルーチンは出力されない（ルーチンは削除済み）。
 
 ### 背景
 
@@ -227,15 +227,13 @@ Discard                        # 直後に破棄
 Push(addr)  Push(5)  Store    # 代入のみ
 ```
 
+value context では、アドレスを 1 回だけ評価して `Duplicate` で残し、Store の後に `Retrieve` する（`<addr> Duplicate <value> Store Retrieve`）。代入先の添字・アドレスの式は 1 回だけ評価される。
+
 ### 命令削減量
 
 | パターン | 変数種別 | 削減命令数 |
 |---|---|---|
-| `x = expr;` | グローバル | 3 命令 (Push+Retrieve+Discard) |
-| `x = expr;` | ローカル | 6 命令 (Push+Push+Retrieve+Add+Retrieve+Discard) |
-| `arr[i] = expr;` | グローバル | 4 命令 |
-| `arr[i] = expr;` | ローカル | 7 命令 |
-| `*ptr = expr;` | — | 2 命令 |
+| `x = expr;` などすべての代入先 | — | 3 命令 (Duplicate+Retrieve+Discard) |
 
 ### 注意点
 

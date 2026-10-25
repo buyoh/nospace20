@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "return / break / continue in the right-hand side of an assignment used as a value",
+      "stdin": "",
+      "stdout": "7\n6\n1102\n1102\n4\n4\n42\n"
+    }
+  ]
+}

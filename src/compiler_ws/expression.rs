@@ -249,11 +249,9 @@ fn generate_unary_op(
             prog.push(Instruction::Sub);
         }
         Operator1::LogicalNot => {
-            // value == 0 ? 1 : 0
-            prog.push(Instruction::Push(WsNumber(1))); // zero → true
-            prog.push(Instruction::Push(WsNumber(0))); // non-zero → false
-            prog.append(ctx.with_pending_values(2, |ctx| generate_expression(ctx, inner))?);
-            prog.push(Instruction::Call(reserved_labels::COMPARATOR_ZERO));
+            // value == 0 ? 1 : 0（比較演算と同じインライン分岐。組み込みルーチンを呼ばない）
+            prog.append(generate_expression(ctx, inner)?);
+            prog.append(generate_bool_from_jump(ctx, ComparisonJumpKind::Zero, true));
         }
         Operator1::Ref => {
             // 場所（変数・配列要素・構造体のフィールドなど）のアドレスを取得
@@ -276,6 +274,7 @@ enum ComparisonOperand {
 }
 
 /// 比較演算で使用する条件ジャンプの種別
+#[derive(Clone, Copy)]
 enum ComparisonJumpKind {
     Zero,
     Negative,
@@ -348,8 +347,6 @@ fn generate_comparison(
     right: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = WsProgram::new();
-    let label_jump = ctx.new_label();
-    let label_end = ctx.new_label();
 
     // オペランドの順序に従って評価
     let (first, second) = match spec.first_operand {
@@ -358,15 +355,36 @@ fn generate_comparison(
     };
     prog.append(generate_operands(ctx, first, second)?);
     prog.push(Instruction::Sub);
+    prog.append(generate_bool_from_jump(
+        ctx,
+        spec.jump_kind,
+        spec.jump_is_true,
+    ));
+
+    Ok(prog)
+}
+
+/// スタック先頭の値で条件ジャンプし、成立なら jump_is_true、不成立なら !jump_is_true を 0/1 で積む
+///
+/// 入力スタック: `[..., value]` / 出力スタック: `[..., 0 or 1]`
+/// 比較演算と `!` で共用する。
+fn generate_bool_from_jump(
+    ctx: &mut CodeGenContext,
+    jump_kind: ComparisonJumpKind,
+    jump_is_true: bool,
+) -> WsProgram {
+    let mut prog = WsProgram::new();
+    let label_jump = ctx.new_label();
+    let label_end = ctx.new_label();
 
     // 条件ジャンプ
-    match spec.jump_kind {
+    match jump_kind {
         ComparisonJumpKind::Zero => prog.push(Instruction::JumpIfZero(label_jump)),
         ComparisonJumpKind::Negative => prog.push(Instruction::JumpIfNegative(label_jump)),
     }
 
     // ジャンプしなかった場合の値（jump_is_true = true なら false = 0）
-    prog.push(Instruction::Push(WsNumber(if spec.jump_is_true {
+    prog.push(Instruction::Push(WsNumber(if jump_is_true {
         0
     } else {
         1
@@ -375,17 +393,17 @@ fn generate_comparison(
 
     // ジャンプした場合の値（jump_is_true = true なら true = 1）
     prog.push(Instruction::Label(label_jump));
-    prog.push(Instruction::Push(WsNumber(if spec.jump_is_true {
+    prog.push(Instruction::Push(WsNumber(if jump_is_true {
         1
     } else {
         0
     })));
     prog.push(Instruction::Label(label_end));
 
-    Ok(prog)
+    prog
 }
 
-/// 2 つの式を順に評価し、両方の値をスタックに残す（二項演算の被演算子、デリファレンス代入のアドレスと値）
+/// 2 つの式を順に評価し、両方の値をスタックに残す（二項演算の被演算子）
 ///
 /// 2 つ目の評価中は 1 つ目の値がスタックに残っているため、中間値として数える。
 fn generate_operands(
@@ -432,7 +450,7 @@ fn generate_binary_op(
 
         // 比較演算（インライン化・データ駆動）
         //
-        // サブルーチン呼び出し（COMPARATOR_ZERO / COMPARATOR_NEGATIVE）の代わりに、
+        // サブルーチン呼び出し（以前の COMPARATOR_ZERO / COMPARATOR_NEGATIVE。削除済み）の代わりに、
         // JumpIfZero / JumpIfNegative を使ったインライン分岐を生成する（comparison-inline 最適化）。
         // 合計命令数: 約 8 命令（元の 11 命令から削減）
         // 演算子ごとの差異は ComparisonSpec でテーブル化し、generate_comparison に委譲する。
@@ -512,38 +530,8 @@ fn generate_binary_op(
 
         // 代入
         Operator2::Assign => {
-            // 左辺は変数参照、配列アクセス、デリファレンス、または構造体のフィールドである必要がある
-            match &left.expression {
-                ExecExpression::Variable(var_ref, _) => {
-                    prog.append(generate_store_variable_impl(ctx, var_ref, right, true)?);
-                }
-                ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
-                    prog.append(generate_store_array_impl(
-                        ctx, var_ref, index_expr, right, true,
-                    )?);
-                }
-                ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
-                    // デリファレンス代入: *ptr = value
-                    // アドレスを評価し、アドレスを積んだまま値を評価
-                    prog.append(generate_operands(ctx, addr_expr, right)?);
-                    // Store: heap[addr] = value
-                    prog.push(Instruction::Store);
-                    // 代入式の値として value を残す（再度取得）
-                    prog.append(generate_expression(ctx, addr_expr)?);
-                    prog.push(Instruction::Retrieve);
-                }
-                ExecExpression::StructFieldAccess(..)
-                | ExecExpression::StructFieldArrayAccess(..) => {
-                    prog.append(generate_store_place(ctx, left, right, true)?);
-                }
-                _ => {
-                    return Err(make_error(
-                        ctx,
-                        "Left-hand side of assignment must be a variable, array element, struct field or dereference"
-                            .to_string(),
-                    ));
-                }
-            }
+            // 左辺（変数・配列要素・デリファレンス・構造体のフィールド）の検査は generate_place_address が行う
+            prog.append(generate_store_place(ctx, left, right, true)?);
         }
 
         // 複合代入演算子はセマンティック解析で展開されるため、ここに到達することはない
@@ -559,57 +547,11 @@ fn generate_binary_op(
     Ok(prog)
 }
 
-/// 変数への値の格納
+/// 場所（変数・配列要素・デリファレンス・構造体のフィールド）への値の格納（代入）
 ///
-/// `emit_retrieve` が `true` の場合、代入後に値を再取得してスタックに残す（value context）。
+/// `emit_retrieve` が `true` の場合、代入した値をスタックに残す（value context）。
 /// `false` の場合は Store のみで終了（void context）。
-/// アドレス計算は `generate_variable_address` に委譲。
-fn generate_store_variable_impl(
-    ctx: &mut CodeGenContext,
-    var_ref: &crate::semantic_analyzer::IdentifierRef,
-    value_expr: &LocatedExecExpression,
-    emit_retrieve: bool,
-) -> Result<WsProgram, CompileError> {
-    let mut prog = generate_variable_address(ctx, var_ref)?;
-    prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, value_expr))?);
-    prog.push(Instruction::Store);
-    if emit_retrieve {
-        // 代入式の値として value を残す（アドレスを再計算して Retrieve）
-        prog.append(generate_variable_address(ctx, var_ref)?);
-        prog.push(Instruction::Retrieve);
-    }
-    Ok(prog)
-}
-
-/// 配列要素への値の格納
-/// arr[index] = value
-///
-/// `emit_retrieve` が `true` の場合、代入後に値を再取得してスタックに残す（value context）。
-/// `false` の場合は Store のみで終了（void context）。
-/// アドレス計算は `generate_array_element_address` に委譲。
-fn generate_store_array_impl(
-    ctx: &mut CodeGenContext,
-    var_ref: &crate::semantic_analyzer::IdentifierRef,
-    index_expr: &LocatedExecExpression,
-    value_expr: &LocatedExecExpression,
-    emit_retrieve: bool,
-) -> Result<WsProgram, CompileError> {
-    let mut prog = generate_array_element_address(ctx, var_ref, index_expr)?;
-    prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, value_expr))?);
-    prog.push(Instruction::Store);
-    if emit_retrieve {
-        // 代入式の値として value を残す（アドレスを再計算して Retrieve）
-        prog.append(generate_array_element_address(ctx, var_ref, index_expr)?);
-        prog.push(Instruction::Retrieve);
-    }
-    Ok(prog)
-}
-
-/// 場所（構造体のフィールドなど）への値の格納
-///
-/// `emit_retrieve` が `true` の場合、代入後に値を再取得してスタックに残す（value context）。
-/// `false` の場合は Store のみで終了（void context）。
-/// アドレス計算は `generate_place_address` に委譲。
+/// アドレス計算と、代入できない左辺の検査は `generate_place_address` に委譲。
 fn generate_store_place(
     ctx: &mut CodeGenContext,
     place: &LocatedExecExpression,
@@ -617,12 +559,19 @@ fn generate_store_place(
     emit_retrieve: bool,
 ) -> Result<WsProgram, CompileError> {
     let mut prog = generate_place_address(ctx, place)?;
-    prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, value_expr))?);
-    prog.push(Instruction::Store);
     if emit_retrieve {
-        // 代入式の値として value を残す（アドレスを再計算して Retrieve）
-        prog.append(generate_place_address(ctx, place)?);
+        // バグ修正: 従来は Store の後に代入先のアドレスを計算し直しており、
+        // 添字・デリファレンス先・フィールドの base の式の副作用が 2 回起きていた。
+        // 解決策: アドレスを 1 回だけ評価して Duplicate で残し、Store の後に Retrieve で代入した値を得る
+        prog.push(Instruction::Duplicate);
+        // スタック: [addr, addr]
+        prog.append(ctx.with_pending_values(2, |ctx| generate_expression(ctx, value_expr))?);
+        // スタック: [addr, addr, value] -> Store -> [addr] -> Retrieve -> [value]
+        prog.push(Instruction::Store);
         prog.push(Instruction::Retrieve);
+    } else {
+        prog.append(ctx.with_pending_values(1, |ctx| generate_expression(ctx, value_expr))?);
+        prog.push(Instruction::Store);
     }
     Ok(prog)
 }
@@ -1007,40 +956,16 @@ pub(crate) fn generate_expression_as_statement(
 
 /// 代入式の void コンテキスト生成
 /// Store のみ実施し、値再取得（Retrieve）をスキップする
+///
+/// バグ修正: 以前は代入できない左辺を「左辺を評価して Discard」にフォールバックしていた。
+/// generate_expression はフィールドや Factor も評価できるためエラーにならず、代入と右辺の評価（副作用を含む）が
+/// 黙って消えていた（フィールドへの代入・`x + 1 = 1;`・constexpr への代入など）。
+/// フィールドへの代入は generate_place_address が扱い、代入できない左辺は意味解析で拒否するので、
+/// generate_place_address の内部エラーになる
 fn generate_assign_void(
     ctx: &mut CodeGenContext,
     left: &LocatedExecExpression,
     right: &LocatedExecExpression,
 ) -> Result<WsProgram, CompileError> {
-    let mut prog = WsProgram::new();
-    match &left.expression {
-        ExecExpression::Variable(var_ref, _) => {
-            prog.append(generate_store_variable_impl(ctx, var_ref, right, false)?);
-        }
-        ExecExpression::ArrayAccess(var_ref, index_expr, _) => {
-            prog.append(generate_store_array_impl(
-                ctx, var_ref, index_expr, right, false,
-            )?);
-        }
-        ExecExpression::Operation1(Operator1::Deref, addr_expr) => {
-            // デリファレンス代入: *ptr = value（Retrieve なし）
-            prog.append(generate_operands(ctx, addr_expr, right)?);
-            prog.push(Instruction::Store);
-        }
-        ExecExpression::StructFieldAccess(..) | ExecExpression::StructFieldArrayAccess(..) => {
-            prog.append(generate_store_place(ctx, left, right, false)?);
-        }
-        _ => {
-            // バグ修正: 以前は「左辺を評価して Discard」にフォールバックしていた。generate_expression は
-            // フィールドや Factor も評価できるためエラーにならず、代入と右辺の評価（副作用を含む）が
-            // 黙って消えていた（フィールドへの代入・`x + 1 = 1;`・constexpr への代入など）。
-            // フィールドへの代入は上の分岐で扱い、代入できない左辺は意味解析で拒否するので、ここは内部エラーにする
-            return Err(make_error(
-                ctx,
-                "Left-hand side of assignment must be a variable, array element, struct field or dereference"
-                    .to_string(),
-            ));
-        }
-    }
-    Ok(prog)
+    generate_store_place(ctx, left, right, false)
 }

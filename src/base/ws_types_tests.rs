@@ -117,3 +117,21 @@ fn test_to_whitespace() {
     // Exit = LF LF LF
     assert_eq!(prog.to_whitespace(), "\n\n\n");
 }
+
+#[test]
+fn test_encode_slide() {
+    let inst = Instruction::Slide(WsNumber(1));
+    // SP TB LF + 数値 +1 (SP TB LF)
+    assert_eq!(
+        inst.encode(),
+        vec![
+            WsChar::Space,
+            WsChar::Tab,
+            WsChar::Lf,
+            WsChar::Space,
+            WsChar::Tab,
+            WsChar::Lf
+        ]
+    );
+    assert_eq!(inst.to_mnemonic(), "slide 1");
+}

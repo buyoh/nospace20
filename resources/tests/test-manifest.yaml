@@ -143,6 +143,11 @@ tests:
     path: operators/logical_not_001
     comment: "Logical NOT operator"
 
+  - name: test_operators_logical_not_002
+    type: success_io
+    path: operators/logical_not_002
+    comment: "論理NOT: 実行時の値・式の途中・被演算子の中の return（インライン生成）"
+
   - name: test_operators_logical_and_001
     type: success
     path: operators/logical_and_001
@@ -205,6 +210,16 @@ tests:
     type: success
     path: operators/ref_basic_001
     comment: "Reference and dereference operators"
+
+  - name: test_operators_assign_value_eval_once_001
+    type: success_io
+    path: operators/assign_value_eval_once_001
+    comment: "値として使う代入: 代入先の添字・デリファレンス先・フィールドの base を 1 回だけ評価"
+
+  - name: test_operators_assign_value_eval_once_002
+    type: success_io
+    path: operators/assign_value_eval_once_002
+    comment: "値として使う代入: 右辺の中の return / break / continue の後始末"
 
   - name: test_operators_ref_deref_assign_001
     type: success

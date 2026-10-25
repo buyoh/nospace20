@@ -17,6 +17,7 @@ pub struct InstructionCounts {
     pub push: usize,
     pub duplicate: usize,
     pub copy: usize,
+    pub slide: usize,
     pub swap: usize,
     pub discard: usize,
     pub add: usize,
@@ -492,6 +493,7 @@ impl WhitespaceVM {
             Instruction::Push(_) => counts.push += 1,
             Instruction::Duplicate => counts.duplicate += 1,
             Instruction::Copy(_) => counts.copy += 1,
+            Instruction::Slide(_) => counts.slide += 1,
             Instruction::Swap => counts.swap += 1,
             Instruction::Discard => counts.discard += 1,
             Instruction::Add => counts.add += 1,
@@ -638,11 +640,11 @@ impl WhitespaceVM {
                 self.pc += 1;
             }
             Instruction::Copy(n) => {
-                let idx = match self
-                    .data_stack
-                    .len()
-                    .checked_sub(1 + n.0.unsigned_abs() as usize)
-                {
+                // バグ修正: 従来は `n.0.unsigned_abs() as usize` で変換しており、wasm32 では上位ビットが
+                // 切り捨てられて Copy(2^32) が Copy(0) として成功し、`1 + ...` の加算が溢れて trap していた。
+                // 解決策: 深さは u64 のまま index_from_top で計算し、確定したインデックスだけを usize にする。
+                // 負の n は |n| として扱う（本処理系の挙動。docs/spec-whitespace.md 参照）
+                let idx = match index_from_top(self.data_stack.len(), n.0.unsigned_abs()) {
                     Some(i) => i,
                     None => return ExecuteResult::Error(RuntimeError::StackUnderflow),
                 };
@@ -650,6 +652,24 @@ impl WhitespaceVM {
                 if let Err(e) = self.stack_push_growing(val) {
                     return ExecuteResult::Error(e);
                 }
+                self.pc += 1;
+            }
+            Instruction::Slide(n) => {
+                // 先頭を残して、その下の n 個を取り除く。負の n は予約のためエラー（docs/spec-whitespace.md 参照）。
+                // Copy と異なり |n| にはしない。深さは u64 のまま index_from_top に渡す
+                let Ok(depth) = u64::try_from(n.0) else {
+                    return ExecuteResult::Error(RuntimeError::StackUnderflow);
+                };
+                // 先頭から depth 番目のインデックス = 除去後に残る下側の要素数
+                let keep_len = match index_from_top(self.data_stack.len(), depth) {
+                    Some(i) => i,
+                    None => return ExecuteResult::Error(RuntimeError::StackUnderflow),
+                };
+                // index_from_top が Some なら len >= depth + 1 >= 1 なので先頭は存在する
+                let top = self.data_stack[self.data_stack.len() - 1];
+                // 要素数は増えないため、メモリ上限の確認は不要
+                self.data_stack.truncate(keep_len);
+                self.data_stack.push(top);
                 self.pc += 1;
             }
             Instruction::Swap => {
@@ -1097,6 +1117,19 @@ impl WhitespaceVM {
             ReadResult::Error(RuntimeError::InvalidNumberInput(shown.to_string()))
         })
     }
+}
+
+/// スタック先頭から depth 番目（0 = 先頭）の要素のインデックスを返す。範囲外なら None
+///
+/// 深さの計算は VM の整数と同じ 64 bit（u64）で行い、usize への変換は
+/// アクセスするインデックスが確定した後の 1 回だけにする（usize が 32 bit の wasm32 でも同じ判定になる）。
+fn index_from_top(stack_len: usize, depth: u64) -> Option<usize> {
+    // usize が 64 bit 以下のプラットフォームでは失敗しない（失敗は処理系の前提の破綻なので panic）
+    let stack_len_u64 =
+        u64::try_from(stack_len).expect("usize wider than 64 bits is not supported");
+    let index = stack_len_u64.checked_sub(depth.checked_add(1)?)?;
+    // index < stack_len（元は usize）のため、変換は失敗しない
+    Some(usize::try_from(index).expect("index is less than stack_len"))
 }
 
 #[cfg(test)]

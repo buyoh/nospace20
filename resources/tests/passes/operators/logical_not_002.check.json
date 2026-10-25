@@ -1,0 +1,10 @@
+{
+  "type": "success_io",
+  "cases": [
+    {
+      "name": "logical not of runtime values",
+      "stdin": "",
+      "stdout": "1\n0\n0\n0\n11\n10\n1\n3\n1\n1\n"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Push 1
+SSSTN
+# Push 2
+SSSTSN
+# Push 3
+SSSTTN
+# Slide 1 (drop 2, keep 3)
+STNSTN
+# OutputNumber (3)
+TNST
+# OutputNumber (1)
+TNST
+# Exit
+NNN

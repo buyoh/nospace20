@@ -61,6 +61,11 @@ tests:
     path: stack/copy_001
     comment: "Copy nth item to top"
 
+  - name: test_ws_stack_slide_001
+    type: ws_io
+    path: stack/slide_001
+    comment: "Slide n items keeping the top (v0.3)"
+
   # Arithmetic
   - name: test_ws_arith_add_001
     type: ws_io
@@ -210,6 +215,11 @@ tests:
     type: ws_runtime_error
     path: stack_underflow_001
     comment: "Stack underflow on empty stack"
+
+  - name: test_ws_errors_slide_underflow_001
+    type: ws_runtime_error
+    path: slide_underflow_001
+    comment: "Slide more items than the stack has"
 
   - name: test_ws_errors_div_zero_001
     type: ws_runtime_error

@@ -161,13 +161,15 @@ fn discard_values_in_loop(ctx: &CodeGenContext) -> WsProgram {
 /// `[old_LHB, 100, 5]` のまま Swap してエピローグに渡し、`100` を `old_LHB` として
 /// `LOCAL_HEAP_BEGIN` に書き戻していた（以降のローカル変数アクセス・フレーム解放が壊れる）。
 /// 解決策: コード生成時に中間値の個数 d を数え（`CodeGenContext::with_pending_values`）、
-/// 戻り値の評価後に `Swap; Discard` を d 回出して `[old_LHB, rv]` に戻す。
+/// 戻り値の評価後に `Slide(d)` を 1 命令出して `[old_LHB, rv]` に戻す。
 /// d = 0 の通常のケースでは何も出力しない。
 fn discard_values_below_return_value(ctx: &CodeGenContext) -> WsProgram {
     let mut prog = WsProgram::new();
-    for _ in 0..ctx.pending_stack_values() {
-        prog.push(Instruction::Swap);
-        prog.push(Instruction::Discard);
+    let count = ctx.pending_stack_values();
+    if count > 0 {
+        // 中間値の個数は式の入れ子の深さで、i64 に収まる
+        let count = i64::try_from(count).expect("pending stack values fit in i64");
+        prog.push(Instruction::Slide(WsNumber(count)));
     }
     prog
 }

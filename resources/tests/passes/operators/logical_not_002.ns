@@ -1,0 +1,26 @@
+# 論理NOT: 定数畳み込みされない値・式の途中での使用・return を含む被演算子 #
+func: id(v) {
+  return: v;
+}
+
+func: early(c) {
+  return: !{ if: c { return: 3; }; 0; };
+}
+
+func: __main() {
+  let: z; let: one; let: neg; let: min;
+  z = id(0);
+  one = id(1);
+  neg = id(-5);
+  min = id(-9223372036854775807 - 1);
+  __puti(!z); __putc(10);
+  __puti(!one); __putc(10);
+  __puti(!neg); __putc(10);
+  __puti(!min); __putc(10);
+  __puti(10 + !z); __putc(10);
+  __puti(10 + !one); __putc(10);
+  __puti(!!neg); __putc(10);
+  __puti(early(1)); __putc(10);
+  __puti(early(0)); __putc(10);
+  __puti(one); __putc(10);
+}

@@ -436,4 +436,61 @@ function runToComplete(vm, budget = 100, maxIterations = 1000) {
   expectFailure(result12, "parse error: array without size");
 }
 
+// 7. Raw Whitespace stack instructions on wasm32 (usize is 32 bit here)
+{
+  // "S"/"T"/"N" notation (as in resources/tests_ws/) to Whitespace source
+  function wsFromStn(stn) {
+    return stn.replace(/[^STN]/g, "").replace(/S/g, " ").replace(/T/g, "\t").replace(/N/g, "\n");
+  }
+  // Number argument in "S"/"T"/"N" notation: sign, binary digits, terminator
+  function stnNumber(value) {
+    const n = BigInt(value);
+    const sign = n < 0n ? "T" : "S";
+    const abs = n < 0n ? -n : n;
+    const bits = abs === 0n ? "" : abs.toString(2).replace(/0/g, "S").replace(/1/g, "T");
+    return sign + bits + "N";
+  }
+  const push = (v) => "SS" + stnNumber(v);
+  const copy = (v) => "STS" + stnNumber(v);
+  const exit = "NNN";
+
+  // Runs one step budget and returns the result; a trap (JS exception) fails the test
+  function runRawWs(stn) {
+    const vm = WasmWhitespaceVM.fromWhitespace(wsFromStn(stn), "");
+    return { vm, result: vm.step(1000) };
+  }
+
+  // copy 2^32 used to be truncated to copy 0 and succeeded
+  {
+    const { result } = runRawWs(push(1) + copy(2n ** 32n) + exit);
+    assert.equal(result.status, "error", "copy 2^32 status");
+    assert.equal(result.error, "stack underflow", "copy 2^32 error");
+  }
+  // copy 2^32-1 used to overflow `1 + depth` and trap
+  {
+    const { result } = runRawWs(push(1) + copy(2n ** 32n - 1n) + exit);
+    assert.equal(result.status, "error", "copy 2^32-1 status");
+    assert.equal(result.error, "stack underflow", "copy 2^32-1 error");
+  }
+  const slide = (v) => "STN" + stnNumber(v);
+  // slide keeps the top and drops the n items below it
+  {
+    const { vm, result } = runRawWs(push(1) + push(2) + push(3) + slide(1) + exit);
+    assert.equal(result.status, "complete", "slide 1 status");
+    assert.deepEqual(vm.get_stack(), [1, 3], "slide 1 stack");
+  }
+  // slide 2^32 is out of range (not truncated to slide 0)
+  {
+    const { result } = runRawWs(push(1) + slide(2n ** 32n) + exit);
+    assert.equal(result.status, "error", "slide 2^32 status");
+    assert.equal(result.error, "stack underflow", "slide 2^32 error");
+  }
+  // copy within range
+  {
+    const { vm, result } = runRawWs(push(10) + push(20) + copy(1) + exit);
+    assert.equal(result.status, "complete", "copy 1 status");
+    assert.deepEqual(vm.get_stack(), [10, 20, 10], "copy 1 stack");
+  }
+}
+
 console.log("WASM Node.js tests passed.");

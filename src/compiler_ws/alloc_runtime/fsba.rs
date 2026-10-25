@@ -235,13 +235,7 @@ impl FsbaFirstFitAllocRuntime {
             Instruction::Store,
             // heap[fha] = next. スタック: [cs, fha, fh]
             // Clean up: discard fha and cs, keep fh
-            Instruction::Swap,
-            // スタック: [cs, fh, fha]
-            Instruction::Discard,
-            // スタック: [cs, fh]
-            Instruction::Swap,
-            // スタック: [fh, cs]
-            Instruction::Discard,
+            Instruction::Slide(WsNumber(2)),
             // スタック: [fh]
             Instruction::Push(WsNumber(1)),
             Instruction::Add,
@@ -355,9 +349,7 @@ impl FsbaFirstFitAllocRuntime {
             Instruction::Push(WsNumber(1)),
             Instruction::Add,
             // スタック: [pna, curr+1]
-            Instruction::Swap,
-            // スタック: [curr+1, pna]
-            Instruction::Discard,
+            Instruction::Slide(WsNumber(1)),
             // スタック: [curr+1] = [new_pna]
             Instruction::Jump(fsba_labels::GENERAL_ALLOC_LOOP),
         ]);
@@ -444,9 +436,7 @@ impl FsbaFirstFitAllocRuntime {
         prog.extend([
             Instruction::Discard,
             // スタック: [pna, curr]
-            Instruction::Swap,
-            // スタック: [curr, pna]
-            Instruction::Discard,
+            Instruction::Slide(WsNumber(1)),
             // スタック: [curr]
             Instruction::Push(WsNumber(1)),
             Instruction::Add,
@@ -475,9 +465,7 @@ impl FsbaFirstFitAllocRuntime {
             Instruction::Store,
             // heap[pna] = next. スタック: [pna, curr]
             // Return curr + 1
-            Instruction::Swap,
-            // スタック: [curr, pna]
-            Instruction::Discard,
+            Instruction::Slide(WsNumber(1)),
             // スタック: [curr]
             Instruction::Push(WsNumber(1)),
             Instruction::Add,

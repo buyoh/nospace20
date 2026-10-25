@@ -7,25 +7,7 @@ use std::collections::HashMap;
 pub mod reserved_labels {
     use super::LabelId;
 
-    /// ユーザーコード開始点
-    pub const USER_CODE_BEGIN: LabelId = LabelId(0);
-
-    /// ゼロ判定ルーチン
-    pub const COMPARATOR_ZERO: LabelId = LabelId(2);
-    pub const COMPARATOR_ZERO_2: LabelId = LabelId(3);
-
-    /// 負数判定ルーチン
-    pub const COMPARATOR_NEGATIVE: LabelId = LabelId(4);
-    pub const COMPARATOR_NEGATIVE_2: LabelId = LabelId(5);
-
-    /// AND ルーチン
-    pub const COMPARATOR_AND: LabelId = LabelId(6);
-    pub const COMPARATOR_AND_2: LabelId = LabelId(7);
-
-    /// OR ルーチン
-    pub const COMPARATOR_OR: LabelId = LabelId(8);
-    pub const COMPARATOR_OR_2: LabelId = LabelId(9);
-    pub const COMPARATOR_OR_3: LabelId = LabelId(10);
+    // 0-11: 予備（旧: ユーザーコード開始点・組み込み比較ルーチン。番号を詰めるとユーザーラベルの採番が変わるため空けておく）
 
     /// ランタイムアロケータ: __rt_alloc サブルーチン
     pub const RT_ALLOC: LabelId = LabelId(12);
