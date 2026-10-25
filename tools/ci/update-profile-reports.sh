@@ -4,7 +4,7 @@ set -eu
 
 cd "$(dirname "$0")/../../"
 
-ARGS=$@
+ARGS=--opt all
 
 VERSION_NUMVER=0
 COMMIT_NUMBER=$(git rev-list --count HEAD)
