@@ -11,7 +11,7 @@ COMMIT_NUMBER=$(git rev-list --count HEAD)
 
 PROFILE_FILENAME_PREFIX="profile-c${COMMIT_NUMBER}v${VERSION_NUMVER}"
 
-cargo run --example ws_profiler -- $ARGS --json \
+cargo run --example ws_profiler -- $ARGS --json --no-std-ext \
   > "./profile-reports/${PROFILE_FILENAME_PREFIX}.json"
 cargo run --example ws_profiler -- $ARGS --json --std-ext alloc \
   > "./profile-reports/${PROFILE_FILENAME_PREFIX}-alloc.json"
