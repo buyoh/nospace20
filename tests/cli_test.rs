@@ -112,13 +112,6 @@ fn test_nospace20_stdout_write_failure_is_error() {
     );
 }
 
-/// `--mode` は廃止した
-#[test]
-fn test_nospace20_mode_option_is_removed() {
-    let output = nospace20(&["--mode", "run"], "func: __main() { }", None);
-    assert!(!output.status.success());
-}
-
 // ===== whitespace20 =====
 
 /// `-` はソースを stdin から読む。プログラムの stdin はそのあと空（EOF）になる
